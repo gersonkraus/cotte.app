@@ -78,6 +78,55 @@ async def processar_operador_wpp(
         resposta_poll = _detectar_resposta_poll(mensagem)
         if resposta_poll == "CONFIRMAR":
             _limpar_pending_wpp(sessao_id)
+            
+            if pending.get("acao") == "CRIAR_ORCAMENTO":
+                from app.services.ai_tools.orcamento_tools import CriarOrcamentoInput, _criar_orcamento
+                from app.utils.orcamento_utils import brl_fmt
+                
+                dados = pending.get("dados", {})
+                logger.info(f"[OperadorWPP] Confirmando CRIAR_ORCAMENTO com dados: {dados}")
+                
+                try:
+                    valor_unit = float(dados.get("valor") or 0)
+                except (ValueError, TypeError):
+                    valor_unit = 0.1
+                
+                # Para evitar erros de validação de valor nulo/negativo se houver problema de extração
+                if valor_unit <= 0.0:
+                    valor_unit = 0.1
+                    
+                try:
+                    inp = CriarOrcamentoInput(
+                        cliente_id=dados.get("cliente_id"),
+                        cliente_nome=dados.get("cliente_nome") or "A Definir",
+                        itens=[{
+                            "descricao": dados.get("servico") or "Serviço",
+                            "quantidade": 1.0,
+                            "valor_unit": valor_unit
+                        }],
+                        observacoes=dados.get("observacoes"),
+                        cadastrar_materiais_novos=False
+                    )
+                    res = await _criar_orcamento(inp, db=db, current_user=operador)
+                    
+                    if res.get("error"):
+                        await enviar_mensagem_texto(telefone, f"Erro ao criar orçamento: {res['error']}", empresa=empresa)
+                    else:
+                        numero = res.get("numero", "")
+                        total_fmt = brl_fmt(res.get("total", 0))
+                        await enviar_mensagem_texto(
+                            telefone, 
+                            f"✅ Orçamento {numero} criado com sucesso!\nTotal: {total_fmt}\n\nPara enviá-lo ao cliente, responda: \"enviar {numero}\"", 
+                            empresa=empresa
+                        )
+                except Exception as e:
+                    logger.error("[OperadorWPP] Erro interno ao criar orçamento confirmado: %s", e)
+                    import traceback
+                    logger.error(traceback.format_exc())
+                    await enviar_mensagem_texto(telefone, "Erro interno ao gerar orçamento. Tente novamente.", empresa=empresa)
+                return
+
+            # Para outras ações que ainda usam a rota legada
             try:
                 ai_resp = await assistente_unificado(
                     mensagem=f"CONFIRMAR {pending.get('acao', mensagem)}",

@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plano de Implementação — Operador WhatsApp COTTE</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #0e0e10;
+    --bg2: #16161a;
+    --bg3: #1e1e24;
+    --border: #2a2a35;
+    --border2: #3a3a48;
+    --text: #e8e8f0;
+    --muted: #888898;
+    --accent: #7c6af7;
+    --accent2: #a594ff;
+    --green: #3ecf8e;
+    --amber: #f59e0b;
+    --red: #f87171;
+    --blue: #60a5fa;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.7;
+    padding: 48px 24px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  /* ── Header ── */
+  .header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 32px;
+    margin-bottom: 48px;
+  }
+  .header-tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    margin-bottom: 12px;
+  }
+  .header h1 {
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+    line-height: 1.2;
+    margin-bottom: 12px;
+  }
+  .header p {
+    color: var(--muted);
+    font-size: 14px;
+    max-width: 560px;
+  }
+  .header-meta {
+    display: flex;
+    gap: 24px;
+    margin-top: 20px;
+  }
+  .meta-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .meta-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+  }
+  .meta-dot.green { background: var(--green); }
+  .meta-dot.amber { background: var(--amber); }
+  .meta-dot.blue  { background: var(--blue); }
+
+  /* ── Sumário ── */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 48px;
+  }
+  .summary-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .summary-card .label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+  }
+  .summary-card .value {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .summary-card .sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  /* ── Fase ── */
+  .fase {
+    margin-bottom: 48px;
+  }
+  .fase-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .fase-number {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    background: rgba(124,106,247,0.1);
+    border: 1px solid rgba(124,106,247,0.25);
+    border-radius: 4px;
+    padding: 2px 8px;
+    white-space: nowrap;
+    margin-top: 3px;
+  }
+  .fase-title {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+  }
+  .fase-desc {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 4px;
+  }
+
+  /* ── Tasks ── */
+  .task-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .task {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .task-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .task-header:hover {
+    background: var(--bg3);
+  }
+  .task-id {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    min-width: 52px;
+  }
+  .task-name {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .task-badges {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .badge.new    { background: rgba(62,207,142,0.12); color: var(--green); border: 1px solid rgba(62,207,142,0.25); }
+  .badge.edit   { background: rgba(96,165,250,0.12); color: var(--blue);  border: 1px solid rgba(96,165,250,0.25); }
+  .badge.config { background: rgba(245,158,11,0.12); color: var(--amber); border: 1px solid rgba(245,158,11,0.25); }
+  .badge.test   { background: rgba(248,113,113,0.12); color: var(--red);  border: 1px solid rgba(248,113,113,0.25); }
+
+  .task-arrow {
+    font-size: 10px;
+    color: var(--muted);
+    transition: transform 0.15s;
+  }
+  .task.open .task-arrow { transform: rotate(90deg); }
+
+  .task-body {
+    display: none;
+    padding: 0 16px 16px 80px;
+    border-top: 1px solid var(--border);
+  }
+  .task.open .task-body { display: block; }
+
+  .task-section {
+    margin-top: 12px;
+  }
+  .task-section-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 6px;
+  }
+  .task-body p {
+    font-size: 13px;
+    color: #b8b8cc;
+    line-height: 1.6;
+    margin-bottom: 6px;
+  }
+  .task-body ul {
+    padding-left: 16px;
+  }
+  .task-body li {
+    font-size: 13px;
+    color: #b8b8cc;
+    margin-bottom: 4px;
+  }
+
+  pre {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    line-height: 1.6;
+    overflow-x: auto;
+    margin-top: 8px;
+    color: #c8c8e0;
+  }
+  .kw  { color: var(--accent2); }
+  .fn  { color: var(--blue); }
+  .st  { color: var(--green); }
+  .cm  { color: #555568; font-style: italic; }
+  .num { color: var(--amber); }
+
+  /* ── Separator ── */
+  .sep {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 40px 0;
+  }
+
+  /* ── Alerta ── */
+  .alert {
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    font-size: 13px;
+    display: flex;
+    gap: 10px;
+  }
+  .alert.warn {
+    background: rgba(245,158,11,0.08);
+    border: 1px solid rgba(245,158,11,0.2);
+    color: #d4a843;
+  }
+  .alert.info {
+    background: rgba(96,165,250,0.08);
+    border: 1px solid rgba(96,165,250,0.2);
+    color: #7ab8f5;
+  }
+  .alert-icon { font-size: 14px; margin-top: 1px; flex-shrink: 0; }
+
+  /* ── Timeline de entrega ── */
+  .timeline {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 0;
+    position: relative;
+    margin-top: 16px;
+  }
+  .tl-row {
+    display: contents;
+  }
+  .tl-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    padding: 10px 16px 10px 0;
+    text-align: right;
+    white-space: nowrap;
+  }
+  .tl-content {
+    border-left: 1px solid var(--border2);
+    padding: 10px 0 10px 20px;
+    position: relative;
+  }
+  .tl-content::before {
+    content: '';
+    position: absolute;
+    left: -4px; top: 17px;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--border2);
+    border: 1px solid var(--bg3);
+  }
+  .tl-row.active .tl-content::before { background: var(--accent); }
+  .tl-title {
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 2px;
+  }
+  .tl-items {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* ── Checklist final ── */
+  .checklist {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .check-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 13px;
+    color: #b8b8cc;
+  }
+  .check-box {
+    width: 16px; height: 16px;
+    border: 1px solid var(--border2);
+    border-radius: 3px;
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 640px) {
+    .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    .task-body { padding-left: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-tag">COTTE · WhatsApp Operador</div>
+  <h1>Plano de Implementação<br>Canal WhatsApp com Botões Interativos</h1>
+  <p>Integração do assistente de IA ao WhatsApp para operadores, com suporte a interação via Poll, lista e texto estruturado usando a Evolution API.</p>
+  <div class="header-meta">
+    <div class="meta-item"><span class="meta-dot green"></span> 4 fases</div>
+    <div class="meta-item"><span class="meta-dot amber"></span> 12 tasks</div>
+    <div class="meta-item"><span class="meta-dot blue"></span> ~2 semanas</div>
+  </div>
+</div>
+
+<!-- Resumo -->
+<div class="summary-grid">
+  <div class="summary-card">
+    <div class="label">Novos arquivos</div>
+    <div class="value">3</div>
+    <div class="sub">services + migration</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">Arquivos editados</div>
+    <div class="value">4</div>
+    <div class="sub">bot, evolution, models, schemas</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">Migration</div>
+    <div class="value">1</div>
+    <div class="sub">campo telefone_operador em Usuario</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">Sem nova infra</div>
+    <div class="value">0</div>
+    <div class="sub">reusa Evolution API existente</div>
+  </div>
+</div>
+
+<!-- ═══════════════ FASE 1 ═══════════════ -->
+<div class="fase">
+  <div class="fase-header">
+    <span class="fase-number">FASE 1</span>
+    <div>
+      <div class="fase-title">Preparação — Modelo e Identificação do Operador</div>
+      <div class="fase-desc">Pré-requisitos para o sistema reconhecer quem é operador pelo telefone.</div>
+    </div>
+  </div>
+
+  <div class="alert info">
+    <span class="alert-icon">i</span>
+    <span>O <code>whatsapp_bot_service.py</code> já identifica operadores via <code>Empresa.telefone_operador</code>, mas apenas um número por empresa. Esta fase expande para múltiplos usuários operadores com telefone próprio.</span>
+  </div>
+
+  <div class="task-list">
+
+    <div class="task" id="t1-1">
+      <div class="task-header" onclick="toggle('t1-1')">
+        <span class="task-id">T1.1</span>
+        <span class="task-name">Adicionar campo <code>telefone_operador</code> no model <code>Usuario</code></span>
+        <div class="task-badges">
+          <span class="badge edit">editar</span>
+          <span class="badge config">migration</span>
+        </div>
+        <span class="task-arrow">▶</span>
+      </div>
+      <div class="task-body">
+        <div class="task-section">
+          <div class="task-section-label">Contexto</div>
+          <p>Hoje o sistema usa <code>Empresa.telefone_operador</code> para identificar o operador — um único número fixo por empresa. Para suportar múltiplos operadores com telefones individuais, precisamos do campo no modelo <code>Usuario</code>.</p>
+        </div>
+        <div class="task-section">
+          <div class="task-section-label">Arquivo: app/models/models.py</div>
+<pre><span class="cm"># Na classe Usuario, adicionar:</span>
+<span class="kw">class</span> <span class="fn">Usuario</span>(Base):
+    <span class="cm"># ... campos existentes ...</span>
+    telefone_operador = Column(String(<span class="num">20</span>), nullable=True, index=True)
+    <span class="cm"># index=True é importante: a busca por telefone acontece em todo webhook</span></pre>
+        </div>
+        <div class="task-section">
+          <div class="task-section-label">Migration Alembic</div>
+<pre><span class="cm"># alembic revision --autogenerate -m "add_telefone_operador_to_usuario"</span>
+<span class="kw">def</span> <span class="fn">upgrade</span>():
+    op.add_column(<span class="st">'usuario'</span>,
+        sa.Column(<span class="st">'telefone_operador'</span>, sa.String(<span class="num">20</span>), nullable=True)
+    )
+    op.create_index(<span class="st">'ix_usuario_telefone_operador'</span>,
+                    <span class="st">'usuario'</span>, [<span class="st">'telefone_operador'</span>])
+
+<span class="kw">def</span> <span class="fn">downgrade</span>():
+    op.drop_index(<span class="st">'ix_usuario_telefone_operador'</span>)
+    op.drop_column(<span class="st">'usuario'</span>, <span class="st">'telefone_operador'</span>)</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="task" id="t1-2">
+      <div class="task-header" onclick="toggle('t1-2')">
+        <span class="task-id">T1.2</span>
+        <span class="task-name">Expor campo no schema e endpoint de usuário</span>
+        <div class="task-badges"><span class="badge edit">editar</span></div>
+        <span class="task-arrow">▶</span>
+      </div>
+      <div class="task-body">
+        <div class="task-section">
+          <div class="task-section-label">Arquivo: app/schemas/schemas.py</div>
+<pre><span class="kw">class</span> <span class="fn">UsuarioOut</span>(BaseModel):
+    <span class="cm"># ... campos existentes ...</span>
+    telefone_operador: Optional[str] = None
+
+<span class="kw">class</span> <span class="fn">UsuarioUpdate</span>(BaseModel):
+    <span class="cm"># ... campos existentes ...</span>
+    telefone_operador: Optional[str] = None</pre>
+        </div>
+        <div class="task-section">
+          <div class="task-section-label">Notas</div>
+          <ul>
+            <li>O gestor configura o número no painel de usuários existente — nenhuma nova tela necessária</li>
+            <li>Validar formato com <code>normalize_phone_number()</code> já existente em <code>app/utils/phone.py</code> antes de salvar</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="task" id="t1-3">
+      <div class="task-header" onclick="toggle('t1-3')">
+        <span class="task-id">T1.3</span>
+        <span class="task-name">Atualizar <code>_empresa_por_operador()</code> para buscar por <code>Usuario.telefone_operador</code></span>
+        <div class="task-badges"><span class="badge edit">editar</span></div>
+        <span class="task-arrow">▶</span>
+      </div>
+      <div class="task-body">
+        <div class="task-section">
+          <div class="task-section-label">Arquivo: app/services/whatsapp_bot_service.py</div>
+<pre><span class="kw">def</span> <span class="fn">_usuario_por_telefone_operador</span>(telefone: str, db: Session) -> <span class="st">"Usuario | None"</span>:
+    <span class="st">"""Busca Usuario pelo telefone_operador (com fallback para Empresa.telefone_operador)."""</span>
+    dig = _digitos_telefone(telefone)
+    <span class="kw">if</span> len(dig) < <span class="num">8</span>:
+        <span class="kw">return None</span>
+    sufixo = dig[-<span class="num">8</span>:]
+
+    <span class="cm"># 1. Busca por Usuario.telefone_operador (multi-operador)</span>
+    <span class="kw">if</span> _is_postgresql(db):
+        digits_expr = func.regexp_replace(
+            Usuario.telefone_operador, <span class="st">r"[^0-9]"</span>, <span class="st">""</span>, <span class="st">"g"</span>
+        )
+        return (
+            db.query(Usuario)
+            .filter(
+                Usuario.telefone_operador.isnot(None),
+                func.right(digits_expr, <span class="num">8</span>) == sufixo,
+                Usuario.ativo == True,
+            )
+            .first()
+        )
+    <span class="cm"># fallback SQLite</span>
+    <span class="kw">for</span> u <span class="kw">in</span> db.query(Usuario).filter(Usuario.telefone_operador.isnot(None)).all():
+        <span class="kw">if</span> _digitos_telefone(u.telefone_operador or <span class="st">""</span>)[-<span class="num">8</span>:] == sufixo:
+            <span class="kw">return</span> u
+    <span class="kw">return None</span></pre>
+        </div>
+        <div class="task-section">
+          <div class="task-section-label">Notas</div>
+          <p>A função existente <code>_empresa_por_operador()</code> continua funcionando para compatibilidade com o campo <code>Empresa.telefone_operador</code> legado. A nova função é adicionada em paralelo — usada apenas no fluxo novo de identificação de operador individual.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<hr class="sep">
+
+<!-- ═══════════════ FASE 2 ═══════════════ -->
+<div class="fase">
+  <div class="fase-header">
+    <span class="fase-number">FASE 2</span>
+    <div>
+      <div class="fase-title">Core — Serviço de Interações Interativas</div>
+      <div class="fase-desc">Novo arquivo com as funções de envio de Poll, Lista e texto estruturado via Evolution API.</div>
+    </div>
+  </div>
+
+  <div class="alert warn">
+    <span class="alert-icon">!</span>
+    <span><strong>sendButtons está instável</strong> nas versões recentes da Evolution API (2.2.3+). O plano usa <strong>sendPoll</strong> para confirmações e texto numerado como fallback universal — sem depender de botões nativos.</span>
+  </div>
+
+  <div class="task-list">
+
+    <div class="task" id="t2-1">
+      <div class="task-header" onclick="toggle('t2-1')">
+        <span class="task-id">T2.1</span>
+        <span class="task-name">Criar <code>operador_interacao_service.py</code> — funções de envio interativo</span>
+        <div class="task-badges"><span class="badge new">novo</span></div>
+        <span class="task-arrow">▶</span>
+      </div>
+      <div class="task-body">
+        <div class="task-section">
+          <div class="task-section-label">Arquivo: app/services/operador_interacao_service.py</div>
+<pre><span class="st">"""
+Camada de interações interativas para o canal WhatsApp do operador.
+Abstrai Poll, Lista e Texto estruturado — sem depender de sendButtons.
+"""</span>
+<span class="kw">import</span> logging
+<span class="kw">import</span> httpx
+<span class="kw">from</span> app.core.config <span class="kw">import</span> settings
+
+logger = logging.getLogger(__name__)
+
+<span class="kw">async def</span> <span class="fn">enviar_poll_confirmacao</span>(
+    telefone: str,
+    pergunta: str,
+    opcoes: list[str],
+    instancia: str | None = None,
+) -> bool:
+    <span class="st">"""
+    Envia enquete nativa do WhatsApp para confirmação.
+    Mais estável que sendButtons na Evolution API atual.
+    opcoes: ex: ["Confirmar", "Cancelar", "Editar"]
+    """</span>
+    inst = instancia or settings.EVOLUTION_INSTANCE
+    url  = f"{settings.EVOLUTION_API_URL.rstrip('/')}/message/sendPoll/{inst}"
+    phone = _fmt_phone(telefone)
+    payload = {
+        <span class="st">"number"</span>: phone,
+        <span class="st">"name"</span>: pergunta,
+        <span class="st">"values"</span>: opcoes,
+        <span class="st">"selectableCount"</span>: <span class="num">1</span>,
+    }
+    <span class="kw">try</span>:
+        async <span class="kw">with</span> httpx.AsyncClient(timeout=<span class="num">10</span>) <span class="kw">as</span> client:
+            r = await client.post(url, json=payload,
+                headers={<span class="st">"apikey"</span>: settings.EVOLUTION_API_KEY,
+                         <span class="st">"Content-Type"</span>: <span class="st">"application/json"</span>})
+            <span class="kw">return</span> r.status_code <span class="kw">in</span> (<span class="num">200</span>, <span class="num">201</span>)
+    <span class="kw">except</span> Exception <span class="kw">as</span> e:
+        logger.warning(<span class="st">"[Poll] Falha: %s"</span>, e)
+        <span class="kw">return False</span>
+
+<span class="kw">async def</span> <span class="fn">enviar_lista_selecao</span>(
+    telefone: str,
+    titulo: str,
+    descricao: str,
+    secoes: list[dict],  <span class="cm"># [{"titulo": str, "itens": [{"id": str, "titulo": str, "desc": str}]}]</span>
+    botao_texto: str = <span class="st">"Ver opções"</span>,
+    instancia: str | None = None,
+) -> bool:
+    <span class="st">"""Envia menu de lista (sendList) — funciona para selecionar clientes, serviços etc."""</span>
+    inst = instancia or settings.EVOLUTION_INSTANCE
+    url  = f"{settings.EVOLUTION_API_URL.rstrip('/')}/message/sendList/{inst}"
+    sections = [
+        {<span class="st">"title"</span>: s[<span class="st">"titulo"</span>],
+         <span class="st">"rows"</span>: [{<span class="st">"title"</span>: i[<span class="st">"titulo"</span>], <span class="st">"description"</span>: i.get(<span class="st">"desc"</span>, <span class="st">""</span>),
+                    <span class="st">"rowId"</span>: i[<span class="st">"id"</span>]} <span class="kw">for</span> i <span class="kw">in</span> s[<span class="st">"itens"</span>]]}
+        <span class="kw">for</span> s <span class="kw">in</span> secoes
+    ]
+    payload = {
+        <span class="st">"number"</span>: _fmt_phone(telefone),
+        <span class="st">"title"</span>: titulo,
+        <span class="st">"description"</span>: descricao,
+        <span class="st">"buttonText"</span>: botao_texto,
+        <span class="st">"sections"</span>: sections,
+    }
+    <span class="kw">try</span>:
+        async <span class="kw">with</span> httpx.AsyncClient(timeout=<span class="num">10</span>) <span class="kw">as</span> client:
+            r = await client.post(url, json=payload,
+                headers={<span class="st">"apikey"</span>: settings.EVOLUTION_API_KEY,
+                         <span class="st">"Content-Type"</span>: <span class="st">"application/json"</span>})
+            <span class="kw">return</span> r.status_code <span class="kw">in</span> (<span class="num">200</span>, <span class="num">201</span>)
+    <span class="kw">except</span> Exception <span class="kw">as</span> e:
+        logger.warning(<span class="st">"[Lista] Falha: %s"</span>, e)
+        <span class="kw">return False</span>
+
+<span class="kw">def</span> <span class="fn">texto_opcoes_numeradas</span>(titulo: str, descricao: str, opcoes: list[str]) -> str:
+    <span class="st">"""Fallback universal: texto formatado com opções numeradas."""</span>
+    emojis = [<span class="st">"1️⃣"</span>, <span class="st">"2️⃣"</span>, <span class="st">"3️⃣"</span>, <span class="st">"4️⃣"</span>, <span class="st">"5️⃣"</span>]
+    linhas = [f<span class="st">"*{titulo}*"</span>, <span class="st">""</span>, descricao, <span class="st">""</span>]
+    <span class="kw">for</span> i, op <span class="kw">in</span> enumerate(opcoes):
+        em = emojis[i] <span class="kw">if</span> i < len(emojis) <span class="kw">else</span> f<span class="st">"{i+1}."</span>
+        linhas.append(f<span class="st">"{em} *{op}*"</span>)
+    <span class="kw">return</span> <span class="st">"\n"</span>.join(linhas)
+
+<span class="kw">def</span> <span class="fn">_fmt_phone</span>(telefone: str) -> str:
+    <span class="kw">from</span> app.utils.phone <span class="kw">import</span> normalize_phone_number
+    normalized = normalize_phone_number(telefone)
+    <span class="kw">return</span> normalized or telefone</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="task" id="t2-2">
+      <div class="task-header" onclick="toggle('t2-2')">
+        <span class="task-id">T2.2</span>
+        <span class="task-name">Adicionar <code>enviar_poll()</code> e <code>enviar_lista()</code> no <code>EvolutionProvider</code></span>
+        <div class="task-badges"><span class="badge edit">editar</span></div>
+        <span class="task-arrow">▶</span>
+      </div>
+      <div class="task-body">
+        <div class="task-section">
+          <div class="task-section-label">Arquivo: app/services/whatsapp_evolution.py</div>
+<pre><span class="cm"># Adicionar na classe EvolutionProvider, após enviar_mensagem_texto()</span>
+
+<span class="kw">async def</span> <span class="fn">enviar_poll</span>(
+    self, telefone: str, pergunta: str, opcoes: list[str]
+) -> bool:
+    <span class="kw">from</span> app.services.operador_interacao_service <span class="kw">import</span> enviar_poll_confirmacao
+    <span class="kw">return await</span> enviar_poll_confirmacao(
+        telefone, pergunta, opcoes, instancia=self._instance
+    )
+
+<span class="kw">async def</span> <span class="fn">enviar_lista</span>(
+    self, telefone: str, titulo: str, descricao: str, secoes: list[dict]
+) -> bool:
+    <span class="kw">from</span> app.services.operador_interacao_service <span class="kw">import</span> enviar_lista_selecao
+    <span class="kw">return await</span> enviar_lista_selecao(
+        telefone, titulo, descricao, secoes, instancia=self._instance
+    )</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="task" id="t2-3">
+      <div class="task-header" onclick="toggle('t2-3')">
+        <span class="task-id">T2.3</span>
+        <span class="task-name">Criar <code>operador_wpp_service.py</code> — orquestrador do fluxo de operador</span>
+        <div class="task-badges"><span class="badge new">novo</span></div>
+        <span class="task-arrow">▶</span>
+      </div>
+      <div class="task-body">
+        <div class="task-section">
+          <div class="task-section-label">Arquivo: app/services/operador_wpp_service.py</div>
+<pre><span class="st">"""
+Orquestra o fluxo completo do operador via WhatsApp:
+1. Chama assistente_unificado (mesmo pipeline do chat web)
+2. Interpreta AIResponse e envia interação adequada (Poll, Lista ou texto)
+3. Gerencia confirmações pendentes via SessionStore
+"""</span>
+<span class="kw">import</span> logging
+<span class="kw">from</span> sqlalchemy.orm <span class="kw">import</span> Session
+<span class="kw">from</span> app.models.models <span class="kw">import</span> Usuario, Empresa
+<span class="kw">from</span> app.services.cotte_ai_hub <span class="kw">import</span> AIResponse, assistente_unificado
+<span class="kw">from</span> app.services.whatsapp_service <span class="kw">import</span> enviar_mensagem_texto
+<span class="kw">from</span> app.services.operador_interacao_service <span class="kw">import</span> (
+    enviar_poll_confirmacao, texto_opcoes_numeradas
+)
+<span class="kw">from</span> app.services.cotte_context_builder <span class="kw">import</span> SessionStore
+
+logger = logging.getLogger(__name__)
+
+<span class="cm"># ── Chave extra na SessionStore para pending_action WhatsApp ────────────────</span>
+
+<span class="kw">def</span> <span class="fn">_wpp_sessao_id</span>(telefone: str) -> str:
+    <span class="kw">return</span> f<span class="st">"wpp-op-{telefone}"</span>
+
+<span class="kw">def</span> <span class="fn">_salvar_pending_wpp</span>(sessao_id: str, pending: dict):
+    <span class="st">"""Guarda o pending_action e confirmation_token na sessão."""</span>
+    <span class="kw">from</span> app.services.cotte_context_builder <span class="kw">import</span> _sessions
+    <span class="kw">if</span> sessao_id <span class="kw">in</span> _sessions:
+        _sessions[sessao_id][<span class="st">"wpp_pending"</span>] = pending
+
+<span class="kw">def</span> <span class="fn">_recuperar_pending_wpp</span>(sessao_id: str) -> dict | None:
+    <span class="kw">from</span> app.services.cotte_context_builder <span class="kw">import</span> _sessions
+    <span class="kw">return</span> _sessions.get(sessao_id, {}).get(<span class="st">"wpp_pending"</span>)
+
+<span class="kw">def</span> <span class="fn">_limpar_pending_wpp</span>(sessao_id: str):
+    <span class="kw">from</span> app.services.cotte_context_builder <span class="kw">import</span> _sessions
+    <span class="kw">if</span> sessao_id <span class="kw">in</span> _sessions:
+        _sessions[sessao_id].pop(<span class="st">"wpp_pending"</span>, None)
+
+<span class="cm"># ── Detecção de confirmação por texto ───────────────────────────────────────</span>
+
+_CONFIRMAR = {<span class="st">"confirmar"</span>, <span class="st">"sim"</span>, <span class="st">"ok"</span>, <span class="st">"1"</span>, <span class="st">"s"</span>}
+_CANCELAR  = {<span class="st">"cancelar"</span>, <span class="st">"não"</span>, <span class="st">"nao"</span>, <span class="st">"2"</span>, <span class="st">"n"</span>}
+
+<span class="kw">def</span> <span class="fn">_detectar_resposta_poll</span>(mensagem: str) -> str | None:
+    <span class="st">"""Retorna 'CONFIRMAR', 'CANCELAR' ou None."""</span>
+    norm = mensagem.strip().lower()
+    <span class="kw">if</span> norm <span class="kw">in</span> _CONFIRMAR: <span class="kw">return</span> <span class="st">"CONFIRMAR"</span>
+    <span class="kw">if</span> norm <span class="kw">in</span> _CANCELAR:  <span class="kw">return</span> <span class="st">"CANCELAR"</span>
+    <span class="kw">return None</span>
+
+<span class="cm"># ── Entry point principal ───────────────────────────────────────────────────</span>
+
+<span class="kw">async def</span> <span class="fn">processar_operador_wpp</span>(
+    telefone: str,
+    mensagem: str,
+    operador: Usuario,
+    db: Session,
+    empresa: Empresa,
+) -> None:
+    sessao_id = _wpp_sessao_id(telefone)
+
+    <span class="cm"># 1. Verificar se há pending_action esperando confirmação</span>
+    pending = _recuperar_pending_wpp(sessao_id)
+    <span class="kw">if</span> pending:
+        resposta_poll = _detectar_resposta_poll(mensagem)
+        <span class="kw">if</span> resposta_poll == <span class="st">"CONFIRMAR"</span>:
+            _limpar_pending_wpp(sessao_id)
+            <span class="cm"># Re-chama o assistente com o confirmation_token</span>
+            ai_resp = await assistente_unificado(
+                mensagem=mensagem,
+                sessao_id=sessao_id,
+                db=db,
+                empresa_id=empresa.id,
+                usuario_id=operador.id,
+                permissoes=operador.permissoes or {},
+                is_gestor=operador.is_gestor,
+                <span class="cm"># confirmation_token só existe no v2; passa no contexto da sessão</span>
+            )
+            await _enviar_resposta(telefone, ai_resp, sessao_id, empresa, db)
+            <span class="kw">return</span>
+        <span class="kw">elif</span> resposta_poll == <span class="st">"CANCELAR"</span>:
+            _limpar_pending_wpp(sessao_id)
+            await enviar_mensagem_texto(telefone, <span class="st">"Ação cancelada."</span>, empresa=empresa)
+            <span class="kw">return</span>
+        <span class="cm"># Se não é confirmação/cancelamento: processa como nova mensagem normalmente</span>
+        _limpar_pending_wpp(sessao_id)
+
+    <span class="cm"># 2. Processar com assistente_unificado</span>
+    <span class="kw">try</span>:
+        ai_resp = await assistente_unificado(
+            mensagem=mensagem,
+            sessao_id=sessao_id,
+            db=db,
+            empresa_id=empresa.id,
+            usuario_id=operador.id,
+            permissoes=operador.permissoes or {},
+            is_gestor=operador.is_gestor,
+        )
+    <span class="kw">except</span> Exception <span class="kw">as</span> e:
+        logger.error(<span class="st">"[OperadorWPP] Erro no assistente: %s"</span>, e)
+        await enviar_mensagem_texto(
+            telefone, <span class="st">"Erro interno. Tente novamente."</span>, empresa=empresa
+        )
+        <span class="kw">return</span>
+
+    await _enviar_resposta(telefone, ai_resp, sessao_id, empresa, db)
+
+
+<span class="kw">async def</span> <span class="fn">_enviar_resposta</span>(
+    telefone: str, ai_resp: AIResponse, sessao_id: str, empresa: Empresa, db
+) -> None:
+    <span class="st">"""Interpreta AIResponse e envia a mensagem/interação adequada."""</span>
+
+    <span class="cm"># Caso 1: ação pendente — envia Poll de confirmação</span>
+    <span class="kw">if</span> ai_resp.pending_action:
+        _salvar_pending_wpp(sessao_id, ai_resp.pending_action)
+        dados = ai_resp.dados or {}
+        numero = dados.get(<span class="st">"numero"</span>, <span class="st">""</span>)
+        total  = dados.get(<span class="st">"total"</span>, <span class="num">0</span>)
+        cliente = dados.get(<span class="st">"cliente_nome"</span>, <span class="st">""</span>)
+        servico = dados.get(<span class="st">"servico"</span>, <span class="st">""</span>)
+        pergunta = (
+            f<span class="st">"Criar orçamento {numero} — {cliente}\n{servico} · R$ {total:.2f}"</span>
+            <span class="kw">if</span> numero <span class="kw">else</span>
+            (ai_resp.resposta or <span class="st">"Confirmar ação?"</span>)[:100]
+        )
+        ok = await enviar_poll_confirmacao(
+            telefone, pergunta, [<span class="st">"Confirmar"</span>, <span class="st">"Cancelar"</span>], instancia=<span class="kw">None</span>
+        )
+        <span class="kw">if not</span> ok:
+            <span class="cm"># Fallback: texto numerado</span>
+            texto = texto_opcoes_numeradas(
+                <span class="st">"Confirmação necessária"</span>, pergunta, [<span class="st">"Confirmar"</span>, <span class="st">"Cancelar"</span>]
+            )
+            await enviar_mensagem_texto(telefone, texto, empresa=empresa)
+        <span class="kw">return</span>
+
+    <span class="cm"># Caso 2: orçamento criado — notificação rica</span>
+    <span class="kw">if</span> ai_resp.tipo_resposta == <span class="st">"orcamento_criado"</span>:
+        dados = ai_resp.dados or {}
+        numero = dados.get(<span class="st">"numero"</span>, <span class="st">"?"</span>)
+        total  = dados.get(<span class="st">"total"</span>, <span class="num">0</span>)
+        seq    = numero.split(<span class="st">"-"</span>)[<span class="num">1</span>] <span class="kw">if</span> <span class="st">"-"</span> <span class="kw">in</span> numero <span class="kw">else</span> numero
+        texto  = (
+            f<span class="st">"✅ *Orçamento {numero} criado!*\n"</span>
+            f<span class="st">"Total: *R$ {total:.2f}*\n\n"</span>
+            f<span class="st">"Para enviar ao cliente: *enviar {seq}*"</span>
+        )
+        await enviar_mensagem_texto(telefone, texto, empresa=empresa)
+        <span class="kw">return</span>
+
+    <span class="cm"># Caso 3: resposta genérica</span>
+    texto = (ai_resp.resposta or <span class="st">"Sem resposta."</span>).strip()
+    <span class="kw">if not</span> ai_resp.sucesso:
+        texto = f<span class="st">"❌ {texto}"</span>
+    await enviar_mensagem_texto(telefone, texto, empresa=empresa)</pre>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<hr class="sep">
+
+<!-- ═══════════════ FASE 3 ═══════════════ -->
+<div class="fase">
+  <div class="fase-header">
+    <span class="fase-number">FASE 3</span>
+    <div>
+      <div class="fase-title">Integração — Ligar ao Webhook Existente</div>
+      <div class="fase-desc">Modificação mínima no <code>whatsapp_bot_service.py</code> para rotear operadores individuais ao novo serviço.</div>
+    </div>
+  </div>
+
+  <div class="task-list">
+
+    <div class="task" id="t3-1">
+      <div class="task-header" onclick="toggle('t3-1')">
+        <span class="task-id">T3.1</span>
+        <span class="task-name">Adicionar detecção de operador individual no <code>processar_mensagem()</code></span>
+        <div class="task-badges"><span class="badge edit">editar</span></div>
+        <span class="task-arrow">▶</span>
+      </div>
+      <div class="task-body">
+        <div class="task-section">
+          <div class="task-section-label">Arquivo: app/services/whatsapp_bot_service.py — função processar_mensagem()</div>
+          <p>Inserir logo após a abertura do bloco <code>try:</code>, antes da verificação de SIM/CONFIRMO existente:</p>
+<pre><span class="cm"># NOVO: verificar se é operador individual (Usuario.telefone_operador)</span>
+<span class="kw">from</span> app.services.operador_wpp_service <span class="kw">import</span> processar_operador_wpp
+
+operador_usuario = _usuario_por_telefone_operador(telefone, db)
+<span class="kw">if</span> operador_usuario:
+    empresa_op = db.query(Empresa).filter(
+        Empresa.id == operador_usuario.empresa_id
+    ).first()
+    <span class="kw">if</span> empresa_op:
+        await processar_operador_wpp(
+            telefone=telefone,
+            mensagem=mensagem,
+            operador=operador_usuario,
+            db=db,
+            empresa=empresa_op,
+        )
+        <span class="kw">return</span>
+<span class="cm"># ... continua fluxo existente de Empresa.telefone_operador e clientes ...</span></pre>
+        </div>
+        <div class="task-section">
+          <div class="task-section-label">Impacto</div>
+          <ul>
+            <li>Zero impacto no fluxo de clientes — a verificação só se aplica a quem tem <code>telefone_operador</code> cadastrado</li>
+            <li>Compatibilidade total com o fluxo de <code>Empresa.telefone_operador</code> legado — o <code>_empresa_por_operador()</code> existente segue funcionando como fallback</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="task" id="t3-2">
+      <div class="task-header" onclick="toggle('t3-2')">
+        <span class="task-id">T3.2</span>
+        <span class="task-name">Tratar resposta de Poll no webhook (evento <code>MESSAGES_UPSERT</code>)</span>
+        <div class="task-badges"><span class="badge edit">editar</span></div>
+        <span class="task-arrow">▶</span>
+      </div>
+      <div class="task-body">
+        <div class="task-section">
+          <div class="task-section-label">Contexto</div>
+          <p>Quando o operador clica em uma opção do Poll, a Evolution API envia um evento <code>MESSAGES_UPSERT</code> com um payload diferente de texto normal. O Baileys entrega a resposta de poll como <code>pollUpdateMessage</code> — precisamos extraí-la.</p>
+        </div>
+        <div class="task-section">
+          <div class="task-section-label">Arquivo: app/routers/whatsapp.py — função _webhook_evolution()</div>
+<pre><span class="cm"># Adicionar extração de resposta de poll no parseamento do payload</span>
+<span class="kw">def</span> <span class="fn">_extrair_texto_mensagem</span>(data: dict) -> str | None:
+    <span class="st">"""Extrai texto de mensagem normal OU de voto em poll."""</span>
+    msg = data.get(<span class="st">"message"</span>, {}) or {}
+
+    <span class="cm"># Mensagem de texto normal</span>
+    texto = (
+        msg.get(<span class="st">"conversation"</span>)
+        or (msg.get(<span class="st">"extendedTextMessage"</span>) or {}).get(<span class="st">"text"</span>)
+    )
+    <span class="kw">if</span> texto:
+        <span class="kw">return</span> texto
+
+    <span class="cm"># Resposta de poll — Evolution/Baileys encapsula assim:</span>
+    poll_upd = msg.get(<span class="st">"pollUpdateMessage"</span>) or {}
+    <span class="kw">if</span> poll_upd:
+        votes = poll_upd.get(<span class="st">"vote"</span>, {}).get(<span class="st">"selectedOptions"</span>, [])
+        <span class="kw">if</span> votes:
+            <span class="kw">return</span> votes[<span class="num">0</span>]  <span class="cm"># ex: "Confirmar" ou "Cancelar"</span>
+
+    <span class="kw">return None</span></pre>
+        </div>
+        <div class="task-section">
+          <div class="task-section-label">Notas</div>
+          <ul>
+            <li>O <code>WebhookEvolution</code> schema existente precisa ser tolerante a <code>pollUpdateMessage</code> — garantir que não quebre se o campo não existir</li>
+            <li>O texto extraído do poll ("Confirmar" / "Cancelar") entra normalmente no <code>processar_mensagem()</code> e é detectado pelo <code>_detectar_resposta_poll()</code></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="task" id="t3-3">
+      <div class="task-header" onclick="toggle('t3-3')">
+        <span class="task-id">T3.3</span>
+        <span class="task-name">Passar <code>permissoes</code> e <code>is_gestor</code> no <code>_processar_assistente_gestor()</code> existente</span>
+        <div class="task-badges"><span class="badge edit">editar</span></div>
+        <span class="task-arrow">▶</span>
+      </div>
+      <div class="task-body">
+        <div class="task-section">
+          <div class="task-section-label">Contexto</div>
+          <p>A função <code>_processar_assistente_gestor()</code> já existe mas chama <code>assistente_unificado()</code> sem passar <code>permissoes</code> e <code>is_gestor</code> — o bloqueio de módulo financeiro não está ativo para operadores que acessam via WhatsApp pelo fluxo legado.</p>
+        </div>
+        <div class="task-section">
+          <div class="task-section-label">Arquivo: app/services/whatsapp_bot_service.py</div>
+<pre><span class="cm"># Corrigir chamada existente (linha ~35922)</span>
+ai_resp = await assistente_unificado(
+    mensagem=mensagem,
+    sessao_id=sessao_id,
+    db=db,
+    empresa_id=empresa.id,
+    usuario_id=usuario.id <span class="kw">if</span> usuario <span class="kw">else</span> <span class="num">0</span>,
+    permissoes=usuario.permissoes <span class="kw">if</span> usuario <span class="kw">else</span> {},  <span class="cm"># NOVO</span>
+    is_gestor=usuario.is_gestor <span class="kw">if</span> usuario <span class="kw">else</span> False,  <span class="cm"># NOVO</span>
+)</pre>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<hr class="sep">
+
+<!-- ═══════════════ FASE 4 ═══════════════ -->
+<div class="fase">
+  <div class="fase-header">
+    <span class="fase-number">FASE 4</span>
+    <div>
+      <div class="fase-title">Validação e Finalização</div>
+      <div class="fase-desc">Testes manuais por cenário, ajustes de UX de texto e documentação interna.</div>
+    </div>
+  </div>
+
+  <div class="task-list">
+
+    <div class="task" id="t4-1">
+      <div class="task-header" onclick="toggle('t4-1')">
+        <span class="task-id">T4.1</span>
+        <span class="task-name">Roteiro de testes manuais por cenário</span>
+        <div class="task-badges"><span class="badge test">testar</span></div>
+        <span class="task-arrow">▶</span>
+      </div>
+      <div class="task-body">
+        <div class="task-section">
+          <div class="task-section-label">Cenários obrigatórios</div>
+          <ul>
+            <li><strong>Identificação:</strong> Cadastrar <code>telefone_operador</code> em um usuário → enviar mensagem → confirmar que entra no fluxo correto e não no fluxo de cliente</li>
+            <li><strong>Criação de orçamento:</strong> "orçamento de pintura 800 para João" → Poll de confirmação → responder "Confirmar" → orçamento criado no banco</li>
+            <li><strong>Cancelamento:</strong> mesmo fluxo → responder "Cancelar" → nenhum orçamento criado</li>
+            <li><strong>Saldo:</strong> "qual meu saldo" → resposta com valores financeiros</li>
+            <li><strong>Comando operador:</strong> "ver 5" → detalhes do orçamento #5</li>
+            <li><strong>Agendamento:</strong> "agendamentos hoje" → lista dos agendamentos</li>
+            <li><strong>Sem permissão:</strong> operador sem módulo financeiro → resposta de acesso negado</li>
+            <li><strong>Fallback de poll:</strong> simular falha no sendPoll → confirmar que texto numerado é enviado</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="task" id="t4-2">
+      <div class="task-header" onclick="toggle('t4-2')">
+        <span class="task-id">T4.2</span>
+        <span class="task-name">Calibrar textos de resposta para o canal WhatsApp</span>
+        <div class="task-badges"><span class="badge edit">editar</span></div>
+        <span class="task-arrow">▶</span>
+      </div>
+      <div class="task-body">
+        <div class="task-section">
+          <div class="task-section-label">Problema</div>
+          <p>O <code>assistente_unificado</code> gera respostas ricas com markdown (tabelas, listas longas) adequadas ao chat web. No WhatsApp, o markdown é limitado — apenas <code>*negrito*</code>, <code>_itálico_</code> e <code>~tachado~</code>.</p>
+        </div>
+        <div class="task-section">
+          <div class="task-section-label">Solução</div>
+<pre><span class="kw">def</span> <span class="fn">sanitizar_para_whatsapp</span>(texto: str) -> str:
+    <span class="st">"""Converte markdown rico para formato WhatsApp."""</span>
+    <span class="kw">import</span> re
+    <span class="cm"># Remove headers markdown</span>
+    texto = re.sub(r<span class="st">'^#{1,6}\s+'</span>, <span class="st">''</span>, texto, flags=re.MULTILINE)
+    <span class="cm"># Converte **: bold → *bold*</span>
+    texto = re.sub(r<span class="st">'\*\*(.+?)\*\*'</span>, <span class="st">r'*\1*'</span>, texto)
+    <span class="cm"># Remove tabelas (linhas com |)</span>
+    texto = re.sub(r<span class="st">'\|.*\|'</span>, <span class="st">''</span>, texto)
+    <span class="cm"># Limita a 1000 chars (WhatsApp quebra mensagens longas)</span>
+    <span class="kw">if</span> len(texto) > <span class="num">900</span>:
+        texto = texto[:<span class="num">900</span>] + <span class="st">"\n_(mensagem truncada — veja detalhes no app)_"</span>
+    <span class="kw">return</span> texto.strip()</pre>
+          <p style="margin-top:8px">Chamar essa função em <code>_enviar_resposta()</code> antes de <code>enviar_mensagem_texto()</code>.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="task" id="t4-3">
+      <div class="task-header" onclick="toggle('t4-3')">
+        <span class="task-id">T4.3</span>
+        <span class="task-name">Adicionar campo na tela de usuários para configurar <code>telefone_operador</code></span>
+        <div class="task-badges"><span class="badge edit">editar</span></div>
+        <span class="task-arrow">▶</span>
+      </div>
+      <div class="task-body">
+        <div class="task-section">
+          <div class="task-section-label">Contexto</div>
+          <p>O gestor precisa de uma forma de cadastrar o número WhatsApp de cada operador. A tela de usuários já existe em <code>cotte-frontend/usuarios.html</code> — é só adicionar o campo no formulário de edição.</p>
+        </div>
+        <div class="task-section">
+          <div class="task-section-label">HTML a adicionar no modal de usuário</div>
+<pre><span class="cm">&lt;!-- No modal de edição de usuário --&gt;</span>
+&lt;div class="form-group"&gt;
+  &lt;label&gt;WhatsApp do Operador&lt;/label&gt;
+  &lt;input type="tel" id="telefone_operador"
+    placeholder="(48) 99999-9999"
+    title="Número que o operador usará para comandar o assistente via WhatsApp"&gt;
+  &lt;small&gt;Deixe em branco se este usuário não operará via WhatsApp&lt;/small&gt;
+&lt;/div&gt;</pre>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<hr class="sep">
+
+<!-- ── Timeline ── -->
+<div class="fase">
+  <div class="fase-header">
+    <span class="fase-number">ENTREGA</span>
+    <div>
+      <div class="fase-title">Cronograma sugerido</div>
+      <div class="fase-desc">Estimativa para desenvolvimento solo em tempo parcial.</div>
+    </div>
+  </div>
+
+  <div class="timeline">
+    <div class="tl-row active">
+      <div class="tl-label">Dia 1–2</div>
+      <div class="tl-content">
+        <div class="tl-title">Fase 1 completa</div>
+        <div class="tl-items">Migration, modelo Usuario, schema, helper de busca por telefone</div>
+      </div>
+    </div>
+    <div class="tl-row active">
+      <div class="tl-label">Dia 3–5</div>
+      <div class="tl-content">
+        <div class="tl-title">Fase 2 completa</div>
+        <div class="tl-items">operador_interacao_service.py, operador_wpp_service.py, EvolutionProvider atualizado</div>
+      </div>
+    </div>
+    <div class="tl-row active">
+      <div class="tl-label">Dia 6–7</div>
+      <div class="tl-content">
+        <div class="tl-title">Fase 3 — integração e teste smoke</div>
+        <div class="tl-items">webhook atualizado, roteamento ligado, teste rápido end-to-end</div>
+      </div>
+    </div>
+    <div class="tl-row">
+      <div class="tl-label">Dia 8–10</div>
+      <div class="tl-content">
+        <div class="tl-title">Fase 4 — polimento</div>
+        <div class="tl-items">sanitização de texto, UI de cadastro, testes de cenário completos</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="sep">
+
+<!-- ── Checklist ── -->
+<div class="fase">
+  <div class="fase-header">
+    <span class="fase-number">GO-LIVE</span>
+    <div>
+      <div class="fase-title">Checklist antes de ativar em produção</div>
+    </div>
+  </div>
+  <div class="checklist">
+    <div class="check-item"><div class="check-box"></div>Migration aplicada em produção (<code>alembic upgrade head</code>)</div>
+    <div class="check-item"><div class="check-box"></div>Pelo menos um <code>Usuario.telefone_operador</code> cadastrado para teste real</div>
+    <div class="check-item"><div class="check-box"></div>Evento <code>MESSAGES_UPSERT</code> habilitado no webhook Evolution (já está no <code>criar_instancia</code>)</div>
+    <div class="check-item"><div class="check-box"></div>Testado criação de orçamento + confirmação por Poll no celular real</div>
+    <div class="check-item"><div class="check-box"></div>Fallback de texto numerado testado (simular falha no sendPoll)</div>
+    <div class="check-item"><div class="check-box"></div>Operador sem módulo financeiro bloqueado corretamente</div>
+    <div class="check-item"><div class="check-box"></div>Clientes existentes não afetados — testar mensagem de cliente normal</div>
+    <div class="check-item"><div class="check-box"></div>Logs de <code>[OperadorWPP]</code> visíveis e sem erros no Railway</div>
+  </div>
+</div>
+
+<script>
+function toggle(id) {
+  const el = document.getElementById(id);
+  el.classList.toggle('open');
+}
+// Abrir primeira task de cada fase por padrão
+['t1-1','t2-1','t3-1','t4-1'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.classList.add('open');
+});
+</script>
+</body>
+</html>
