@@ -220,6 +220,7 @@ async def _enviar_resposta(
         texto_opcoes_numeradas,
         sanitizar_para_whatsapp,
     )
+    from app.utils.orcamento_utils import brl_fmt
 
     # Caso 1: ação pendente do V2 (confirmation_token) — envia Poll de confirmação
     if ai_resp.pending_action:
@@ -232,17 +233,31 @@ async def _enviar_resposta(
         _salvar_pending_wpp(sessao_id, pending_data)
 
         dados = ai_resp.dados or {}
-        numero = dados.get("numero", "")
+        tool = ai_resp.pending_action.get("tool", "")
         total = dados.get("total", 0)
-        cliente = dados.get("cliente_nome", "")
-        servico = dados.get("servico", "")
+        total_fmt = brl_fmt(total)
 
-        if numero:
-            pergunta = (
-                f"Criar orçamento {numero} — {cliente}\n{servico} · R$ {total:.2f}"
-            )
+        if tool == "criar_orcamento":
+            cliente = dados.get("cliente_nome", "")
+            servico = dados.get("servico", "")
+            linhas = ["📋 *Novo orçamento — confirmar?*", ""]
+            if cliente:
+                linhas.append(f"👤 Cliente: {cliente}")
+            if servico:
+                linhas.append(f"🛍 Item: {servico}")
+            if total:
+                linhas.append(f"💰 Total: {total_fmt}")
+            pergunta = "\n".join(linhas)
+        elif tool == "editar_orcamento":
+            numero = dados.get("numero", "")
+            linhas = ["✏️ *Editar orçamento — confirmar?*", ""]
+            if numero:
+                linhas.append(f"📄 Orçamento: {numero}")
+            if total:
+                linhas.append(f"💰 Novo total: {total_fmt}")
+            pergunta = "\n".join(linhas)
         else:
-            pergunta = (ai_resp.resposta or "Confirmar ação?")[:100]
+            pergunta = f"⚙️ *Confirmar ação?*\n\n{(ai_resp.resposta or 'Confirmar?')[:120]}"
 
         ok = await enviar_poll_confirmacao(
             telefone, pergunta, ["Confirmar", "Cancelar"]
