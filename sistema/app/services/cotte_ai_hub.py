@@ -1073,37 +1073,51 @@ async def criar_orcamento_ia(
     # 2. Buscar cliente no banco
     cliente_match = None
     clientes_sugeridos = []
+    _cliente_auto_criado = False
 
     if cliente_nome and cliente_nome.lower() != "a definir":
+        # 1) Busca exata (ilike)
         cliente_match = (
             db.query(Cliente)
             .filter(
                 Cliente.empresa_id == empresa_id,
-                Cliente.nome.ilike(f"%{cliente_nome}%"),
+                Cliente.nome.ilike(cliente_nome),
             )
             .first()
         )
-
+        # 2) Busca ampla (contém)
         if not cliente_match:
-            primeiro_nome = cliente_nome.split()[0]
-            clientes_sugeridos = (
+            cliente_match = (
                 db.query(Cliente)
                 .filter(
                     Cliente.empresa_id == empresa_id,
-                    Cliente.nome.ilike(f"%{primeiro_nome}%"),
+                    Cliente.nome.ilike(f"%{cliente_nome}%"),
                 )
-                .limit(5)
-                .all()
+                .first()
             )
+        # 3) Não encontrou nenhum — cadastrar automaticamente
+        if not cliente_match:
+            from app.schemas.schemas import ClienteCreate
+            from app.services.cliente_service import ClienteService
+            from app.models.models import Usuario as _Usuario
+
+            _usuario_fake = db.query(_Usuario).filter(_Usuario.empresa_id == empresa_id).first()
+            if _usuario_fake:
+                novo_cliente = ClienteService(db).criar_cliente(
+                    ClienteCreate(nome=cliente_nome.strip()), _usuario_fake
+                )
+                db.flush()
+                cliente_match = novo_cliente
+                _cliente_auto_criado = True
+
 
     # 3. Montar preview
     preview = {
-        "cliente_nome": cliente_nome or "A definir",
+        "cliente_nome": cliente_match.nome if cliente_match else (cliente_nome or "A definir"),
         "cliente_id": cliente_match.id if cliente_match else None,
         "cliente_encontrado": cliente_match is not None,
-        "clientes_sugeridos": [
-            {"id": c.id, "nome": c.nome} for c in clientes_sugeridos
-        ],
+        "cliente_auto_criado": _cliente_auto_criado,
+        "clientes_sugeridos": [],
         "servico": dados.get("servico") or "",
         "valor": float(dados.get("valor") or 0),
         "desconto": float(dados.get("desconto") or 0),
@@ -1114,10 +1128,10 @@ async def criar_orcamento_ia(
         "usuario_id": usuario_id,
     }
 
-    if cliente_match:
+    if cliente_match and _cliente_auto_criado:
+        resposta = f"Cliente '{cliente_match.nome}' cadastrado automaticamente. Revise o orçamento abaixo e confirme."
+    elif cliente_match:
         resposta = f"Encontrei o cliente {cliente_match.nome}. Revise o orçamento abaixo e confirme."
-    elif clientes_sugeridos:
-        resposta = f"Não encontrei '{cliente_nome}' exatamente. Selecione o cliente correto abaixo."
     else:
         resposta = (
             f"Cliente '{cliente_nome}' não está cadastrado. O orçamento será criado sem cliente vinculado."
