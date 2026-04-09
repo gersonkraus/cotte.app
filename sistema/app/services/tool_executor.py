@@ -219,6 +219,7 @@ class ToolResult:
     code: Optional[str] = None
     pending_action: Optional[dict[str, Any]] = None
     latencia_ms: int = 0
+    tool_name: Optional[str] = None
 
     def to_llm_payload(self) -> dict[str, Any]:
         """Payload serializado para devolver ao LLM como `{"role":"tool",...}`."""
@@ -665,6 +666,7 @@ async def execute_pending(
                 status="ok",
                 data=data if isinstance(data, dict) else {"result": data},
                 latencia_ms=int((time.perf_counter() - t0) * 1000),
+                tool_name=name,
             )
     except HTTPException as e:
         result = ToolResult(

@@ -268,6 +268,20 @@ async def _enviar_resposta(
         await enviar_mensagem_texto(telefone, texto, empresa=empresa)
         return
 
+    # Caso 2b: orçamento atualizado — notificação
+    if ai_resp.tipo_resposta == "orcamento_atualizado":
+        dados = ai_resp.dados or {}
+        numero = dados.get("numero", "?")
+        total = dados.get("total", 0)
+        seq = numero.split("-")[1] if "-" in numero else numero
+        texto = (
+            f"✅ *Orçamento {numero} atualizado!*\n"
+            f"Total: *R$ {total:.2f}*\n\n"
+            f"Para ver o orçamento: *ver {seq}*"
+        )
+        await enviar_mensagem_texto(telefone, texto, empresa=empresa)
+        return
+
     # Caso 3: Preview de Orçamento legado (orcamento_preview)
     if ai_resp.tipo_resposta == "orcamento_preview":
         dados = ai_resp.dados or {}

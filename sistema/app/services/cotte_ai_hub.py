@@ -1773,8 +1773,13 @@ async def assistente_v2_stream_core(
         orc_data = result.data or {} if hasattr(result, "data") else {}
         status = result.status if hasattr(result, "status") else "ok"
         if status == "ok" and orc_data.get("numero"):
-            final_text = "✅ Ação concluída com sucesso."
-            tipo_resp = "orcamento_criado"
+            _tool_exec = getattr(result, "tool_name", None)
+            if _tool_exec == "editar_orcamento":
+                final_text = "✅ Orçamento atualizado com sucesso."
+                tipo_resp = "orcamento_atualizado"
+            else:
+                final_text = "✅ Ação concluída com sucesso."
+                tipo_resp = "orcamento_criado"
             sugs = [
                 f"Ver {orc_data['numero']}",
                 f"Enviar {orc_data['numero']} por WhatsApp",
@@ -2814,8 +2819,13 @@ async def assistente_unificado_v2(
             if result.status == "ok":
                 orc_data = result.data or {}
                 if orc_data.get("numero"):
-                    final_text = "✅ Orçamento criado com sucesso."
-                    tipo_resp = "orcamento_criado"
+                    _tool_exec = getattr(result, "tool_name", None)
+                    if _tool_exec == "editar_orcamento":
+                        final_text = "✅ Orçamento atualizado com sucesso."
+                        tipo_resp = "orcamento_atualizado"
+                    else:
+                        final_text = "✅ Orçamento criado com sucesso."
+                        tipo_resp = "orcamento_criado"
                     num = orc_data.get("numero", "")
                     acao_sug = f'["Duplicar {num}"]'
                     resp_dados = orc_data

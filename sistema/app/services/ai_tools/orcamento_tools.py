@@ -784,6 +784,10 @@ class EditarOrcamentoInput(BaseModel):
         default=None, description="'percentual' ou 'valor'."
     )
     validade_dias: Optional[int] = Field(default=None, ge=1, le=365)
+    valor_total: Optional[Decimal] = Field(
+        default=None, ge=0,
+        description="Novo valor total desejado para o orçamento. Se houver 1 item, ajusta o preço unitário. Se houver múltiplos itens, aplica desconto fixo para atingir o total."
+    )
 
 
 async def _editar_orcamento(
@@ -812,6 +816,19 @@ async def _editar_orcamento(
     if inp.validade_dias is not None:
         orc.validade_dias = inp.validade_dias
         mudou = True
+    if inp.valor_total is not None:
+        db.refresh(orc)
+        itens = orc.itens or []
+        if len(itens) == 1:
+            item = itens[0]
+            item.valor_unit = inp.valor_total / (Decimal(str(item.quantidade)) if item.quantidade else Decimal("1"))
+            item.total = inp.valor_total
+        elif len(itens) > 1:
+            subtotal = sum(Decimal(str(i.total or 0)) for i in itens)
+            orc.desconto = max(Decimal("0"), subtotal - inp.valor_total)
+            orc.desconto_tipo = "valor"
+        orc.total = inp.valor_total
+        mudou = True
     if not mudou:
         return {"error": "nenhum campo para atualizar", "code": "invalid_input"}
     db.commit()
@@ -821,6 +838,7 @@ async def _editar_orcamento(
         "numero": orc.numero,
         "observacoes": orc.observacoes,
         "desconto": float(orc.desconto or 0),
+        "total": float(orc.total or 0),
         "atualizado": True,
     }
 
@@ -828,11 +846,88 @@ async def _editar_orcamento(
 editar_orcamento = ToolSpec(
     name="editar_orcamento",
     description=(
-        "Edita campos básicos de um orçamento em RASCUNHO: observações, desconto, "
-        "tipo de desconto e validade. Não altera itens. AÇÃO DESTRUTIVA — exige confirmação."
+        "Edita campos de um orçamento em RASCUNHO: observações, desconto, tipo de desconto, "
+        "validade e valor_total (novo valor total desejado). AÇÃO DESTRUTIVA — exige confirmação."
     ),
     input_model=EditarOrcamentoInput,
     handler=_editar_orcamento,
+    destrutiva=True,
+    permissao_recurso="orcamentos",
+    permissao_acao="escrita",
+)
+
+
+# ── editar_item_orcamento (DESTRUTIVA) ────────────────────────────────────
+class EditarItemOrcamentoInput(BaseModel):
+    orcamento_id: int | str = Field(description="ID numérico ou número do orçamento (ex: 104 ou 'O-104').")
+    num_item: int = Field(ge=1, description="Número do item (1 = primeiro, 2 = segundo, etc.).")
+    descricao: Optional[str] = Field(default=None, max_length=500, description="Nova descrição do item.")
+    valor_unit: Optional[Decimal] = Field(default=None, ge=0, description="Novo valor unitário do item.")
+    quantidade: Optional[Decimal] = Field(default=None, gt=0, description="Nova quantidade do item.")
+
+
+async def _editar_item_orcamento(
+    inp: EditarItemOrcamentoInput, *, db: Session, current_user: Usuario
+) -> dict[str, Any]:
+    orc = _get_orcamento_da_empresa(db, inp.orcamento_id, current_user.empresa_id)
+    if not orc:
+        return {"error": "Orçamento não encontrado", "code": "not_found"}
+    if orc.status != StatusOrcamento.RASCUNHO:
+        return {
+            "error": f"Orçamento em status {orc.status.value} não pode ser editado (apenas RASCUNHO).",
+            "code": "invalid_state",
+        }
+    itens = orc.itens or []
+    if not itens:
+        return {"error": "Orçamento não tem itens para editar.", "code": "invalid_input"}
+    if inp.num_item > len(itens):
+        return {
+            "error": f"Item {inp.num_item} não existe. O orçamento tem {len(itens)} item(ns).",
+            "code": "invalid_input",
+        }
+    item = itens[inp.num_item - 1]
+    mudou = False
+    if inp.descricao is not None:
+        item.descricao = inp.descricao
+        mudou = True
+    if inp.valor_unit is not None:
+        item.valor_unit = inp.valor_unit
+        mudou = True
+    if inp.quantidade is not None:
+        item.quantidade = inp.quantidade
+        mudou = True
+    if not mudou:
+        return {"error": "nenhum campo para atualizar", "code": "invalid_input"}
+    # Recalcula total do item e do orçamento
+    qty = Decimal(str(item.quantidade or 1))
+    vunit = Decimal(str(item.valor_unit or 0))
+    item.total = qty * vunit
+    subtotal = sum(Decimal(str(i.total or 0)) for i in itens)
+    desconto = Decimal(str(orc.desconto or 0))
+    if orc.desconto_tipo == "percentual":
+        orc.total = max(Decimal("0"), subtotal - subtotal * desconto / 100)
+    else:
+        orc.total = max(Decimal("0"), subtotal - desconto)
+    db.commit()
+    db.refresh(orc)
+    return {
+        "id": orc.id,
+        "numero": orc.numero,
+        "total": float(orc.total or 0),
+        "item_editado": inp.num_item,
+        "atualizado": True,
+    }
+
+
+editar_item_orcamento = ToolSpec(
+    name="editar_item_orcamento",
+    description=(
+        "Edita um item específico de um orçamento em RASCUNHO: descrição, valor unitário e/ou quantidade. "
+        "Use quando o usuário mencionar 'item 1', 'primeiro item', 'trocar preço do serviço X', etc. "
+        "AÇÃO DESTRUTIVA — exige confirmação."
+    ),
+    input_model=EditarItemOrcamentoInput,
+    handler=_editar_item_orcamento,
     destrutiva=True,
     permissao_recurso="orcamentos",
     permissao_acao="escrita",
