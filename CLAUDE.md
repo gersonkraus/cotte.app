@@ -118,16 +118,17 @@ Impacto na performance/integração
 Riscos
 Testes recomendados (pytest ou Playwright)
 
-Ao final de TODA tarefa concluída, obrigatoriamente incluir:
+Ao final de TODA tarefa concluída (implementação, melhoria ou correção), obrigatoriamente incluir **três** sugestões novas de melhorias inovadoras, além do resumo do trabalho:
 
-[SUGESTÃO] — melhorias de performance, segurança ou qualidade diretamente relacionadas ao que foi alterado
-[INOVAÇÃO] — funcionalidades novas, automações com IA ou melhorias de UX que o sistema ainda não tem e que agregariam valor real ao negócio
+[INOVAÇÃO] — três itens distintos: funcionalidades novas, automações com IA, UX ou arquitetura que o sistema ainda não tem e que agregariam valor real ao negócio (pode numerar 1–3 ou usar três linhas com [INOVAÇÃO]).
+
+Opcional (quando fizer sentido): até duas linhas [SUGESTÃO] — melhorias de performance, segurança ou qualidade **diretamente relacionadas** ao que foi alterado (não contam nas três inovações).
 
 Regras para as sugestões:
-- Máximo 3 itens no total (1-2 sugestões + 1 inovação)
+- As **três** inovações são obrigatórias e devem ser diferentes entre si e novas na sessão quando possível
 - Sempre concretas e aplicáveis à stack atual (FastAPI + Vanilla JS)
-- Nunca repetir sugestões já feitas na mesma sessão
-- Marcar claramente com o prefixo [SUGESTÃO] ou [INOVAÇÃO]
+- Não repetir as mesmas ideias já dadas na mesma sessão, salvo refinamento explícito do usuário
+- Marcar com o prefixo [INOVAÇÃO] (e [SUGESTÃO] só no bloco opcional)
 
 Em caso de dúvida: separar fato | hipótese | incerteza.
 

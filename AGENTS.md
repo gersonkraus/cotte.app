@@ -134,8 +134,11 @@ Use para fluxos de mensagens, webhooks e automação comercial.
 
 ## Learned User Preferences
 
-- Quando o pedido vier de um plano anexo no Cursor, não modificar o arquivo do plano em `~/.cursor/plans/`; executar a partir dos to-dos já existentes.
+- Quando o pedido vier de um plano anexo no Cursor, não modificar o arquivo do plano em `~/.cursor/plans/`; executar a partir dos to-dos já existentes sem recriar a lista (marcar `in_progress` em ordem até concluir).
+- Após cada implementação, melhoria ou correção concluída, o agente deve sugerir **três** ideias novas de melhorias inovadoras (concretas, aplicáveis à stack atual), além do resumo do que foi feito.
 
 ## Learned Workspace Facts
 
 - E-mails HTML transacionais devem seguir práticas de cliente de e-mail: tabelas para layout, estilos inline e sem dependências externas (Tailwind CDN, Google Fonts ou scripts).
+- No assistente IA, cards de confirmação de ações pendentes não devem exibir ao operador a descrição técnica bruta da tool; usar resumo operacional dos argumentos e copy curta de revisão.
+- Instruções persistentes de produto ou backlog para o agente no Cursor: preferir Project Rules e/ou `.cursor/rules/` e documentação durável (por exemplo `memory/decisions.md`); o par [SUGESTÃO]/[INOVAÇÃO] do `CLAUDE.md` padroniza o fechamento das respostas, não substitui especificação de features.

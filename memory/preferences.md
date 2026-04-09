@@ -21,6 +21,7 @@ status: ativo
 - Direto ao ponto
 - Explicações práticas (evitar teoria longa)
 - Sempre que possível: mostrar exemplo real
+- Após implementação, melhoria ou correção: incluir **3** sugestões de melhorias inovadoras (novas a cada entrega, alinhadas ao COTTE)
 
 ## Regras importantes
 - NÃO sair lendo o projeto inteiro sem necessidade
