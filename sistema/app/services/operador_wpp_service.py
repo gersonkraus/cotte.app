@@ -239,13 +239,26 @@ async def _enviar_resposta(
 
         if tool == "criar_orcamento":
             cliente = dados.get("cliente_nome", "")
-            servico = dados.get("servico", "")
+            itens = dados.get("itens") or []
+            # extrai descrição e total dos itens (formato CriarOrcamentoInput)
+            if itens:
+                servico = itens[0].get("descricao", "")
+                if len(itens) > 1:
+                    servico += f" (+{len(itens) - 1} item(ns))"
+                total_calc = sum(
+                    float(i.get("quantidade") or 1) * float(i.get("valor_unit") or 0)
+                    for i in itens
+                )
+            else:
+                servico = dados.get("servico", "")
+                total_calc = float(total or 0)
+            total_fmt = brl_fmt(total_calc)
             linhas = ["📋 *Novo orçamento — confirmar?*", ""]
             if cliente:
                 linhas.append(f"👤 Cliente: {cliente}")
             if servico:
                 linhas.append(f"🛍 Item: {servico}")
-            if total:
+            if total_calc:
                 linhas.append(f"💰 Total: {total_fmt}")
             pergunta = "\n".join(linhas)
         elif tool == "editar_orcamento":
