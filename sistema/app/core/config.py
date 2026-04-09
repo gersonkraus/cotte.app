@@ -1,5 +1,19 @@
 from pydantic_settings import BaseSettings
 from typing import Optional
+import subprocess
+
+
+def _compute_version() -> str:
+    """Usa o hash curto do último commit git como versão. Fallback: 'dev'."""
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=2,
+        ).strip()
+    except Exception:
+        return "dev"
 
 
 class Settings(BaseSettings):
@@ -7,6 +21,9 @@ class Settings(BaseSettings):
     APP_NAME: str = "COTTE"
     APP_URL: str = "https://cotte.app"
     ENVIRONMENT: str = "development"
+    # Versão usada no cache-busting de assets JS/CSS.
+    # Gerada automaticamente a partir do hash do commit; pode ser sobrescrita via env var APP_VERSION.
+    APP_VERSION: str = _compute_version()
     CORS_ALLOWED_ORIGINS: str = "https://cotte.app,https://www.cotte.app,http://localhost:8000,http://127.0.0.1:8000"
 
     # Banco de dados

@@ -13,6 +13,8 @@ Política:
 """
 from __future__ import annotations
 
+import re
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
@@ -75,3 +77,69 @@ class StaticCacheControlMiddleware(BaseHTTPMiddleware):
             response.headers["Cache-Control"] = policy
 
         return response
+
+
+# Padrão: captura src/href apontando para .js ou .css locais (não URLs externas),
+# incluindo qualquer query string existente que será substituída pela versão atual.
+_ASSET_URL_RE = re.compile(
+    r'((?:src|href)="(?!https?://)[^"]+\.(?:js|css))(\?[^"]*)?(")'
+)
+
+
+class VersioningMiddleware(BaseHTTPMiddleware):
+    """Injeta ?v=APP_VERSION em todas as referências a .js e .css dentro de respostas HTML.
+
+    Isso garante que após cada deploy o navegador baixe os assets atualizados,
+    sem exigir build step ou alteração manual nos arquivos HTML.
+
+    O parâmetro ``version`` é opcional: se não fornecido, lê ``settings.APP_VERSION``
+    em tempo de request (import lazy para evitar circular import). Útil em testes.
+    """
+
+    def __init__(self, app: ASGIApp, version: str | None = None) -> None:
+        super().__init__(app)
+        self._version = version
+
+    def _get_version(self) -> str:
+        if self._version is not None:
+            return self._version
+        from app.core.config import settings  # import lazy — evita circular no load
+        return settings.APP_VERSION
+
+    async def dispatch(self, request: Request, call_next) -> Response:
+        response = await call_next(request)
+
+        if response.status_code != 200:
+            return response
+
+        content_type = response.headers.get("content-type", "")
+        if "text/html" not in content_type:
+            return response
+
+        body = b""
+        async for chunk in response.body_iterator:
+            body += chunk
+
+        try:
+            html = body.decode("utf-8")
+        except UnicodeDecodeError:
+            return Response(
+                content=body,
+                status_code=response.status_code,
+                headers=dict(response.headers),
+                media_type=content_type,
+            )
+
+        v = self._get_version()
+        html = _ASSET_URL_RE.sub(rf"\1?v={v}\3", html)
+
+        encoded = html.encode("utf-8")
+        headers = dict(response.headers)
+        headers["content-length"] = str(len(encoded))
+
+        return Response(
+            content=encoded,
+            status_code=response.status_code,
+            headers=headers,
+            media_type=content_type,
+        )

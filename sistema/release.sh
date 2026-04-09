@@ -7,7 +7,7 @@ cd "$(dirname "$0")"
 echo "🔄 Aplicando migrations do Alembic..."
 
 # Aplica migrations pendentes (stamp head é automático se o banco já existir)
-python3 -m alembic upgrade head
+python3 -m alembic upgrade heads
 if [ $? -ne 0 ]; then
     echo "❌ Erro ao aplicar migrations"
     exit 1

@@ -5,7 +5,11 @@ from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse, FileResponse, RedirectResponse
 from pathlib import Path
+import datetime as _dt
 import os
+
+# Preenchido no startup_event; usado pelo endpoint /api/v1/version
+_app_started_at: str = ""
 
 _BASE_DIR = Path(__file__).parent.parent
 
@@ -13,7 +17,7 @@ _BASE_DIR = Path(__file__).parent.parent
 from app.core.logging_config import setup_logging
 from app.core.logging_middleware import LoggingMiddleware
 from app.core.security_middleware import SecurityMiddleware
-from app.core.static_cache_middleware import StaticCacheControlMiddleware
+from app.core.static_cache_middleware import StaticCacheControlMiddleware, VersioningMiddleware
 from app.core.exceptions import register_exception_handlers
 
 # Configura logging estruturado
@@ -199,6 +203,9 @@ app.add_middleware(SecurityMiddleware)
 # Cache-Control para /app e /static (último na pilha = ajusta a resposta antes do cliente/CDN)
 app.add_middleware(StaticCacheControlMiddleware)
 
+# Cache-busting: injeta ?v=APP_VERSION em .js e .css dentro de HTML (deve vir após StaticCache)
+app.add_middleware(VersioningMiddleware)
+
 # Registra handlers de exceção personalizados
 register_exception_handlers(app)
 
@@ -307,13 +314,15 @@ include_routers(app)
 @app.on_event("startup")
 async def startup_event():
     """Aplica migrations pendentes e garante que todas as tabelas existam."""
+    global _app_started_at
+    _app_started_at = _dt.datetime.now(_dt.timezone.utc).isoformat()
     from alembic.config import Config
     from alembic import command
 
     alembic_cfg = Config(str(_BASE_DIR / "alembic.ini"))
     alembic_cfg.set_main_option("script_location", str(_BASE_DIR / "alembic"))
     try:
-        command.upgrade(alembic_cfg, "head")
+        command.upgrade(alembic_cfg, "heads")
         logging.info("Migrations aplicadas com sucesso")
     except Exception as exc:  # noqa: BLE001 — startup não deve quebrar a aplicação
         logging.error("Erro ao aplicar migrations: %s", exc)
@@ -460,7 +469,15 @@ def health():
 
 @app.get("/api/v1/health", tags=["Health"])
 def api_health():
-    return {"status": "ok", "version": "1.0.0", "service": "cotte-api"}
+    return {"status": "ok", "version": settings.APP_VERSION, "service": "cotte-api"}
+
+
+@app.get("/api/v1/version", tags=["Health"])
+def api_version():
+    """Retorna a versão atual do deploy e o timestamp de startup.
+    Usado pelo frontend para detectar novos deploys e exibir banner de atualização.
+    """
+    return {"version": settings.APP_VERSION, "started_at": _app_started_at}
 
 
 if __name__ == "__main__":

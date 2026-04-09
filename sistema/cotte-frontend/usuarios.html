@@ -266,6 +266,11 @@
         <input type="number" id="edit-desconto-max" min="0" max="100" placeholder="Padrão da empresa" style="width:100%;max-width:120px">
         <div style="font-size:11px;color:var(--muted);margin-top:4px">Limite de desconto percentual para este usuário. Vazio = usa o padrão da empresa.</div>
       </div>
+      <div class="form-group" style="margin-top:12px">
+        <label for="edit-telefone-operador">📱 WhatsApp do Operador</label>
+        <input type="tel" id="edit-telefone-operador" placeholder="(48) 99999-9999" style="width:100%;max-width:200px">
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">Número que este usuário usará para comandar o assistente via WhatsApp. Deixe em branco para desativar.</div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="fecharModalEditarUsuario()">Cancelar</button>
@@ -499,6 +504,8 @@
     document.getElementById('edit-senha').value = '';
     const descMaxEl = document.getElementById('edit-desconto-max');
     if (descMaxEl) descMaxEl.value = (u.desconto_max_percent != null && u.desconto_max_percent !== '') ? u.desconto_max_percent : '';
+    const telOpEl = document.getElementById('edit-telefone-operador');
+    if (telOpEl) telOpEl.value = u.telefone_operador || '';
 
     // Seções restritas: só para gestores, somente em outros usuários
       const secaoPerms  = document.getElementById('edit-permissoes-section');
@@ -657,6 +664,10 @@
     if (editDescMax) {
       const v = editDescMax.value.trim();
       payload.desconto_max_percent = (v === '' || v === null) ? null : Math.min(100, Math.max(0, parseInt(v, 10) || 0));
+    }
+    const editTelOp = document.getElementById('edit-telefone-operador');
+    if (editTelOp) {
+      payload.telefone_operador = editTelOp.value.trim() || null;
     }
 
     try {

@@ -411,6 +411,10 @@ def atualizar_usuario_empresa(
             raise HTTPException(
                 status_code=400, detail="Desconto máximo deve estar entre 0 e 100%."
             )
+    if "telefone_operador" in payload and payload["telefone_operador"]:
+        from app.utils.phone import normalize_phone_number
+        normalizado = normalize_phone_number(payload["telefone_operador"])
+        payload["telefone_operador"] = normalizado or payload["telefone_operador"]
 
     for campo, valor in payload.items():
         if campo != "senha_hash" and hasattr(alvo, campo):

@@ -159,6 +159,30 @@ class EvolutionProvider(WhatsAppProvider):
 
         return await _retry_async(_do_send)
 
+    async def enviar_poll(
+        self, telefone: str, pergunta: str, opcoes: list[str]
+    ) -> bool:
+        """Envia enquete nativa do WhatsApp (sendPoll) para confirmação."""
+        from app.services.operador_interacao_service import enviar_poll_confirmacao
+        return await enviar_poll_confirmacao(
+            telefone, pergunta, opcoes, instancia=self._instance
+        )
+
+    async def enviar_lista(
+        self,
+        telefone: str,
+        titulo: str,
+        descricao: str,
+        secoes: list[dict],
+        botao_texto: str = "Ver opções",
+    ) -> bool:
+        """Envia menu de lista interativa (sendList)."""
+        from app.services.operador_interacao_service import enviar_lista_selecao
+        return await enviar_lista_selecao(
+            telefone, titulo, descricao, secoes,
+            botao_texto=botao_texto, instancia=self._instance
+        )
+
     async def enviar_pdf(
         self, telefone: str, pdf_bytes: bytes, numero: str, caption: str = ""
     ) -> bool:
@@ -231,13 +255,21 @@ class EvolutionProvider(WhatsAppProvider):
             texto += "\n\nDocumentos complementares:\n" + "\n".join(linhas_docs)
 
         # SE TEM PDF: Envia como uma única mensagem (PDF + Legenda)
+        sucesso = False
         if pdf_bytes:
-            return await self.enviar_pdf(
-                telefone, pdf_bytes, numero, texto
+            sucesso = await self.enviar_pdf(telefone, pdf_bytes, numero, texto)
+        else:
+            sucesso = await self.enviar_mensagem_texto(telefone, texto)
+            
+        # Tenta enviar um Poll interativo para o cliente logo após o orçamento
+        if sucesso:
+            await self.enviar_poll(
+                telefone, 
+                "Como você deseja prosseguir?", 
+                ["✔️ Aprovar Orçamento", "💬 Tenho Dúvidas", "✏️ Solicitar Alteração"]
             )
-
-        # SE NÃO TEM PDF: Envia apenas texto
-        return await self.enviar_mensagem_texto(telefone, texto)
+            
+        return sucesso
 
     # ── Notificações ao operador ───────────────────────────────────────────
 

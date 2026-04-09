@@ -81,6 +81,23 @@ async def processar_mensagem(
             if empresa_id
             else None
         )
+        # ── Verificar se é operador individual (Usuario.telefone_operador) ──
+        operador_usuario = _usuario_por_telefone_operador(telefone, db)
+        if operador_usuario:
+            empresa_op = db.query(Empresa).filter(
+                Empresa.id == operador_usuario.empresa_id
+            ).first()
+            if empresa_op:
+                from app.services.operador_wpp_service import processar_operador_wpp
+                await processar_operador_wpp(
+                    telefone=telefone,
+                    mensagem=mensagem,
+                    operador=operador_usuario,
+                    db=db,
+                    empresa=empresa_op,
+                )
+                return
+
         msg_upper = mensagem.strip().upper()
         msg_limpa = msg_upper.rstrip(".,!?;:")
 
@@ -266,6 +283,8 @@ async def _processar_assistente_gestor(
             db=db,
             empresa_id=empresa.id,
             usuario_id=usuario.id if usuario else 0,
+            permissoes=usuario.permissoes if usuario else {},  # T3.3
+            is_gestor=usuario.is_gestor if usuario else False,  # T3.3
         )
         texto = (ai_resp.resposta or "").strip() or "Nao consegui processar sua mensagem."
     except Exception:
@@ -314,6 +333,43 @@ def _cliente_por_telefone(
         dig_cli = _digitos_telefone(c.telefone)
         if len(dig_cli) >= 8 and dig_cli[-8:] == sufixo:
             return c
+    return None
+
+
+def _usuario_por_telefone_operador(telefone: str, db: Session) -> "Usuario | None":
+    """
+    Busca Usuario pelo campo telefone_operador (multi-operador individual).
+    Retorna None se o telefone não pertence a nenhum operador cadastrado.
+    """
+    dig = _digitos_telefone(telefone)
+    if len(dig) < 8:
+        return None
+    sufixo = dig[-8:]
+
+    if _is_postgresql(db):
+        digits_expr = func.regexp_replace(
+            Usuario.telefone_operador, r"[^0-9]", "", "g"
+        )
+        return (
+            db.query(Usuario)
+            .filter(
+                Usuario.telefone_operador.isnot(None),
+                Usuario.telefone_operador != "",
+                func.right(digits_expr, 8) == sufixo,
+                Usuario.ativo == True,
+            )
+            .first()
+        )
+
+    # Fallback SQLite (testes locais)
+    for u in db.query(Usuario).filter(
+        Usuario.telefone_operador.isnot(None),
+        Usuario.telefone_operador != "",
+        Usuario.ativo == True,
+    ).all():
+        dig_u = _digitos_telefone(u.telefone_operador or "")
+        if len(dig_u) >= 8 and dig_u[-8:] == sufixo:
+            return u
     return None
 
 

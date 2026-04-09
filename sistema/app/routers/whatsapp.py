@@ -153,12 +153,84 @@ async def _webhook_evolution(
 
     telefone = sanitizar_telefone(payload.phone)
     mensagem = sanitizar_mensagem(payload.mensagem_texto)
+    empresa_id = empresa_instancia.id if empresa_instancia else None
+
+    # Áudio (PTT ou audioMessage) — tenta transcrever para operadores
+    if not mensagem and payload.audio_message_data:
+        background_tasks.add_task(
+            _processar_audio_operador,
+            telefone,
+            payload.audio_message_data,
+            empresa_id,
+        )
+        return {"status": "ok", "type": "audio"}
+
     if not telefone or not mensagem:
         return {"status": "ignored"}
 
-    empresa_id = empresa_instancia.id if empresa_instancia else None
     background_tasks.add_task(processar_mensagem, telefone, mensagem, empresa_id)
     return {"status": "ok"}
+
+
+async def _processar_audio_operador(
+    telefone: str,
+    audio_message_data: dict,
+    empresa_id: int | None,
+) -> None:
+    """
+    [INOVAÇÃO] Background task: transcreve áudio do WhatsApp via Whisper
+    e encaminha o texto transcrito ao assistente do operador.
+    """
+    from app.core.database import SessionLocal
+    from app.models.models import Empresa
+    from app.services.whatsapp_bot_service import _usuario_por_telefone_operador
+    from app.services.whatsapp_service import enviar_mensagem_texto
+    from app.services.audio_transcription_service import (
+        transcrever_audio_wpp,
+        mensagem_voz_nao_configurada,
+    )
+
+    db = SessionLocal()
+    try:
+        # Só processa áudio de operadores individuais cadastrados
+        operador = _usuario_por_telefone_operador(telefone, db)
+        if not operador:
+            return  # áudio de cliente — ignora
+
+        empresa = db.query(Empresa).filter(Empresa.id == operador.empresa_id).first()
+        if not empresa:
+            return
+
+        # Indica que está processando o áudio
+        await enviar_mensagem_texto(
+            telefone, "🎤 _Processando seu áudio..._", empresa=empresa
+        )
+
+        transcricao = await transcrever_audio_wpp(audio_message_data)
+
+        if not transcricao:
+            await enviar_mensagem_texto(
+                telefone, mensagem_voz_nao_configurada(), empresa=empresa
+            )
+            return
+
+        # Log para auditoria
+        import logging
+        logging.getLogger(__name__).info(
+            "[AudioWPP] %s transcreveu: %s", telefone, transcricao[:100]
+        )
+
+        # Encaminha o texto ao pipeline normal do operador
+        from app.services.operador_wpp_service import processar_operador_wpp
+        await processar_operador_wpp(
+            telefone=telefone,
+            mensagem=transcricao,
+            operador=operador,
+            db=db,
+            empresa=empresa,
+        )
+    finally:
+        db.close()
 
 
 async def _tratar_connection_update(raw_body: dict, empresa: Empresa, db: Session):

@@ -652,7 +652,7 @@ class WebhookEvolution(BaseModel):
 
     @property
     def mensagem_texto(self) -> Optional[str]:
-        """Retorna o texto da mensagem, seja simples ou com preview."""
+        """Retorna o texto da mensagem: texto simples, preview de link ou voto de poll."""
         if not self.data:
             return None
         msg = self.data.get("message") or {}
@@ -663,6 +663,23 @@ class WebhookEvolution(BaseModel):
         ext = msg.get("extendedTextMessage") or {}
         if "text" in ext:
             return ext["text"]
+        # Resposta de poll — Evolution/Baileys encapsula como pollUpdateMessage
+        poll_upd = msg.get("pollUpdateMessage") or {}
+        if poll_upd:
+            votes = poll_upd.get("vote", {}).get("selectedOptions", [])
+            if votes:
+                return votes[0]  # ex: "Confirmar" ou "Cancelar"
+        return None
+
+    @property
+    def audio_message_data(self) -> Optional[dict]:
+        """Retorna os dados do audioMessage se presente, para transcrição de voz."""
+        if not self.data:
+            return None
+        msg = self.data.get("message") or {}
+        if "audioMessage" in msg or "pttMessage" in msg:
+            # Retorna a estrutura completa necessária para download via Evolution API
+            return self.data
         return None
 
 
@@ -1095,6 +1112,7 @@ class UsuarioOut(BaseModel):
     is_gestor: bool = False
     permissoes: dict = {}
     papel: Optional[PapelResumo] = None
+    telefone_operador: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -1181,6 +1199,7 @@ class UsuarioEmpresaUpdate(BaseModel):
     desconto_max_percent: Optional[int] = (
         None  # limite de desconto em orçamentos; None = usa o da empresa
     )
+    telefone_operador: Optional[str] = None  # WhatsApp para acesso ao assistente via WPP
 
 
 class UsuarioAdminOut(BaseModel):
@@ -1199,6 +1218,7 @@ class UsuarioAdminOut(BaseModel):
     desconto_max_percent: Optional[int] = (
         None  # limite de desconto em orçamentos; None = usa o da empresa
     )
+    telefone_operador: Optional[str] = None
 
     class Config:
         from_attributes = True

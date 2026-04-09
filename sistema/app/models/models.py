@@ -450,6 +450,8 @@ class Usuario(Base):
     desconto_max_percent = Column(Integer, nullable=True)
     # Papel/role do usuário (RBAC); None = usa permissoes JSON legado
     papel_id = Column(Integer, ForeignKey("papeis.id"), nullable=True)
+    # WhatsApp individual do operador — permite acesso ao assistente via WPP
+    telefone_operador = Column(String(20), nullable=True, index=True)
 
     empresa = relationship("Empresa", back_populates="usuarios")
     papel = relationship("Papel", back_populates="usuarios")
