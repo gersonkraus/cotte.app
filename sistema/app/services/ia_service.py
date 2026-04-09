@@ -122,12 +122,12 @@ SYSTEM_PROMPT = """Extrai dados de orçamento de mensagem em linguagem natural. 
 
 SYSTEM_PROMPT_OPERADOR = """Interpreta comando de operador de orçamentos. Retorne APENAS JSON válido:
 {"acao":"VER|DESCONTO|ADICIONAR|REMOVER|ENVIAR|CRIAR|APROVAR|RECUSAR|AJUDA|ANALISE_FINANCEIRA|ANALISE_CONVERSAO|SUGESTOES_NEGOCIO|CAIXA_FUTURO|DESCONHECIDO","orcamento_id":null,"valor":null,"desconto_tipo":"percentual","descricao":null,"num_item":null}
-VER / MOSTRAR:"ver 5","mostra 5","mostra o 5","me mostra o orc 3","ver orçamento 5","detalhes do 5" | DESCONTO:"10% no 5","50 reais no 3","desconto 15% no orcamento 2" | ADICIONAR:"adiciona filtro 80 no 3","coloca pintura 200 no orcamento 3" | REMOVER:"remove item 2 do 5","tira o item 1 do orçamento 3" | ENVIAR:"envia o 5","manda o 3","enviar orçamento 5","mandar orc 3" | APROVAR:"aprovar 5","aprova o 3","aprovar orçamento 5","confirma 5" | RECUSAR:"recusar 5","recusa o 3","reprovar 2","rejeitar orcamento 5" | CRIAR:"pintura 800 para João","corte 150 pra maria" | AJUDA:"ajuda","help"
+VER / MOSTRAR:"ver 5","mostra 5","mostra o 5","me mostra o orc 3","ver orçamento 5","detalhes do 5" | DESCONTO:"10% no 5","50 reais no 3","desconto 15% no orcamento 2" | ADICIONAR:"adiciona filtro 80 no 3","coloca pintura 200 no orcamento 3" | REMOVER:"remove item 2 do 5","tira o item 1 do orçamento 3" | ENVIAR:"envia o 5","manda o 3","enviar orçamento 5","mandar orc 3","enviar O-103","enviar 103" | APROVAR:"aprovar 5","aprova o 3","aprovar orçamento 5","confirma 5" | RECUSAR:"recusar 5","recusa o 3","reprovar 2","rejeitar orcamento 5" | CRIAR:"pintura 800 para João","corte 150 pra maria" | AJUDA:"ajuda","help"
 ANALISE_FINANCEIRA:"Como estão as finanças?","Analisar financeiro","Quanto faturamos?"
 ANALISE_CONVERSAO:"Qual meu ticket médio?","Analisar conversão","Serviço mais vendido"
 SUGESTOES_NEGOCIO:"Como aumentar vendas?","Quais clientes devendo?","Sugestões de negócio"
 CAIXA_FUTURO:"caixa futuro","previsão de caixa","fluxo de caixa","quanto vou receber","projeção financeira"
-- Padrões de ID aceitos: "ver 5","ver o 5","ver orc 5","ver orçamento 5","#5","id 5","orc 5" — o número adjacent à palavra é o ID
+- Padrões de ID aceitos: "ver 5","ver o 5","ver orc 5","ver orçamento 5","#5","id 5","orc 5", "O-103", "ORC-103" — o número adjacent à palavra é o ID, extraia apenas os numerais, ex: "O-103" -> 103.
 - "aprovar" sozinho ou "aprovar orçamento" (sem número) → orcamento_id=null (NUNCA criar; pedir o número)
 - valor: ponto decimal | desconto_tipo:"percentual"(%) ou "fixo"(reais)
 - Se o comando for de análise (finanças, conversão, negócio, caixa futuro), retorne acao correspondente e orcamento_id=null"""
@@ -173,7 +173,10 @@ Formato de saída:
 # ── Funções originais migradas para LiteLLM ───────────────────────────────
 async def interpretar_mensagem(mensagem: str) -> IAInterpretacaoOut:
     response = await ia_service.chat(
-        messages=[{"role": "user", "content": sanitizar_mensagem(mensagem)}],
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": sanitizar_mensagem(mensagem)}
+        ],
         temperature=0.0,
         max_tokens=150,
     )
@@ -188,7 +191,10 @@ async def interpretar_mensagem(mensagem: str) -> IAInterpretacaoOut:
 async def interpretar_comando_operador(mensagem: str) -> dict:
     try:
         response = await ia_service.chat(
-            messages=[{"role": "user", "content": sanitizar_mensagem(mensagem)}],
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT_OPERADOR},
+                {"role": "user", "content": sanitizar_mensagem(mensagem)}
+            ],
             temperature=0.0,
             max_tokens=100,
         )
