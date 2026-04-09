@@ -89,24 +89,13 @@ listar_orcamentos = ToolSpec(
 
 # ── obter_orcamento ────────────────────────────────────────────────────────
 class ObterOrcamentoInput(BaseModel):
-    id: int = Field(gt=0, description="ID numérico do orçamento.")
+    id: int | str = Field(description="ID NÚMERICO ou NÚMERO do orçamento (ex: 104 ou 'O-104').")
 
 
 async def _obter_orcamento(
     inp: ObterOrcamentoInput, *, db: Session, current_user: Usuario
 ) -> dict[str, Any]:
-    o: Optional[Orcamento] = (
-        db.query(Orcamento)
-        .options(
-            selectinload(Orcamento.cliente),
-            selectinload(Orcamento.itens),
-        )
-        .filter(
-            Orcamento.id == inp.id,
-            Orcamento.empresa_id == current_user.empresa_id,
-        )
-        .first()
-    )
+    o = _get_orcamento_da_empresa(db, inp.id, current_user.empresa_id)
     if not o:
         return {"error": "orçamento não encontrado", "code": "not_found"}
     return {
@@ -440,19 +429,39 @@ criar_orcamento = ToolSpec(
 
 # ── helper: carregar orçamento da empresa ─────────────────────────────────
 def _get_orcamento_da_empresa(
-    db: Session, orcamento_id: int, empresa_id: int
+    db: Session, orcamento_id: int | str, empresa_id: int
 ) -> Optional[Orcamento]:
-    return (
-        db.query(Orcamento)
-        .options(selectinload(Orcamento.itens), selectinload(Orcamento.cliente))
-        .filter(Orcamento.id == orcamento_id, Orcamento.empresa_id == empresa_id)
-        .first()
-    )
+    from sqlalchemy import or_
+    import re
+    
+    val_str = str(orcamento_id).strip()
+    
+    q = db.query(Orcamento).options(selectinload(Orcamento.itens), selectinload(Orcamento.cliente)).filter(Orcamento.empresa_id == empresa_id)
+    
+    exact = q.filter(Orcamento.numero == val_str).first()
+    if exact:
+        return exact
+        
+    match = re.search(r'\d+', val_str)
+    if match:
+        val_int = int(match.group())
+        
+        candidatos = q.filter(or_(Orcamento.id == val_int, Orcamento.sequencial_numero == val_int)).all()
+        if not candidatos:
+            return None
+            
+        for c in candidatos:
+            if c.sequencial_numero == val_int:
+                return c
+                
+        return candidatos[0]
+        
+    return None
 
 
 # ── aprovar_orcamento (DESTRUTIVA) ─────────────────────────────────────────
 class AprovarOrcamentoInput(BaseModel):
-    orcamento_id: int = Field(gt=0, description="ID do orçamento a aprovar.")
+    orcamento_id: int | str = Field(description="ID NÚMERICO ou NÚMERO do orçamento a aprovar.")
 
 
 async def _aprovar_orcamento(
@@ -504,7 +513,7 @@ aprovar_orcamento = ToolSpec(
 
 # ── recusar_orcamento (DESTRUTIVA) ─────────────────────────────────────────
 class RecusarOrcamentoInput(BaseModel):
-    orcamento_id: int = Field(gt=0, description="ID do orçamento a recusar.")
+    orcamento_id: int | str = Field(description="ID NÚMERICO ou NÚMERO do orçamento a recusar.")
     motivo: Optional[str] = Field(default=None, max_length=500)
 
 
@@ -554,7 +563,7 @@ recusar_orcamento = ToolSpec(
 
 # ── enviar_orcamento_whatsapp (DESTRUTIVA) ────────────────────────────────
 class EnviarOrcamentoWhatsappInput(BaseModel):
-    orcamento_id: int = Field(gt=0, description="ID do orçamento a enviar.")
+    orcamento_id: int | str = Field(description="ID NÚMERICO ou NÚMERO do orçamento a enviar (ex: 104 ou 'O-104').")
 
 
 async def _enviar_orcamento_whatsapp(
@@ -612,7 +621,7 @@ enviar_orcamento_whatsapp = ToolSpec(
 
 # ── enviar_orcamento_email (DESTRUTIVA) ───────────────────────────────────
 class EnviarOrcamentoEmailInput(BaseModel):
-    orcamento_id: int = Field(gt=0, description="ID do orçamento a enviar.")
+    orcamento_id: int | str = Field(description="ID NÚMERICO ou NÚMERO do orçamento a enviar (ex: 104 ou 'O-104').")
 
 
 async def _enviar_orcamento_email(
@@ -684,7 +693,7 @@ enviar_orcamento_email = ToolSpec(
 
 # ── duplicar_orcamento (DESTRUTIVA) ────────────────────────────────────────
 class DuplicarOrcamentoInput(BaseModel):
-    orcamento_id: int = Field(gt=0)
+    orcamento_id: int | str = Field(description="ID NÚMERICO ou NÚMERO do orçamento (ex: 104 ou 'O-104').")
 
 
 async def _duplicar_orcamento(
@@ -768,7 +777,7 @@ duplicar_orcamento = ToolSpec(
 
 # ── editar_orcamento (DESTRUTIVA, só em RASCUNHO) ──────────────────────────
 class EditarOrcamentoInput(BaseModel):
-    orcamento_id: int = Field(gt=0)
+    orcamento_id: int | str = Field(description="ID NÚMERICO ou NÚMERO do orçamento (ex: 104 ou 'O-104').")
     observacoes: Optional[str] = Field(default=None, max_length=2000)
     desconto: Optional[Decimal] = Field(default=None, ge=0)
     desconto_tipo: Optional[str] = Field(
