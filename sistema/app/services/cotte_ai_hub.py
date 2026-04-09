@@ -1704,174 +1704,284 @@ async def assistente_unificado(
         )
 
 
+async def assistente_v2_stream_core(
+    *,
+    mensagem: str,
+    sessao_id: str,
+    db,
+    current_user,
+    confirmation_token: str | None = None,
+    override_args: dict | None = None,
+):
+    """Núcleo do Tool Use v2 adaptado para SSE.
+
+    Eventos emitidos (cada um como linha `data: <json>\\n\\n`):
+    - {"phase": "thinking"}                      — antes do 1º LLM
+    - {"phase": "tool_running", "tool": "X"}     — ao executar tool X
+    - {"chunk": "texto..."}                      — token a token
+    - {"is_final": true, "metadata": {...}}      — fim da resposta
+    - {"error": "msg"}                           — erro grave
+    """
+    import asyncio
+    from app.services.ai_tools import openai_tools_payload
+    from app.services.cotte_context_builder import SessionStore
+    from app.services.ia_service import ia_service
+    from app.services.tool_executor import execute as tool_execute
+    try:
+        from app.services.tool_executor import execute_pending
+    except ImportError:
+        execute_pending = None
+
+    def _enc(d):
+        return f"data: {json.dumps(d, ensure_ascii=False, default=str)}\n\n"
+
+    # ── Fast-path: confirmação de ação pendente ────────────────────────────
+    if confirmation_token and execute_pending:
+        yield _enc({"phase": "thinking"})
+        try:
+            result = await execute_pending(
+                confirmation_token,
+                db=db,
+                current_user=current_user,
+                sessao_id=sessao_id,
+                override_args=override_args or {},
+            )
+        except Exception as exc:
+            logger.exception("[stream_v2] Erro no fast-path de confirmação")
+            yield _enc({"error": str(exc)})
+            return
+
+        orc_data = result.data or {} if hasattr(result, "data") else {}
+        status = result.status if hasattr(result, "status") else "ok"
+        if status == "ok" and orc_data.get("numero"):
+            final_text = "✅ Ação concluída com sucesso."
+            tipo_resp = "orcamento_criado"
+            sugs = [f"Ver {orc_data['numero']}", f"Enviar {orc_data['numero']} por WhatsApp"]
+            resp_dados = orc_data
+        elif status == "forbidden":
+            final_text = "❌ Sem permissão para esta ação."
+            tipo_resp = None
+            sugs = []
+            resp_dados = {}
+        else:
+            final_text = f"❌ Não foi possível concluir: {getattr(result, 'error', status)}"
+            tipo_resp = None
+            sugs = []
+            resp_dados = {}
+
+        tool_trace_fpath = [{"tool": "(confirmação)", "status": status}]
+        for word in final_text.split(" "):
+            yield _enc({"chunk": word + " "})
+        SessionStore.append_db(sessao_id, "assistant", final_text, db)
+        yield _enc({"is_final": True, "metadata": {
+            "tipo": tipo_resp, "dados": resp_dados,
+            "tool_trace": tool_trace_fpath, "sugestoes": sugs, "pending_action": None,
+        }})
+        return
+
+    # ── Fluxo normal: loop Tool Use v2 ────────────────────────────────────
+    yield _enc({"phase": "thinking"})
+
+    agora = datetime.now(_TZ_BR).strftime("%Y-%m-%d %H:%M")
+    empresa_id = getattr(current_user, "empresa_id", 0)
+    usuario_id = getattr(current_user, "id", 0)
+
+    SessionStore.ensure_sessao_db(
+        sessao_id=sessao_id,
+        empresa_id=empresa_id,
+        usuario_id=usuario_id,
+        db=db,
+    )
+    history = SessionStore.get_or_create(
+        sessao_id,
+        db=db,
+        empresa_id=empresa_id,
+        usuario_id=usuario_id,
+    )
+    SessionStore.append_db(sessao_id, "user", mensagem, db)
+
+    messages: list[dict] = [
+        {"role": "system", "content": f"{_V2_SYSTEM_PROMPT}\n\nData/hora atual: {agora}."},
+    ]
+    for h in (history or [])[-12:]:
+        role = h.get("role") if isinstance(h, dict) else getattr(h, "role", None)
+        content = h.get("content") if isinstance(h, dict) else getattr(h, "content", None)
+        if role in ("user", "assistant") and content:
+            messages.append({"role": role, "content": content})
+    messages.append({"role": "user", "content": mensagem})
+
+    tools_payload = openai_tools_payload()
+    tool_trace: list[dict] = []
+    pending_action: dict | None = None
+    resp_dados: dict = {}
+    tipo_resp: str | None = None
+    sugs: list = []
+    final_text: str = ""
+
+    for _iter in range(_V2_MAX_ITER):
+        try:
+            resp = await ia_service.chat(
+                messages=messages,
+                tools=tools_payload,
+                temperature=0.3,
+                max_tokens=1024,
+            )
+        except Exception as exc:
+            logger.exception("[stream_v2] Falha na chamada ia_service.chat iter=%s", _iter)
+            yield _enc({"error": f"Erro ao consultar assistente: {exc}"})
+            return
+
+        # Normalizar resposta (dict ou objeto LiteLLM)
+        choices = resp.get("choices") if isinstance(resp, dict) else getattr(resp, "choices", None)
+        if not choices:
+            break
+        choice = choices[0]
+        msg_obj = choice.get("message") if isinstance(choice, dict) else getattr(choice, "message", None)
+        if msg_obj is None:
+            break
+
+        def _get(obj, *keys):
+            for k in keys:
+                if isinstance(obj, dict):
+                    obj = obj.get(k)
+                else:
+                    obj = getattr(obj, k, None)
+                if obj is None:
+                    return None
+            return obj
+
+        tool_calls = _get(msg_obj, "tool_calls")
+
+        if tool_calls:
+            # Adicionar turno do assistente com tool_calls ao histórico de messages
+            assistant_turn: dict = {"role": "assistant", "content": _get(msg_obj, "content") or ""}
+            tc_serialized = []
+            for tc in tool_calls:
+                fn = _get(tc, "function")
+                tc_serialized.append({
+                    "id": _get(tc, "id"),
+                    "type": "function",
+                    "function": {
+                        "name": _get(fn, "name") if isinstance(fn, dict) else getattr(fn, "name", None),
+                        "arguments": (
+                            _get(fn, "arguments") if isinstance(fn, dict) else getattr(fn, "arguments", None)
+                        ),
+                    },
+                })
+            assistant_turn["tool_calls"] = tc_serialized
+            messages.append(assistant_turn)
+
+            for tc in tc_serialized:
+                tool_name = (tc.get("function") or {}).get("name") or "?"
+                yield _enc({"phase": "tool_running", "tool": tool_name})
+
+                result = await tool_execute(
+                    tc,
+                    db=db,
+                    current_user=current_user,
+                    sessao_id=sessao_id,
+                    confirmation_token=None,
+                )
+                t_status = result.status if hasattr(result, "status") else "ok"
+                t_latencia = result.latencia_ms if hasattr(result, "latencia_ms") else 0
+                tool_trace.append({"tool": tool_name, "status": t_status, "latencia_ms": t_latencia})
+
+                if t_status == "pending":
+                    pending_action = result.pending_action if hasattr(result, "pending_action") else None
+                    if pending_action and hasattr(result, "data") and result.data:
+                        resp_dados = result.data
+
+                payload = result.to_llm_payload() if hasattr(result, "to_llm_payload") else {"error": "executor sem payload"}
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tc.get("id"),
+                    "content": json.dumps(payload, ensure_ascii=False, default=str),
+                })
+
+            if pending_action:
+                final_text = "Para concluir esta ação, confirme os dados abaixo."
+                break
+            continue
+
+        # Sem tool_calls → fase de resposta em texto — streaming real
+        final_text = ""
+        try:
+            async for token in ia_service.chat_stream(
+                messages=list(messages),
+                temperature=0.3,
+                max_tokens=1024,
+            ):
+                final_text += token
+                yield _enc({"chunk": token})
+        except Exception as exc:
+            # Fallback: usar texto já retornado pelo chat() desta iteração
+            candidate = _get(msg_obj, "content") or ""
+            if candidate:
+                final_text = candidate
+                for word in candidate.split(" "):
+                    yield _enc({"chunk": word + " "})
+                    await asyncio.sleep(0.006)
+            else:
+                final_text = "Não consegui gerar a resposta. Tente novamente."
+                yield _enc({"chunk": final_text})
+        break
+    else:
+        final_text = "Limite de iterações atingido. Refine sua pergunta."
+        yield _enc({"chunk": final_text})
+
+    # Inferir tipo da resposta pelo trace de tools executadas
+    if tool_trace and not pending_action:
+        tools_ok = [t["tool"] for t in tool_trace if t.get("status") == "ok"]
+        if any(t in tools_ok for t in ("criar_orcamento", "duplicar_orcamento")):
+            tipo_resp = "orcamento_criado"
+            if not sugs:
+                sugs = ["Ver o orçamento criado", "Enviar por WhatsApp", "Aprovar agora"]
+        elif any(t in tools_ok for t in ("aprovar_orcamento", "recusar_orcamento", "enviar_orcamento_whatsapp", "enviar_orcamento_email")):
+            tipo_resp = "operador_resultado"
+        elif any(t in tools_ok for t in ("obter_saldo_caixa", "listar_movimentacoes_financeiras", "listar_despesas")):
+            tipo_resp = "financeiro"
+
+    if final_text:
+        SessionStore.append_db(sessao_id, "assistant", final_text, db)
+
+    yield _enc({"is_final": True, "metadata": {
+        "tipo": tipo_resp,
+        "dados": resp_dados,
+        "pending_action": pending_action,
+        "tool_trace": tool_trace or None,
+        "sugestoes": sugs or None,
+    }})
+
+
 async def assistente_unificado_stream(
     mensagem: str,
     sessao_id: str,
-    db: Session,
-    empresa_id: int,
-    usuario_id: int = 0,
-    permissoes: dict | None = None,
-    is_gestor: bool = False,
+    db,
+    current_user,
+    confirmation_token: str | None = None,
+    override_args: dict | None = None,
 ):
-    from app.models.models import AIChatSessao, AIChatMensagem
-    from app.services.cotte_context_builder import ContextBuilder
-    from app.services.ai_intention_classifier import detectar_intencao_assistente_async
-    import json
-    import os
+    """Ponto de entrada SSE — delega para assistente_v2_stream_core (Tool Use v2).
 
-    # 1. Obter Sessao e Histórico no DB
-    sessao = db.query(AIChatSessao).filter(AIChatSessao.id == sessao_id).first()
-    if not sessao:
-        sessao = AIChatSessao(id=sessao_id, empresa_id=empresa_id, usuario_id=usuario_id)
-        db.add(sessao)
-        db.commit()
-    
-    historico_mensagens = db.query(AIChatMensagem).filter(AIChatMensagem.sessao_id == sessao_id).order_by(AIChatMensagem.criado_em.asc()).all()
-    # Pega ultimas 10 msgs para evitar sobrecarga de contexto
-    historico = [{"role": msg.role, "content": msg.content} for msg in historico_mensagens][-10:]
-
-    msg_user = AIChatMensagem(sessao_id=sessao_id, role="user", content=mensagem)
-    db.add(msg_user)
-    db.commit()
-
-    # 2. Interpretação + ContextBuilder
+    Mantém compatibilidade de URL com o frontend. O router deve passar
+    `current_user` (objeto User completo) e os tokens de confirmação.
+    """
+    import asyncio
     try:
-        classificacao = await detectar_intencao_assistente_async(mensagem)
-        intencao = classificacao.intencao.value
-    except Exception:
-        intencao = "CONVERSACAO"
-
-    # Bloqueio de finanças
-    _perms = permissoes or {}
-    _nivel_fin = _perms.get("financeiro")
-    _tem_financeiro = is_gestor or bool(_nivel_fin)
-    if intencao in _INTENCOES_FINANCEIRAS and not _tem_financeiro:
-        yield f"data: {json.dumps({'chunk': 'Você não tem acesso ao módulo financeiro. Fale com o gestor da sua conta.', 'is_final': True})}\n\n"
-        return
-
-    # Roteamento especial
-    fast_response = None
-    if intencao == "CRIAR_ORCAMENTO":
-        fast_response = await criar_orcamento_ia(mensagem=mensagem, db=db, empresa_id=empresa_id, usuario_id=usuario_id)
-    elif intencao == "SALDO_RAPIDO":
-        from app.services.ai_intention_classifier import saldo_rapido_ia
-        fast_response = await saldo_rapido_ia(db=db, empresa_id=empresa_id)
-    elif intencao == "OPERADOR":
-        fast_response = await executar_comando_operador_ia(mensagem=mensagem, db=db, empresa_id=empresa_id, usuario_id=usuario_id)
-    elif intencao == "ONBOARDING":
-        from app.services.onboarding_service import get_onboarding_status, formatar_resposta_onboarding
-        status = get_onboarding_status(db=db, empresa_id=empresa_id)
-        fast_response = AIResponse(sucesso=True, resposta=formatar_resposta_onboarding(status), tipo_resposta="onboarding", dados=status, confianca=1.0, modulo_origem="onboarding")
-    elif intencao == "CONVERSACAO":
-        # Onboarding não bloqueia mais o assistente — IA responde normalmente
-        pass
-
-    if fast_response:
-        import asyncio
-        msg_ast = AIChatMensagem(sessao_id=sessao_id, role="assistant", content=fast_response.resposta)
-        db.add(msg_ast)
-        db.commit()
-        
-        texto_parts = fast_response.resposta.split(' ')
-        for word in texto_parts:
-            yield f"data: {json.dumps({'chunk': word + ' '})}\n\n"
-            await asyncio.sleep(0.01)
-            
-        sugs = []
-        if getattr(fast_response, "acao_sugerida", None):
-            try:
-                sugs = json.loads(fast_response.acao_sugerida)
-            except:
-                pass
-                
-        metadata = {
-            "tipo": fast_response.tipo_resposta,
-            "dados": fast_response.dados,
-            "sugestoes": sugs
-        }
-        yield f"data: {json.dumps({'is_final': True, 'metadata': metadata})}\n\n"
-        return
-
-    contexto = await ContextBuilder.build(
-        intencao, db, empresa_id, usuario_id=usuario_id, mensagem=mensagem
-    )
-
-    agora = datetime.now(_TZ_BR)
-    cabecalho = f"Hoje: {agora.strftime('%A, %d/%m/%Y')} às {agora.strftime('%H:%M')}"
-    
-    doc_sistema = contexto.pop("documentacao_sistema", None) if contexto else None
-    
-    user_content = f"{mensagem}\n\n[DADOS DO SISTEMA]\n{cabecalho}"
-    if contexto:
-        user_content += f"\n{json.dumps(contexto, ensure_ascii=False, default=str)}"
-    if doc_sistema:
-        user_content += f"\n\n[DOCUMENTAÇÃO DO SISTEMA]\n{doc_sistema}"
-
-    messages = historico + [{"role": "user", "content": user_content}]
-
-    # Modifica o system prompt em tempo de execução para forçar Markdown e separador
-    prompt = SYSTEM_PROMPT_ASSISTENTE.replace(
-        "FORMATO DE RESPOSTA OBRIGATÓRIO (JSON):",
-        "INSTRUÇÃO IMPORTANTE: RETORNE SUA MENSAGEM PRINCIPAL EM **MARKDOWN FORMATADO**. USE TABELAS MARKDOWN OBRIGATORIAMENTE PARA LISTAS LONGAS OU ARRAYS DE DADOS.\n\nNo final da sua resposta, CASO detecte intenção de analises financeiras/conversão, OU você tiver <sugestoes>, inclua o marcador exato '---JSON_CONFIG---' e em seguida UM JSON VÁLIDO contendo as métricas de grafico e ou sugestoes.\n\nEXEMPLO DA SUA SAÍDA:\nAqui está o resultado...\n| Col A | Col B |\n| --- | --- |\n| 1 | 2 |\n\n---JSON_CONFIG---\n{\"tipo\": \"financeiro\", \"grafico\": {\"tipo\": \"bar\", \"dados\": {\"labels\":[\"A\"], \"datasets\":[{\"label\":\"Vendas\", \"data\":[50]}]}}, \"sugestoes\": [\"O que mais deseja fazer?\"]}\n\nFORMATO DE RESPOSTA OBRIGATÓRIO:"
-    ).replace(
-        "{\"resposta\": \"texto da resposta para o usuário\", \"tipo\": \"financeiro|orcamentos|clientes|leads|agendamentos|ajuda|geral\", \"dados\": null, \"sugestoes\": [\"até 3 perguntas de acompanhamento relevantes\"]}",
-        "O Texto Markdown!"
-    )
-
-    import anthropic
-    key = os.getenv("ANTHROPIC_API_KEY") or getattr(settings, "ANTHROPIC_API_KEY", None)
-    async_client = anthropic.AsyncAnthropic(api_key=key)
-
-    try:
-        stream = await async_client.messages.create(
-            model=SONNET,
-            max_tokens=2500,
-            system=prompt,
-            messages=messages,
-            stream=True
-        )
-
-        full_content = ""
-        split_marker = "---JSON_CONFIG---"
-        is_metadata_phase = False
-
-        async for event in stream:
-            if event.type == "content_block_delta":
-                chunk = event.delta.text
-                full_content += chunk
-                
-                if split_marker in full_content:
-                    if not is_metadata_phase:
-                        is_metadata_phase = True
-                else:
-                    # Yield text chunks avoiding partial split_marker matches locally
-                    # For safety we just let frontend append chunk
-                    # Small visual glitch if it types '-' then hides is acceptable or we process in parts
-                    # We will just yield it since partial markers are rare and fast
-                    yield f"data: {json.dumps({'chunk': chunk})}\n\n"
-                    
-        # Conclusão do stream
-        parts = full_content.split(split_marker)
-        resposta_markdown = parts[0].strip()
-        
-        metadata = {}
-        if len(parts) > 1:
-            try:
-                metadata = json.loads(parts[1].strip())
-            except Exception as j_err:
-                logger.error(f"[stream] Erro parse JSON block: {j_err} -> {parts[1]}")
-
-        # Persistir a mensagem base limpa no DB
-        msg_ast = AIChatMensagem(sessao_id=sessao_id, role="assistant", content=resposta_markdown)
-        db.add(msg_ast)
-        db.commit()
-
-        yield f"data: {json.dumps({'is_final': True, 'metadata': metadata})}\n\n"
-
-    except Exception as e:
-        logger.error(f"[stream] Exception: {e}")
-        yield f"data: {json.dumps({'error': str(e)})}\n\n"
-
+        async for event in assistente_v2_stream_core(
+            mensagem=mensagem,
+            sessao_id=sessao_id,
+            db=db,
+            current_user=current_user,
+            confirmation_token=confirmation_token,
+            override_args=override_args,
+        ):
+            yield event
+    except asyncio.TimeoutError:
+        yield f"data: {json.dumps({'error': 'Tempo limite atingido. Tente novamente.'})}\n\n"
+    except Exception as exc:
+        logger.exception("[assistente_unificado_stream] Erro inesperado")
+        yield f"data: {json.dumps({'error': str(exc)})}\n\n"
 
 # ── Funções de Compatibilidade (manter backward compatibility) ────────────────
 

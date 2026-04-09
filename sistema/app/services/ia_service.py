@@ -59,6 +59,43 @@ class IAService:
             logger.error(f"Erro na chamada IA: {e}", exc_info=True)
             raise
 
+    async def chat_stream(
+        self,
+        messages: List[Dict[str, str]],
+        temperature: float = 0.3,
+        max_tokens: int = 2048,
+    ):
+        """Streaming real de tokens (sem tool calling).
+
+        Retorna um async generator que produz strings de texto incrementais.
+        Usar apenas na fase de resposta final em texto livre — tool calls devem
+        usar `chat()` normal.
+        """
+        try:
+            response = await acompletion(
+                model=self.model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                api_key=self.api_key,
+                stream=True,
+            )
+            async for chunk in response:
+                delta = None
+                try:
+                    choices = getattr(chunk, "choices", None) or chunk.get("choices")
+                    if choices:
+                        msg = getattr(choices[0], "delta", None) or choices[0].get("delta")
+                        if msg:
+                            delta = getattr(msg, "content", None) or (msg.get("content") if isinstance(msg, dict) else None)
+                except Exception:
+                    pass
+                if delta:
+                    yield delta
+        except Exception as e:
+            logger.error(f"Erro no chat_stream: {e}", exc_info=True)
+            raise
+
     def _calculate_cost(self, input_tokens: int, output_tokens: int) -> float:
         if "gpt-4o-mini" in self.model:
             return (input_tokens * 0.00000015) + (output_tokens * 0.00000060)

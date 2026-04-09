@@ -588,13 +588,13 @@ async def assistente_universal_stream(
             mensagem=request.mensagem,
             sessao_id=request.sessao_id,
             db=db,
-            empresa_id=current_user.empresa_id,
-            usuario_id=current_user.id,
-            permissoes=current_user.permissoes or {},
-            is_gestor=current_user.is_gestor,
+            current_user=current_user,
+            confirmation_token=getattr(request, "confirmation_token", None),
+            override_args=getattr(request, "override_args", None),
         ),
         media_type="text/event-stream"
     )
+
 
 @router.post("/assistente", response_model=AIResponse)
 async def assistente_universal(

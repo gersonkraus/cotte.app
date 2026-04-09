@@ -905,6 +905,7 @@ async function sendMessage() {
         let responseText = '';
         let metadata = null;
         let bubbleNode = null;
+        let toolBadge = null;   // Badge temporário de "executando tool"
 
         if (loadingMessage) {
             loadingMessage.classList.remove('loading');
@@ -924,7 +925,25 @@ async function sendMessage() {
                         try {
                             const dataObj = JSON.parse(dataStr);
                             if (dataObj.error) throw new Error(dataObj.error);
+
+                            // ── Evento de fase (thinking / tool_running) ──────
+                            if (dataObj.phase === 'tool_running' && dataObj.tool) {
+                                // Criar/atualizar badge animado no bubble
+                                if (bubbleNode) {
+                                    if (!toolBadge) {
+                                        toolBadge = document.createElement('div');
+                                        toolBadge.className = 'tool-running-badge';
+                                        bubbleNode.appendChild(toolBadge);
+                                    }
+                                    const toolLabel = dataObj.tool.replace(/_/g, ' ');
+                                    toolBadge.innerHTML = `<span class="tool-running-spinner">⚙️</span> Executando: <em>${escapeHtml(toolLabel)}</em>`;
+                                }
+                            }
+
+                            // ── Chunk de texto ────────────────────────────────
                             if (dataObj.chunk) {
+                                // Remover badge de tool quando começa o texto
+                                if (toolBadge) { toolBadge.remove(); toolBadge = null; }
                                 responseText += dataObj.chunk;
                                 if (bubbleNode && window.marked) {
                                     bubbleNode.innerHTML = marked.parse(responseText);
@@ -943,7 +962,10 @@ async function sendMessage() {
                                 }
                                 scrollChatToBottom();
                             }
+
+                            // ── Evento final ──────────────────────────────────
                             if (dataObj.is_final) {
+                                if (toolBadge) { toolBadge.remove(); toolBadge = null; }
                                 metadata = dataObj.metadata || {};
                             }
                         } catch (e) {
@@ -961,12 +983,15 @@ async function sendMessage() {
            sucesso: true,
            resposta: responseText,
            tipo_resposta: (metadata && metadata.tipo) ? metadata.tipo : 'geral',
-           dados: metadata ? metadata.dados : null,
-           grafico: metadata ? metadata.grafico : null,
-           sugestoes: metadata ? metadata.sugestoes : null
+           dados: metadata ? (metadata.dados || null) : null,
+           grafico: metadata ? (metadata.grafico || null) : null,
+           sugestoes: metadata ? (metadata.sugestoes || null) : null,
+           pending_action: metadata ? (metadata.pending_action || null) : null,
+           tool_trace: metadata ? (metadata.tool_trace || null) : null,
         };
 
         processAIResponse(finalData, loadingMessage, true);
+
     } catch (error) {
         console.error('Error:', error);
         
