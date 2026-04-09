@@ -11,10 +11,10 @@ from alembic import op
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'z020_merge_all_heads'
-down_revision: Union[tuple[str, ...], str, None] = ('r002_fix_status_orcamento_enum', 'tc001_tool_call_log', 'z019_add_telefone_operador_to_usuario')
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+revision = 'z020_merge_all_heads'
+down_revision = ('r002_fix_status_orcamento_enum', 'tc001_tool_call_log', 'z019_add_telefone_operador_to_usuario')
+branch_labels = None
+depends_on = None
 
 
 def upgrade() -> None:

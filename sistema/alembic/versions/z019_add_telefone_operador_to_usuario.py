@@ -11,8 +11,8 @@ from typing import Union
 from alembic import op
 import sqlalchemy as sa
 
-revision: str = 'z019_add_telefone_operador_to_usuario'
-down_revision: Union[str, tuple] = ('z018_pre_agendamento_fila', 'z_merge_p_and_e_heads')
+revision = 'z019_add_telefone_operador_to_usuario'
+down_revision = ('z018_pre_agendamento_fila', 'z_merge_p_and_e_heads')
 branch_labels = None
 depends_on = None
 

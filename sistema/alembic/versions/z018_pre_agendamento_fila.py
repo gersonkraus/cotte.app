@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from alembic import op
 
 
-revision: str = "z018_pre_agendamento_fila"
-down_revision: Union[str, None] = "z017_utilizar_agendamento_automatico"
+revision = "z018_pre_agendamento_fila"
+down_revision = "z017_utilizar_agendamento_automatico"
 branch_labels = None
 depends_on = None
 

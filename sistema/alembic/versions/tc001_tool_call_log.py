@@ -10,10 +10,10 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "tc001_tool_call_log"
-down_revision: Union[str, Sequence[str], None] = "e9021f88a7c2"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+revision = "tc001_tool_call_log"
+down_revision = "e9021f88a7c2"
+branch_labels = None
+depends_on = None
 
 
 def upgrade() -> None:

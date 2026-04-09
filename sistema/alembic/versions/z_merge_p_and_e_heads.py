@@ -12,10 +12,10 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision: str = 'z_merge_p_and_e_heads'
-down_revision: Union[str, Sequence[str], None] = ('e11faf9b0ad1', 'p003_add_missing_empresa_columns')
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+revision = 'z_merge_p_and_e_heads'
+down_revision = ('e11faf9b0ad1', 'p003_add_missing_empresa_columns')
+branch_labels = None
+depends_on = None
 
 
 def upgrade() -> None:
