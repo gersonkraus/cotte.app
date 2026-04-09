@@ -1,8 +1,8 @@
 """
 Orquestra o fluxo completo do operador via WhatsApp:
-1. Chama assistente_unificado (mesmo pipeline do chat web)
+1. Usa assistente_unificado_v2 (motor unificado com Tool Use nativo)
 2. Interpreta AIResponse e envia interação adequada (Poll, Lista ou texto)
-3. Gerencia confirmações pendentes via SessionStore
+3. Gerencia confirmações pendentes via SessionStore (banco + RAM)
 """
 import logging
 from sqlalchemy.orm import Session
@@ -20,7 +20,7 @@ def _wpp_sessao_id(telefone: str) -> str:
 
 
 def _salvar_pending_wpp(sessao_id: str, pending: dict):
-    """Guarda o pending_action na sessão."""
+    """Guarda o pending_action na sessão RAM."""
     try:
         from app.services.cotte_context_builder import _sessions
         if sessao_id not in _sessions:
@@ -67,7 +67,6 @@ async def processar_operador_wpp(
     db: Session,
     empresa,   # Empresa
 ) -> None:
-    from app.services.cotte_ai_hub import assistente_unificado
     from app.services.whatsapp_service import enviar_mensagem_texto
 
     sessao_id = _wpp_sessao_id(telefone)
@@ -78,23 +77,23 @@ async def processar_operador_wpp(
         resposta_poll = _detectar_resposta_poll(mensagem)
         if resposta_poll == "CONFIRMAR":
             _limpar_pending_wpp(sessao_id)
-            
-            if pending.get("acao") == "CRIAR_ORCAMENTO":
+
+            # Criação de orçamento (ação legada direta sem token V2)
+            if pending.get("acao") == "CRIAR_ORCAMENTO" and not pending.get("confirmation_token"):
                 from app.services.ai_tools.orcamento_tools import CriarOrcamentoInput, _criar_orcamento
                 from app.utils.orcamento_utils import brl_fmt
-                
+
                 dados = pending.get("dados", {})
                 logger.info(f"[OperadorWPP] Confirmando CRIAR_ORCAMENTO com dados: {dados}")
-                
+
                 try:
                     valor_unit = float(dados.get("valor") or 0)
                 except (ValueError, TypeError):
                     valor_unit = 0.1
-                
-                # Para evitar erros de validação de valor nulo/negativo se houver problema de extração
+
                 if valor_unit <= 0.0:
                     valor_unit = 0.1
-                    
+
                 try:
                     inp = CriarOrcamentoInput(
                         cliente_id=dados.get("cliente_id"),
@@ -108,15 +107,15 @@ async def processar_operador_wpp(
                         cadastrar_materiais_novos=False
                     )
                     res = await _criar_orcamento(inp, db=db, current_user=operador)
-                    
+
                     if res.get("error"):
                         await enviar_mensagem_texto(telefone, f"Erro ao criar orçamento: {res['error']}", empresa=empresa)
                     else:
                         numero = res.get("numero", "")
                         total_fmt = brl_fmt(res.get("total", 0))
                         await enviar_mensagem_texto(
-                            telefone, 
-                            f"✅ Orçamento {numero} criado com sucesso!\nTotal: {total_fmt}\n\nPara enviá-lo ao cliente, responda: \"enviar {numero}\"", 
+                            telefone,
+                            f"✅ Orçamento {numero} criado com sucesso!\nTotal: {total_fmt}\n\nPara enviá-lo ao cliente, responda: \"enviar {numero}\"",
                             empresa=empresa
                         )
                 except Exception as e:
@@ -126,22 +125,22 @@ async def processar_operador_wpp(
                     await enviar_mensagem_texto(telefone, "Erro interno ao gerar orçamento. Tente novamente.", empresa=empresa)
                 return
 
-            # Para outras ações que ainda usam a rota legada
-            try:
-                ai_resp = await assistente_unificado(
-                    mensagem=f"CONFIRMAR {pending.get('acao', mensagem)}",
-                    sessao_id=sessao_id,
-                    db=db,
-                    empresa_id=empresa.id,
-                    usuario_id=operador.id,
-                    permissoes=operador.permissoes or {},
-                    is_gestor=operador.is_gestor,
-                )
-                await _enviar_resposta(telefone, ai_resp, sessao_id, empresa)
-            except Exception as e:
-                logger.error("[OperadorWPP] Erro ao confirmar: %s", e)
-                await enviar_mensagem_texto(telefone, "Erro ao confirmar. Tente novamente.", empresa=empresa)
-            return
+            # Confirmação via token do V2
+            if pending.get("confirmation_token"):
+                try:
+                    from app.services.cotte_ai_hub import assistente_unificado_v2
+                    ai_resp = await assistente_unificado_v2(
+                        mensagem=mensagem,
+                        sessao_id=sessao_id,
+                        db=db,
+                        current_user=operador,
+                        confirmation_token=pending["confirmation_token"],
+                    )
+                    await _enviar_resposta(telefone, ai_resp, sessao_id, empresa)
+                except Exception as e:
+                    logger.error("[OperadorWPP] Erro ao confirmar via V2: %s", e)
+                    await enviar_mensagem_texto(telefone, "Erro ao confirmar. Tente novamente.", empresa=empresa)
+                return
 
         elif resposta_poll == "CANCELAR":
             _limpar_pending_wpp(sessao_id)
@@ -151,21 +150,27 @@ async def processar_operador_wpp(
         # Mensagem não é resposta de poll → trata como novo comando
         _limpar_pending_wpp(sessao_id)
 
-    # 2. Processar com assistente_unificado
+    # 2. Processar com assistente_unificado_v2 (engine unificado com Tool Use nativo)
     try:
-        from app.services.cotte_ai_hub import assistente_unificado
-        ai_resp = await assistente_unificado(
+        from app.services.cotte_ai_hub import assistente_unificado_v2
+        from app.services.cotte_context_builder import SessionStore
+
+        # Garante sessão persistida no banco para recovery pós-reinício
+        SessionStore.ensure_sessao_db(
+            sessao_id=sessao_id,
+            empresa_id=empresa.id,
+            usuario_id=operador.id,
+            db=db,
+        )
+
+        ai_resp = await assistente_unificado_v2(
             mensagem=mensagem,
             sessao_id=sessao_id,
             db=db,
-            empresa_id=empresa.id,
-            usuario_id=operador.id,
-            permissoes=operador.permissoes or {},
-            is_gestor=operador.is_gestor,
+            current_user=operador,
         )
     except Exception as e:
-        logger.error("[OperadorWPP] Erro no assistente: %s", e)
-        from app.services.whatsapp_service import enviar_mensagem_texto
+        logger.error("[OperadorWPP] Erro no assistente V2: %s", e)
         await enviar_mensagem_texto(
             telefone, "Erro interno. Tente novamente.", empresa=empresa
         )
@@ -188,9 +193,15 @@ async def _enviar_resposta(
         sanitizar_para_whatsapp,
     )
 
-    # Caso 1: ação pendente — envia Poll de confirmação
+    # Caso 1: ação pendente do V2 (confirmation_token) — envia Poll de confirmação
     if ai_resp.pending_action:
-        _salvar_pending_wpp(sessao_id, ai_resp.pending_action)
+        pending_data = {
+            "acao": ai_resp.pending_action.get("tool", "ACAO"),
+            "confirmation_token": ai_resp.pending_action.get("token"),
+            "dados": ai_resp.dados or {},
+        }
+        _salvar_pending_wpp(sessao_id, pending_data)
+
         dados = ai_resp.dados or {}
         numero = dados.get("numero", "")
         total = dados.get("total", 0)
@@ -226,7 +237,7 @@ async def _enviar_resposta(
         await enviar_mensagem_texto(telefone, texto, empresa=empresa)
         return
 
-    # Caso 3: Preview de Orçamento (Aguardando Confirmação)
+    # Caso 3: Preview de Orçamento legado (orcamento_preview)
     if ai_resp.tipo_resposta == "orcamento_preview":
         dados = ai_resp.dados or {}
         cliente = dados.get("cliente_nome", "A definir")
@@ -234,20 +245,18 @@ async def _enviar_resposta(
         valor = float(dados.get("valor") or 0)
         desc = float(dados.get("desconto") or 0)
         tipo_desc = dados.get("desconto_tipo") or "percentual"
-        
+
         texto_preview = f"📋 *Prévia do Orçamento*\n\n"
         texto_preview += f"👤 *Cliente:* {cliente}\n"
         texto_preview += f"🛠 *Serviço:* {servico}\n"
         texto_preview += f"💰 *Valor:* R$ {valor:.2f}\n"
         if desc > 0:
             texto_preview += f"🏷 *Desconto:* {desc:.0f}{'%' if tipo_desc == 'percentual' else ' R$'}\n"
-        
+
         pergunta = f"{ai_resp.resposta}\n\n{texto_preview}"
-        
-        # Salva ação pendente na sessão
+
         _salvar_pending_wpp(sessao_id, {"acao": "CRIAR_ORCAMENTO", "dados": dados})
-        
-        # Envia poll usando Evolution API (se suportado) ou fallback em texto
+
         ok = await enviar_poll_confirmacao(
             telefone, pergunta, ["Confirmar", "Cancelar"]
         )
@@ -258,7 +267,7 @@ async def _enviar_resposta(
             await enviar_mensagem_texto(telefone, texto, empresa=empresa)
         return
 
-    # Caso 4: resposta genérica
+    # Caso 4: resposta genérica — limpa markdown para WhatsApp
     texto = (ai_resp.resposta or "Sem resposta.").strip()
     texto = sanitizar_para_whatsapp(texto)
     if not ai_resp.sucesso:

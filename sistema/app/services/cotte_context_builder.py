@@ -2,7 +2,8 @@
 COTTE Context Builder - Gerenciamento de sessões e contexto de dados para o assistente IA.
 
 Fornece:
-- SessionStore: histórico de conversa em memória (TTL 60min, max 6 mensagens)
+- SessionStore: histórico de conversa persistido no banco (AIChatSessao + AIChatMensagem)
+  com cache L1 em RAM para leitura rápida.
 - ContextBuilder: busca dados do banco baseado na intenção detectada
 """
 
@@ -10,55 +11,153 @@ import logging
 import os
 from collections import deque
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 
 logger = logging.getLogger(__name__)
 
-# ── Armazenamento de Sessões ───────────────────────────────────────────────
+# ── Cache L1 em RAM (performance) ─────────────────────────────────────────
+# O banco (AIChatSessao/AIChatMensagem) é a fonte de verdade.
+# Este dicionário serve apenas como fast-path para evitar queries repetitivas
+# dentro da mesma sessão de servidor. Ao reiniciar, a fonte de verdade é o banco.
 
-_sessions: dict[str, dict] = {}  # module-level: reset ao reiniciar servidor
-SESSION_TTL_MINUTES = 60
-MAX_MESSAGES_PER_SESSION = 6  # 3 turnos user + 3 assistant
+_sessions: dict[str, dict] = {}  # cache em RAM para suggessions e hot-path
+SESSION_TTL_MINUTES = 120  # aumentado para 2h
+MAX_MESSAGES_PER_SESSION = 12  # 6 turnos user + 6 assistant (maior contexto)
 
 
 def _prune_expired():
-    """Remove sessões expiradas (chamado lazily a cada get_or_create)."""
+    """Remove sessões expiradas do cache RAM (chamado lazily a cada get_or_create)."""
     cutoff = datetime.utcnow() - timedelta(minutes=SESSION_TTL_MINUTES)
-    to_delete = [k for k, v in _sessions.items() if v["last_seen"] < cutoff]
+    to_delete = [k for k, v in _sessions.items() if v.get("last_seen", datetime.min) < cutoff]
     for k in to_delete:
         del _sessions[k]
 
 
 class SessionStore:
-    """Gerencia histórico de conversas em memória por sessao_id."""
+    """
+    Gerencia histórico de conversas — persiste no banco PostgreSQL e mantém
+    cache L1 em RAM para acesso rápido dentro da mesma instância.
+
+    Estratégia:
+    - `get_or_create`: tenta cache RAM primeiro, senão busca no banco (recovery pós-reinício).
+    - `append`: escreve no banco E no cache RAM simultaneamente.
+    - `append_db`: utilitário que recebe `db` para operações com transação ativa.
+    """
 
     MAX_SUGGESTIONS_TRACKED = 50
 
     @staticmethod
-    def get_or_create(sessao_id: str) -> list[dict]:
+    def get_or_create(sessao_id: str, db: Optional[Session] = None, empresa_id: int = 0, usuario_id: int = 0) -> list[dict]:
         """
         Retorna o histórico de mensagens da sessão.
-        Cria sessão nova se não existir. Prune sessões expiradas lazily.
+        1. Tenta cache RAM.
+        2. Se não encontrar, recupera do banco (survival pós-reinício).
         """
         _prune_expired()
-        if sessao_id not in _sessions:
-            _sessions[sessao_id] = {
-                "messages": deque(maxlen=MAX_MESSAGES_PER_SESSION),
-                "seen_suggestions": deque(maxlen=SessionStore.MAX_SUGGESTIONS_TRACKED),
-                "last_seen": datetime.utcnow(),
-            }
+
+        # Cache RAM hit — retorna imediatamente sem query
+        if sessao_id in _sessions:
+            _sessions[sessao_id]["last_seen"] = datetime.utcnow()
+            return list(_sessions[sessao_id]["messages"])
+
+        # Cache miss — inicializa estrutura de dados em RAM
+        _sessions[sessao_id] = {
+            "messages": deque(maxlen=MAX_MESSAGES_PER_SESSION),
+            "seen_suggestions": deque(maxlen=SessionStore.MAX_SUGGESTIONS_TRACKED),
+            "last_seen": datetime.utcnow(),
+        }
+
+        # Recovery do banco: recuperar mensagens persistidas (pós-reinício)
+        if db is not None:
+            try:
+                from app.models.models import AIChatSessao, AIChatMensagem
+
+                # Garante que a sessão existe no banco
+                sessao_db = db.query(AIChatSessao).filter(AIChatSessao.id == sessao_id).first()
+                if not sessao_db and empresa_id:
+                    sessao_db = AIChatSessao(
+                        id=sessao_id,
+                        empresa_id=empresa_id,
+                        usuario_id=usuario_id or 0,
+                    )
+                    db.add(sessao_db)
+                    try:
+                        db.commit()
+                    except Exception:
+                        db.rollback()
+
+                # Carrega últimas mensagens do banco para o cache RAM
+                msgs_db = (
+                    db.query(AIChatMensagem)
+                    .filter(AIChatMensagem.sessao_id == sessao_id)
+                    .order_by(AIChatMensagem.criado_em.asc())
+                    .limit(MAX_MESSAGES_PER_SESSION)
+                    .all()
+                )
+                for m in msgs_db:
+                    _sessions[sessao_id]["messages"].append({"role": m.role, "content": m.content})
+
+                if msgs_db:
+                    logger.debug(f"[SessionStore] Recovery: {len(msgs_db)} msgs restauradas para sessão {sessao_id[:8]}")
+
+            except Exception as e:
+                logger.warning(f"[SessionStore] Erro ao recuperar sessão do banco: {e}")
+
         _sessions[sessao_id]["last_seen"] = datetime.utcnow()
         return list(_sessions[sessao_id]["messages"])
 
     @staticmethod
     def append(sessao_id: str, role: str, content: str):
-        """Adiciona uma mensagem ao histórico da sessão."""
+        """Adiciona mensagem ao cache RAM (sem persistência no banco — use append_db para persistir)."""
         if sessao_id not in _sessions:
             SessionStore.get_or_create(sessao_id)
         _sessions[sessao_id]["messages"].append({"role": role, "content": content})
         _sessions[sessao_id]["last_seen"] = datetime.utcnow()
+
+    @staticmethod
+    def append_db(sessao_id: str, role: str, content: str, db: Session):
+        """
+        Adiciona mensagem ao cache RAM E persiste no banco PostgreSQL.
+        Usar em todos os fluxos definitivos (assistente_unificado_v2, etc.).
+        """
+        # Persiste no banco
+        try:
+            from app.models.models import AIChatMensagem
+            msg_db = AIChatMensagem(sessao_id=sessao_id, role=role, content=content)
+            db.add(msg_db)
+            db.commit()
+        except Exception as e:
+            logger.warning(f"[SessionStore] Erro ao persistir mensagem no banco: {e}")
+            try:
+                db.rollback()
+            except Exception:
+                pass
+
+        # Atualiza cache RAM
+        SessionStore.append(sessao_id, role, content)
+
+    @staticmethod
+    def ensure_sessao_db(sessao_id: str, empresa_id: int, usuario_id: int, db: Session) -> None:
+        """Garante que a sessão existe no banco. Idempotente."""
+        try:
+            from app.models.models import AIChatSessao
+            existe = db.query(AIChatSessao).filter(AIChatSessao.id == sessao_id).first()
+            if not existe:
+                db.add(AIChatSessao(
+                    id=sessao_id,
+                    empresa_id=empresa_id,
+                    usuario_id=usuario_id,
+                ))
+                db.commit()
+        except Exception as e:
+            logger.warning(f"[SessionStore] Erro ao criar sessão no banco: {e}")
+            try:
+                db.rollback()
+            except Exception:
+                pass
 
     @staticmethod
     def add_seen_suggestions(sessao_id: str, sugestoes: list[str]):

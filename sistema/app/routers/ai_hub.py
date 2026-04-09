@@ -620,8 +620,9 @@ async def assistente_universal(
         ) + 1
         db.commit()
 
-    # Branch Tool Use v2 (atrás de feature flag)
-    if os.getenv("USE_TOOL_CALLING", "false").lower() == "true":
+    # Assistente Unificado V2 (Tool Use nativo) — engine padrão
+    # USE_TOOL_CALLING=false desativa apenas em emerência; o normal é sempre V2.
+    if os.getenv("USE_TOOL_CALLING", "true").lower() != "false":
         from app.services.cotte_ai_hub import assistente_unificado_v2
 
         return await assistente_unificado_v2(
@@ -633,6 +634,7 @@ async def assistente_universal(
             override_args=request.override_args,
         )
 
+    # Fallback legado (apenas quando USE_TOOL_CALLING=false)
     from app.services.cotte_ai_hub import assistente_unificado
 
     return await assistente_unificado(

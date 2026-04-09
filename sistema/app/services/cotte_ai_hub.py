@@ -1604,27 +1604,9 @@ async def assistente_unificado(
             usuario_id=usuario_id,
         )
 
-    # Se conversa genérica + setup incompleto → priorizar onboarding
-    if intencao == "CONVERSACAO":
-        from app.services.onboarding_service import (
-            get_onboarding_status,
-            formatar_resposta_onboarding,
-        )
-
-        _status_onb = get_onboarding_status(db=db, empresa_id=empresa_id)
-        if (
-            not _status_onb.get("concluido")
-            and _status_onb.get("progresso_pct", 100) < 60
-        ):
-            _resposta_onb = formatar_resposta_onboarding(_status_onb)
-            return AIResponse(
-                sucesso=True,
-                resposta=_resposta_onb,
-                tipo_resposta="onboarding",
-                dados=_status_onb,
-                confianca=1.0,
-                modulo_origem="onboarding",
-            )
+    # Se conversa genérica + setup incompleto → IA responde normalmente mas adiciona dica sutil
+    # REMOVIDO: bloco punitivo que bloqueava qualquer conversa abaixo de 60% onboarding
+    # Agora: IA responde a qualquer pergunta, onboarding é apenas sugerido se relevante.
 
     # 3. Buscar contexto de dados relevante
     contexto = await ContextBuilder.build(
@@ -1767,10 +1749,8 @@ async def assistente_unificado_stream(
         status = get_onboarding_status(db=db, empresa_id=empresa_id)
         fast_response = AIResponse(sucesso=True, resposta=formatar_resposta_onboarding(status), tipo_resposta="onboarding", dados=status, confianca=1.0, modulo_origem="onboarding")
     elif intencao == "CONVERSACAO":
-        from app.services.onboarding_service import get_onboarding_status, formatar_resposta_onboarding
-        _status_onb = get_onboarding_status(db=db, empresa_id=empresa_id)
-        if not _status_onb.get("concluido") and _status_onb.get("progresso_pct", 100) < 60:
-            fast_response = AIResponse(sucesso=True, resposta=formatar_resposta_onboarding(_status_onb), tipo_resposta="onboarding", dados=_status_onb, confianca=1.0, modulo_origem="onboarding")
+        # Onboarding não bloqueia mais o assistente — IA responde normalmente
+        pass
 
     if fast_response:
         import asyncio
@@ -2553,29 +2533,29 @@ Importe-as diretamente:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 _V2_SYSTEM_PROMPT = (
-    "Você é o assistente COTTE para pequenas empresas. "
-    "Use as ferramentas disponíveis para responder perguntas operacionais "
-    "(financeiro, orçamentos, clientes, materiais). Regras: "
-    "(1) NUNCA invente valores numéricos — sempre obtenha via tool. "
-    "(2) Para ações destrutivas (criar_*, excluir_*), CHAME a tool DIRETAMENTE — "
-    "NUNCA pergunte 'deseja prosseguir?' antes. O sistema mostrará automaticamente "
-    "um card de confirmação ao usuário. Se a tool retornar pending, apenas avise "
-    "brevemente que falta confirmar no card. "
-    "(3) NUNCA execute ação operacional sem ID/dado explícito do usuário. "
-    "Se o usuário pedir uma ação para a qual não há tool correspondente, diga "
-    "claramente que não há ferramenta para isso — NÃO chame outra tool no lugar. "
-    "(3a) Para excluir/editar por NOME (ex: 'excluir cliente Mu'), SEMPRE chame "
-    "listar_clientes(busca='mu') primeiro para obter o ID real do banco. NUNCA "
-    "use a posição/ordem de uma listagem anterior como ID. Se a busca retornar "
-    "0 ou múltiplos resultados, peça desambiguação ao usuário ANTES de chamar "
-    "a tool destrutiva. NUNCA chute IDs. "
-    "(4) Responda em português, direto, no máximo 3 parágrafos. "
-    "(5) Para criar orçamentos: chame criar_orcamento DIRETAMENTE com cliente_nome e nome do item. "
-    "NUNCA chame listar_clientes ou listar_materiais antes — o backend resolve automaticamente. "
-    "NUNCA pergunte se o cliente existe ou se deseja cadastrá-lo. "
-    "(6) NUNCA repita a mesma tool call mais de uma vez na mesma conversa. Se a primeira chamada "
-    "não trouxer o resultado esperado, responda com o que você tem ou explique a limitação. "
-    "Para 'quem está devendo': listar_orcamentos(status='ENVIADO') — UMA chamada, sem loop."
+    "Você é o **Assistente COTTE**, um parceiro inteligente de gestão para pequenas empresas. "
+    "Responda sempre em português, de forma direta e amigável. Máximo de 3 parágrafos. "
+    "\n\n"
+    "## Como funcionar:  \n"
+    "Use as ferramentas (tools) disponíveis para buscar informações reais antes de responder. "
+    "NUNCA invente números, nomes ou valores — sempre obtenha via tool. "
+    "\n\n"
+    "## Regras críticas:  \n"
+    "1. **Criar/excluir**: chame a tool DIRETAMENTE — o sistema mostrará um card de confirmação. "
+    "NÃO pergunte 'deseja prosseguir?' previamente. \n"
+    "2. **IDs por conta própria**: para excluir/editar por NOME, chame `listar_clientes(busca=\"nome\")` "
+    "primeiro para obter o ID real. NUNCA chute IDs ou use posições de listas anteriores. \n"
+    "3. **Sem tool correspondente**: diga claramente que não há ferramenta para isso — "
+    "NÃO chame outra tool no lugar. \n"
+    "4. **Criar orçamentos**: chame `criar_orcamento` DIRETAMENTE com `cliente_nome` e o item. "
+    "NÃO busque o cliente antes, o backend resolve automaticamente. \n"
+    "5. **Sem loop**: NUNCA repita a mesma tool call mais de uma vez. Se a resposta não vier "
+    "como esperado, explique o que tem e a limitação. \n"
+    "6. **Erros de identidade**: se não encontrar um recurso pelo nome/ID exato informado, "
+    "EXPLIQUE o motivo e sugira alternativas (ex: 'Não encontrei O-103 — os recentes são X e Y'). "
+    "NUNCA diga 'Comando DESCONHECIDO' ou retorne um erro técnico cru. \n"
+    "7. **Inteligente mas humilde**: se não tiver certeza, pergunte ao usuário uma "
+    "coisa de cada vez, sem listas de perguntas. "
 )
 
 _V2_MAX_ITER = 5
@@ -2670,7 +2650,20 @@ async def assistente_unificado_v2(
         )
 
     now = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime("%Y-%m-%d %H:%M")
-    history = SessionStore.get_or_create(sessao_id)
+    # Recupera histórico com recovery automático do banco pós-reinício
+    history = SessionStore.get_or_create(
+        sessao_id,
+        db=db,
+        empresa_id=getattr(current_user, "empresa_id", 0),
+        usuario_id=getattr(current_user, "id", 0),
+    )
+    # Garante que a sessão existe no banco para habilitar persistência
+    SessionStore.ensure_sessao_db(
+        sessao_id=sessao_id,
+        empresa_id=getattr(current_user, "empresa_id", 0),
+        usuario_id=getattr(current_user, "id", 0),
+        db=db,
+    )
 
     messages: list[dict] = [
         {"role": "system", "content": f"{_V2_SYSTEM_PROMPT}\n\nData/hora atual: {now}."},
@@ -2681,7 +2674,8 @@ async def assistente_unificado_v2(
             messages.append({"role": h["role"], "content": h["content"]})
     messages.append({"role": "user", "content": mensagem})
 
-    SessionStore.append(sessao_id, "user", mensagem)
+    # Persiste mensagem do usuário no banco
+    SessionStore.append_db(sessao_id, "user", mensagem, db)
 
     tools_payload = openai_tools_payload()
     tool_trace: list[dict] = []
@@ -2801,7 +2795,8 @@ async def assistente_unificado_v2(
         final_text = "Limite de iterações de ferramentas atingido. Refine a pergunta."
 
     if final_text:
-        SessionStore.append(sessao_id, "assistant", final_text)
+        # Persiste resposta do assistente no banco
+        SessionStore.append_db(sessao_id, "assistant", final_text, db)
 
     return AIResponse(
         sucesso=True,
