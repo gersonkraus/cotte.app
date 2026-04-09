@@ -1,3 +1,10 @@
+---
+title: Agents
+tags:
+  - documentacao
+prioridade: alta
+status: documentado
+---
 # COTTE Agent Guidelines (AGENTS.md)
 
 Este guia destina-se a agentes de IA que operam no repositório **Projeto iZi / COTTE**.
