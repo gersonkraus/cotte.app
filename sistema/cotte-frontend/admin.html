@@ -1,0 +1,1492 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem("cotte_tema");if(t){document.documentElement.setAttribute("data-theme",t);}else{document.documentElement.setAttribute("data-theme","light");}})()</script>
+  <title>COTTE — Painel Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200">
+  <link rel="stylesheet" href="css/style.css?v=3">
+  <style>
+    /* ── BTN-PRIMARY OVERRIDE (Precision Atelier) ── */
+    .btn-primary {
+      background: linear-gradient(135deg, #00687a, #06b6d4);
+      box-shadow: 0 2px 10px rgba(0,104,122,0.30);
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 10px 24px;
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #00687a, #06b6d4);
+      opacity: 0.92;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(0,104,122,0.35);
+    }
+    .btn-primary:active { transform: scale(0.98); opacity: 0.88; }
+
+    /* ── TOKENS ATELIER ── */
+    :root {
+      --card-shadow: 0 2px 20px -4px rgba(15,23,42,0.07), 0 1px 4px -1px rgba(15,23,42,0.04);
+      --card-shadow-hover: 0 10px 40px -8px rgba(15,23,42,0.14), 0 2px 8px -2px rgba(15,23,42,0.06);
+      --card-radius: 16px;
+      --atelier-primary: #00687a;
+      --atelier-cyan: #06b6d4;
+    }
+    .material-symbols-outlined {
+      font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;
+      vertical-align:middle;line-height:1;
+    }
+
+    /* ── BADGES ── */
+    .badge { display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:0.3px }
+    .badge-green  { background:rgba(16,185,129,0.1);color:#059669 }
+    .badge-red    { background:rgba(239,68,68,0.1);color:#dc2626 }
+    .badge-blue   { background:rgba(59,130,246,0.1);color:#2563eb }
+    .badge-amber  { background:rgba(245,158,11,0.1);color:#d97706 }
+    .badge-purple { background:rgba(139,92,246,0.1);color:#7c3aed }
+
+    /* ── PAGE HEADER ── */
+    .admin-page-header .page-title {
+      font-family:'Plus Jakarta Sans',sans-serif;
+      font-size:22px;font-weight:800;letter-spacing:-0.3px;
+    }
+    .admin-page-header .page-sub { font-size:13px;color:var(--muted);margin-top:3px }
+
+    /* ── FILTER TABS ── */
+    .filter-tabs {
+      display:flex;gap:6px;margin-bottom:28px;flex-wrap:wrap;
+      background:var(--surface2);padding:5px;border-radius:14px;width:fit-content;
+    }
+    .filter-tab {
+      padding:7px 18px;border-radius:10px;font-size:13px;font-weight:500;
+      cursor:pointer;border:none;background:transparent;
+      color:var(--muted);transition:all 0.18s;font-family:inherit;
+    }
+    .filter-tab:hover { color:var(--text);background:var(--surface) }
+    .filter-tab.active {
+      background:var(--surface);color:var(--accent);font-weight:600;
+      box-shadow:0 1px 6px rgba(0,0,0,0.08);
+    }
+
+    /* ── KPI GRID ── */
+    .kpi-grid { display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:32px }
+    .kpi-card {
+      background:var(--surface);border-radius:var(--card-radius);
+      padding:22px 24px;box-shadow:var(--card-shadow);
+      transition:box-shadow 0.25s,transform 0.25s;
+      display:flex;flex-direction:column;gap:14px;
+      position:relative;overflow:hidden;
+    }
+    .kpi-card:hover { box-shadow:var(--card-shadow-hover);transform:translateY(-2px) }
+    .kpi-card-top { display:flex;align-items:flex-start;justify-content:space-between }
+    .kpi-icon {
+      width:42px;height:42px;border-radius:12px;
+      display:flex;align-items:center;justify-content:center;flex-shrink:0;
+    }
+    .kpi-icon .material-symbols-outlined { font-size:22px }
+    .kpi-icon-cyan   { background:rgba(6,182,212,0.1);color:#0891b2 }
+    .kpi-icon-green  { background:rgba(16,185,129,0.1);color:#059669 }
+    .kpi-icon-amber  { background:rgba(245,158,11,0.1);color:#d97706 }
+    .kpi-icon-red    { background:rgba(239,68,68,0.1);color:#dc2626 }
+    .kpi-icon-blue   { background:rgba(59,130,246,0.1);color:#2563eb }
+    .kpi-icon-slate  { background:rgba(100,116,139,0.1);color:#64748b }
+    .kpi-icon-purple { background:rgba(139,92,246,0.1);color:#7c3aed }
+
+    .kpi-label { font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;font-weight:600 }
+    .kpi-value { font-family:'Plus Jakarta Sans',sans-serif;font-size:32px;font-weight:800;line-height:1;color:var(--text) }
+    .kpi-value-sm { font-size:24px }
+    .kpi-micro { font-size:11px;color:var(--muted2) }
+
+    /* Subtle top stripe on accent cards */
+    .kpi-card::before {
+      content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:var(--card-radius) var(--card-radius) 0 0;opacity:0;transition:opacity 0.25s;
+    }
+    .kpi-card:hover::before { opacity:1 }
+    .kpi-accent-stripe::before { background:linear-gradient(90deg,#06b6d4,#0891b2) }
+    .kpi-green-stripe::before  { background:linear-gradient(90deg,#10b981,#059669) }
+    .kpi-amber-stripe::before  { background:linear-gradient(90deg,#f59e0b,#d97706) }
+    .kpi-red-stripe::before    { background:linear-gradient(90deg,#ef4444,#dc2626) }
+    .kpi-blue-stripe::before   { background:linear-gradient(90deg,#3b82f6,#2563eb) }
+
+    /* ── ATTENTION BLOCK ── */
+    .attention-block-inner {
+      margin-bottom:32px;
+      background:rgba(245,158,11,0.07);
+      border-radius:16px;
+      padding:20px 22px;
+      border:1px solid rgba(245,158,11,0.18);
+    }
+    .attn-header {
+      display:flex;align-items:center;gap:10px;margin-bottom:16px;
+    }
+    .attn-header-icon { color:#d97706;font-size:20px }
+    .attn-title { font-size:13px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.5px }
+    .attn-subtitle { font-size:12px;color:#a16207;margin-left:auto }
+    .attn-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px }
+    .attn-card {
+      background:#fff;border-radius:14px;
+      padding:18px 20px;display:flex;align-items:center;gap:16px;cursor:pointer;
+      box-shadow:0 1px 8px rgba(122,82,0,0.08);transition:box-shadow 0.2s,transform 0.2s;
+    }
+    .attn-card:hover { box-shadow:0 4px 20px rgba(122,82,0,0.14);transform:translateY(-1px) }
+    .attn-icon-wrap {
+      width:48px;height:48px;border-radius:12px;flex-shrink:0;
+      display:flex;align-items:center;justify-content:center;
+      background:rgba(245,158,11,0.15);color:#d97706;
+    }
+    .attn-icon-wrap .material-symbols-outlined { font-size:24px }
+    .attn-info { display:flex;flex-direction:column;gap:2px }
+    .attn-count { font-size:28px;font-weight:800;font-family:'Plus Jakarta Sans',sans-serif;line-height:1;color:#92400e }
+    .attn-desc { font-size:12px;color:#a16207;line-height:1.4 }
+
+    /* ── TABLE ── */
+    .table-wrap table tr { cursor:pointer;transition:background 0.15s }
+    .table-wrap table tr:hover { background:var(--surface2) !important }
+    .col-empresa { min-width:220px }
+    th.sortable { cursor:pointer;user-select:none;white-space:nowrap }
+    th.sortable:hover { color:var(--accent) }
+    .sort-icon { font-size:10px;opacity:0.5;margin-left:3px }
+
+    /* ── PROGRESS ── */
+    .progress-container { width:100%;height:5px;background:var(--surface2);border-radius:10px;overflow:hidden }
+    .progress-bar { height:100%;background:linear-gradient(90deg,var(--accent),#0891b2);border-radius:10px;transition:width 0.4s ease }
+
+    /* ── DRAWER ── */
+    .drawer-overlay { position:fixed;top:0;right:0;width:100%;height:100%;background:rgba(15,23,42,0.45);backdrop-filter:blur(4px);z-index:1000;display:none;opacity:0;transition:opacity 0.3s }
+    .drawer-overlay.open { display:block;opacity:1 }
+    .drawer { position:fixed;top:0;right:-560px;width:560px;height:100%;background:var(--surface);box-shadow:-16px 0 60px rgba(0,0,0,0.12);z-index:1001;transition:right 0.35s cubic-bezier(0.16,1,0.3,1);display:flex;flex-direction:column }
+    .drawer.open { right:0 }
+    .drawer-header { padding:24px 28px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--surface2) }
+    .drawer-body { flex:1;overflow-y:auto;padding:24px 28px }
+    .drawer-footer { padding:18px 28px;border-top:1px solid var(--border);display:flex;gap:8px;background:var(--surface2) }
+    .drawer-close-btn { width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:20px;transition:all 0.15s;flex-shrink:0 }
+    .drawer-close-btn:hover { background:rgba(239,68,68,0.08);color:#ef4444 }
+    .drawer-section { margin-bottom:28px }
+    .drawer-section-title { font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:14px }
+    .drawer-metrics { display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px }
+    .drawer-metric { background:var(--surface2);border-radius:12px;padding:14px;text-align:center }
+    .drawer-metric-val { font-size:24px;font-weight:800;font-family:'Plus Jakarta Sans',sans-serif }
+    .drawer-metric-lbl { font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-top:2px }
+    .info-row { display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(0,0,0,0.04);font-size:13px }
+    .info-row:last-child { border-bottom:none }
+    .info-label { color:var(--muted) }
+    .info-value { font-weight:600;color:var(--text) }
+    .drawer-user-row { display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border) }
+    .drawer-user-row:last-child { border-bottom:none }
+    .online-dot { width:8px;height:8px;border-radius:50%;background:#10b981;flex-shrink:0;box-shadow:0 0 0 3px rgba(16,185,129,0.2) }
+    .offline-dot { width:8px;height:8px;border-radius:50%;background:var(--border);flex-shrink:0 }
+
+    /* ── MODAL FIX ── */
+    .modal-overlay { z-index:2000 }
+    .empresa-logo { width:42px;height:42px;border-radius:12px;object-fit:contain;background:var(--surface2) }
+    .empresa-ini  { width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex-shrink:0 }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width:1200px) { .kpi-grid { grid-template-columns:repeat(4,1fr) } }
+    @media (max-width:880px)  { .kpi-grid { grid-template-columns:repeat(2,1fr) } }
+    @media (max-width:640px) {
+      .kpi-grid { grid-template-columns:1fr 1fr;gap:12px;margin-bottom:22px }
+      .kpi-card { padding:16px 18px }
+      .kpi-value { font-size:26px }
+      .filter-tabs { width:100%;overflow-x:auto }
+      .topbar { flex-direction:column;gap:14px;align-items:flex-start }
+      .topbar-actions { width:100%;flex-wrap:wrap }
+      .topbar-actions .btn { flex:1;min-width:120px;justify-content:center }
+      .card-header { flex-direction:column;gap:14px !important;align-items:stretch !important }
+      .card-header input[type="search"] { width:100% !important }
+      .modal { margin:12px;max-width:calc(100% - 24px) !important }
+      .drawer { width:100%;right:-100% }
+      .drawer.open { right:0 }
+      .drawer-header { padding:16px 20px }
+      .drawer-body { padding:18px 20px }
+      .drawer-footer { padding:14px 20px;flex-wrap:wrap }
+      .drawer-footer .btn { flex:1 1 45%;font-size:13px }
+    }
+    @media (max-width:400px) {
+      .kpi-grid { grid-template-columns:1fr }
+      .topbar-actions .btn { min-width:100% }
+    }
+  </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar"></aside>
+
+<!-- MAIN -->
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-title-wrap admin-page-header">
+      <div class="page-title">Empresas Contratantes</div>
+      <div class="page-sub">Gestão centralizada do ecossistema COTTE</div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost" onclick="testarConexaoAdmin()"><span class="material-symbols-outlined" style="font-size:16px;margin-right:4px">wifi</span>Testar Conexão</button>
+      <button class="btn btn-primary" onclick="abrirModalNovaEmpresa()"><span class="material-symbols-outlined" style="font-size:16px;margin-right:4px">add</span>Nova Empresa</button>
+    </div>
+  </div>
+
+  <!-- FILTROS RÁPIDOS -->
+  <div class="filter-tabs">
+    <button class="filter-tab active" data-status="todos"         onclick="filtrarStatus('todos')">Todas</button>
+    <button class="filter-tab"        data-status="ativas"        onclick="filtrarStatus('ativas')">Ativas</button>
+    <button class="filter-tab"        data-status="trial"         onclick="filtrarStatus('trial')">Trial</button>
+    <button class="filter-tab"        data-status="inadimplentes" onclick="filtrarStatus('inadimplentes')">Inadimplentes</button>
+    <button class="filter-tab"        data-status="inativas"      onclick="filtrarStatus('inativas')">Inativas</button>
+  </div>
+
+  <!-- KPI CARDS -->
+  <div class="kpi-grid">
+    <div class="kpi-card kpi-accent-stripe">
+      <div class="kpi-card-top">
+        <div>
+          <div class="kpi-label">Total de empresas</div>
+          <div class="kpi-value" id="kpi-total">—</div>
+        </div>
+        <div class="kpi-icon kpi-icon-slate"><span class="material-symbols-outlined">corporate_fare</span></div>
+      </div>
+      <div class="kpi-micro">cadastradas na plataforma</div>
+    </div>
+    <div class="kpi-card kpi-green-stripe">
+      <div class="kpi-card-top">
+        <div>
+          <div class="kpi-label">Empresas ativas</div>
+          <div class="kpi-value" id="kpi-ativas">—</div>
+        </div>
+        <div class="kpi-icon kpi-icon-green"><span class="material-symbols-outlined">check_circle</span></div>
+      </div>
+      <div class="kpi-micro">com acesso liberado</div>
+    </div>
+    <div class="kpi-card kpi-amber-stripe">
+      <div class="kpi-card-top">
+        <div>
+          <div class="kpi-label">Em trial</div>
+          <div class="kpi-value" id="kpi-trial">—</div>
+        </div>
+        <div class="kpi-icon kpi-icon-amber"><span class="material-symbols-outlined">timer</span></div>
+      </div>
+      <div class="kpi-micro">período de avaliação</div>
+    </div>
+    <div class="kpi-card kpi-red-stripe">
+      <div class="kpi-card-top">
+        <div>
+          <div class="kpi-label">Inadimplentes</div>
+          <div class="kpi-value" id="kpi-inadimplentes">—</div>
+        </div>
+        <div class="kpi-icon kpi-icon-red"><span class="material-symbols-outlined">warning</span></div>
+      </div>
+      <div class="kpi-micro">assinatura vencida</div>
+    </div>
+    <div class="kpi-card kpi-accent-stripe">
+      <div class="kpi-card-top">
+        <div>
+          <div class="kpi-label">MRR estimado</div>
+          <div class="kpi-value kpi-value-sm" id="kpi-mrr">—</div>
+        </div>
+        <div class="kpi-icon kpi-icon-cyan"><span class="material-symbols-outlined">payments</span></div>
+      </div>
+      <div class="kpi-micro">receita recorrente mensal</div>
+    </div>
+    <div class="kpi-card kpi-green-stripe">
+      <div class="kpi-card-top">
+        <div>
+          <div class="kpi-label">Novas no mês</div>
+          <div class="kpi-value" id="kpi-novas">—</div>
+        </div>
+        <div class="kpi-icon kpi-icon-green"><span class="material-symbols-outlined">trending_up</span></div>
+      </div>
+      <div class="kpi-micro">cadastradas este mês</div>
+    </div>
+    <div class="kpi-card kpi-blue-stripe">
+      <div class="kpi-card-top">
+        <div>
+          <div class="kpi-label">Taxa de conversão</div>
+          <div class="kpi-value" id="kpi-conv">—</div>
+        </div>
+        <div class="kpi-icon kpi-icon-blue"><span class="material-symbols-outlined">query_stats</span></div>
+      </div>
+      <div class="kpi-micro">trial → pagante</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-card-top">
+        <div>
+          <div class="kpi-label">Inativas</div>
+          <div class="kpi-value" id="kpi-inativas">—</div>
+        </div>
+        <div class="kpi-icon kpi-icon-slate"><span class="material-symbols-outlined">block</span></div>
+      </div>
+      <div class="kpi-micro">desativadas ou canceladas</div>
+    </div>
+  </div>
+
+  <!-- BLOCO DE ATENÇÃO -->
+  <div id="attention-block"></div>
+
+  <!-- TABELA DE EMPRESAS -->
+  <div class="card" style="border-radius:var(--card-radius);box-shadow:var(--card-shadow);border:none">
+    <div class="card-header" style="padding:22px 28px">
+      <div>
+        <div class="card-title" style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700">Listagem de Empresas</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">Clique em uma empresa para ver detalhes completos</div>
+      </div>
+      <div style="position:relative">
+        <span class="material-symbols-outlined" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:18px">search</span>
+        <input
+          id="filtro-empresa-input"
+          type="search"
+          placeholder="Buscar empresa, e-mail ou EMP-..."
+          autocomplete="off"
+          spellcheck="false"
+          readonly
+          onfocus="this.removeAttribute('readonly')"
+          oninput="debounceFiltrar(this.value)"
+          style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 16px 10px 38px;color:var(--text);font-size:13px;font-family:inherit;outline:none;width:290px;transition:border-color 0.2s,box-shadow 0.2s"
+          onfocus="this.style.borderColor='var(--accent)';this.style.boxShadow='0 0 0 3px rgba(6,182,212,0.12)'"
+          onblur="this.style.borderColor='';this.style.boxShadow=''"
+        >
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="col-empresa">Empresa</th>
+            <th class="sortable" onclick="sortTable('plano')">Plano <span class="sort-icon" id="sort-plano">↕</span></th>
+            <th>Status</th>
+            <th class="sortable" onclick="sortTable('total_orcamentos')">Orçamentos <span class="sort-icon" id="sort-total_orcamentos">↕</span></th>
+            <th class="sortable" onclick="sortTable('total_usuarios')">Usuários <span class="sort-icon" id="sort-total_usuarios">↕</span></th>
+            <th class="sortable" onclick="sortTable('ultima_atividade_em')">Atividade <span class="sort-icon" id="sort-ultima_atividade_em">↕</span></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="empresas-tbody">
+          <tr><td colspan="7"><div class="loading"><div class="spinner"></div> Carregando ecossistema...</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="mobile-cards-list" id="empresas-mobile"></div>
+  </div>
+</main>
+
+<!-- SIDE DRAWER - DETALHES DA EMPRESA -->
+<div class="drawer-overlay" id="drawer-overlay" onclick="fecharDrawer()"></div>
+<div class="drawer" id="drawer-empresa">
+  <div class="drawer-header">
+    <div id="drawer-header-content" style="display:flex;align-items:center;gap:14px;flex:1;min-width:0"></div>
+    <button class="drawer-close-btn" onclick="fecharDrawer()" title="Fechar">✕</button>
+  </div>
+  <div class="drawer-body" id="drawer-body-content"></div>
+  <div class="drawer-footer" id="drawer-footer-content"></div>
+</div>
+
+
+<!-- MODAL NOVA/EDITAR EMPRESA -->
+<div class="modal-overlay" id="modal-empresa">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-empresa-title">Nova Empresa</div>
+      <button class="modal-close" onclick="fecharModalEmpresa()">x</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="emp-edit-id">
+      <div style="background:var(--surface2);border-radius:10px;padding:14px 16px;margin-bottom:20px;font-size:12px;color:var(--muted)" id="secao-usuario-hint">
+        Preencha os dados da empresa e crie o primeiro usuario de acesso.
+      </div>
+      <div class="form-row">
+        <div class="form-group full" style="margin-bottom:6px">
+          <label style="font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px">Empresa</label>
+        </div>
+        <div class="form-group full">
+          <label>Nome da empresa *</label>
+          <input type="text" id="emp-nome" placeholder="Silva Servicos">
+        </div>
+        <div class="form-group">
+          <label>Telefone / WhatsApp</label>
+          <input type="text" id="emp-telefone" placeholder="(48) 99999-9999">
+        </div>
+        <div class="form-group">
+          <label>E-mail</label>
+          <input type="email" id="emp-email" placeholder="contato@empresa.com">
+        </div>
+        <div class="form-group full">
+          <label>Numero do Operador (WhatsApp que cria orcamentos)</label>
+          <input type="text" id="emp-telefone-operador" placeholder="48991011618 — sem espacos ou mascara">
+        </div>
+        <div class="form-group">
+          <label>Cor principal</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="color" id="emp-cor" value="#00e5a0" style="width:42px;height:36px;padding:2px;cursor:pointer;flex-shrink:0">
+            <input type="text" id="emp-cor-hex" value="#00e5a0" style="flex:1" oninput="if(/^#[0-9A-Fa-f]{6}$/.test(this.value))document.getElementById('emp-cor').value=this.value">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Codigo da empresa</label>
+          <input type="text" id="emp-codigo-display" disabled placeholder="Gerado automaticamente (EMP-{id})" style="opacity:0.5">
+        </div>
+        <div class="form-group full" id="secao-logo" style="margin-top:8px">
+          <label style="font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px">Logo da empresa</label>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Aparece nos orcamentos em PDF. PNG, JPG ou WEBP.</div>
+          <div id="emp-logo-preview-wrap" style="width:100%;height:90px;background:var(--surface2);border:1px dashed var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:10px;overflow:hidden;position:relative">
+            <div id="emp-logo-placeholder" style="text-align:center;color:var(--muted);font-size:12px">
+              <div style="font-size:24px;margin-bottom:4px">🖼</div>Nenhuma logo
+            </div>
+            <img id="emp-logo-img" style="display:none;max-width:100%;max-height:100%;object-fit:contain;padding:8px" alt="Logo">
+            <button type="button" id="emp-btn-remover-logo" onclick="removerLogoEmpresa()" style="display:none;position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:6px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#ef4444;cursor:pointer;font-size:12px">x</button>
+          </div>
+          <input type="file" id="emp-logo-file" accept=".png,.jpg,.jpeg,.webp" style="display:none" onchange="onLogoFileSelected(this)">
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" class="btn btn-ghost" style="font-size:12px" onclick="document.getElementById('emp-logo-file').click()">Enviar logo</button>
+            <span id="emp-logo-nova-hint" style="display:none;font-size:11px;color:var(--green)">Nova imagem selecionada (sera enviada ao salvar)</span>
+          </div>
+        </div>
+        <div id="secao-usuario" class="form-group full" style="margin-top:8px;margin-bottom:6px">
+          <label style="font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px">Primeiro Usuario de Acesso</label>
+        </div>
+        <div class="form-group full" id="campo-usuario-nome">
+          <label>Nome do usuario *</label>
+          <input type="text" id="usr-nome" placeholder="Nome do responsavel">
+        </div>
+        <div class="form-group" id="campo-usuario-email">
+          <label>E-mail de login *</label>
+          <input type="email" id="usr-email" placeholder="usuario@empresa.com">
+        </div>
+        <div class="form-group" id="campo-usuario-senha">
+          <label>Senha *</label>
+          <input type="password" id="usr-senha" placeholder="Minimo 6 caracteres">
+        </div>
+        <div class="form-group full" style="margin-top:12px;margin-bottom:4px">
+          <label style="font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px">Permissoes personalizadas</label>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Limite de orcamentos desta empresa</label>
+            <input type="number" id="emp-limite-orc" min="0" placeholder="Vazio = usar limite do plano">
+          </div>
+          <div class="form-group">
+            <label>Limite de usuarios desta empresa</label>
+            <input type="number" id="emp-limite-usr" min="0" placeholder="Vazio = usar limite do plano">
+          </div>
+        </div>
+        <div class="form-group full" style="font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:4px">
+          <label style="display:flex;align-items:center;gap:6px;font-weight:400">
+            <input type="checkbox" id="emp-desativar-ia" style="width:auto"> Desativar IA automatica para esta empresa
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-weight:400">
+            <input type="checkbox" id="emp-desativar-lembretes" style="width:auto"> Desativar lembretes automaticos
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-weight:400">
+            <input type="checkbox" id="emp-desativar-relatorios" style="width:auto"> Desativar relatorios
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="fecharModalEmpresa()">Cancelar</button>
+      <button class="btn btn-primary" id="btn-salvar-empresa" onclick="salvarEmpresa()">Criar Empresa</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL USUARIOS DA EMPRESA -->
+<div class="modal-overlay" id="modal-usuarios">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-usuarios-title">Usuarios</div>
+      <button class="modal-close" onclick="fecharModalUsuarios()">x</button>
+    </div>
+    <div class="modal-body">
+      <div id="lista-usuarios" style="margin-bottom:20px;min-height:60px">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:16px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:12px">Adicionar usuario</div>
+        <div class="form-row">
+          <div class="form-group full">
+            <label>Nome</label>
+            <input type="text" id="novo-usr-nome" placeholder="Nome completo">
+          </div>
+          <div class="form-group">
+            <label>E-mail</label>
+            <input type="email" id="novo-usr-email" placeholder="email@empresa.com">
+          </div>
+          <div class="form-group">
+            <label>Senha</label>
+            <input type="password" id="novo-usr-senha" placeholder="Senha de acesso">
+          </div>
+        </div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:4px" onclick="adicionarUsuario()" id="btn-add-usuario">
+          Adicionar Usuario
+        </button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="fecharModalUsuarios()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR USUARIO (ADMIN) -->
+<div class="modal-overlay" id="modal-editar-usuario">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <div class="modal-title">Editar usuario</div>
+      <button class="modal-close" onclick="fecharModalEditarUsuario()">x</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-usr-id">
+      <div class="form-group">
+        <label>Nome *</label>
+        <input type="text" id="edit-usr-nome" placeholder="Nome completo">
+      </div>
+      <div class="form-group">
+        <label>E-mail (login) *</label>
+        <input type="email" id="edit-usr-email" placeholder="email@empresa.com">
+      </div>
+      <div class="form-group">
+        <label>Nova senha <span style="color:var(--muted);font-weight:normal">(deixe em branco para nao alterar)</span></label>
+        <input type="password" id="edit-usr-senha" placeholder="Min. 6 caracteres">
+      </div>
+      <div style="margin-top:4px;padding:10px 12px;background:var(--surface2);border-radius:8px;display:flex;align-items:center;gap:10px">
+        <input type="checkbox" id="edit-usr-gestor" style="width:16px;height:16px;cursor:pointer">
+        <label for="edit-usr-gestor" style="font-size:13px;cursor:pointer;margin:0">Gestor (acesso total à empresa)</label>
+      </div>
+      <div id="edit-usr-perms-section" style="margin-top:14px">
+        <div style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Permissões</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="form-group" style="margin:0">
+            <label style="font-size:12px">Orçamentos</label>
+            <select id="edit-usr-perm-orcamentos" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-size:12px;font-family:inherit">
+              <option value="">— sem acesso —</option>
+              <option value="meus">Apenas os seus</option>
+              <option value="leitura">Visualizar</option>
+              <option value="escrita">Criar / Editar</option>
+              <option value="admin">Administrador</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label style="font-size:12px">Clientes</label>
+            <select id="edit-usr-perm-clientes" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-size:12px;font-family:inherit">
+              <option value="">— sem acesso —</option>
+              <option value="meus">Apenas os seus</option>
+              <option value="leitura">Visualizar</option>
+              <option value="escrita">Criar / Editar</option>
+              <option value="admin">Administrador</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label style="font-size:12px">Catálogo</label>
+            <select id="edit-usr-perm-catalogo" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-size:12px;font-family:inherit">
+              <option value="">— sem acesso —</option>
+              <option value="leitura">Visualizar</option>
+              <option value="escrita">Criar / Editar</option>
+              <option value="admin">Administrador</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label style="font-size:12px">Financeiro</label>
+            <select id="edit-usr-perm-financeiro" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-size:12px;font-family:inherit">
+              <option value="">— sem acesso —</option>
+              <option value="leitura">Visualizar</option>
+              <option value="escrita">Criar / Editar</option>
+              <option value="admin">Administrador</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label style="font-size:12px">Relatórios</label>
+            <select id="edit-usr-perm-relatorios" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-size:12px;font-family:inherit">
+              <option value="">— sem acesso —</option>
+              <option value="leitura">Visualizar</option>
+              <option value="escrita">Avançado</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label style="font-size:12px">Equipe</label>
+            <select id="edit-usr-perm-equipe" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-size:12px;font-family:inherit">
+              <option value="">— sem acesso —</option>
+              <option value="leitura">Visualizar</option>
+              <option value="escrita">Criar</option>
+              <option value="admin">Administrador</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label style="font-size:12px">Configurações</label>
+            <select id="edit-usr-perm-configuracoes" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-size:12px;font-family:inherit">
+              <option value="">— sem acesso —</option>
+              <option value="leitura">Visualizar</option>
+              <option value="escrita">Editar</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label style="font-size:12px">Assistente IA</label>
+            <select id="edit-usr-perm-ia" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-size:12px;font-family:inherit">
+              <option value="">— sem acesso —</option>
+              <option value="leitura">Usar</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="fecharModalEditarUsuario()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarEdicaoUsuario()" id="btn-salvar-edicao-usr">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ASSINATURA -->
+<div class="modal-overlay" id="modal-assinatura">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title">💳 Gerenciar Assinatura</div>
+      <button class="modal-close" onclick="fecharModalAssinatura()">x</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="assin-empresa-id">
+      <div style="background:var(--surface2);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--muted)">
+        Empresa: <strong id="assin-empresa-nome" style="color:var(--text)"></strong>
+      </div>
+      <div class="form-group">
+        <label>Pacote de Assinatura</label>
+        <select id="assin-pacote-id" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;font-family:inherit;outline:none">
+          <option value="">Carregando pacotes...</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Plano (Legado)</label>
+        <select id="assin-plano" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;font-family:inherit;outline:none">
+          <option value="trial">Trial (gratuito)</option>
+          <option value="starter">Starter</option>
+          <option value="pro">Pro</option>
+          <option value="business">Business</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Validade da assinatura <span style="color:var(--muted);font-weight:normal">(deixe em branco para sem vencimento)</span></label>
+        <input type="datetime-local" id="assin-validade" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;font-family:inherit;outline:none">
+      </div>
+      <div class="form-group">
+        <label>Status da empresa</label>
+        <select id="assin-ativo" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;font-family:inherit;outline:none">
+          <option value="true">Ativa</option>
+          <option value="false">Inativa</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="fecharModalAssinatura()">Cancelar</button>
+      <button class="btn btn-primary" id="btn-salvar-assinatura" onclick="salvarAssinatura()">Salvar Assinatura</button>
+    </div>
+  </div>
+</div>
+
+<!-- NOTIFICACAO -->
+<div class="notif" id="notif">
+  <div class="notif-icon"></div>
+  <div>
+    <div class="notif-title"></div>
+    <div class="notif-sub"></div>
+  </div>
+</div>
+
+<script src="js/utils.js?v=1"></script>
+<script src="js/api.js?v=17"></script>
+<script src="js/layout.js?v=5"></script>
+<script>
+  inicializarLayout('admin');
+
+  setTimeout(() => {
+    const s = document.getElementById('filtro-empresa-input');
+    if (s) { s.value = ''; s.setAttribute('readonly', true); }
+  }, 100);
+
+  const _u = getUsuario();
+  if (_u && !_u.is_superadmin) window.location.href = './';
+
+  // ── ESTADO ──
+  let todasEmpresas = [];
+  let empresaAtualId = null;
+  let debounceTimer = null;
+  let _sortCampo = null;
+  let _sortDir = 'asc';
+  let _filtroStatus = 'todos';
+
+  function debounceFiltrar(valor) {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => aplicarFiltroESort(), 300);
+  }
+
+  // ── MOCK ──
+  function mockEmpresas() {
+    return [
+      { id:1, nome:"Construtora Silva", email:"contato@silva.com", telefone:"(11) 99999-8888", telefone_operador:"11999998888", cor_primaria:"#00e5a0", logo_url:null, plano:"pro", ativo:true, assinatura_valida_ate:"2026-12-31T23:59:59", cupom_kiwify:null, total_usuarios:3, total_orcamentos:45, total_mensagens_ia:124, limite_orcamentos_custom:null, limite_usuarios_custom:null, desativar_ia:false, desativar_lembretes:false, desativar_relatorios:false, ultima_atividade_em:new Date().toISOString(), criado_em:new Date().toISOString() },
+      { id:2, nome:"Elétrica Forte", email:"vendas@eletricaforte.com.br", telefone:"(21) 98888-7777", telefone_operador:"21988887777", cor_primaria:"#3b82f6", logo_url:null, plano:"starter", ativo:true, assinatura_valida_ate:"2026-11-15T23:59:59", cupom_kiwify:"ELETRICA10", total_usuarios:2, total_orcamentos:18, total_mensagens_ia:12, limite_orcamentos_custom:200, limite_usuarios_custom:3, desativar_ia:true, desativar_lembretes:false, desativar_relatorios:false, ultima_atividade_em:new Date(Date.now()-3600000).toISOString(), criado_em:new Date().toISOString() },
+      { id:3, nome:"Pintura Premium", email:"orcamento@pinturapremium.com", telefone:"(48) 97777-6666", telefone_operador:"48977776666", cor_primaria:"#f97316", logo_url:null, plano:"trial", ativo:true, assinatura_valida_ate:new Date(Date.now()+3*86400000).toISOString(), cupom_kiwify:null, total_usuarios:1, total_orcamentos:0, total_mensagens_ia:5, limite_orcamentos_custom:50, limite_usuarios_custom:1, desativar_ia:false, desativar_lembretes:true, desativar_relatorios:true, ultima_atividade_em:new Date(Date.now()-86400000).toISOString(), criado_em:new Date().toISOString() },
+      { id:4, nome:"Instalações Rápidas", email:"suporte@instalacoesrapidas.com", telefone:"(31) 96666-5555", telefone_operador:"31966665555", cor_primaria:"#8b5cf6", logo_url:null, plano:"business", ativo:false, assinatura_valida_ate:null, cupom_kiwify:"INSTALA20", total_usuarios:5, total_orcamentos:120, total_mensagens_ia:450, limite_orcamentos_custom:null, limite_usuarios_custom:null, desativar_ia:false, desativar_lembretes:false, desativar_relatorios:false, ultima_atividade_em:null, criado_em:new Date(Date.now()-60*86400000).toISOString() }
+    ];
+  }
+
+  // ── KPIs CLIENT-SIDE ──
+  const _PLANO_PRECO = { trial:0, starter:99, pro:149, business:299 };
+
+  function renderKPIs(empresas) {
+    const hoje = new Date();
+    const mes = hoje.getMonth(), ano = hoje.getFullYear();
+    const ativas = empresas.filter(e => e.ativo).length;
+    const trial  = empresas.filter(e => e.ativo && e.plano === 'trial').length;
+    const inativas = empresas.filter(e => !e.ativo).length;
+    const inadimplentes = empresas.filter(e => {
+      if (!e.ativo || !e.assinatura_valida_ate) return false;
+      return new Date(e.assinatura_valida_ate) < hoje;
+    }).length;
+    const mrr = empresas.filter(e => e.ativo && e.plano !== 'trial')
+      .reduce((s, e) => s + (_PLANO_PRECO[e.plano] || 0), 0);
+    const novas = empresas.filter(e => {
+      if (!e.criado_em) return false;
+      const d = new Date(e.criado_em);
+      return d.getMonth() === mes && d.getFullYear() === ano;
+    }).length;
+    const pagantes = empresas.filter(e => e.ativo && e.plano !== 'trial').length;
+    const conv = empresas.length > 0 ? Math.round(pagantes / empresas.length * 100) : 0;
+
+    document.getElementById('kpi-total').textContent       = empresas.length;
+    document.getElementById('kpi-ativas').textContent      = ativas;
+    document.getElementById('kpi-trial').textContent       = trial;
+    document.getElementById('kpi-inadimplentes').textContent = inadimplentes;
+    document.getElementById('kpi-inativas').textContent    = inativas;
+    document.getElementById('kpi-mrr').textContent         = 'R$ ' + mrr.toLocaleString('pt-BR');
+    document.getElementById('kpi-novas').textContent       = novas;
+    document.getElementById('kpi-conv').textContent        = conv + '%';
+  }
+
+  // ── BLOCO DE ATENÇÃO ──
+  function renderAtencao(empresas) {
+    const hoje = new Date();
+    const em7 = new Date(hoje.getTime() + 7 * 86400000);
+    const ha30 = new Date(hoje.getTime() - 30 * 86400000);
+
+    const trialsVencendo = empresas.filter(e => {
+      if (!e.ativo || e.plano !== 'trial') return false;
+      const ref = e.trial_ate || e.assinatura_valida_ate;
+      if (!ref) return false;
+      const d = new Date(ref);
+      return d >= hoje && d <= em7;
+    });
+    const semOrcamento   = empresas.filter(e => e.ativo && (e.total_orcamentos || 0) === 0);
+    const inativasRec    = empresas.filter(e => !e.ativo && e.ultima_atividade_em && new Date(e.ultima_atividade_em) > ha30);
+
+    const itens = [
+      { icon:'hourglass_empty', titulo:'Trials vencendo',    count:trialsVencendo.length, desc:'com trial vencendo em até 7 dias', status:'trial',    urgente:trialsVencendo.length > 0 },
+      { icon:'request_quote',  titulo:'Sem orçamento',      count:semOrcamento.length,   desc:'empresas ativas sem nenhum orçamento', status:null,   urgente:false },
+      { icon:'person_off',     titulo:'Inativas recentes',  count:inativasRec.length,    desc:'desativadas com atividade recente', status:'inativas', urgente:inativasRec.length > 0 }
+    ].filter(i => i.count > 0);
+
+    const el = document.getElementById('attention-block');
+    if (!el || !itens.length) { if (el) el.innerHTML = ''; return; }
+
+    el.innerHTML = `<div class="attention-block-inner">
+      <div class="attn-header">
+        <span class="material-symbols-outlined attn-header-icon">warning</span>
+        <div class="attn-title">Atenção necessária</div>
+        <div class="attn-subtitle">${itens.length} alerta${itens.length > 1 ? 's' : ''} ativo${itens.length > 1 ? 's' : ''}</div>
+      </div>
+      <div class="attn-grid">
+        ${itens.map(i => `
+          <div class="attn-card" onclick="${i.status ? `filtrarStatus('${i.status}')` : ''}">
+            <div class="attn-icon-wrap"><span class="material-symbols-outlined">${i.icon}</span></div>
+            <div class="attn-info">
+              <div class="attn-count">${i.count}</div>
+              <div class="attn-desc"><strong style="color:var(--text)">${i.titulo}</strong><br>${i.desc}</div>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  // ── FILTRO + SORT ──
+  function filtrarStatus(status) {
+    _filtroStatus = status;
+    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+    const btn = document.querySelector(`.filter-tab[data-status="${status}"]`);
+    if (btn) btn.classList.add('active');
+    aplicarFiltroESort();
+  }
+
+  function sortTable(campo) {
+    _sortDir = _sortCampo === campo ? (_sortDir === 'asc' ? 'desc' : 'asc') : 'asc';
+    _sortCampo = campo;
+    document.querySelectorAll('.sort-icon').forEach(el => el.textContent = '↕');
+    const ic = document.getElementById(`sort-${campo}`);
+    if (ic) ic.textContent = _sortDir === 'asc' ? '↑' : '↓';
+    aplicarFiltroESort();
+  }
+
+  function aplicarFiltroESort() {
+    const hoje = new Date();
+    let lista = [...todasEmpresas];
+    const busca = (document.getElementById('filtro-empresa-input')?.value || '').toLowerCase();
+    if (busca) lista = lista.filter(e =>
+      e.nome.toLowerCase().includes(busca) ||
+      (e.email || '').toLowerCase().includes(busca) ||
+      (`EMP-${e.id}`).toLowerCase().includes(busca)
+    );
+    if (_filtroStatus === 'ativas')        lista = lista.filter(e => e.ativo);
+    else if (_filtroStatus === 'trial')    lista = lista.filter(e => e.ativo && e.plano === 'trial');
+    else if (_filtroStatus === 'inadimplentes') lista = lista.filter(e => e.ativo && e.assinatura_valida_ate && new Date(e.assinatura_valida_ate) < hoje);
+    else if (_filtroStatus === 'inativas') lista = lista.filter(e => !e.ativo);
+    if (_sortCampo) lista.sort((a, b) => {
+      let va = a[_sortCampo] ?? '', vb = b[_sortCampo] ?? '';
+      if (typeof va === 'string') va = va.toLowerCase();
+      if (typeof vb === 'string') vb = vb.toLowerCase();
+      return va < vb ? (_sortDir === 'asc' ? -1 : 1) : va > vb ? (_sortDir === 'asc' ? 1 : -1) : 0;
+    });
+    renderEmpresas(lista);
+  }
+
+  // ── CARREGAR DASHBOARD ──
+  async function carregarDashboard() {
+    try { await api.get('/admin/dashboard'); } catch(e) {}
+  }
+
+  // ── CARREGAR EMPRESAS ──
+  async function carregarEmpresas() {
+    document.getElementById('aviso-demo')?.remove();
+    document.getElementById('empresas-tbody').innerHTML = '<tr><td colspan="7"><div class="loading"><div class="spinner"></div> Carregando ecossistema...</div></td></tr>';
+    try {
+      const r = await api.get('/admin/empresas');
+      if (Array.isArray(r) && r.length > 0) {
+        todasEmpresas = r;
+      } else throw new Error('Sem dados');
+    } catch(e) {
+      console.warn('Usando dados simulados');
+      todasEmpresas = mockEmpresas();
+      const aviso = document.createElement('div');
+      aviso.id = 'aviso-demo';
+      aviso.style.cssText = 'background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);border-radius:12px;padding:12px 16px;margin-bottom:24px;font-size:13px;color:#fbbf24';
+      aviso.innerHTML = '<strong>⚠️ Modo de demonstração:</strong> Dados simulados. API offline ou não encontrada.';
+      const main = document.querySelector('main');
+      const attn = document.getElementById('attention-block');
+      if (main && attn) main.insertBefore(aviso, attn);
+    }
+    renderKPIs(todasEmpresas);
+    renderAtencao(todasEmpresas);
+    aplicarFiltroESort();
+  }
+
+  // ── HELPERS ──
+  const _PLANO_BADGE = { trial:'badge-amber', starter:'badge-blue', pro:'badge-green', business:'badge-purple' };
+  const _PLANO_LABEL = { trial:'Trial', starter:'Starter', pro:'Pro', business:'Business' };
+  let _PLANO_LIM_ORC = { trial:50, starter:200, pro:1000, business:null };
+
+  function _validadeBadge(iso) {
+    if (!iso) return '<span style="font-size:11px;color:var(--muted)">Sem vencimento</span>';
+    const d = new Date(iso), hoje = new Date();
+    const dias = Math.ceil((d - hoje) / 86400000);
+    const label = d.toLocaleDateString('pt-BR');
+    if (dias < 0)  return `<span class="badge badge-red" title="${label}">Vencida</span>`;
+    if (dias <= 7) return `<span class="badge badge-amber" title="${label}">${dias}d restantes</span>`;
+    return `<span style="font-weight:600;font-size:13px">${label}</span>`;
+  }
+
+  function _formatarDataAtividade(iso) {
+    if (!iso) return '<span style="color:var(--muted)">—</span>';
+    const data = new Date(iso);
+    const agora = new Date();
+    const difSeg = Math.floor((agora - data) / 1000);
+    if (difSeg < 60) return '<span style="color:#00e5a0;font-weight:700">Online</span>';
+    if (difSeg < 3600) return `há ${Math.floor(difSeg / 60)}m`;
+    // Mesmo dia civil no fuso local (Date já interpreta ISO com Z/+00:00 corretamente)
+    const mesmoDia =
+      data.getFullYear() === agora.getFullYear() &&
+      data.getMonth() === agora.getMonth() &&
+      data.getDate() === agora.getDate();
+    if (mesmoDia) {
+      const h = data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      return `hoje às ${h}`;
+    }
+    return data.toLocaleDateString('pt-BR');
+  }
+
+  // ── RENDER EMPRESAS ──
+  function renderEmpresas(lista) {
+    renderEmpresasMobile(lista);
+    const tbody = document.getElementById('empresas-tbody');
+    if (!lista.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:48px">Nenhuma empresa encontrada.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = lista.map(e => {
+      const ini = e.nome.slice(0,2).toUpperCase();
+      const cor = e.cor_primaria || '#00e5a0';
+      const logoEl = e.logo_url
+        ? `<img src="${api.resolveUrl(e.logo_url)}" class="empresa-logo" alt="">`
+        : `<div class="empresa-ini" style="background:${cor}22;color:${cor}">${ini}</div>`;
+      const limBase = _PLANO_LIM_ORC[e.plano] ?? 0;
+      const limEf   = e.limite_orcamentos_custom != null ? e.limite_orcamentos_custom : limBase;
+      const pct     = limEf > 0 ? Math.min(100, Math.round((e.total_orcamentos / limEf) * 100)) : 0;
+      const barColor = pct > 90 ? '#ef4444' : pct > 70 ? '#fbbf24' : 'var(--accent)';
+      const statusDot = e.ativo
+        ? '<span style="width:7px;height:7px;background:#00e5a0;border-radius:50%;display:inline-block;margin-right:5px"></span>'
+        : '<span style="width:7px;height:7px;background:#ef4444;border-radius:50%;display:inline-block;margin-right:5px"></span>';
+      return `<tr onclick="abrirDrawer(${e.id})">
+        <td class="col-empresa">
+          <div style="display:flex;align-items:center;gap:12px">
+            ${logoEl}
+            <div>
+              <div style="font-weight:700;font-size:14px">${e.nome}</div>
+              <div style="font-size:11px;color:var(--muted)">EMP-${e.id} · ${e.email || 'sem e-mail'}</div>
+            </div>
+          </div>
+        </td>
+        <td><span class="badge ${_PLANO_BADGE[e.plano] || 'badge-blue'}">${_PLANO_LABEL[e.plano] || e.plano}</span></td>
+        <td><div style="display:flex;align-items:center;font-size:12px">${statusDot}${e.ativo ? 'Ativa' : 'Inativa'}</div></td>
+        <td>
+          <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">
+            <span style="font-weight:600">${e.total_orcamentos}</span>
+            <span style="color:var(--muted)">${limEf ? `/ ${limEf}` : '∞'}</span>
+          </div>
+          <div class="progress-container"><div class="progress-bar" style="width:${pct}%;background:${barColor}"></div></div>
+        </td>
+        <td style="text-align:center;font-weight:600">${e.total_usuarios}</td>
+        <td style="font-size:12px">${_formatarDataAtividade(e.ultima_atividade_em)}</td>
+        <td><button class="btn btn-ghost" style="padding:5px 8px;font-size:11px" onclick="event.stopPropagation();abrirModalUsuarios(${e.id},'${e.nome.replace(/'/g,"\\'")}')">👥</button></td>
+      </tr>`;
+    }).join('');
+  }
+
+  function renderEmpresasMobile(lista) {
+    const c = document.getElementById('empresas-mobile');
+    if (!c) return;
+    if (!lista.length) { c.innerHTML = '<div style="text-align:center;color:var(--muted);padding:32px">Nenhuma empresa encontrada.</div>'; return; }
+    c.innerHTML = lista.map(e => {
+      const ini = e.nome.slice(0,2).toUpperCase(), cor = e.cor_primaria || '#00e5a0';
+      const logoEl = e.logo_url
+        ? `<img src="${api.resolveUrl(e.logo_url)}" class="empresa-logo" alt="">`
+        : `<div class="empresa-ini" style="background:${cor}22;color:${cor}">${ini}</div>`;
+      return `<div class="mobile-card" onclick="abrirDrawer(${e.id})" style="cursor:pointer">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          ${logoEl}
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.nome}</div>
+            <div style="font-size:11px;color:var(--muted)">EMP-${e.id} · ${e.email || 'sem e-mail'}</div>
+          </div>
+          <span class="badge ${_PLANO_BADGE[e.plano] || 'badge-blue'}">${_PLANO_LABEL[e.plano] || e.plano}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px">
+          <span>Orçamentos: <b style="color:var(--text)">${e.total_orcamentos}</b></span>
+          <span>Usuários: <b style="color:var(--text)">${e.total_usuarios}</b></span>
+          <span>IA: <b style="color:var(--text)">${e.total_mensagens_ia||0}</b></span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+          <span style="font-size:11px;color:var(--muted)">${_formatarDataAtividade(e.ultima_atividade_em)}</span>
+          <button class="btn btn-ghost" style="padding:4px 8px;font-size:11px" onclick="event.stopPropagation();abrirModalUsuarios(${e.id},'${e.nome.replace(/'/g,"\\'")}')">👥 Usuários</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── DRAWER ──
+  function abrirDrawer(id) {
+    empresaAtualId = id;
+    const e = todasEmpresas.find(x => x.id === id);
+    if (!e) return;
+
+    const ini = e.nome.slice(0,2).toUpperCase(), cor = e.cor_primaria || '#00e5a0';
+    const logoEl = e.logo_url
+      ? `<img src="${api.resolveUrl(e.logo_url)}" class="empresa-logo" style="width:48px;height:48px" alt="">`
+      : `<div class="empresa-ini" style="width:48px;height:48px;background:${cor}22;color:${cor};font-size:19px">${ini}</div>`;
+
+    const hoje = new Date();
+    const validAlert = (() => {
+      if (!e.assinatura_valida_ate) return '';
+      const d = new Date(e.assinatura_valida_ate);
+      const dias = Math.ceil((d - hoje) / 86400000);
+      if (dias < 0)  return `<span class="badge badge-red" style="font-size:10px">Vencida</span>`;
+      if (dias <= 7) return `<span class="badge badge-amber" style="font-size:10px">Vence em ${dias}d</span>`;
+      return '';
+    })();
+
+    document.getElementById('drawer-header-content').innerHTML = `
+      ${logoEl}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:17px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.nome}</div>
+        <div style="font-size:12px;color:var(--muted)">EMP-${e.id} · ${e.ativo ? '<span style="color:#00e5a0">● Ativa</span>' : '<span style="color:#ef4444">● Inativa</span>'}</div>
+        ${validAlert}
+      </div>
+    `;
+
+    const limBase = _PLANO_LIM_ORC[e.plano] ?? 0;
+    const limEf   = e.limite_orcamentos_custom != null ? e.limite_orcamentos_custom : limBase;
+    const pct     = limEf > 0 ? Math.min(100, Math.round((e.total_orcamentos / limEf) * 100)) : 0;
+
+    document.getElementById('drawer-body-content').innerHTML = `
+      <div class="drawer-metrics">
+        <div class="drawer-metric">
+          <div class="drawer-metric-val">${e.total_orcamentos}</div>
+          <div class="drawer-metric-lbl">Orçamentos</div>
+        </div>
+        <div class="drawer-metric">
+          <div class="drawer-metric-val">${e.total_usuarios}</div>
+          <div class="drawer-metric-lbl">Usuários</div>
+        </div>
+        <div class="drawer-metric">
+          <div class="drawer-metric-val">${e.total_mensagens_ia || 0}</div>
+          <div class="drawer-metric-lbl">Msgs IA</div>
+        </div>
+      </div>
+
+      <div class="drawer-section">
+        <div class="drawer-section-title">Assinatura e contato</div>
+        <div class="info-row"><span class="info-label">Plano</span><span class="info-value"><span class="badge ${_PLANO_BADGE[e.plano]}">${_PLANO_LABEL[e.plano]}</span></span></div>
+        <div class="info-row"><span class="info-label">Validade</span><span class="info-value">${_validadeBadge(e.assinatura_valida_ate)}</span></div>
+        <div class="info-row"><span class="info-label">E-mail</span><span class="info-value">${e.email || '—'}</span></div>
+        <div class="info-row"><span class="info-label">WhatsApp</span><span class="info-value">${e.telefone || '—'}</span></div>
+        <div class="info-row"><span class="info-label">Cupom</span><span class="info-value">${e.cupom_kiwify || 'Nenhum'}</span></div>
+      </div>
+
+      <div class="drawer-section">
+        <div class="drawer-section-title">Uso de orçamentos</div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px">
+          <span>Utilizados</span>
+          <span style="font-weight:700">${e.total_orcamentos} / ${limEf || '∞'}</span>
+        </div>
+        <div class="progress-container" style="height:8px"><div class="progress-bar" style="width:${pct}%"></div></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">${e.limite_orcamentos_custom ? 'Limite customizado' : 'Limite padrão do plano'}</div>
+      </div>
+
+      <div class="drawer-section" id="drawer-usuarios-section">
+        <div class="drawer-section-title">Usuários da empresa</div>
+        <div id="drawer-usuarios-lista"><div class="loading" style="padding:12px 0"><div class="spinner"></div></div></div>
+      </div>
+    `;
+
+    document.getElementById('drawer-footer-content').innerHTML = `
+      <button class="btn btn-primary" style="flex:1" onclick="entrarComoEmpresa(${e.id},'${e.nome.replace(/'/g,"\\'")}')">🚪 Acessar Painel</button>
+      <button class="btn btn-ghost" onclick="abrirModalAssinatura(${e.id})">💳</button>
+      <button class="btn btn-ghost" onclick="editarEmpresa(${e.id})">⚙️</button>
+      <button class="btn btn-ghost" style="color:#ef4444" onclick="confirmarExcluir(${e.id},'${e.nome.replace(/'/g,"\\'")}')">🗑️</button>
+    `;
+
+    document.getElementById('drawer-overlay').style.display = 'block';
+    setTimeout(() => {
+      document.getElementById('drawer-overlay').classList.add('open');
+      document.getElementById('drawer-empresa').classList.add('open');
+    }, 10);
+    carregarUsuariosDrawer(id);
+  }
+
+  async function carregarUsuariosDrawer(empresaId) {
+    const el = document.getElementById('drawer-usuarios-lista');
+    if (!el) return;
+    try {
+      const lista = await api.get(`/admin/empresas/${empresaId}/usuarios`);
+      if (!lista.length) { el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">Nenhum usuário cadastrado.</div>'; return; }
+      const agora = Date.now();
+      el.innerHTML = lista.map(u => {
+        const online = u.ultima_atividade_em && (agora - new Date(u.ultima_atividade_em).getTime()) < 5*60000;
+        const ult = u.ultima_atividade_em ? new Date(u.ultima_atividade_em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : 'Nunca';
+        return `<div class="drawer-user-row">
+          <span class="${online ? 'online-dot' : 'offline-dot'}"></span>
+          <div class="user-avatar" style="width:32px;height:32px;font-size:12px;flex-shrink:0">${iniciaisDe(u.nome)}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+              ${u.nome}${u.is_gestor ? '<span class="badge badge-purple" style="font-size:10px;padding:2px 6px;margin-left:4px">Gestor</span>' : ''}
+            </div>
+            <div style="font-size:11px;color:var(--muted)">${u.email} · ${online ? '<span style="color:#00e5a0;font-weight:600">online</span>' : ult}</div>
+          </div>
+          <span class="badge ${u.ativo ? 'badge-green' : 'badge-red'}" style="font-size:10px">${u.ativo ? 'Ativo' : 'Inativo'}</span>
+        </div>`;
+      }).join('');
+    } catch(err) { el.innerHTML = `<div style="color:#ef4444;font-size:13px">${err.message}</div>`; }
+  }
+
+  function fecharDrawer() {
+    document.getElementById('drawer-overlay').classList.remove('open');
+    document.getElementById('drawer-empresa').classList.remove('open');
+    setTimeout(() => { document.getElementById('drawer-overlay').style.display = 'none'; }, 300);
+  }
+
+  // ── MODAL EMPRESA ──
+  function abrirModalNovaEmpresa() {
+    document.getElementById('emp-edit-id').value = '';
+    document.getElementById('modal-empresa-title').textContent = 'Nova Empresa';
+    document.getElementById('btn-salvar-empresa').textContent = 'Criar Empresa';
+    ['emp-nome','emp-telefone','emp-email','emp-telefone-operador','emp-codigo-display','usr-nome','usr-email'].forEach(id => { document.getElementById(id).value = ''; });
+    document.getElementById('usr-senha').value = '';
+    document.getElementById('emp-cor').value = '#00e5a0';
+    document.getElementById('emp-cor-hex').value = '#00e5a0';
+    empLogoPreview(null);
+    document.getElementById('emp-logo-file').value = '';
+    document.getElementById('emp-logo-nova-hint').style.display = 'none';
+    ['secao-usuario','campo-usuario-nome','campo-usuario-email','campo-usuario-senha','secao-usuario-hint'].forEach(id => { document.getElementById(id).style.display = ''; });
+    document.getElementById('modal-empresa').classList.add('open');
+  }
+
+  function empLogoPreview(logoUrl) {
+    const img = document.getElementById('emp-logo-img');
+    const ph  = document.getElementById('emp-logo-placeholder');
+    const btn = document.getElementById('emp-btn-remover-logo');
+    if (logoUrl) { img.src = logoUrl; img.style.display = 'block'; ph.style.display = 'none'; btn.style.display = 'block'; }
+    else { img.style.display = 'none'; img.src = ''; ph.style.display = 'block'; btn.style.display = 'none'; }
+  }
+
+  function onLogoFileSelected(input) {
+    if (!input.files || !input.files.length) return;
+    const editId = document.getElementById('emp-edit-id').value;
+    if (editId) { uploadLogoEmpresa(parseInt(editId), input.files[0]); return; }
+    empLogoPreview(URL.createObjectURL(input.files[0]));
+    document.getElementById('emp-logo-nova-hint').style.display = 'inline';
+  }
+
+  async function uploadLogoEmpresa(empresaId, file) {
+    if (!file) return;
+    const fd = new FormData(); fd.append('file', file);
+    try {
+      const res = await fetch(API_URL + `/admin/empresas/${empresaId}/logo`, { method:'POST', headers:{'Authorization':'Bearer '+getToken()}, body:fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Erro no upload');
+      empLogoPreview(API_URL + data.logo_url);
+      document.getElementById('emp-logo-file').value = '';
+      const e = todasEmpresas.find(x => x.id === empresaId);
+      if (e) { e.logo_url = data.logo_url; aplicarFiltroESort(); }
+      showNotif('ok', 'Logo enviada!', '');
+    } catch(err) { showNotif('x', 'Erro', err.message, 'error'); }
+  }
+
+  async function removerLogoEmpresa() {
+    const editId = document.getElementById('emp-edit-id').value;
+    if (!editId) return;
+    try {
+      await api.delete(`/admin/empresas/${editId}/logo`);
+      empLogoPreview(null);
+      document.getElementById('emp-logo-file').value = '';
+      const e = todasEmpresas.find(x => x.id === parseInt(editId));
+      if (e) { e.logo_url = null; aplicarFiltroESort(); }
+      showNotif('ok', 'Logo removida', '');
+    } catch(err) { showNotif('x', 'Erro', err.message, 'error'); }
+  }
+
+  function editarEmpresa(id) {
+    const e = todasEmpresas.find(x => x.id === id);
+    if (!e) return;
+    document.getElementById('emp-edit-id').value = id;
+    document.getElementById('modal-empresa-title').textContent = 'Editar Empresa';
+    document.getElementById('btn-salvar-empresa').textContent = 'Salvar Alteracoes';
+    document.getElementById('emp-nome').value = e.nome || '';
+    document.getElementById('emp-telefone').value = e.telefone || '';
+    document.getElementById('emp-email').value = e.email || '';
+    document.getElementById('emp-telefone-operador').value = e.telefone_operador || '';
+    document.getElementById('emp-cor').value = e.cor_primaria || '#00e5a0';
+    document.getElementById('emp-cor-hex').value = e.cor_primaria || '#00e5a0';
+    document.getElementById('emp-codigo-display').value = `EMP-${e.id}`;
+    if (e.logo_url) empLogoPreview(api.resolveUrl(e.logo_url));
+    else { empLogoPreview(null); document.getElementById('emp-logo-file').value = ''; }
+    document.getElementById('emp-logo-nova-hint').style.display = 'none';
+    ['secao-usuario','campo-usuario-nome','campo-usuario-email','campo-usuario-senha','secao-usuario-hint'].forEach(id => { document.getElementById(id).style.display = 'none'; });
+    document.getElementById('emp-limite-orc').value = e.limite_orcamentos_custom ?? '';
+    document.getElementById('emp-limite-usr').value = e.limite_usuarios_custom ?? '';
+    document.getElementById('emp-desativar-ia').checked = !!e.desativar_ia;
+    document.getElementById('emp-desativar-lembretes').checked = !!e.desativar_lembretes;
+    document.getElementById('emp-desativar-relatorios').checked = !!e.desativar_relatorios;
+    document.getElementById('modal-empresa').classList.add('open');
+  }
+
+  function fecharModalEmpresa() { document.getElementById('modal-empresa').classList.remove('open'); }
+
+  async function salvarEmpresa() {
+    const btn = document.getElementById('btn-salvar-empresa');
+    const editId = document.getElementById('emp-edit-id').value;
+    const nome = document.getElementById('emp-nome').value.trim();
+    if (!nome) { showNotif('x', 'Campo obrigatorio', 'Informe o nome da empresa', 'error'); return; }
+    setLoading(btn, true);
+    try {
+      const payload = {
+        nome,
+        telefone:          document.getElementById('emp-telefone').value.trim() || null,
+        email:             document.getElementById('emp-email').value.trim() || null,
+        telefone_operador: document.getElementById('emp-telefone-operador').value.trim() || null,
+        cor_primaria:      document.getElementById('emp-cor').value,
+        limite_orcamentos_custom: document.getElementById('emp-limite-orc').value === '' ? null : Number(document.getElementById('emp-limite-orc').value),
+        limite_usuarios_custom:   document.getElementById('emp-limite-usr').value === '' ? null : Number(document.getElementById('emp-limite-usr').value),
+        desativar_ia:          document.getElementById('emp-desativar-ia').checked,
+        desativar_lembretes:   document.getElementById('emp-desativar-lembretes').checked,
+        desativar_relatorios:  document.getElementById('emp-desativar-relatorios').checked,
+      };
+      if (editId) {
+        await api.patch(`/admin/empresas/${editId}`, payload);
+        showNotif('ok', 'Salvo!', 'Dados da empresa atualizados.');
+      } else {
+        const usrNome = document.getElementById('usr-nome').value.trim();
+        const usrEmail = document.getElementById('usr-email').value.trim();
+        const usrSenha = document.getElementById('usr-senha').value;
+        if (!usrNome || !usrEmail || !usrSenha) { showNotif('x', 'Campos obrigatorios', 'Preencha todos os dados do usuario', 'error'); setLoading(btn, false); return; }
+        const criada = await api.post('/admin/empresas', { ...payload, usuario_nome:usrNome, usuario_email:usrEmail, usuario_senha:usrSenha });
+        showNotif('ok', 'Empresa criada!', `${nome} adicionada ao sistema.`);
+        const logoFile = document.getElementById('emp-logo-file').files[0];
+        if (logoFile && criada?.id) await uploadLogoEmpresa(criada.id, logoFile);
+      }
+      fecharModalEmpresa();
+      await carregarEmpresas();
+    } catch(e) { showNotif('x', 'Erro', e.message, 'error'); }
+    finally { setLoading(btn, false); }
+  }
+
+  async function confirmarExcluir(id, nome) {
+    if (!confirm(`Excluir a empresa "${nome}"?\n\nIsso também removerá os usuários e clientes vinculados.\nEssa ação não pode ser desfeita.`)) return;
+    try {
+      await api.delete(`/admin/empresas/${id}`);
+      todasEmpresas = todasEmpresas.filter(e => e.id !== id);
+      renderKPIs(todasEmpresas); renderAtencao(todasEmpresas); aplicarFiltroESort();
+      showNotif('ok', 'Empresa excluída', nome);
+      fecharDrawer();
+    } catch(e) { showNotif('x', 'Erro ao excluir', e.message, 'error'); }
+  }
+
+  async function toggleAtivo(id) {
+    try {
+      const r = await api.patch(`/admin/empresas/${id}/toggle-ativo`);
+      const e = todasEmpresas.find(x => x.id === id);
+      if (e) e.ativo = r.ativo;
+      renderKPIs(todasEmpresas); renderAtencao(todasEmpresas); aplicarFiltroESort();
+      showNotif('ok', r.ativo ? 'Empresa ativada' : 'Empresa desativada', '');
+    } catch(e) { showNotif('x', 'Erro', e.message, 'error'); }
+  }
+
+  async function entrarComoEmpresa(empresaId, empresaNome) {
+    if (!confirm(`Entrar no sistema como "${empresaNome}"?\n\nVocê será autenticado como um usuário desta empresa e redirecionado para o dashboard.`)) return;
+    const empresa = todasEmpresas.find(e => e.id === empresaId);
+    if (empresa && empresa.id <= 4) { showNotif('x', 'Funcionalidade não disponível', 'Empresa simulada. Requer conexão com a API.', 'error'); return; }
+    try {
+      const res = await api.post(`/admin/empresas/${empresaId}/impersonate`);
+      if (!res.access_token || !res.usuario) throw new Error('Resposta da API inválida.');
+      sessionStorage.setItem('superadmin_token_backup', localStorage.getItem('cotte_token'));
+      sessionStorage.setItem('superadmin_usuario_backup', localStorage.getItem('cotte_usuario'));
+      salvarSessao(res.access_token, res.usuario);
+      // Busca objeto usuario completo (com is_gestor, permissoes, etc.)
+      try {
+        const usuarioCompleto = await api.get('/auth/me');
+        if (usuarioCompleto) salvarSessao(res.access_token, usuarioCompleto);
+      } catch(_) { /* usa usuario parcial do impersonate */ }
+      showNotif('ok', 'Entrando como empresa...', `Redirecionando para ${empresaNome}`);
+      setTimeout(() => { window.location.href = './index.html'; }, 800);
+    } catch(e) {
+      let msg = e.message;
+      if (msg.includes('NetworkError') || msg.includes('Failed to fetch')) msg = 'Erro de conexão com o servidor.';
+      else if (msg.includes('404')) msg = 'Endpoint não encontrado.';
+      else if (msg.includes('401')) msg = 'Token inválido ou expirado. Faça login novamente.';
+      showNotif('x', 'Erro ao simular empresa', msg, 'error');
+    }
+  }
+
+  // ── MODAL USUARIOS ──
+  async function abrirModalUsuarios(empresaId, empresaNome) {
+    empresaAtualId = empresaId;
+    document.getElementById('modal-usuarios-title').textContent = `Usuarios — ${empresaNome}`;
+    ['novo-usr-nome','novo-usr-email','novo-usr-senha'].forEach(id => { document.getElementById(id).value = ''; });
+    document.getElementById('modal-usuarios').classList.add('open');
+    await carregarUsuarios(empresaId);
+  }
+
+  function fecharModalUsuarios() { document.getElementById('modal-usuarios').classList.remove('open'); empresaAtualId = null; }
+
+  const _usuariosMap = {};
+
+  async function carregarUsuarios(empresaId) {
+    const el = document.getElementById('lista-usuarios');
+    el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+    try {
+      const lista = await api.get(`/admin/empresas/${empresaId}/usuarios`);
+      if (!lista.length) { el.innerHTML = '<div style="color:var(--muted);font-size:13px">Nenhum usuario cadastrado.</div>'; return; }
+      lista.forEach(u => { _usuariosMap[u.id] = u; });
+      el.innerHTML = lista.map(u => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="user-avatar" style="width:34px;height:34px;font-size:13px">${iniciaisDe(u.nome)}</div>
+            <div>
+              <div style="font-size:13px;font-weight:600">${u.nome}</div>
+              <div style="font-size:11px;color:var(--muted)">${u.email}</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="badge ${u.ativo ? 'badge-green' : 'badge-red'}">${u.ativo ? 'Ativo' : 'Inativo'}</span>
+            <button class="btn btn-ghost" style="padding:4px 10px;font-size:11px" onclick="abrirModalEditarUsuario(${u.id})">Editar</button>
+            <button class="btn btn-ghost" style="padding:4px 10px;font-size:11px;color:${u.ativo?'#ef4444':'#00e5a0'}" onclick="toggleUsuario(${u.id})">${u.ativo ? 'Desativar' : 'Ativar'}</button>
+          </div>
+        </div>`).join('');
+    } catch(e) { el.innerHTML = `<div style="color:#ef4444;font-size:13px">${e.message}</div>`; }
+  }
+
+  async function adicionarUsuario() {
+    const btn = document.getElementById('btn-add-usuario');
+    const nome = document.getElementById('novo-usr-nome').value.trim();
+    const email = document.getElementById('novo-usr-email').value.trim();
+    const senha = document.getElementById('novo-usr-senha').value;
+    if (!nome || !email || !senha) { showNotif('x', 'Campos obrigatorios', 'Preencha nome, e-mail e senha', 'error'); return; }
+    setLoading(btn, true);
+    try {
+      await api.post(`/admin/empresas/${empresaAtualId}/usuarios`, { nome, email, senha });
+      ['novo-usr-nome','novo-usr-email','novo-usr-senha'].forEach(id => { document.getElementById(id).value = ''; });
+      showNotif('ok', 'Usuario adicionado!', `${nome} pode fazer login agora.`);
+      await carregarUsuarios(empresaAtualId);
+      const e = todasEmpresas.find(x => x.id === empresaAtualId);
+      if (e) { e.total_usuarios++; aplicarFiltroESort(); }
+    } catch(e) { showNotif('x', 'Erro', e.message, 'error'); }
+    finally { setLoading(btn, false); }
+  }
+
+  async function toggleUsuario(usuarioId) {
+    try {
+      const r = await api.patch(`/admin/usuarios/${usuarioId}/toggle-ativo`);
+      await carregarUsuarios(empresaAtualId);
+      showNotif('ok', r.ativo ? 'Usuario ativado' : 'Usuario desativado', '');
+    } catch(e) { showNotif('x', 'Erro', e.message, 'error'); }
+  }
+
+  function abrirModalEditarUsuario(id) {
+    const u = _usuariosMap[id];
+    if (!u) return;
+    document.getElementById('edit-usr-id').value = id;
+    document.getElementById('edit-usr-nome').value = u.nome || '';
+    document.getElementById('edit-usr-email').value = u.email || '';
+    document.getElementById('edit-usr-senha').value = '';
+    const gestor = !!u.is_gestor;
+    document.getElementById('edit-usr-gestor').checked = gestor;
+    document.getElementById('edit-usr-perms-section').style.display = gestor ? 'none' : 'block';
+    const perms = u.permissoes || {};
+    ['orcamentos','clientes','catalogo','financeiro','relatorios','equipe','configuracoes','ia'].forEach(r => {
+      const sel = document.getElementById(`edit-usr-perm-${r}`);
+      if (sel) sel.value = perms[r] || '';
+    });
+    document.getElementById('modal-editar-usuario').classList.add('open');
+  }
+
+  function fecharModalEditarUsuario() { document.getElementById('modal-editar-usuario').classList.remove('open'); }
+
+  document.getElementById('modal-editar-usuario').addEventListener('click', function(e) { if (e.target === this) fecharModalEditarUsuario(); });
+  document.getElementById('edit-usr-gestor').addEventListener('change', function() {
+    document.getElementById('edit-usr-perms-section').style.display = this.checked ? 'none' : 'block';
+  });
+
+  async function salvarEdicaoUsuario() {
+    const id = document.getElementById('edit-usr-id').value;
+    const nome = document.getElementById('edit-usr-nome').value.trim();
+    const email = document.getElementById('edit-usr-email').value.trim();
+    const senha = document.getElementById('edit-usr-senha').value;
+    if (!nome || !email) { showNotif('x', 'Campos obrigatorios', 'Preencha nome e e-mail.', 'error'); return; }
+    if (senha && senha.length < 6) { showNotif('x', 'Senha curta', 'Use no minimo 6 caracteres.', 'error'); return; }
+    const btn = document.getElementById('btn-salvar-edicao-usr');
+    setLoading(btn, true);
+    try {
+      const isGestor = document.getElementById('edit-usr-gestor').checked;
+      const payload = { nome, email, is_gestor: isGestor };
+      if (senha) payload.senha = senha;
+      if (!isGestor) {
+        const permissoes = {};
+        ['orcamentos','clientes','catalogo','financeiro','relatorios','equipe','configuracoes','ia'].forEach(r => {
+          const val = document.getElementById(`edit-usr-perm-${r}`)?.value;
+          if (val) permissoes[r] = val;
+        });
+        payload.permissoes = permissoes;
+      }
+      await api.patch(`/admin/usuarios/${id}`, payload);
+      showNotif('ok', 'Usuario atualizado!', '');
+      fecharModalEditarUsuario();
+      await carregarUsuarios(empresaAtualId);
+    } catch(e) { showNotif('x', 'Erro', e.message, 'error'); }
+    finally { setLoading(btn, false); }
+  }
+
+  // ── MODAL ASSINATURA ──
+  let _todosPacotes = [];
+
+  async function carregarListaPacotes() {
+    try {
+      _todosPacotes = await api.get('/admin/pacotes/');
+      const select = document.getElementById('assin-pacote-id');
+      if (select) select.innerHTML = '<option value="">(Nenhum pacote vinculado)</option>' + _todosPacotes.map(p => `<option value="${p.id}">${p.nome}</option>`).join('');
+    } catch(e) { console.error('Erro ao carregar pacotes:', e); }
+  }
+
+  async function abrirModalAssinatura(empresaId) {
+    const e = todasEmpresas.find(x => x.id === empresaId);
+    if (!e) return;
+    document.getElementById('assin-empresa-id').value = e.id;
+    document.getElementById('assin-empresa-nome').textContent = e.nome;
+    document.getElementById('assin-plano').value = e.plano || 'trial';
+    await carregarListaPacotes();
+    document.getElementById('assin-pacote-id').value = e.plano_id || '';
+    if (e.assinatura_valida_ate) {
+      const d = new Date(e.assinatura_valida_ate);
+      const p = n => String(n).padStart(2,'0');
+      document.getElementById('assin-validade').value = `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+    } else { document.getElementById('assin-validade').value = ''; }
+    document.getElementById('assin-ativo').value = String(e.ativo);
+    document.getElementById('modal-assinatura').classList.add('open');
+  }
+
+  function fecharModalAssinatura() { document.getElementById('modal-assinatura').classList.remove('open'); }
+
+  async function salvarAssinatura() {
+    const id = document.getElementById('assin-empresa-id').value;
+    const btn = document.getElementById('btn-salvar-assinatura');
+    const pacoteId = document.getElementById('assin-pacote-id').value;
+    const payload = {
+      plano: document.getElementById('assin-plano').value,
+      plano_id: pacoteId ? parseInt(pacoteId) : null,
+      assinatura_valida_ate: document.getElementById('assin-validade').value ? new Date(document.getElementById('assin-validade').value).toISOString() : null,
+      ativo: document.getElementById('assin-ativo').value === 'true'
+    };
+    setLoading(btn, true);
+    try {
+      const r = await api.patch(`/admin/empresas/${id}/assinatura`, payload);
+      const e = todasEmpresas.find(x => x.id === parseInt(id));
+      if (e) { e.plano = r.plano; e.plano_id = r.plano_id; e.assinatura_valida_ate = r.assinatura_valida_ate; e.ativo = r.ativo; }
+      renderKPIs(todasEmpresas); renderAtencao(todasEmpresas); aplicarFiltroESort();
+      fecharModalAssinatura();
+      showNotif('✔', 'Sucesso', 'Assinatura atualizada!', 'success');
+    } catch(e) { showNotif('✕', 'Erro', e.message, 'error'); }
+    finally { setLoading(btn, false); }
+  }
+
+  // ── FECHA MODAL CLICANDO FORA ──
+  ['modal-empresa','modal-usuarios','modal-assinatura'].forEach(id => {
+    document.getElementById(id).addEventListener('click', function(e) { if (e.target === this) this.classList.remove('open'); });
+  });
+
+  // ── AUTH CHECK ──
+  function verificarAutenticacao() {
+    const usuario = getUsuario(), token = getToken();
+    if (!usuario || !usuario.is_superadmin || !token) {
+      document.querySelector('main').innerHTML = `
+        <div style="max-width:500px;margin:80px auto;text-align:center">
+          <div style="font-size:48px;margin-bottom:20px">🔒</div>
+          <h2 style="margin-bottom:12px">Acesso restrito</h2>
+          <p style="color:var(--muted);margin-bottom:24px">Você precisa estar autenticado como superadmin para acessar esta página.</p>
+          <button class="btn btn-primary" onclick="window.location.href='login.html'">Ir para login</button>
+        </div>`;
+      return false;
+    }
+    return true;
+  }
+
+  // ── TESTAR CONEXÃO ──
+  async function testarConexaoAdmin() {
+    showNotif('⏳', 'Testando conexão...', 'Verificando comunicação com a API...', 'success');
+    try {
+      await api.get('/admin/dashboard');
+      const empresas = await api.get('/admin/empresas');
+      showNotif('✅', 'Conexão OK!', `API respondendo. ${Array.isArray(empresas) ? empresas.length : 0} empresas.`, 'success');
+      carregarEmpresas();
+    } catch(e) { showNotif('❌', 'Falha na conexão', e.message, 'error'); }
+  }
+
+  // ── INIT ──
+  if (verificarAutenticacao()) {
+    carregarEmpresas();
+  }
+</script>
+</body>
+</html>

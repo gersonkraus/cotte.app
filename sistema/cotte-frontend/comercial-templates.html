@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Templates de Proposta - COTTE</title>
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/responsive.css">
+    <link rel="stylesheet" href="css/comercial.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2>Templates de Proposta</h2>
+                <button class="sidebar-toggle" id="sidebar-toggle">☰</button>
+            </div>
+            <nav class="sidebar-nav">
+                <ul>
+                    <li><a href="comercial.html"><i class="icon">📊</i> Dashboard</a></li>
+                    <li><a href="comercial-leads.html"><i class="icon">👥</i> Leads</a></li>
+                    <li class="active"><a href="comercial-templates.html"><i class="icon">📝</i> Templates</a></li>
+                    <li><a href="comercial-campanhas.html"><i class="icon">📤</i> Campanhas</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="header">
+                <div class="header-left">
+                    <button class="mobile-menu-toggle" id="mobile-menu-toggle">☰</button>
+                    <h1>Templates de Proposta</h1>
+                </div>
+                <div class="header-right">
+                    <span class="user-info">Bem-vindo, <strong id="user-name">Usuário</strong></span>
+                    <button class="btn btn-primary" onclick="openTemplateModal()">Novo Template</button>
+                </div>
+            </header>
+
+            <div class="content">
+                <!-- Filtros -->
+                <section class="filters-section">
+                    <div class="card">
+                        <div class="filters">
+                            <div class="filter-group">
+                                <label for="filter-tipo">Tipo:</label>
+                                <select id="filter-tipo">
+                                    <option value="">Todos</option>
+                                    <option value="mensagem_inicial">Mensagem Inicial</option>
+                                    <option value="followup">Follow-up</option>
+                                    <option value="proposta_comercial">Proposta Comercial</option>
+                                    <option value="email_comercial">Email Comercial</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label for="filter-canal">Canal:</label>
+                                <select id="filter-canal">
+                                    <option value="">Todos</option>
+                                    <option value="whatsapp">WhatsApp</option>
+                                    <option value="email">Email</option>
+                                    <option value="ambos">Ambos</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label for="filter-ativo">Status:</label>
+                                <select id="filter-ativo">
+                                    <option value="">Todos</option>
+                                    <option value="true">Ativos</option>
+                                    <option value="false">Inativos</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-secondary" onclick="applyFilters()">Filtrar</button>
+                            <button class="btn btn-ghost" onclick="clearFilters()">Limpar</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Lista de Templates -->
+                <section class="templates-section">
+                    <div class="card">
+                        <h2>Templates Cadastrados</h2>
+                        <div class="templates-grid" id="templates-grid">
+                            <!-- Templates serão carregados aqui -->
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal de Template -->
+    <div class="modal-overlay" id="template-modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="modal-title">Novo Template</h2>
+                <button class="modal-close" onclick="closeTemplateModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="template-form">
+                    <input type="hidden" id="template-id">
+                    
+                    <div class="form-group">
+                        <label for="template-nome">Nome:</label>
+                        <input type="text" id="template-nome" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="template-tipo">Tipo:</label>
+                        <select id="template-tipo" required>
+                            <option value="">Selecione</option>
+                            <option value="mensagem_inicial">Mensagem Inicial</option>
+                            <option value="followup">Follow-up</option>
+                            <option value="proposta_comercial">Proposta Comercial</option>
+                            <option value="email_comercial">Email Comercial</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="template-canal">Canal:</label>
+                        <select id="template-canal" required>
+                            <option value="">Selecione</option>
+                            <option value="whatsapp">WhatsApp</option>
+                            <option value="email">Email</option>
+                            <option value="ambos">Ambos</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="assunto-group" style="display: none;">
+                        <label for="template-assunto">Assunto (para Email):</label>
+                        <input type="text" id="template-assunto">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="template-conteudo">Conteúdo:</label>
+                        <textarea id="template-conteudo" rows="8" placeholder="Use variáveis como {nome_responsavel}, {nome_empresa}, {whatsapp}, {email}, {cidade}"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="template-ativo">Ativo:</label>
+                        <input type="checkbox" id="template-ativo" checked>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeTemplateModal()">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Salvar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Preview -->
+    <div class="modal-overlay" id="preview-modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Pré-visualização do Template</h2>
+                <button class="modal-close" onclick="closePreviewModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="preview-content">
+                    <!-- Conteúdo será carregado aqui -->
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-secondary" onclick="closePreviewModal()">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/comercial-templates.js"></script>
+</body>
+</html>

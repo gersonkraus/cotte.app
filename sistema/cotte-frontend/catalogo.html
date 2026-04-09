@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem("cotte_tema");if(t){document.documentElement.setAttribute("data-theme",t);}else{document.documentElement.setAttribute("data-theme","light");}})()</script>
+  <title>COTTE — Catálogo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/style.css?v=3">
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar"></aside>
+
+<!-- MAIN -->
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-title-wrap">
+      <div class="page-title">Catálogo</div>
+      <div class="page-sub" id="page-sub">Produtos e serviços cadastrados</div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost" id="btn-importar" onclick="abrirModalImportar()" style="display:none">📋 Importar</button>
+      <button class="btn btn-primary" onclick="abrirModalNovo()">＋ Novo Item</button>
+    </div>
+  </div>
+
+  <!-- BUSCA -->
+  <div class="card" style="margin-bottom:20px;padding:14px 20px;display:flex;flex-wrap:wrap;align-items:center;gap:10px">
+    <input
+      type="text" id="busca-input"
+      placeholder="🔍 Buscar por nome..."
+      style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;color:var(--text);font-size:14px;font-family:inherit;outline:none;flex:1;min-width:160px"
+      oninput="aplicarFiltro()"
+    >
+    <select id="filtro-categoria" onchange="aplicarFiltro()"
+      style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;color:var(--text);font-size:13px;font-family:inherit;outline:none;cursor:pointer;min-width:130px;max-width:200px">
+      <option value="">Todas categorias</option>
+    </select>
+    <div style="display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden;flex-shrink:0">
+      <button type="button" data-status="ativos" onclick="setFiltroStatus('ativos')"
+        style="padding:9px 14px;border:none;font-size:13px;font-family:inherit;cursor:pointer;background:var(--green);color:#000;font-weight:600;transition:background 0.15s">
+        Ativos
+      </button>
+      <button type="button" data-status="inativos" onclick="setFiltroStatus('inativos')"
+        style="padding:9px 14px;border:none;border-left:1px solid var(--border);font-size:13px;font-family:inherit;cursor:pointer;background:var(--surface2);color:var(--muted);transition:background 0.15s">
+        Inativos
+      </button>
+      <button type="button" data-status="todos" onclick="setFiltroStatus('todos')"
+        style="padding:9px 14px;border:none;border-left:1px solid var(--border);font-size:13px;font-family:inherit;cursor:pointer;background:var(--surface2);color:var(--muted);transition:background 0.15s">
+        Todos
+      </button>
+      <button type="button" onclick="abrirModalCategorias()" title="Gerenciar categorias" aria-label="Gerenciar categorias"
+        style="padding:9px 12px;border:none;border-left:1px solid var(--border);font-size:14px;font-family:inherit;cursor:pointer;background:var(--surface2);color:var(--muted);transition:background 0.15s">
+        ⚙
+      </button>
+    </div>
+  </div>
+
+  <!-- GRID DE CARDS -->
+  <div id="catalogo-grid" class="catalogo-grid">
+    <div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--muted)">
+      <div class="spinner" style="margin:0 auto 16px"></div>
+      Carregando catálogo...
+    </div>
+  </div>
+</main>
+
+<!-- MODAL IMPORTAÇÃO -->
+<div class="modal-overlay" id="modal-importar">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-header">
+      <div class="modal-title">📋 Importar Tabela</div>
+      <button class="modal-close" onclick="fecharModalImportar()">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- Estado 1: Input -->
+      <div id="import-input-state" style="display:flex;flex-direction:column;gap:16px">
+        <!-- Categoria destino -->
+        <div>
+          <label style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:6px">Categoria destino</label>
+          <select id="import-categoria-select"
+            style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;color:var(--text);font-size:13px;font-family:inherit;outline:none;cursor:pointer;width:100%">
+            <option value="">Sem categoria</option>
+          </select>
+        </div>
+        <!-- Abas -->
+        <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:10px;overflow:hidden;width:fit-content">
+          <button id="aba-colar" type="button" onclick="mudarAbaImport('colar')"
+            style="padding:8px 18px;border:none;font-size:13px;font-family:inherit;cursor:pointer;background:var(--green);color:#000;font-weight:600">
+            📋 Colar texto
+          </button>
+          <button id="aba-arquivo" type="button" onclick="mudarAbaImport('arquivo')"
+            style="padding:8px 18px;border:none;font-size:13px;font-family:inherit;cursor:pointer;background:var(--surface2);color:var(--muted)">
+            📂 Upload arquivo
+          </button>
+        </div>
+        <!-- Aba colar -->
+        <div id="import-aba-colar">
+          <div style="font-size:13px;color:var(--muted);margin-bottom:10px">Cole a tabela do Excel, Sheets ou qualquer planilha. A IA identificará automaticamente nome, preço e unidade.</div>
+          <textarea id="import-texto" placeholder="Nome&#10;Preço&#10;Unidade&#10;&#10;Parafuso 6mm&#9;0,50&#9;un&#10;Tinta látex&#9;45,00&#9;lt&#10;Mão de obra&#9;80,00&#9;hr" style="min-height:180px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;color:var(--text);font-family:monospace;font-size:12px;resize:vertical;width:100%;box-sizing:border-box"></textarea>
+        </div>
+        <!-- Aba upload -->
+        <div id="import-aba-arquivo" style="display:none">
+          <div style="font-size:13px;color:var(--muted);margin-bottom:10px">Envie um arquivo <strong>.csv</strong>, <strong>.xlsx</strong> ou <strong>.pdf</strong> com seus produtos. A IA interpretará automaticamente.</div>
+          <div id="import-dropzone"
+            style="border:2px dashed var(--border);border-radius:10px;padding:36px 20px;text-align:center;cursor:pointer;color:var(--muted);font-size:13px;transition:border-color 0.2s"
+            onclick="document.getElementById('import-file-input').click()"
+            ondragover="event.preventDefault();this.style.borderColor='var(--green)'"
+            ondragleave="this.style.borderColor='var(--border)'"
+            ondrop="onDropArquivo(event)">
+            <div style="font-size:36px;margin-bottom:8px">📂</div>
+            <div>Clique ou arraste o arquivo aqui</div>
+            <div style="font-size:11px;margin-top:6px;color:var(--muted)">.csv, .xlsx, .pdf até 5MB</div>
+          </div>
+          <input type="file" id="import-file-input" accept=".csv,.xlsx,.xls,.pdf" style="display:none" onchange="onSelecionarArquivo(this)">
+          <div id="import-arquivo-selecionado" style="display:none;margin-top:12px;padding:10px 14px;background:var(--surface2);border-radius:8px;display:none;align-items:center;gap:10px;font-size:13px">
+            <span id="import-arquivo-nome" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+            <button type="button" onclick="limparArquivoImport()" style="border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:16px;line-height:1">✕</button>
+          </div>
+        </div>
+      </div>
+      <!-- Estado 2: Preview -->
+      <div id="import-preview-state" style="display:none;flex-direction:column;gap:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-size:13px;color:var(--muted)">Preview dos items a importar</div>
+          <div id="import-total" style="font-size:13px;font-weight:600">0 items</div>
+        </div>
+        <div id="import-preview-table" style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;max-height:300px;overflow-y:auto"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div id="import-input-actions" style="display:flex;gap:8px">
+        <button class="btn btn-ghost" onclick="fecharModalImportar()">Cancelar</button>
+        <button class="btn btn-primary" id="btn-analisar" onclick="analisarComIA()">✨ Analisar com IA</button>
+      </div>
+      <div id="import-preview-actions" style="display:none;gap:8px">
+        <button class="btn btn-ghost" onclick="voltarImportInput()">← Voltar</button>
+        <button class="btn btn-primary" id="btn-salvar-lote" onclick="confirmarImportacao()">✅ Salvar Items</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NOVO / EDITAR -->
+<div class="modal-overlay" id="modal-item">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">📦 Novo Item</div>
+      <button class="modal-close" onclick="fecharModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:16px">
+
+        <!-- Explicação simples do cálculo -->
+        <div style="background:var(--accent-dim); padding:12px; border-radius:10px; border:1px solid var(--border); margin-bottom:-4px">
+          <div style="font-size:12px; font-weight:700; color:var(--accent); margin-bottom:4px; display:flex; align-items:center; gap:6px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            Como funciona o preço?
+          </div>
+          <p style="font-size:11px; color:var(--text); line-height:1.5; margin:0">
+            Você pode digitar o <strong>Preço Fixo</strong> manualmente ou preencher o <strong>Custo</strong> e a <strong>Margem</strong> abaixo para que o sistema calcule o valor ideal de venda automaticamente.
+          </p>
+        </div>
+
+        <div class="form-group">
+          <label>Nome *</label>
+          <input type="text" id="item-nome" placeholder="Ex: Instalação de ar-condicionado">
+        </div>
+
+        <div class="form-group">
+          <label>Descrição</label>
+          <textarea id="item-descricao" placeholder="Detalhes do produto ou serviço..." style="min-height:80px"></textarea>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Preço fixo (R$) *</label>
+            <input type="number" id="item-preco" placeholder="0,00" min="0" step="0.01">
+            <div style="font-size:10px; color:var(--muted); margin-top:4px">Valor final de venda</div>
+          </div>
+          <div class="form-group">
+            <label>Unidade</label>
+            <select id="item-unidade">
+              <option value="un">Unidade (un)</option>
+              <option value="hr">Hora (hr)</option>
+              <option value="m²">Metro quadrado (m²)</option>
+              <option value="m">Metro linear (m)</option>
+              <option value="kg">Quilograma (kg)</option>
+              <option value="lt">Litro (lt)</option>
+              <option value="srv">Serviço (srv)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Categoria -->
+        <div class="form-group">
+          <label style="display:flex;justify-content:space-between;align-items:center">
+            Categoria
+            <button type="button" class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick="abrirModalCategorias()">⚙ Gerenciar</button>
+          </label>
+          <select id="item-categoria">
+            <option value="">— Sem categoria —</option>
+          </select>
+        </div>
+
+        <!-- Custo e Margem -->
+        <div class="form-row">
+          <div class="form-group">
+            <label>Custo (R$) <span style="color:var(--muted);font-size:11px">opcional</span></label>
+            <input type="number" id="item-custo" placeholder="0,00" min="0" step="0.01" oninput="_calcularMargem()">
+          </div>
+          <div class="form-group">
+            <label>Margem (%) <span style="color:var(--muted);font-size:11px">auto</span></label>
+            <input type="number" id="item-margem" placeholder="—" min="0" max="100" step="0.1" oninput="_calcularPreco()">
+            <div style="font-size:10px; color:var(--muted); margin-top:4px">Lucro desejado sobre o preço de venda</div>
+          </div>
+        </div>
+
+        <!-- Imagem (novo e editar) -->
+        <div class="form-group" id="grupo-imagem">
+          <label>Imagem do produto</label>
+          <div id="preview-imagem" style="display:none;margin-bottom:8px;position:relative;width:100%;max-height:180px;overflow:hidden;border-radius:10px">
+            <img id="img-preview" src="" alt="" style="width:100%;max-height:180px;object-fit:cover;border-radius:10px">
+            <button onclick="removerImagem()" type="button"
+              style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.6);color:white;border:none;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer">
+              🗑 Remover
+            </button>
+          </div>
+          <div id="area-upload" style="border:2px dashed var(--border);border-radius:10px;padding:20px;text-align:center;cursor:pointer;color:var(--muted);font-size:13px"
+            onclick="document.getElementById('input-imagem').click()">
+            📷 Clique para enviar imagem (PNG, JPG, WEBP)
+          </div>
+          <input type="file" id="input-imagem" accept=".png,.jpg,.jpeg,.webp" style="display:none" onchange="onSelecionarImagem(this)">
+        </div>
+
+      </div>
+    </div>
+    <div class="modal-footer" style="justify-content:space-between">
+      <div id="btn-area-admin" style="display:none;gap:8px;display:none">
+        <button id="btn-toggle-ativo" class="btn btn-ghost" style="color:#ef4444" onclick="toggleAtivoItem()"></button>
+      </div>
+      <div style="display:flex;gap:8px;margin-left:auto">
+        <button class="btn btn-ghost" onclick="fecharModal()">Cancelar</button>
+        <button class="btn btn-primary" id="btn-salvar" onclick="salvar()">✅ Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL GERENCIAR CATEGORIAS -->
+<div class="modal-overlay" id="modal-categorias">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header">
+      <div class="modal-title">🏷 Categorias</div>
+      <button class="modal-close" onclick="fecharModalCategorias()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="lista-categorias" style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px;min-height:40px"></div>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="input-nova-categoria" placeholder="Nova categoria..." style="flex:1"
+          onkeydown="if(event.key==='Enter') adicionarCategoria()">
+        <button class="btn btn-primary" style="padding:8px 14px;white-space:nowrap" onclick="adicionarCategoria()">+ Adicionar</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="fecharModalCategorias()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL TEMPLATES DE SEGMENTO -->
+<div class="modal-overlay" id="modal-templates">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <div class="modal-title">📐 Modelos por Segmento</div>
+      <button class="modal-close" onclick="fecharModalTemplates()">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- Estado 1: Lista de segmentos -->
+      <div id="templates-lista-state">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:16px">
+          Escolha um modelo de segmento para importar categorias e produtos pré-configurados para o seu catálogo.
+        </div>
+        <div id="templates-segmentos-lista" style="display:flex;flex-direction:column;gap:10px">
+          <div style="text-align:center;padding:20px"><div class="spinner"></div></div>
+        </div>
+      </div>
+      <!-- Estado 2: Preview do template -->
+      <div id="templates-preview-state" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <div>
+            <div id="template-preview-nome" style="font-weight:600;font-size:16px"></div>
+            <div id="template-preview-descricao" style="font-size:13px;color:var(--muted);margin-top:2px"></div>
+          </div>
+          <div id="template-preview-total" style="font-size:13px;font-weight:600;color:var(--green)"></div>
+        </div>
+        <div id="template-preview-conteudo" style="max-height:350px;overflow-y:auto"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div id="templates-lista-actions">
+        <button class="btn btn-ghost" onclick="fecharModalTemplates()">Cancelar</button>
+      </div>
+      <div id="templates-preview-actions" style="display:none;gap:8px">
+        <button class="btn btn-ghost" onclick="voltarTemplatesLista()">← Voltar</button>
+        <button class="btn btn-primary" id="btn-importar-template" onclick="confirmarImportarTemplate()">✅ Importar Modelo</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- NOTIFICAÇÃO -->
+<div class="notif" id="notif">
+  <div class="notif-icon">✅</div>
+  <div>
+    <div class="notif-title"></div>
+    <div class="notif-sub"></div>
+  </div>
+</div>
+
+<script src="js/utils.js?v=1"></script>
+<script src="js/api.js?v=17"></script>
+<script src="js/layout.js?v=5"></script>
+<script>
+  /** 
+   * Função para verificar se o objeto Permissoes está carregado.
+   * Se não estiver, aguarda um pouco para garantir carregamento assíncrono.
+   */
+  async function carregarComSeguranca() {
+    let tentativas = 0;
+    while (typeof Permissoes === 'undefined' && tentativas < 20) {
+      await new Promise(r => setTimeout(r, 100));
+      tentativas++;
+    }
+    
+    if (typeof Permissoes === 'undefined') {
+      console.error('Falha crítica: Objeto Permissoes não foi carregado.');
+      // Fallback básico para não travar a tela se for gestor
+      const u = getUsuario();
+      if (u && (u.is_gestor || u.is_superadmin)) {
+        await carregar();
+      }
+      return;
+    }
+    
+    await carregar();
+  }
+
+  inicializarLayout('catalogo');
+
+  let catalogoCache  = [];
+  let editandoId     = null;
+  let _filtroStatus  = 'ativos';
+  let imagemFileNovo = null;  // arquivo selecionado ao criar novo item (enviado após salvar)
+  let previewUrlNovo = null;   // object URL para preview no novo item
+
+  function temPermCatalogo() {
+    return Permissoes.pode('catalogo', 'escrita');
+  }
+
+  function temPermAdminCatalogo() {
+    return Permissoes.pode('catalogo', 'admin');
+  }
+
+  // ── CARREGAMENTO ──────────────────────────────────────────────────────
+  async function carregar() {
+    try {
+      const [items] = await Promise.all([
+        api.get('/catalogo/?apenas_ativos=false'),
+        carregarCategorias(),
+      ]);
+      catalogoCache = items || [];
+      document.getElementById('page-sub').textContent =
+        `${catalogoCache.filter(i => i.ativo).length} item(s) ativo(s)`;
+
+      // Oculta botão "Novo Item" e "Importar" se sem permissão
+      const btnNovo = document.querySelector('.topbar-actions .btn-primary');
+      const btnImportar = document.getElementById('btn-importar');
+      if (btnNovo) btnNovo.style.display = temPermCatalogo() ? '' : 'none';
+      if (btnImportar) btnImportar.style.display = temPermCatalogo() ? '' : 'none';
+
+      aplicarFiltro();
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  function setFiltroStatus(status) {
+    _filtroStatus = status;
+    document.querySelectorAll('[data-status]').forEach(btn => {
+      const ativo = btn.dataset.status === status;
+      btn.style.background = ativo ? 'var(--green)' : 'var(--surface2)';
+      btn.style.color = ativo ? '#000' : 'var(--muted)';
+      btn.style.fontWeight = ativo ? '600' : '400';
+    });
+    aplicarFiltro();
+  }
+
+  function aplicarFiltro() {
+    const busca = document.getElementById('busca-input').value.toLowerCase().trim();
+    const catId = document.getElementById('filtro-categoria').value;
+    let lista = catalogoCache;
+    if (_filtroStatus === 'ativos') lista = lista.filter(i => i.ativo);
+    else if (_filtroStatus === 'inativos') lista = lista.filter(i => !i.ativo);
+    if (catId) lista = lista.filter(i => String(i.categoria_id) === catId);
+    if (busca) lista = lista.filter(i => i.nome.toLowerCase().includes(busca));
+    renderizarGrid(lista);
+  }
+
+  function renderizarGrid(lista) {
+    // 1. Esconder botões de ação se não tiver permissão de escrita
+    if (!temPermCatalogo()) {
+      document.querySelectorAll('.topbar-actions .btn-primary, .topbar-actions #btn-importar').forEach(el => {
+        el.style.display = 'none';
+      });
+    }
+
+    const grid = document.getElementById('catalogo-grid');
+    if (!lista.length) {
+      grid.innerHTML = `
+        <div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--muted)">
+          <div style="font-size:48px;margin-bottom:12px">📦</div>
+          <div style="font-size:18px;font-weight:600;margin-bottom:6px;color:var(--text)">Nenhum item no catálogo</div>
+          <div style="font-size:13px">Clique em "＋ Novo Item" para cadastrar produtos e serviços</div>
+        </div>`;
+      return;
+    }
+
+    grid.innerHTML = lista.map(item => {
+      const imgSrc = api.resolveUrl(item.imagem_url);
+      return `
+      <div class="card catalogo-card" style="padding:0;display:flex;flex-direction:column;overflow:hidden;opacity:${item.ativo ? 1 : 0.5}">
+        ${imgSrc
+          ? `<div class="catalogo-card-img" style="width:100%;height:160px;background:var(--surface2);display:flex;align-items:center;justify-content:center;overflow:hidden"><img src="${imgSrc}" alt="${item.nome}" style="max-width:100%;max-height:160px;object-fit:contain" onerror="this.parentElement.innerHTML='<span style=color:var(--muted);font-size:13px>📦 Sem imagem</span>'"></div>`
+          : `<div class="catalogo-card-img catalogo-card-img--empty" style="width:100%;height:100px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px">📦 Sem imagem</div>`
+        }
+        <div class="catalogo-card-content" style="padding:16px;display:flex;flex-direction:column;gap:12px;flex:1">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+            <div class="catalogo-card-info" style="min-width:0">
+              <div class="catalogo-card-nome" style="font-weight:600;font-size:15px;color:var(--text)">${item.nome}</div>
+              ${item.descricao ? `<div class="catalogo-card-desc" style="font-size:12px;color:var(--muted);margin-top:4px">${item.descricao}</div>` : ''}
+            </div>
+            ${!item.ativo ? '<span class="catalogo-card-badge" style="font-size:11px;background:#ef444420;color:#ef4444;border-radius:6px;padding:2px 8px;white-space:nowrap;flex-shrink:0">Inativo</span>' : ''}
+          </div>
+          ${item.categoria ? `<span style="font-size:11px;background:var(--surface2);color:var(--muted);border-radius:6px;padding:2px 8px;align-self:flex-start">${item.categoria.nome}</span>` : ''}
+          <div class="catalogo-card-preco" style="display:flex;align-items:baseline;gap:8px">
+            <span style="font-size:20px;font-weight:700;color:var(--green)">${formatarMoeda(item.preco_padrao)}</span>
+            <span style="font-size:12px;color:var(--muted)">/ ${item.unidade}</span>
+          </div>
+          ${temPermCatalogo() ? `
+          <div class="catalogo-card-actions" style="display:flex;gap:8px">
+            <button class="btn btn-ghost catalogo-card-btn" style="flex:1;font-size:13px;padding:8px" onclick="abrirModalEditar(${item.id})">✏️ Editar</button>
+          </div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── MODAL ─────────────────────────────────────────────────────────────
+  function _resetarModal() {
+    editandoId = null;
+    imagemFileNovo = null;
+    if (previewUrlNovo) {
+      URL.revokeObjectURL(previewUrlNovo);
+      previewUrlNovo = null;
+    }
+    document.getElementById('modal-title').textContent = '📦 Novo Item';
+    document.getElementById('btn-salvar').textContent  = '✅ Salvar';
+    document.getElementById('item-nome').value         = '';
+    document.getElementById('item-descricao').value    = '';
+    document.getElementById('item-preco').value        = '';
+    document.getElementById('item-unidade').value      = 'un';
+    document.getElementById('item-categoria').value    = '';
+    document.getElementById('item-custo').value        = '';
+    document.getElementById('item-margem').value       = '';
+    document.getElementById('input-imagem').value      = '';
+    _atualizarPreviewImagem(null);
+    document.getElementById('btn-area-admin').style.display = 'none';
+  }
+
+  function abrirModalNovo() {
+    _resetarModal();
+    document.getElementById('modal-item').classList.add('open');
+    setTimeout(() => document.getElementById('item-nome').focus(), 100);
+  }
+
+  function abrirModalEditar(id) {
+    const item = catalogoCache.find(i => i.id === id);
+    if (!item) return;
+    _resetarModal();
+    editandoId = id;
+    document.getElementById('modal-title').textContent = '✏️ Editar Item';
+    document.getElementById('btn-salvar').textContent  = '💾 Salvar Alterações';
+    document.getElementById('item-nome').value         = item.nome;
+    document.getElementById('item-descricao').value    = item.descricao || '';
+    document.getElementById('item-preco').value        = item.preco_padrao;
+    document.getElementById('item-unidade').value      = item.unidade;
+    document.getElementById('item-categoria').value    = item.categoria_id || '';
+    document.getElementById('item-custo').value        = item.preco_custo || '';
+    if (item.preco_custo > 0 && item.preco_padrao > 0) {
+      document.getElementById('item-margem').value = ((item.preco_padrao - item.preco_custo) / item.preco_padrao * 100).toFixed(1);
+    }
+    _atualizarPreviewImagem(item.imagem_url);
+
+    // Botões admin (inativar/ativar) — apenas para catalogo:admin
+    if (temPermAdminCatalogo()) {
+      const areaAdmin = document.getElementById('btn-area-admin');
+      const btnToggle = document.getElementById('btn-toggle-ativo');
+      areaAdmin.style.display = 'flex';
+      if (item.ativo) {
+        btnToggle.textContent = '⛔ Inativar';
+        btnToggle.style.color = '#ef4444';
+      } else {
+        btnToggle.textContent = '✅ Ativar';
+        btnToggle.style.color = '#00e5a0';
+      }
+    }
+
+    document.getElementById('modal-item').classList.add('open');
+  }
+
+  async function toggleAtivoItem() {
+    if (!editandoId) return;
+    const item = catalogoCache.find(i => i.id === editandoId);
+    if (!item) return;
+    const btn = document.getElementById('btn-toggle-ativo');
+    const ativando = !item.ativo;
+    const acao = ativando ? 'ativar' : 'inativar';
+    if (!confirm(`Deseja ${acao} o item "${item.nome}"?`)) return;
+    try {
+      btn.disabled = true;
+      if (ativando) {
+        await api.patch(`/catalogo/${editandoId}`, { ativo: true });
+      } else {
+        await api.delete(`/catalogo/${editandoId}`);
+      }
+      showNotif('✅', ativando ? 'Item ativado!' : 'Item inativado!', item.nome);
+      fecharModal();
+      await carregar();
+    } catch(e) {
+      showNotif('❌', 'Erro', e.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function _atualizarPreviewImagem(imagemUrl) {
+    const preview = document.getElementById('preview-imagem');
+    const area    = document.getElementById('area-upload');
+    const img     = document.getElementById('img-preview');
+    if (imagemUrl) {
+      img.src = api.resolveUrl(imagemUrl);
+      preview.style.display = '';
+      area.style.display = 'none';
+    } else {
+      preview.style.display = 'none';
+      area.style.display = '';
+      img.src = '';
+    }
+  }
+
+  function onSelecionarImagem(input) {
+    if (!input.files || !input.files[0]) return;
+    if (editandoId) {
+      uploadImagem(input);
+      return;
+    }
+    imagemFileNovo = input.files[0];
+    if (previewUrlNovo) URL.revokeObjectURL(previewUrlNovo);
+    previewUrlNovo = URL.createObjectURL(imagemFileNovo);
+    const preview = document.getElementById('preview-imagem');
+    const area    = document.getElementById('area-upload');
+    const img     = document.getElementById('img-preview');
+    img.src = previewUrlNovo;
+    preview.style.display = '';
+    area.style.display = 'none';
+  }
+
+  async function uploadImagem(input) {
+    if (!input.files || !input.files[0] || !editandoId) return;
+    const formData = new FormData();
+    formData.append('file', input.files[0]);
+    const btn = document.getElementById('btn-salvar');
+    setLoading(btn, true);
+    try {
+      const token = getToken();
+      const base  = API_URL + API_PREFIX;
+      const resp  = await fetch(`${base}/catalogo/${editandoId}/imagem`, {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token },
+        body: formData,
+      });
+      if (!resp.ok) throw new Error('Erro ao enviar imagem.');
+      const data = await resp.json();
+      // Atualiza cache local
+      const idx = catalogoCache.findIndex(i => i.id === editandoId);
+      if (idx >= 0) catalogoCache[idx].imagem_url = data.imagem_url;
+      _atualizarPreviewImagem(data.imagem_url);
+      showNotif('✅', 'Imagem enviada!', '');
+    } catch (err) {
+      showNotif('❌', 'Erro', err.message, 'error');
+    } finally {
+      setLoading(btn, false, '💾 Salvar Alterações');
+      input.value = '';
+    }
+  }
+
+  async function removerImagem() {
+    if (editandoId) {
+      try {
+        await api.delete(`/catalogo/${editandoId}/imagem`);
+        const idx = catalogoCache.findIndex(i => i.id === editandoId);
+        if (idx >= 0) catalogoCache[idx].imagem_url = null;
+        _atualizarPreviewImagem(null);
+        showNotif('✅', 'Imagem removida!', '');
+      } catch (err) {
+        showNotif('❌', 'Erro', err.message, 'error');
+      }
+      return;
+    }
+    imagemFileNovo = null;
+    if (previewUrlNovo) {
+      URL.revokeObjectURL(previewUrlNovo);
+      previewUrlNovo = null;
+    }
+    document.getElementById('input-imagem').value = '';
+    _atualizarPreviewImagem(null);
+  }
+
+  function fecharModal() {
+    document.getElementById('modal-item').classList.remove('open');
+  }
+
+  document.getElementById('modal-item').addEventListener('click', function(e) {
+    if (e.target === this) fecharModal();
+  });
+
+  // ── CATEGORIAS ────────────────────────────────────────────────────────
+  let categoriasCache = [];
+
+  async function carregarCategorias() {
+    try {
+      categoriasCache = await api.get('/catalogo/categorias') || [];
+      // Popula select do formulário
+      const sel = document.getElementById('item-categoria');
+      const valorAtual = sel.value;
+      sel.innerHTML = '<option value="">— Sem categoria —</option>' +
+        categoriasCache.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+      if (valorAtual) sel.value = valorAtual;
+      // Popula select do filtro de busca
+      const filtro = document.getElementById('filtro-categoria');
+      const filtroAtual = filtro.value;
+      filtro.innerHTML = '<option value="">Todas as categorias</option>' +
+        categoriasCache.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+      if (filtroAtual) filtro.value = filtroAtual;
+    } catch(e) { /* silencioso */ }
+  }
+
+  function abrirModalCategorias() {
+    _renderListaCategorias();
+    document.getElementById('modal-categorias').classList.add('open');
+  }
+
+  function fecharModalCategorias() {
+    document.getElementById('modal-categorias').classList.remove('open');
+  }
+
+  document.getElementById('modal-categorias').addEventListener('click', function(e) {
+    if (e.target === this) fecharModalCategorias();
+  });
+
+  function _renderListaCategorias() {
+    const el = document.getElementById('lista-categorias');
+    if (!categoriasCache.length) {
+      el.innerHTML = '<div style="color:var(--muted);font-size:13px">Nenhuma categoria cadastrada.</div>';
+      return;
+    }
+    el.innerHTML = categoriasCache.map(c => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--surface2);border-radius:8px">
+        <span style="font-size:13px">${c.nome}</span>
+        ${temPermAdminCatalogo() ? `<button class="btn btn-ghost" style="padding:2px 8px;font-size:11px;color:#ef4444" onclick="excluirCategoria(${c.id})">Excluir</button>` : ''}
+      </div>`).join('');
+  }
+
+  async function adicionarCategoria() {
+    const input = document.getElementById('input-nova-categoria');
+    const nome = input.value.trim();
+    if (!nome) return;
+    try {
+      await api.post('/catalogo/categorias', { nome });
+      input.value = '';
+      await carregarCategorias();
+      _renderListaCategorias();
+    } catch(e) {
+      showNotif('❌', 'Erro', e.message, 'error');
+    }
+  }
+
+  async function excluirCategoria(id) {
+    const cat = categoriasCache.find(c => c.id === id);
+    if (!confirm(`Excluir categoria "${cat?.nome}"?`)) return;
+    try {
+      await api.delete(`/catalogo/categorias/${id}`);
+      await carregarCategorias();
+      _renderListaCategorias();
+    } catch(e) {
+      showNotif('❌', 'Erro', e.message, 'error');
+    }
+  }
+
+  // ── CÁLCULO AUTOMÁTICO DE MARGEM ──────────────────────────────────────
+  function _calcularMargem() {
+    const preco = parseFloat(document.getElementById('item-preco').value);
+    const custo = parseFloat(document.getElementById('item-custo').value);
+    const campoMargem = document.getElementById('item-margem');
+    if (preco > 0 && custo >= 0 && !isNaN(custo)) {
+      campoMargem.value = ((preco - custo) / preco * 100).toFixed(1);
+    } else {
+      campoMargem.value = '';
+    }
+  }
+
+  function _calcularPreco() {
+    const custo  = parseFloat(document.getElementById('item-custo').value);
+    const margem = parseFloat(document.getElementById('item-margem').value);
+    const campoPreco = document.getElementById('item-preco');
+    if (!isNaN(custo) && custo > 0 && !isNaN(margem) && margem > 0 && margem < 100) {
+      campoPreco.value = (custo / (1 - margem / 100)).toFixed(2);
+    }
+  }
+
+  // Recalcular margem também quando preço muda
+  document.getElementById('item-preco').addEventListener('input', _calcularMargem);
+
+  // ── SALVAR ────────────────────────────────────────────────────────────
+  async function salvar() {
+    const nome  = document.getElementById('item-nome').value.trim();
+    const preco = parseFloat(document.getElementById('item-preco').value);
+
+    if (!nome) { showNotif('⚠️', 'Informe o nome', '', 'error'); return; }
+    if (isNaN(preco) || preco < 0) { showNotif('⚠️', 'Informe um preço válido', '', 'error'); return; }
+
+    const nomeNorm = nome.toLowerCase();
+    const duplicado = catalogoCache.find(i => i.nome.toLowerCase() === nomeNorm && i.id !== editandoId);
+    if (duplicado) { showNotif('⚠️', 'Nome já cadastrado', `"${duplicado.nome}" já existe no catálogo`, 'error'); return; }
+
+    const custoVal = parseFloat(document.getElementById('item-custo').value);
+    const catVal   = document.getElementById('item-categoria').value;
+    const payload = {
+      nome,
+      descricao:    document.getElementById('item-descricao').value.trim() || null,
+      preco_padrao: preco,
+      unidade:      document.getElementById('item-unidade').value,
+      categoria_id: catVal ? parseInt(catVal) : null,
+      preco_custo:  !isNaN(custoVal) && custoVal > 0 ? custoVal : null,
+    };
+
+    const btn = document.getElementById('btn-salvar');
+    setLoading(btn, true);
+    try {
+      if (editandoId) {
+        await api.put(`/catalogo/${editandoId}`, payload);
+        showNotif('✅', 'Item atualizado!', '');
+      } else {
+        const novo = await api.post('/catalogo/', payload);
+        if (imagemFileNovo && novo && novo.id) {
+          const formData = new FormData();
+          formData.append('file', imagemFileNovo);
+          const resp = await fetch(API_URL + API_PREFIX + '/catalogo/' + novo.id + '/imagem', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + getToken() },
+            body: formData,
+          });
+          if (!resp.ok) throw new Error('Item criado, mas falha ao enviar imagem.');
+          imagemFileNovo = null;
+          if (previewUrlNovo) { URL.revokeObjectURL(previewUrlNovo); previewUrlNovo = null; }
+        }
+        showNotif('✅', 'Item cadastrado!', '');
+      }
+      fecharModal();
+      await carregar();
+    } catch (err) {
+      showNotif('❌', 'Erro', err.message, 'error');
+    } finally {
+      setLoading(btn, false, editandoId ? '💾 Salvar Alterações' : '✅ Salvar');
+    }
+  }
+
+  // ── TOGGLE ATIVO ──────────────────────────────────────────────────────
+  async function toggleAtivo(id, ativoAtual) {
+    try {
+      await api.put(`/catalogo/${id}`, { ativo: !ativoAtual });
+      showNotif(ativoAtual ? '🚫' : '✅', ativoAtual ? 'Item desativado' : 'Item ativado', '');
+      await carregar();
+    } catch (err) {
+      showNotif('❌', 'Erro', err.message, 'error');
+    }
+  }
+
+  // ── IMPORTAÇÃO COM IA ──────────────────────────────────────────────────
+  let importacaoItemsPreview = [];
+
+  let importAbaAtiva = 'colar'; // 'colar' | 'arquivo'
+  let importArquivoSelecionado = null;
+
+  function mudarAbaImport(aba) {
+    importAbaAtiva = aba;
+    document.getElementById('import-aba-colar').style.display = aba === 'colar' ? '' : 'none';
+    document.getElementById('import-aba-arquivo').style.display = aba === 'arquivo' ? '' : 'none';
+    document.getElementById('aba-colar').style.background = aba === 'colar' ? 'var(--green)' : 'var(--surface2)';
+    document.getElementById('aba-colar').style.color = aba === 'colar' ? '#000' : 'var(--muted)';
+    document.getElementById('aba-colar').style.fontWeight = aba === 'colar' ? '600' : '400';
+    document.getElementById('aba-arquivo').style.background = aba === 'arquivo' ? 'var(--green)' : 'var(--surface2)';
+    document.getElementById('aba-arquivo').style.color = aba === 'arquivo' ? '#000' : 'var(--muted)';
+    document.getElementById('aba-arquivo').style.fontWeight = aba === 'arquivo' ? '600' : '400';
+  }
+
+  function onSelecionarArquivo(input) {
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+    if (file.size > 5 * 1024 * 1024) {
+      showNotif('⚠️', 'Arquivo muito grande', 'Máximo 5MB', 'error');
+      return;
+    }
+    importArquivoSelecionado = file;
+    const el = document.getElementById('import-arquivo-selecionado');
+    document.getElementById('import-arquivo-nome').textContent = file.name;
+    el.style.display = 'flex';
+    document.getElementById('import-dropzone').style.borderColor = 'var(--green)';
+  }
+
+  function onDropArquivo(ev) {
+    ev.preventDefault();
+    document.getElementById('import-dropzone').style.borderColor = 'var(--border)';
+    const file = ev.dataTransfer.files[0];
+    if (!file) return;
+    const ext = file.name.toLowerCase().split('.').pop();
+    if (!['csv', 'xlsx', 'xls', 'pdf'].includes(ext)) {
+      showNotif('⚠️', 'Formato inválido', 'Use .csv, .xlsx ou .pdf', 'error');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showNotif('⚠️', 'Arquivo muito grande', 'Máximo 5MB', 'error');
+      return;
+    }
+    importArquivoSelecionado = file;
+    document.getElementById('import-arquivo-nome').textContent = file.name;
+    document.getElementById('import-arquivo-selecionado').style.display = 'flex';
+    document.getElementById('import-dropzone').style.borderColor = 'var(--green)';
+  }
+
+  function limparArquivoImport() {
+    importArquivoSelecionado = null;
+    document.getElementById('import-file-input').value = '';
+    document.getElementById('import-arquivo-selecionado').style.display = 'none';
+    document.getElementById('import-dropzone').style.borderColor = 'var(--border)';
+  }
+
+  function abrirModalImportar() {
+    document.getElementById('modal-importar').classList.add('open');
+    document.getElementById('import-texto').value = '';
+    limparArquivoImport();
+    mudarAbaImport('colar');
+    document.getElementById('import-input-state').style.display = 'flex';
+    document.getElementById('import-preview-state').style.display = 'none';
+    document.getElementById('import-input-actions').style.display = 'flex';
+    document.getElementById('import-preview-actions').style.display = 'none';
+    // Popular categorias no select
+    const sel = document.getElementById('import-categoria-select');
+    sel.innerHTML = '<option value="">Sem categoria</option>' +
+      categoriasCache.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+    setTimeout(() => document.getElementById('import-texto').focus(), 100);
+  }
+
+  function fecharModalImportar() {
+    document.getElementById('modal-importar').classList.remove('open');
+  }
+
+  function voltarImportInput() {
+    document.getElementById('import-input-state').style.display = 'flex';
+    document.getElementById('import-preview-state').style.display = 'none';
+    document.getElementById('import-input-actions').style.display = 'flex';
+    document.getElementById('import-preview-actions').style.display = 'none';
+  }
+
+  async function analisarComIA() {
+    const btn = document.getElementById('btn-analisar');
+    setLoading(btn, true);
+    try {
+      let resp;
+      if (importAbaAtiva === 'arquivo') {
+        if (!importArquivoSelecionado) {
+          showNotif('⚠️', 'Selecione um arquivo', '', 'error');
+          return;
+        }
+        const formData = new FormData();
+        formData.append('file', importArquivoSelecionado);
+        const r = await fetch(API_URL + API_PREFIX + '/catalogo/analisar-arquivo', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + getToken() },
+          body: formData,
+        });
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.detail || 'Erro ao processar arquivo');
+        }
+        resp = await r.json();
+      } else {
+        const texto = document.getElementById('import-texto').value.trim();
+        if (!texto) {
+          showNotif('⚠️', 'Cole uma tabela', '', 'error');
+          return;
+        }
+        resp = await api.post('/catalogo/analisar-importacao', { texto });
+      }
+
+      importacaoItemsPreview = resp.items || [];
+      renderizarPreviewImportacao();
+      document.getElementById('import-input-state').style.display = 'none';
+      document.getElementById('import-preview-state').style.display = 'flex';
+      document.getElementById('import-input-actions').style.display = 'none';
+      document.getElementById('import-preview-actions').style.display = 'flex';
+    } catch (err) {
+      showNotif('❌', 'Erro ao analisar', err.message, 'error');
+    } finally {
+      setLoading(btn, false, '✨ Analisar com IA');
+    }
+  }
+
+  function renderizarPreviewImportacao() {
+    const table = document.getElementById('import-preview-table');
+    const total = document.getElementById('import-total');
+
+    if (!importacaoItemsPreview.length) {
+      table.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted)">Nenhum item reconhecido</div>';
+      total.textContent = '0 items';
+      return;
+    }
+
+    const selecionados = importacaoItemsPreview.filter(i => i.selecionado).length;
+    total.textContent = `${selecionados}/${importacaoItemsPreview.length} items`;
+
+    let html = `
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="background:var(--surface2);border-bottom:1px solid var(--border)">
+            <th style="padding:8px;text-align:left;width:30px"><input type="checkbox" id="select-all" onchange="toggleSelectAll()" style="cursor:pointer"></th>
+            <th style="padding:8px;text-align:left">Nome</th>
+            <th style="padding:8px;text-align:right;width:80px">Preço</th>
+            <th style="padding:8px;text-align:center;width:60px">Unidade</th>
+            <th style="padding:8px;text-align:center;width:80px">Status</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+    importacaoItemsPreview.forEach((item, idx) => {
+      const bg = item.duplicado ? 'rgba(234,179,8,0.1)' : '';
+      const statusText = item.duplicado ? '⚠️ Duplicado' : '✅ Novo';
+      const statusColor = item.duplicado ? '#ead305' : 'var(--green)';
+      const checked = item.selecionado ? 'checked' : '';
+
+      html += `
+        <tr style="background:${bg};border-bottom:1px solid var(--border)">
+          <td style="padding:8px;text-align:center">
+            <input type="checkbox" ${checked} onchange="toggleSelectItem(${idx})" style="cursor:pointer">
+          </td>
+          <td style="padding:8px;text-align:left">${item.nome}</td>
+          <td style="padding:8px;text-align:right">${formatarMoeda(item.preco_padrao)}</td>
+          <td style="padding:8px;text-align:center">${item.unidade}</td>
+          <td style="padding:8px;text-align:center;color:${statusColor};font-weight:600">${statusText}</td>
+        </tr>`;
+    });
+
+    html += '</tbody></table>';
+    table.innerHTML = html;
+  }
+
+  function toggleSelectAll() {
+    const checked = document.getElementById('select-all').checked;
+    importacaoItemsPreview.forEach(item => { item.selecionado = checked; });
+    renderizarPreviewImportacao();
+  }
+
+  function toggleSelectItem(idx) {
+    importacaoItemsPreview[idx].selecionado = !importacaoItemsPreview[idx].selecionado;
+    const allCb = document.getElementById('select-all');
+    const todos = importacaoItemsPreview.every(i => i.selecionado);
+    const nenhum = importacaoItemsPreview.every(i => !i.selecionado);
+    allCb.indeterminate = !todos && !nenhum;
+    if (todos) allCb.checked = true;
+    if (nenhum) allCb.checked = false;
+    renderizarPreviewImportacao();
+  }
+
+  async function confirmarImportacao() {
+    const categoriaId = document.getElementById('import-categoria-select').value || null;
+    const items_para_salvar = importacaoItemsPreview.filter(i => i.selecionado).map(i => ({
+      nome: i.nome,
+      preco_padrao: i.preco_padrao,
+      unidade: i.unidade,
+      descricao: i.descricao || null,
+      categoria_id: categoriaId ? parseInt(categoriaId) : null,
+    }));
+
+    if (!items_para_salvar.length) {
+      showNotif('⚠️', 'Selecione ao menos 1 item', '', 'error');
+      return;
+    }
+
+    const btn = document.getElementById('btn-salvar-lote');
+    setLoading(btn, true);
+    try {
+      await api.post('/catalogo/importar-lote', { items: items_para_salvar });
+      showNotif('✅', `${items_para_salvar.length} items importados!`, '');
+      fecharModalImportar();
+      await carregar();
+    } catch (err) {
+      showNotif('❌', 'Erro ao importar', err.message, 'error');
+    } finally {
+      setLoading(btn, false, '✅ Salvar Items');
+    }
+  }
+
+  document.getElementById('modal-importar').addEventListener('click', function(e) {
+    if (e.target === this) fecharModalImportar();
+  });
+
+  // ── TEMPLATES DE SEGMENTO ─────────────────────────────────────────────
+  let segmentosCache = [];
+  let templateSelecionado = null;
+
+  function temPermAdminCatalogoParaTemplate() {
+    return Permissoes.pode('catalogo', 'admin');
+  }
+
+  async function abrirModalTemplates() {
+    document.getElementById('modal-templates').classList.add('open');
+    document.getElementById('templates-lista-state').style.display = '';
+    document.getElementById('templates-preview-state').style.display = 'none';
+    document.getElementById('templates-lista-actions').style.display = '';
+    document.getElementById('templates-preview-actions').style.display = 'none';
+    await carregarSegmentos();
+  }
+
+  function fecharModalTemplates() {
+    document.getElementById('modal-templates').classList.remove('open');
+    templateSelecionado = null;
+  }
+
+  document.getElementById('modal-templates').addEventListener('click', function(e) {
+    if (e.target === this) fecharModalTemplates();
+  });
+
+  async function carregarSegmentos() {
+    const lista = document.getElementById('templates-segmentos-lista');
+    lista.innerHTML = '<div style="text-align:center;padding:20px"><div class="spinner"></div></div>';
+    try {
+      segmentosCache = await api.get('/catalogo/templates/segmentos') || [];
+      renderizarSegmentos();
+    } catch (err) {
+      lista.innerHTML = `<div style="text-align:center;padding:20px;color:var(--muted)">Erro ao carregar modelos: ${err.message}</div>`;
+    }
+  }
+
+  function renderizarSegmentos() {
+    const lista = document.getElementById('templates-segmentos-lista');
+    if (!segmentosCache.length) {
+      lista.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">Nenhum modelo disponível</div>';
+      return;
+    }
+    const icones = {
+      'eletricista': '⚡',
+      'pedreiro': '🧱',
+      'pintor': '🎨',
+      'encanador': '🔧',
+      'marceneiro': '🪚',
+      'geral': '📦'
+    };
+    lista.innerHTML = segmentosCache.map(seg => `
+      <div style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--surface2);border-radius:12px;cursor:pointer;transition:background 0.15s"
+        onmouseover="this.style.background='var(--surface3)'"
+        onmouseout="this.style.background='var(--surface2)'"
+        onclick="previewTemplate('${seg.slug}')">
+        <div style="font-size:28px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:var(--surface);border-radius:10px">${icones[seg.slug] || '📦'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:15px;color:var(--text)">${seg.nome}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">${seg.descricao}</div>
+        </div>
+        <div style="color:var(--muted);font-size:18px">→</div>
+      </div>
+    `).join('');
+  }
+
+  async function previewTemplate(slug) {
+    const btn = null;
+    try {
+      const template = await api.get(`/catalogo/templates/${slug}`);
+      templateSelecionado = slug;
+      document.getElementById('template-preview-nome').textContent = template.nome;
+      document.getElementById('template-preview-descricao').textContent = template.descricao;
+      document.getElementById('template-preview-total').textContent =
+        `${template.servicos.length} itens · ${template.categorias.length} categorias`;
+
+      const conteudo = document.getElementById('template-preview-conteudo');
+      const categoriasMap = {};
+      template.categorias.forEach(cat => { categoriasMap[cat] = []; });
+      template.servicos.forEach(srv => {
+        const cat = srv.categoria || 'Sem categoria';
+        if (!categoriasMap[cat]) categoriasMap[cat] = [];
+        categoriasMap[cat].push(srv);
+      });
+
+      let html = '';
+      for (const [cat, servicos] of Object.entries(categoriasMap)) {
+        html += `
+          <div style="margin-bottom:14px">
+            <div style="font-weight:600;font-size:13px;color:var(--green);margin-bottom:6px;padding-left:4px">${cat}</div>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              ${servicos.map(s => `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--surface2);border-radius:8px;font-size:13px">
+                  <span>${s.nome}</span>
+                  <span style="font-weight:600;color:var(--text)">${formatarMoeda(s.preco_padrao)} / ${s.unidade}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>`;
+      }
+      conteudo.innerHTML = html;
+
+      document.getElementById('templates-lista-state').style.display = 'none';
+      document.getElementById('templates-preview-state').style.display = '';
+      document.getElementById('templates-lista-actions').style.display = 'none';
+      document.getElementById('templates-preview-actions').style.display = 'flex';
+
+      // Desabilitar botão se não tem permissão
+      const btnImportar = document.getElementById('btn-importar-template');
+      btnImportar.style.display = temPermAdminCatalogoParaTemplate() ? '' : 'none';
+    } catch (err) {
+      showNotif('❌', 'Erro', err.message, 'error');
+    }
+  }
+
+  function voltarTemplatesLista() {
+    document.getElementById('templates-lista-state').style.display = '';
+    document.getElementById('templates-preview-state').style.display = 'none';
+    document.getElementById('templates-lista-actions').style.display = '';
+    document.getElementById('templates-preview-actions').style.display = 'none';
+    templateSelecionado = null;
+  }
+
+  async function confirmarImportarTemplate() {
+    if (!templateSelecionado) return;
+    const btn = document.getElementById('btn-importar-template');
+    setLoading(btn, true);
+    try {
+      const resultado = await api.post(`/catalogo/templates/${templateSelecionado}/importar`);
+      const msgs = [];
+      if (resultado.categorias_criadas > 0) msgs.push(`${resultado.categorias_criadas} categorias`);
+      if (resultado.servicos_criados > 0) msgs.push(`${resultado.servicos_criados} itens`);
+      const msg = msgs.length ? msgs.join(' e ') + ' importados' : 'Nenhum item novo (já existiam)';
+      showNotif('✅', 'Modelo importado!', msg);
+      fecharModalTemplates();
+      await carregar();
+    } catch (err) {
+      showNotif('❌', 'Erro ao importar', err.message, 'error');
+    } finally {
+      setLoading(btn, false, '✅ Importar Modelo');
+    }
+  }
+
+  // ── INIT ─────────────────────────────────────────────────────────────
+  window.addEventListener('load', () => {
+    carregarComSeguranca();
+  });
+</script>
+</body>
+</html>

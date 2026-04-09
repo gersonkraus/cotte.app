@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campanhas de Disparo - COTTE</title>
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/responsive.css">
+    <link rel="stylesheet" href="css/comercial.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2>Campanhas de Disparo</h2>
+                <button class="sidebar-toggle" id="sidebar-toggle">☰</button>
+            </div>
+            <nav class="sidebar-nav">
+                <ul>
+                    <li><a href="comercial.html"><i class="icon">📊</i> Dashboard</a></li>
+                    <li><a href="comercial-leads.html"><i class="icon">👥</i> Leads</a></li>
+                    <li><a href="comercial-templates.html"><i class="icon">📝</i> Templates</a></li>
+                    <li class="active"><a href="comercial-campanhas.html"><i class="icon">📤</i> Campanhas</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="header">
+                <div class="header-left">
+                    <button class="mobile-menu-toggle" id="mobile-menu-toggle">☰</button>
+                    <h1>Campanhas de Disparo</h1>
+                </div>
+                <div class="header-right">
+                    <span class="user-info">Bem-vindo, <strong id="user-name">Usuário</strong></span>
+                    <button class="btn btn-primary" onclick="openCampaignModal()">Nova Campanha</button>
+                </div>
+            </header>
+
+            <div class="content">
+                <!-- Filtros -->
+                <section class="filters-section">
+                    <div class="card">
+                        <div class="filters">
+                            <div class="filter-group">
+                                <label for="filter-status">Status:</label>
+                                <select id="filter-status">
+                                    <option value="">Todos</option>
+                                    <option value="agendada">Agendada</option>
+                                    <option value="em_andamento">Em Andamento</option>
+                                    <option value="concluida">Concluída</option>
+                                    <option value="cancelada">Cancelada</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label for="filter-canal">Canal:</label>
+                                <select id="filter-canal">
+                                    <option value="">Todos</option>
+                                    <option value="whatsapp">WhatsApp</option>
+                                    <option value="email">Email</option>
+                                    <option value="ambos">Ambos</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-secondary" onclick="applyCampaignFilters()">Filtrar</button>
+                            <button class="btn btn-ghost" onclick="clearCampaignFilters()">Limpar</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Lista de Campanhas -->
+                <section class="campaigns-section">
+                    <div class="card">
+                        <h2>Campanhas Cadastradas</h2>
+                        <div class="campaigns-list" id="campaigns-list">
+                            <!-- Campanhas serão carregadas aqui -->
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal de Campanha -->
+    <div class="modal-overlay" id="campaign-modal-overlay">
+        <div class="modal modal-lg">
+            <div class="modal-header">
+                <h2 id="campaign-modal-title">Nova Campanha</h2>
+                <button class="modal-close" onclick="closeCampaignModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="campaign-form">
+                    <input type="hidden" id="campaign-id">
+                    
+                    <div class="form-group">
+                        <label for="campaign-nome">Nome da Campanha:</label>
+                        <input type="text" id="campaign-nome" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="campaign-template">Template:</label>
+                        <select id="campaign-template" required>
+                            <option value="">Selecione um template</option>
+                            <!-- Templates serão carregados aqui -->
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="campaign-canal">Canal de Disparo:</label>
+                        <select id="campaign-canal" required>
+                            <option value="">Selecione</option>
+                            <option value="whatsapp">WhatsApp</option>
+                            <option value="email">Email</option>
+                            <option value="ambos">Ambos</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Leads Selecionados:</label>
+                        <div class="leads-selection">
+                            <div class="leads-search">
+                                <input type="search" id="leads-search" placeholder="Buscar leads..." autocomplete="off">
+                                <button type="button" class="btn btn-secondary" onclick="searchLeads()">Buscar</button>
+                            </div>
+                            <div class="leads-list" id="leads-list">
+                                <!-- Leads serão carregados aqui -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeCampaignModal()">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Criar Campanha</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Métricas -->
+    <div class="modal-overlay" id="metrics-modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Métricas da Campanha</h2>
+                <button class="modal-close" onclick="closeMetricsModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="metrics-content">
+                    <!-- Métricas serão carregadas aqui -->
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-secondary" onclick="closeMetricsModal()">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/comercial-campanhas.js"></script>
+</body>
+</html>

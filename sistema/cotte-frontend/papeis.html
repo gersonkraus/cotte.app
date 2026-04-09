@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem("cotte_tema");if(t){document.documentElement.setAttribute("data-theme",t);}else{document.documentElement.setAttribute("data-theme","light");}})()</script>
+  <title>COTTE — Papéis e Permissões</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/style.css?v=3">
+  <style>
+    .papeis-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+    .papel-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 12px; transition: all 0.2s; box-shadow: var(--shadow-sm); }
+    .papel-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--accent); }
+    .papel-header { display: flex; justify-content: space-between; align-items: flex-start; }
+    .papel-nome { font-family: 'Outfit', sans-serif; font-size: 17px; font-weight: 700; color: var(--text); }
+    .papel-desc { font-size: 13px; color: var(--muted); margin-top: 2px; }
+    .papel-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+    .perm-count { font-size: 12px; color: var(--muted); }
+    .perm-count strong { color: var(--text); }
+    .papel-actions { display: flex; gap: 8px; margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); }
+    .perm-editor { display: flex; flex-direction: column; gap: 16px; }
+    .modulo-bloco { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .modulo-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--surface2); cursor: pointer; }
+    .modulo-titulo { font-size: 14px; font-weight: 600; color: var(--text); }
+    .modulo-acoes { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; padding: 14px 16px; }
+    .acao-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); cursor: pointer; }
+    .acao-item input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+    .sel-tudo { font-size: 11px; color: var(--accent); cursor: pointer; font-weight: 600; }
+    .sel-tudo:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<aside class="sidebar" id="sidebar"></aside>
+
+<main class="main">
+  <div class="page-header">
+    <div>
+      <div class="page-header-title">Papéis e Permissões</div>
+      <div class="page-header-desc">Configure o que cada perfil de usuário pode acessar</div>
+    </div>
+    <div class="page-header-actions">
+      <button class="btn btn-primary" onclick="abrirModalNovoPapel()">+ Novo Papel</button>
+    </div>
+  </div>
+
+  <div id="papeis-grid" class="papeis-grid">
+    <div style="color:var(--muted); font-size:14px">Carregando papéis...</div>
+  </div>
+</main>
+
+<!-- MODAL EDITAR/CRIAR PAPEL -->
+<div class="modal-overlay" id="modal-papel">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <h3 id="modal-papel-titulo">Novo Papel</h3>
+      <button class="btn-icon" onclick="fecharModalPapel()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="papel-id">
+      <div class="form-group">
+        <label>Nome do papel</label>
+        <input type="text" id="papel-nome" placeholder="Ex: Financeiro, Vendas...">
+      </div>
+      <div class="form-group">
+        <label>Descrição (opcional)</label>
+        <input type="text" id="papel-descricao" placeholder="Breve descrição do papel">
+      </div>
+      <div class="form-group" style="display:flex; align-items:center; gap:8px">
+        <input type="checkbox" id="papel-default" style="width:16px; height:16px; accent-color:var(--accent)">
+        <label for="papel-default" style="margin:0; cursor:pointer">Papel padrão para novos usuários</label>
+      </div>
+
+      <div style="margin-top:20px; margin-bottom:10px">
+        <p style="font-size:13px; font-weight:600; color:var(--text); margin:0 0 6px">Permissões por módulo</p>
+        <p style="font-size:12px; color:var(--muted); margin:0">Selecione o que este papel pode fazer em cada módulo disponível no plano</p>
+      </div>
+
+      <div class="perm-editor" id="perm-editor">
+        <div style="color:var(--muted); font-size:13px">Carregando módulos...</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="fecharModalPapel()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarPapel()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- NOTIFICACAO -->
+<div class="notif" id="notif">
+  <div class="notif-icon"></div>
+  <div>
+    <div class="notif-title"></div>
+    <div class="notif-sub"></div>
+  </div>
+</div>
+
+<script src="js/utils.js?v=1"></script>
+<script src="js/api.js?v=17"></script>
+<script src="js/layout.js?v=5"></script>
+<script>
+  let todosModulos = [];
+  let papeis = [];
+  let papelEditando = null;
+
+  async function init() {
+    try {
+      [papeis, todosModulos] = await Promise.all([
+        api.get('/papeis'),
+        api.get('/papeis/modulos-disponiveis'),
+      ]);
+      renderPapeis();
+    } catch (e) {
+      document.getElementById('papeis-grid').innerHTML =
+        `<div style="color:var(--danger); font-size:14px">Erro ao carregar: ${e.message}</div>`;
+    }
+  }
+
+  function renderPapeis() {
+    const grid = document.getElementById('papeis-grid');
+    if (!papeis.length) {
+      grid.innerHTML = '<div class="state-empty"><div class="state-empty-icon">📋</div><div class="state-empty-title">Nenhum papel cadastrado</div><div class="state-empty-desc">Crie papéis para gerenciar permissões dos usuários</div></div>';
+      return;
+    }
+    grid.innerHTML = papeis.map(p => {
+      const qtdPerms = (p.permissoes || []).length;
+      const badges = [
+        p.is_sistema ? '<span class="pill muted" style="font-size:10px;padding:2px 8px"><span style="display:none">·</span>Sistema</span>' : '',
+        p.is_default ? '<span class="pill accent" style="font-size:10px;padding:2px 8px"><span style="display:none">·</span>Padrão</span>' : '',
+      ].filter(Boolean).join('');
+
+      return `
+        <div class="papel-card">
+          <div class="papel-header">
+            <div>
+              <div class="papel-nome">${esc(p.nome)}</div>
+              ${p.descricao ? `<div class="papel-desc">${esc(p.descricao)}</div>` : ''}
+            </div>
+          </div>
+          ${badges ? `<div class="papel-badges">${badges}</div>` : ''}
+          <div class="perm-count"><strong>${qtdPerms}</strong> permissão(ões) configurada(s)</div>
+          <div class="papel-actions">
+            <button class="btn btn-ghost" style="flex:1" onclick="abrirEditar(${p.id})">✏ Editar</button>
+            ${!p.is_sistema ? `<button class="btn btn-ghost" style="color:var(--red)" onclick="excluirPapel(${p.id})">🗑</button>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderPermEditor(permissoesSelecionadas = []) {
+    const editor = document.getElementById('perm-editor');
+    if (!todosModulos.length) {
+      editor.innerHTML = '<div style="color:var(--muted); font-size:13px">Nenhum módulo disponível no plano.</div>';
+      return;
+    }
+    const permsSet = new Set(permissoesSelecionadas);
+
+    editor.innerHTML = todosModulos.map(mod => {
+      const acoes = mod.acoes || [];
+      const acoesHtml = acoes.map(acao => {
+        const key = `${mod.slug}:${acao}`;
+        const checked = permsSet.has(key) ? 'checked' : '';
+        const label = { leitura: 'Leitura', escrita: 'Escrita', exclusao: 'Exclusão', admin: 'Admin' }[acao] || acao;
+        return `
+          <label class="acao-item">
+            <input type="checkbox" class="perm-check" data-modulo="${mod.slug}" data-acao="${acao}" ${checked}>
+            ${label}
+          </label>
+        `;
+      }).join('');
+
+      return `
+        <div class="modulo-bloco">
+          <div class="modulo-header">
+            <span class="modulo-titulo">${mod.nome}</span>
+            <span class="sel-tudo" onclick="toggleModulo('${mod.slug}', this)">Selecionar tudo</span>
+          </div>
+          <div class="modulo-acoes">${acoesHtml}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function toggleModulo(slug, el) {
+    const checks = document.querySelectorAll(`.perm-check[data-modulo="${slug}"]`);
+    const todosChecked = Array.from(checks).every(c => c.checked);
+    checks.forEach(c => c.checked = !todosChecked);
+    el.textContent = todosChecked ? 'Selecionar tudo' : 'Desmarcar tudo';
+  }
+
+  function lerPermissoesSelecionadas() {
+    return Array.from(document.querySelectorAll('.perm-check:checked'))
+      .map(c => `${c.dataset.modulo}:${c.dataset.acao}`);
+  }
+
+  function abrirModalNovoPapel() {
+    papelEditando = null;
+    document.getElementById('papel-id').value = '';
+    document.getElementById('papel-nome').value = '';
+    document.getElementById('papel-descricao').value = '';
+    document.getElementById('papel-default').checked = false;
+    document.getElementById('modal-papel-titulo').textContent = 'Novo Papel';
+    renderPermEditor([]);
+    document.getElementById('modal-papel').classList.add('open');
+  }
+
+  async function abrirEditar(id) {
+    const p = papeis.find(x => x.id === id);
+    if (!p) return;
+    papelEditando = p;
+    document.getElementById('papel-id').value = p.id;
+    document.getElementById('papel-nome').value = p.nome;
+    document.getElementById('papel-descricao').value = p.descricao || '';
+    document.getElementById('papel-default').checked = !!p.is_default;
+    document.getElementById('modal-papel-titulo').textContent = `Editar: ${p.nome}`;
+    renderPermEditor(p.permissoes || []);
+    document.getElementById('modal-papel').classList.add('open');
+  }
+
+  function fecharModalPapel() {
+    document.getElementById('modal-papel').classList.remove('open');
+  }
+
+  async function salvarPapel() {
+    const id = document.getElementById('papel-id').value;
+    const nome = document.getElementById('papel-nome').value.trim();
+    if (!nome) { mostrarToast('Informe o nome do papel', 'error'); return; }
+
+    const payload = {
+      nome,
+      descricao: document.getElementById('papel-descricao').value.trim() || null,
+      is_default: document.getElementById('papel-default').checked,
+      permissoes: lerPermissoesSelecionadas(),
+    };
+
+    try {
+      if (id) {
+        await api.put(`/papeis/${id}`, payload);
+      } else {
+        await api.post('/papeis', payload);
+      }
+      mostrarToast('Papel salvo com sucesso', 'success');
+      fecharModalPapel();
+      [papeis] = await Promise.all([api.get('/papeis')]);
+      renderPapeis();
+    } catch (e) {
+      mostrarToast(e.message || 'Erro ao salvar papel', 'error');
+    }
+  }
+
+  async function excluirPapel(id) {
+    if (!confirm('Desativar este papel? Usuários vinculados perderão o papel.')) return;
+    try {
+      await api.delete(`/papeis/${id}`);
+      mostrarToast('Papel desativado', 'success');
+      papeis = await api.get('/papeis');
+      renderPapeis();
+    } catch (e) {
+      mostrarToast(e.message || 'Erro ao desativar papel', 'error');
+    }
+  }
+
+  function mostrarToast(msg, tipo = 'success') {
+    const notif = document.getElementById('notif');
+    if (!notif) { alert(msg); return; }
+    notif.querySelector('.notif-icon').textContent = tipo === 'success' ? '✅' : '⚠️';
+    notif.querySelector('.notif-title').textContent = msg;
+    notif.querySelector('.notif-sub').textContent = '';
+    notif.classList.add('show');
+    setTimeout(() => notif.classList.remove('show'), 3500);
+  }
+
+  function esc(s) { if (!s) return ''; const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+  document.getElementById('modal-papel').addEventListener('click', function(e) {
+    if (e.target === this) fecharModalPapel();
+  });
+
+  inicializarLayout('configuracoes');
+  init();
+</script>
+</body>
+</html>

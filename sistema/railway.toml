@@ -1,0 +1,7 @@
+# Railway — build e start do COTTE (pasta sistema)
+# OBRIGATÓRIO: no painel do Railway, em Settings do serviço, defina Root Directory = sistema
+
+[deploy]
+startCommand = "bash release.sh"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10

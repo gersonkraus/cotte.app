@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Novo Orçamento - Cotte</title>
+<style type="text/css">
+        body { margin: 0; padding: 0; min-width: 100%; background-color: #f7fafe; }
+        table { border-spacing: 0; font-family: sans-serif; color: #333333; }
+        td { padding: 0; }
+        img { border: 0; }
+        .wrapper { width: 100%; table-layout: fixed; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+        .webkit { max-width: 600px; margin: 0 auto; }
+        .outer { Margin: 0 auto; width: 100%; max-width: 600px; }
+        .full-width-image img { width: 100%; height: auto; }
+        .inner { padding: 30px; }
+        .hero { background-color: #00687a; color: #ffffff; padding: 40px 30px; text-align: center; }
+        .hero h1 { margin: 0; font-size: 28px; font-weight: bold; }
+        .content { padding: 30px; background-color: #ffffff; }
+        .button { background-color: #06b6d4; color: #ffffff; padding: 12px 20px; border-radius: 25px; text-decoration: none; font-weight: bold; }
+        .footer { padding: 20px; text-align: center; font-size: 12px; color: #999999; }
+        .footer a { color: #999999; text-decoration: none; }
+
+        @media screen and (max-width: 599px) {
+            .full-width-image img { width: 100%; height: auto; }
+            .inner { padding: 20px; }
+            .hero { padding: 30px 20px; }
+            .hero h1 { font-size: 24px; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body style="margin:0; padding:0; min-width:100%; background-color:#f7fafe;">
+    <div class="wrapper" style="width:100%; table-layout:fixed;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
+        <div class="webkit" style="max-width:600px;margin:0 auto;">
+            <!--[if (gte mso 9)|(IE)]>
+            <table width="600" align="center" style="border-spacing:0;font-family:sans-serif;color:#333333;" >
+            <tr>
+            <td style="padding:0;" >
+            <![endif]-->
+            <table class="outer" align="center" style="border-spacing:0;font-family:sans-serif;color:#333333;Margin:0 auto;width:100%;max-width:600px;" >
+                <!-- Header Section -->
+                <tr>
+                    <td class="hero" style="padding:40px 30px;text-align:center;background-color:#00687a;color:#ffffff;">
+                        <h1 style="margin:0;font-size:28px;font-weight:bold;">Seu Novo Orçamento Chegou!</h1>
+                        <p style="margin:10px 0 0 0;font-size:16px;">Olá, <span style="font-weight:bold;">[Nome do Cliente]</span>!</p>
+                        <p style="margin:5px 0 0 0;font-size:14px;">Temos ótimas notícias. Sua solicitação foi processada e os detalhes já estão disponíveis.</p>
+                    </td>
+                </tr>
+
+                <!-- Summary Section -->
+                <tr>
+                    <td style="padding:0;">
+                        <table width="100%" style="border-spacing:0;font-family:sans-serif;color:#333333;background-color:#ffffff;" >
+                            <tr>
+                                <td class="inner" style="padding:30px;">
+                                    <table width="100%" style="border-spacing:0;font-family:sans-serif;color:#333333;border:1px solid #e0e3e7;border-radius:12px;" >
+                                        <tr>
+                                            <td style="padding:20px;">
+                                                <table width="100%" style="border-spacing:0;font-family:sans-serif;color:#333333;">
+                                                    <tr>
+                                                        <td style="padding-bottom:15px;">
+                                                            <p style="margin:0;font-size:11px;text-transform:uppercase;font-weight:bold;color:#565e74;">Cliente</p>
+                                                            <p style="margin:5px 0 0 0;font-size:16px;font-weight:bold;color:#181c1f;">[Nome do Cliente]</p>
+                                                        </td>
+                                                        <td style="padding-bottom:15px;">
+                                                            <p style="margin:0;font-size:11px;text-transform:uppercase;font-weight:bold;color:#565e74;">Nº do Orçamento</p>
+                                                            <p style="margin:5px 0 0 0;font-size:16px;font-weight:bold;color:#181c1f;">{{orcamento.id}}</p>
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td style="padding-bottom:15px;">
+                                                            <p style="margin:0;font-size:11px;text-transform:uppercase;font-weight:bold;color:#565e74;">Valor Total</p>
+                                                            <p style="margin:5px 0 0 0;font-size:18px;font-weight:bold;color:#00687a;">R$ {{orcamento.total}}</p>
+                                                        </td>
+                                                        <td>
+                                                            <p style="margin:0;font-size:11px;text-transform:uppercase;font-weight:bold;color:#565e74;">Expira em</p>
+                                                            <p style="margin:5px 0 0 0;font-size:16px;font-weight:bold;color:#ba1a1a;">{{orcamento.expiracao}}</p>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+
+                <!-- CTA Section -->
+                <tr>
+                    <td style="padding:0;">
+                        <table width="100%" style="border-spacing:0;font-family:sans-serif;color:#333333;background-color:#ffffff;" >
+                            <tr>
+                                <td class="inner" style="padding:0 30px 30px 30px; text-align:center;">
+                                    <a href="{{link_orcamento}}" class="button" style="background-color:#06b6d4;color:#ffffff;padding:12px 20px;border-radius:25px;text-decoration:none;font-weight:bold;">Ver Detalhes do Orçamento</a>
+                                    <p style="margin:15px 0 0 0;font-size:12px;color:#999999;">Link expira em 48 horas por motivos de segurança.</p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+
+                <!-- Footer Section -->
+                <tr>
+                    <td style="padding:0;">
+                        <table width="100%" style="border-spacing:0;font-family:sans-serif;color:#333333;background-color:#f7fafe;" >
+                            <tr>
+                                <td class="footer" style="padding:20px;text-align:center;font-size:12px;color:#999999;">
+                                    <p style="margin:0;">Você recebeu este e-mail porque solicitou um orçamento através da nossa plataforma digital.</p>
+                                    <p style="margin:10px 0 0 0;">&copy; 2026 Cotte. Todos os direitos reservados.</p>
+                                    <p style="margin:10px 0 0 0;"><a href="#" style="color:#999999;text-decoration:none;">Privacidade</a> | <a href="#" style="color:#999999;text-decoration:none;">Termos</a> | <a href="#" style="color:#999999;text-decoration:none;">Suporte</a></p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+            <!--[if (gte mso 9)|(IE)]>
+            </td>
+            </tr>
+            </table>
+            <![endif]-->
+        </div>
+    </div>
+</body></html>

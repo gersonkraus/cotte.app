@@ -1,0 +1,34 @@
+node_modules/
+.next/
+dist/
+build/
+.git/
+package-lock.json
+yarn.lock
+*.log
+*.png
+*.jpg
+*.svg
+# Ignorar dependências e caches
+node_modules/
+venv/
+.venv/
+__pycache__/
+.pytest_cache/
+
+# Ignorar arquivos pesados que a IA não processa bem
+*.pdf
+*.docx
+*.png
+*.jpg
+*.jpeg
+*.svg
+
+# Ignorar arquivos de dados e logs do sistema
+*.db
+*.sqlite
+*.log
+server.log
+.aider.*
+.claude/
+.windsurf/

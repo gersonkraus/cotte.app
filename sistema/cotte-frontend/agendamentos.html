@@ -1,0 +1,1654 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem("cotte_tema");if(t){document.documentElement.setAttribute("data-theme",t);}else{document.documentElement.setAttribute("data-theme","light");}})()</script>
+  <title>COTTE — Agendamentos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/style.css?v=3">
+  <!-- FullCalendar 6 -->
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+  <style>
+    /* ════════════════════════════════════════════════════════════════════
+       AGENDAMENTOS — Estilo Google Agenda
+       ════════════════════════════════════════════════════════════════════ */
+
+    :root {
+      --agd-bg: var(--surface, #fff);
+      --agd-border: var(--border, #e5e7eb);
+      --agd-text: var(--text, #1e293b);
+      --agd-muted: var(--muted, #94a3b8);
+      --agd-accent: var(--accent, #00e5a0);
+      --agd-accent-rgb: 0, 229, 160;
+
+      /* Novas variáveis para cálculo de altura e espaçamento */
+      --topbar-height: 64px; /* Altura padrão do topbar */
+      --agd-toolbar-padding-y: 12px;
+      --agd-toolbar-height: calc(var(--agd-toolbar-padding-y) * 2 + 32px + 16px); /* 2*padding + altura botões + gap */
+      --agd-filters-padding-y: 7px;
+      --agd-filters-bar-height: calc(var(--agd-filters-padding-y) * 2 + 32px + 12px); /* 2*padding + altura search input + gap */
+      --agd-padding-x: 20px; /* Padding horizontal padrão */
+      --agd-gap-md: 16px;
+      --agd-gap-sm: 12px;
+      --agd-radius-sm: 8px; /* Pequeno, para botões e inputs */
+      --agd-radius-md: 12px; /* Médio, para cards e modais */
+      --agd-padding-x-mobile: 12px;
+      
+      /* Status colors - Google Calendar style */
+      --agd-pendente: #fbbc04;
+      --agd-confirmado: #34a853;
+      --agd-andamento: #1a73e8;
+      --agd-concluido: #5f6368;
+      --agd-reagendado: #a142f4;
+      --agd-cancelado: #ea4335;
+    }
+
+    /* Layout */
+    .agd-container {
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - var(--topbar-height) - var(--agd-toolbar-height) - var(--agd-filters-bar-height));
+      overflow: hidden;
+      background: var(--agd-bg);
+      box-sizing: border-box;
+    }
+
+    /* Toolbar com filtros */
+    .agd-toolbar {
+      display: flex;
+      align-items: center;
+      gap: var(--agd-gap-md);
+      padding: var(--agd-toolbar-padding-y) var(--agd-padding-x);
+      border-bottom: 1px solid var(--agd-border);
+      flex-wrap: wrap;
+      background: var(--agd-bg);
+    }
+
+    .agd-nav-btns {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .agd-nav-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 1px solid var(--agd-border);
+      background: var(--agd-bg);
+      color: var(--agd-text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .agd-nav-btn:hover {
+      background: var(--agd-border);
+    }
+
+    .agd-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--agd-text);
+      min-width: 160px;
+    }
+
+    .agd-today-btn {
+      padding: 6px 14px;
+      border-radius: var(--agd-radius-sm, 4px);
+      border: 1px solid var(--agd-border);
+      background: var(--agd-bg);
+      color: var(--agd-text);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .agd-today-btn:hover {
+      background: var(--agd-border);
+    }
+
+    /* View buttons */
+    .agd-view-btns {
+      display: flex;
+      border: 1px solid var(--agd-border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .agd-view-btn {
+      padding: 6px 14px;
+      border: none;
+      background: var(--agd-bg);
+      color: var(--agd-muted);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .agd-view-btn:not(:last-child) {
+      border-right: 1px solid var(--agd-border);
+    }
+    .agd-view-btn.active {
+      background: #1a73e8;
+      color: #fff;
+    }
+    .agd-view-btn:hover:not(.active) {
+      background: var(--agd-border);
+    }
+
+    /* Linha de filtros */
+    .agd-filters-bar {
+      display: flex;
+      align-items: center;
+      gap: var(--agd-gap-sm);
+      padding: var(--agd-filters-padding-y) var(--agd-padding-x);
+      border-bottom: 1px solid var(--agd-border);
+      background: var(--agd-bg);
+      overflow-x: auto;
+      flex-shrink: 0;
+    }
+
+    .agd-filtro-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .agd-filtro-label {
+      font-size: 12px;
+      color: var(--agd-muted);
+      font-weight: 500;
+    }
+
+    /* Status chips inline */
+    .agd-status-chips {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .agd-status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1.5px solid var(--agd-border);
+      background: var(--agd-bg);
+      color: var(--agd-muted);
+      transition: all 0.15s ease;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .agd-status-chip:hover {
+      border-color: var(--border-hover, #c7d2e4);
+      background: var(--surface2, #f8fafc);
+    }
+    .agd-status-chip.active {
+      color: #fff;
+      border-color: transparent;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+    }
+    .agd-status-chip .chip-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .agd-status-chip.active .chip-dot {
+      background: rgba(255,255,255,0.7) !important;
+    }
+    .agd-status-chip .chip-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 9px;
+      font-size: 10px;
+      font-weight: 700;
+      background: rgba(0,0,0,0.06);
+      color: inherit;
+      margin-left: 2px;
+    }
+    .agd-status-chip.active .chip-count {
+      background: rgba(255,255,255,0.25);
+    }
+    .agd-status-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: 4px;
+    }
+    .agd-status-action-btn {
+      padding: 4px 10px;
+      border-radius: 14px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--agd-border);
+      background: var(--agd-bg);
+      color: var(--agd-muted);
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+    .agd-status-action-btn:hover {
+      border-color: var(--accent, #06b6d4);
+      color: var(--accent, #06b6d4);
+    }
+
+    .agd-filtro-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 16px;
+      font-size: 12px;
+      cursor: pointer;
+      border: 1px solid var(--agd-border);
+      background: var(--agd-bg);
+      color: var(--agd-text);
+      transition: all .15s;
+      white-space: nowrap;
+    }
+    .agd-filtro-chip:hover {
+      background: var(--agd-border);
+    }
+    .agd-filtro-chip.active {
+      background: var(--agd-accent);
+      color: #fff;
+      border-color: var(--agd-accent);
+    }
+    .agd-filtro-chip .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    /* Dashboard stats */
+    .agd-dash {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .agd-dash-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      color: var(--agd-muted);
+      background: var(--agd-bg);
+      border: 1px solid var(--agd-border);
+      border-radius: 20px;
+      padding: 3px 10px;
+      white-space: nowrap;
+    }
+    .agd-dash-num {
+      font-weight: 700;
+      color: var(--agd-text);
+      font-size: 13px;
+    }
+    .agd-dash-item {
+      cursor: pointer;
+      transition: background .15s, border-color .15s;
+    }
+    .agd-dash-item:hover {
+      background: var(--agd-border);
+      border-color: #94a3b8;
+    }
+
+    /* Modal dash */
+    .agd-modal-dash {
+      position: fixed; inset: 0; background: rgba(0,0,0,.4);
+      z-index: 1000; display: flex; align-items: center; justify-content: center;
+      padding: 16px;
+    }
+    .agd-modal-dash-inner {
+      background: var(--agd-bg); border-radius: var(--agd-radius-md, 12px);
+      box-shadow: 0 8px 40px rgba(0,0,0,.18);
+      width: 100%; max-width: 520px; max-height: 80vh;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .agd-modal-dash-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px; border-bottom: 1px solid var(--agd-border);
+    }
+    .agd-modal-dash-title {
+      font-size: 15px; font-weight: 700; color: var(--agd-text);
+    }
+    .agd-modal-dash-body {
+      overflow-y: auto; padding: 12px 20px; flex: 1;
+    }
+    .agd-dash-card {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 10px 0; border-bottom: 1px solid var(--agd-border);
+    }
+    .agd-dash-card:last-child { border-bottom: none; }
+    .agd-dash-card-dot {
+      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 4px;
+    }
+    .agd-dash-card-info { flex: 1; min-width: 0; }
+    .agd-dash-card-nome { font-size: 13px; font-weight: 600; color: var(--agd-text); }
+    .agd-dash-card-meta { font-size: 12px; color: var(--agd-muted); margin-top: 2px; }
+    .agd-dash-card-status {
+      font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; flex-shrink: 0;
+    }
+    .agd-dash-empty { text-align: center; padding: 32px 0; color: var(--agd-muted); font-size: 13px; }
+
+    /* Search */
+    .agd-search-wrap {
+      position: relative;
+      flex-shrink: 0;
+    }
+    .agd-search-wrap svg {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+      opacity: .45;
+    }
+    .agd-search-input {
+      background: var(--agd-bg);
+      border: 1px solid var(--agd-border);
+      border-radius: 20px; /* Manter 20px para chip-like */
+      padding: 5px 12px 5px 32px;
+      font-size: 13px;
+      color: var(--agd-text);
+      font-family: inherit;
+      outline: none;
+      width: 180px;
+      transition: border-color .15s, width .2s;
+    }
+    .agd-search-input:focus {
+      border-color: #1a73e8;
+      width: 220px;
+    }
+    .agd-search-input::placeholder { color: var(--agd-muted); }
+
+    /* Calendário */
+    .agd-calendar-area {
+      flex: 1;
+      overflow: auto;
+      padding: 8px;
+      min-height: 0; /* Permite que o flex item encolha */
+    }
+
+    /* FullCalendar - Google Agenda Style */
+    .fc {
+      --fc-border-color: var(--agd-border);
+      --fc-today-bg-color: rgba(var(--agd-accent-rgb), 0.08);
+      --fc-now-indicator-color: #ea4335;
+      height: 100% !important;
+      font-family: 'DM Sans', -apple-system, sans-serif !important;
+    }
+    .fc .fc-toolbar.fc-header-toolbar {
+      display: none !important;
+    }
+    
+    /* Header dos dias */
+    .fc .fc-col-header-cell-cushion {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--agd-muted);
+      text-transform: uppercase;
+      padding: 8px 0 !important;
+    }
+    
+    /* Números dos dias */
+    .fc .fc-daygrid-day-number {
+      font-size: 12px;
+      color: var(--agd-text);
+      padding: 4px 6px !important;
+      margin: 2px !important;
+      width: auto;
+      height: auto;
+      border-radius: 50%;
+      display: inline-flex;
+    }
+    .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
+      background: var(--agd-accent) !important;
+      color: #fff !important;
+      font-weight: 600;
+    }
+    
+    /* Linhas do grid */
+    .fc .fc-scrollgrid,
+    .fc .fc-scrollgrid td,
+    .fc .fc-scrollgrid th {
+      border-color: var(--agd-border) !important;
+    }
+    .fc .fc-daygrid-day {
+      border-color: var(--agd-border) !important;
+    }
+    
+    /* Células do dia */
+    .fc .fc-daygrid-day-frame {
+      min-height: 90px; /* Aumenta a altura mínima para mais espaço */
+    }
+    @media (max-width: 768px) {
+      .fc .fc-daygrid-day-frame {
+        min-height: 70px;
+      }
+    }
+    @media (max-width: 480px) {
+      .fc .fc-daygrid-day-frame {
+        min-height: 50px;
+      }
+    }
+    .fc .fc-day-other {
+      background: rgba(0,0,0,0.02);
+    }
+    .fc .fc-daygrid-day {
+      transition: background 0.15s ease;
+    }
+    .fc .fc-daygrid-day:not(.fc-day-other):hover {
+      background: rgba(var(--agd-accent-rgb), 0.05) !important;
+      cursor: pointer;
+    }
+    .fc .fc-daygrid-day.fc-day-today:hover {
+      background: rgba(var(--agd-accent-rgb), 0.12) !important;
+    }
+    .fc .fc-daygrid-day-number {
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .fc .fc-daygrid-day:not(.fc-day-today):hover .fc-daygrid-day-number {
+      background: rgba(var(--agd-accent-rgb), 0.15);
+      border-radius: 50%;
+      color: var(--agd-accent);
+    }
+
+    /* Eventos */
+    .fc .fc-event {
+      border: none !important;
+      border-radius: 4px !important;
+      padding: 2px 6px !important;
+      font-size: 11px !important;
+      font-weight: 500 !important;
+      cursor: pointer;
+      margin: 1px 3px !important;
+      transition: filter 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+    }
+    .fc .fc-event:hover {
+      filter: brightness(0.88);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+      transform: translateY(-1px);
+    }
+    .fc .fc-daygrid-event {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    /* Time grid */
+    .fc .fc-timegrid-slot {
+      min-height: 48px; /* Usa min-height em vez de height fixo */
+      height: auto; /* Permite que a altura se ajuste */
+      transition: background 0.12s ease;
+    }
+    .fc .fc-timegrid-slot:hover {
+      background: rgba(var(--agd-accent-rgb), 0.04) !important;
+    }
+    .fc .fc-timegrid-axis-cushion {
+      font-size: 10px;
+      color: var(--agd-muted);
+      padding: 0 4px !important;
+    }
+    .fc .fc-timegrid-now-indicator-line {
+      border-color: #ea4335 !important;
+    }
+    
+    /* Mais eventos */
+    .fc .fc-daygrid-more-link {
+      color: var(--agd-accent) !important;
+      font-weight: 600;
+      font-size: 11px;
+    }
+
+    /* ═══ Modal ═══ */
+    .agd-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.5);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s;
+    }
+    .agd-modal-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .agd-modal {
+      background: var(--agd-bg);
+      border-radius: var(--agd-radius-md, 12px);
+      width: min(92vw, 480px);
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,.3);
+      transform: translateY(20px) scale(.97);
+      transition: transform .25s ease-out;
+    }
+    .agd-modal-overlay.open .agd-modal {
+      transform: translateY(0) scale(1);
+    }
+
+    .agd-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--agd-border);
+    }
+    .agd-modal-header h2 {
+      font-size: 18px;
+      font-weight: 600;
+      margin: 0;
+    }
+    .agd-modal-close {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: none;
+      background: transparent;
+      color: var(--agd-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+    .agd-modal-close:hover {
+      background: var(--agd-border);
+    }
+
+    .agd-modal-body {
+      padding: 16px 20px 20px;
+    }
+
+    .agd-form-group {
+      margin-bottom: 14px;
+    }
+    .agd-form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--agd-muted);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .agd-form-group select,
+    .agd-form-group input,
+    .agd-form-group textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--agd-border);
+      border-radius: var(--agd-radius-sm, 8px);
+      background: var(--agd-bg);
+      color: var(--agd-text);
+      font-size: 14px;
+      transition: border-color .15s;
+      box-sizing: border-box;
+    }
+    .agd-form-group select:focus,
+    .agd-form-group input:focus,
+    .agd-form-group textarea:focus {
+      outline: none;
+      border-color: var(--agd-accent);
+    }
+    .agd-form-group textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    .agd-form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .agd-modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      padding-top: 12px;
+      border-top: 1px solid var(--agd-border);
+      margin-top: 8px;
+    }
+    .agd-btn {
+      padding: 10px 18px;
+      border-radius: var(--agd-radius-sm, 8px);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--agd-border);
+      background: var(--agd-bg);
+      color: var(--agd-text);
+      transition: all .15s;
+    }
+    .agd-btn:hover {
+      background: var(--agd-border);
+    }
+    .agd-btn-primary {
+      background: var(--agd-accent);
+      color: #fff;
+      border-color: var(--agd-accent);
+    }
+    .agd-btn-primary:hover {
+      filter: brightness(1.1);
+    }
+    .agd-btn-danger {
+      color: #ea4335;
+    }
+    .agd-btn-danger:hover {
+      background: #fef2f2;
+    }
+
+    /* ═══ Popover ═══ */
+    .agd-popover {
+      position: fixed;
+      background: var(--agd-bg);
+      border-radius: var(--agd-radius-sm, 8px);
+      box-shadow: 0 8px 32px rgba(0,0,0,.2);
+      z-index: 999;
+      width: min(92vw, 320px);
+      overflow: hidden;
+      opacity: 0;
+      transform: scale(.95);
+      transition: all .2s;
+      pointer-events: none;
+    }
+    .agd-popover.open {
+      opacity: 1;
+      transform: scale(1);
+      pointer-events: auto;
+    }
+
+    .agd-popover-header {
+      padding: 14px 16px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid var(--agd-border);
+    }
+    .agd-popover-status {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 12px;
+      text-transform: uppercase;
+    }
+    .agd-popover-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin: 6px 0 0;
+    }
+    .agd-popover-body {
+      padding: 12px 16px;
+    }
+    .agd-popover-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--agd-muted);
+      margin-bottom: 6px;
+    }
+    .agd-popover-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 8px 10px 10px;
+      border-top: 1px solid var(--agd-border);
+    }
+    .agd-popover-btn {
+      width: 100%;
+      padding: 9px 12px;
+      border-radius: var(--agd-radius-sm, 8px);
+      border: none;
+      background: none;
+      color: var(--agd-text);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: background .12s;
+      font-family: inherit;
+    }
+    .agd-popover-btn:hover {
+      background: rgba(0,0,0,.05);
+    }
+    .agd-popover-btn.primary {
+      background: var(--agd-accent);
+      color: #1a1a1a;
+      font-weight: 600;
+    }
+    .agd-popover-btn.primary:hover { filter: brightness(.95); }
+    .agd-popover-btn.blue {
+      background: #1a73e8;
+      color: #fff;
+      font-weight: 600;
+    }
+    .agd-popover-btn.blue:hover { background: #1557b0; }
+    .agd-popover-btn.danger {
+      color: #ea4335;
+    }
+    .agd-popover-btn.danger:hover { background: rgba(234,67,53,.08); }
+    .agd-popover-btn.ghost {
+      color: var(--agd-muted);
+      font-size: 12px;
+      padding: 6px 12px;
+    }
+    .agd-pop-sep {
+      height: 1px;
+      background: var(--agd-border);
+      margin: 4px 2px;
+    }
+
+    /* ═══ Mobile ═══ */
+    @media (max-width: 768px) {
+      /* Ajustes para o container principal */
+      .agd-container {
+        height: calc(100vh - var(--topbar-height) - var(--agd-toolbar-padding-y) * 2 - var(--agd-filters-bar-height) - 100px); /* Ajuste de altura para mobile, aproximadamente */
+      }
+      .agd-toolbar {
+        padding: 8px var(--agd-padding-x-mobile);
+        gap: var(--agd-gap-sm);
+        flex-wrap: wrap;
+      }
+      .agd-toolbar-right {
+        flex: 1;
+        justify-content: flex-end;
+      }
+      .agd-title {
+        font-size: 15px;
+        min-width: auto;
+        flex: 1;
+      }
+      .agd-view-btns {
+        display: flex;
+        border: 1px solid var(--agd-border);
+        border-radius: var(--agd-radius-sm, 6px);
+        overflow: hidden;
+      }
+      .agd-dash {
+        display: none;
+      }
+      .agd-filters-bar {
+        padding: 6px var(--agd-padding-x-mobile);
+        gap: var(--agd-gap-sm);
+      }
+      .agd-search-input {
+        width: 140px;
+      }
+      .agd-search-input:focus {
+        width: 170px;
+      }
+      /* (estilos legados pré-fila 768px removidos — agora card-view) */
+      .agd-form-row {
+        grid-template-columns: 1fr;
+      }
+      .agd-btn-novo-mobile {
+        padding: 7px 12px;
+        font-size: 13px;
+      }
+      /* Status chips mobile */
+      .topbar-actions {
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .agd-status-chips {
+        order: 2;
+        width: 100%;
+        overflow-x: visible;
+        flex-wrap: wrap;
+        padding-bottom: 4px;
+        scrollbar-width: none;
+        gap: 6px;
+      }
+      .agd-status-chips::-webkit-scrollbar { display: none; }
+      .agd-status-chip {
+        padding: 4px 10px;
+        font-size: 11px;
+        flex-shrink: 0;
+        border-radius: 16px; /* Manter 16px */
+      }
+      .agd-status-chip .chip-count {
+        min-width: 16px;
+        height: 16px;
+        font-size: 9px;
+        padding: 0 4px;
+      }
+      .agd-status-actions {
+        display: none;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .agd-status-chip {
+        padding: 3px 8px;
+        font-size: 10px;
+        gap: 4px;
+      }
+      .agd-status-chip .chip-dot {
+        width: 6px;
+        height: 6px;
+      }
+      .agd-status-chip .chip-count {
+        min-width: 14px;
+        height: 14px;
+        font-size: 8px;
+        padding: 0 3px;
+      }
+      .btn.btn-primary {
+        padding: 6px 10px;
+        font-size: 12px;
+      }
+    }
+
+    .agd-mobile-views {
+      display: none;
+    }
+
+    /* Toolbar flex layout */
+    .agd-toolbar-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .agd-toolbar-right {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-left: auto;
+      justify-content: flex-end;
+    }
+
+    /* Loading */
+    .agd-loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 150px;
+      color: var(--agd-muted);
+    }
+
+    /* Toast */
+    .agd-toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #323232;
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 2000;
+      transition: transform .3s ease;
+    }
+    .agd-toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ═══ Tabs ═══ */
+    .agd-tabs { display:flex; border-bottom:1px solid var(--agd-border); margin-bottom:16px; }
+    .agd-tab { padding:9px 16px; border:none; background:none; color:var(--agd-muted); font-size:13px; font-weight:500; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; font-family:inherit; transition:color .15s; }
+    .agd-tab.active { color:#1a73e8; border-bottom-color:#1a73e8; }
+    .agd-tab:hover:not(.active) { color:var(--agd-text); }
+
+    /* ═══ Filter selects ═══ */
+    .agd-filter-select {
+      appearance: none; -webkit-appearance: none;
+      background: var(--agd-bg);
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      border: 1px solid var(--agd-border);
+      border-radius: 20px;
+      padding: 5px 30px 5px 14px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--agd-text);
+      font-family: inherit;
+      outline: none;
+      cursor: pointer;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .agd-filter-select:hover { border-color: #94a3b8; }
+    .agd-filter-select:focus { border-color: #1a73e8; box-shadow: 0 0 0 3px rgba(26,115,232,.12); }
+    #agd-filtro-tipo { max-width: 120px; }
+    #agd-filtro-responsavel { max-width: 140px; }
+
+    /* ═══ Config button ═══ */
+
+    .agd-pre-fila { padding: 16px 20px; overflow-y: auto; height: 100%; box-sizing: border-box; }
+    /* (table-wrap legado removido — agora usa .pf-table-wrap) */
+    /* (toolbar legado removido — agora usa .pf-toolbar) */
+    /* (estilos legados de tabela pré-fila removidos — agora usa .pf-table) */
+    .agd-badge { display: inline-block; min-width: 18px; padding: 0 6px; border-radius: 10px; background: var(--agd-pendente); color: #5c4200; font-size: 11px; font-weight: 700; margin-left: 6px; vertical-align: middle; }
+    /* (badges e modo-btn legados removidos — agora usa .pf-pay-badge e .agd-panel-toggle) */
+
+    .agd-config-btn { width:32px; height:32px; border-radius:50%; border:1px solid var(--agd-border); background:var(--agd-bg); color:var(--agd-muted); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .15s; font-size:16px; flex-shrink:0; }
+    .agd-config-btn:hover { background:var(--agd-border); color:var(--agd-text); }
+
+    /* ═══ Config modal ═══ */
+    .agd-config-section { margin-bottom:20px; }
+    .agd-config-section-title { font-size:11px; font-weight:700; color:var(--agd-muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:10px; }
+    .agd-config-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:9px 0; border-bottom:1px solid var(--agd-border); }
+    .agd-config-row:last-child { border-bottom:none; }
+    .agd-config-label { font-size:13px; font-weight:500; }
+    .agd-config-sub { font-size:11px; color:var(--agd-muted); margin-top:2px; }
+    .agd-config-input { background:var(--agd-bg); border:1px solid var(--agd-border); border-radius:6px; padding:6px 10px; font-size:13px; color:var(--agd-text); font-family:inherit; text-align:center; width:90px; }
+    .agd-config-input:focus { outline:none; border-color:#1a73e8; }
+
+    /* Dias da semana */
+    .agd-dias-wrap { display:flex; gap:5px; flex-wrap:wrap; }
+    .agd-dia-btn { width:36px; height:36px; border-radius:50%; border:1px solid var(--agd-border); background:var(--agd-bg); color:var(--agd-muted); font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .15s; }
+    .agd-dia-btn.on { background:#1a73e8; color:#fff; border-color:#1a73e8; }
+
+    /* Bloqueios */
+    .agd-bloqueio-item { display:flex; align-items:center; gap:10px; padding:9px 12px; border:1px solid var(--agd-border); border-radius:8px; margin-bottom:6px; }
+    .agd-bloqueio-info { flex:1; }
+    .agd-bloqueio-titulo { font-size:13px; font-weight:500; }
+    .agd-bloqueio-meta { font-size:11px; color:var(--agd-muted); margin-top:2px; }
+
+    /* Slots disponíveis */
+    .slot-chip { padding:5px 12px; border-radius:20px; border:1px solid var(--agd-border); background:var(--agd-bg); color:var(--agd-text); font-size:12px; font-weight:500; cursor:pointer; transition:all .12s; font-family:inherit; }
+    .slot-chip:hover { background:#e8f0fe; border-color:#1a73e8; color:#1a73e8; }
+    .slot-chip.selected { background:#1a73e8; border-color:#1a73e8; color:#fff; }
+
+    /* View Hoje — lista */
+    .hoje-card { display:flex; gap:12px; align-items:flex-start; padding:11px 14px; border-radius:10px; border:1px solid var(--agd-border); margin-bottom:8px; cursor:pointer; transition:background .12s; }
+    .hoje-card:hover { background:var(--agd-border); }
+    .hoje-hora { display:flex; flex-direction:column; align-items:center; min-width:42px; }
+    .hoje-hora-num { font-size:15px; font-weight:700; line-height:1; }
+    .hoje-hora-dur { font-size:10px; color:var(--agd-muted); margin-top:3px; }
+    .hoje-info { flex:1; }
+    .hoje-nome { font-weight:600; font-size:13px; }
+    .hoje-meta { font-size:12px; color:var(--agd-muted); margin-top:2px; }
+
+    /* Helper: esconde elementos do calendário no modo pré-fila */
+    .agd-hidden-prefila { display: none !important; }
+
+    /* ═══ Segmented control (Agenda / Pré-agendamento) ═══ */
+    .agd-panel-toggle { display:inline-flex; background:var(--agd-border); border-radius:8px; padding:3px; gap:2px; }
+    .agd-panel-toggle-btn { display:inline-flex; align-items:center; gap:6px; padding:6px 14px; border-radius:6px; border:none; background:transparent; color:var(--agd-muted); font-size:13px; font-weight:500; cursor:pointer; transition:all .15s; font-family:inherit; white-space:nowrap; }
+    .agd-panel-toggle-btn.active { background:var(--agd-bg); color:var(--agd-text); box-shadow:0 1px 3px rgba(0,0,0,.08); font-weight:600; }
+    .agd-panel-toggle-btn:hover:not(.active) { color:var(--agd-text); }
+
+    /* ═══ Pré-fila toolbar ═══ */
+    .pf-toolbar { margin-bottom:16px; display:flex; flex-direction:column; gap:12px; }
+    .pf-toolbar-row { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+    .pf-search-wrap { position:relative; flex:1; min-width:180px; max-width:340px; }
+    .pf-search-wrap svg { position:absolute; left:12px; top:50%; transform:translateY(-50%); pointer-events:none; color:var(--agd-muted); }
+    .pf-search { width:100%; padding:8px 36px 8px 36px; border-radius:10px; border:1px solid var(--agd-border); font-size:13px; background:var(--agd-bg); color:var(--agd-text); font-family:inherit; outline:none; transition:border-color .2s, box-shadow .2s; box-sizing:border-box; }
+    .pf-search:focus { border-color:#1a73e8; box-shadow:0 0 0 3px rgba(26,115,232,.12); }
+    .pf-refresh-btn { position:absolute; right:6px; top:50%; transform:translateY(-50%); width:26px; height:26px; border:none; background:transparent; color:var(--agd-muted); cursor:pointer; border-radius:50%; display:flex; align-items:center; justify-content:center; transition:all .15s; }
+    .pf-refresh-btn:hover { background:var(--agd-border); color:var(--agd-text); }
+    .pf-refresh-btn.pf-spinning svg { animation:pf-spin .6s linear; }
+    @keyframes pf-spin { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }
+
+    /* ═══ Canal filter chips ═══ */
+    .pf-canal-filters { display:flex; gap:6px; flex-wrap:wrap; }
+    .pf-canal-chip { display:inline-flex; align-items:center; gap:5px; padding:6px 12px; border-radius:20px; border:1px solid var(--agd-border); background:var(--agd-bg); color:var(--agd-muted); font-size:12px; font-weight:500; cursor:pointer; transition:all .15s; font-family:inherit; user-select:none; }
+    .pf-canal-chip:hover { border-color:var(--agd-text); color:var(--agd-text); }
+    .pf-canal-chip.active { border-color:transparent; font-weight:600; }
+    .pf-canal-chip.active[data-canal="todos"]     { background:rgba(26,115,232,.12); color:#1a73e8; }
+    .pf-canal-chip.active[data-canal="whatsapp"] { background:rgba(37,211,102,.12); color:#128c7e; }
+    .pf-canal-chip.active[data-canal="publico"] { background:rgba(26,115,232,.12); color:#1a73e8; }
+    .pf-canal-chip.active[data-canal="ia"] { background:rgba(161,66,244,.12); color:#a142f4; }
+    .pf-canal-chip.active[data-canal="manual"] { background:rgba(95,99,104,.15); color:#5f6368; }
+    .pf-canal-chip svg { width:14px; height:14px; flex-shrink:0; }
+    .pf-canal-chip .pf-chip-count { font-size:10px; font-weight:700; opacity:.7; }
+
+    /* ═══ Batch action bar ═══ */
+    .pf-batch-bar { position:sticky; bottom:0; z-index:10; display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:12px 16px; background:var(--surface); border:1px solid var(--border); border-radius:var(--agd-radius-md, 12px); box-shadow:var(--shadow); margin-top:12px; }
+    .pf-batch-count { font-size:13px; font-weight:600; color:var(--text); }
+    .pf-batch-sep { width:1px; height:20px; background:var(--border); }
+    .pf-batch-obs { flex:1; min-width:120px; max-width:280px; padding:6px 10px; border-radius:6px; border:1px solid var(--border); font-size:12px; background:transparent; color:var(--text); font-family:inherit; outline:none; transition:border-color .15s; }
+    .pf-batch-obs::placeholder { color:var(--muted); }
+    .pf-batch-obs:focus { border-color:var(--accent); }
+    .pf-batch-actions { display:flex; align-items:center; gap:8px; margin-left:auto; }
+    .pf-batch-cancel { border:none; background:none; color:var(--muted); font-size:12px; cursor:pointer; font-family:inherit; padding:6px 8px; border-radius:6px; transition:background .12s; }
+    .pf-batch-cancel:hover { background:var(--bg); color:var(--text); }
+
+    /* ═══ Canal badges ═══ */
+    .pf-canal-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:20px; font-size:11px; font-weight:600; white-space:nowrap; background:var(--surface2); color:var(--muted); }
+    .pf-canal-badge.pf-canal-whatsapp { background:rgba(16,185,129,.10); color:#059669; }
+    .pf-canal-badge.pf-canal-publico { background:var(--blue-dim); color:var(--blue); }
+    .pf-canal-badge.pf-canal-ia { background:var(--purple-dim); color:var(--purple); }
+    .pf-canal-badge.pf-canal-manual { background:var(--surface2); color:var(--muted); }
+
+    /* ═══ Progress bar de pagamento ═══ */
+    .pf-pay-progress { min-width:140px; }
+    .pf-pay-label { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+    .pf-pay-label-text { font-size:11px; color:var(--muted); }
+    .pf-pay-status { font-size:11px; font-weight:700; }
+    .pf-status-ok  { color:var(--green); }
+    .pf-status-partial { color:#d97706; }
+    .pf-status-blocked { color:var(--red); }
+    .pf-pay-bar-wrap { height:6px; background:var(--surface2); border-radius:99px; overflow:hidden; }
+    .pf-pay-bar { height:100%; border-radius:99px; transition:width .5s ease; }
+    .pf-pay-bar.pf-100     { background:var(--green); }
+    .pf-pay-bar.pf-partial { background:#f59e0b; }
+    .pf-pay-bar.pf-zero    { background:var(--red); }
+
+    /* ═══ Desktop table ═══ */
+    .pf-table-view { display:block; }
+    .pf-card-view  { display:none; }
+    .pf-table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; width:100%; }
+    .pf-table { width:100%; border-collapse:collapse; font-size:13px; }
+    .pf-table thead { background:var(--surface2); }
+    .pf-table th { padding:10px 12px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); white-space:nowrap; border-bottom:1px solid var(--border); }
+    .pf-table td { padding:13px 12px; border-bottom:1px solid var(--border); vertical-align:middle; color:var(--text); }
+    .pf-table tbody tr { transition:background .12s; }
+    .pf-table tbody tr:hover td { background:var(--bg); }
+    .pf-table tbody tr:last-child td { border-bottom:none; }
+    /* Cliente cell */
+    .pf-cell-cliente { display:flex; align-items:center; gap:10px; }
+    .pf-avatar { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:#fff; flex-shrink:0; }
+    .pf-cliente-info { min-width:0; }
+    .pf-cliente-nome { font-size:13px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:160px; }
+    .pf-orc-link { font-size:11px; color:var(--muted); text-decoration:none; display:block; margin-top:1px; }
+    .pf-orc-link:hover { color:var(--accent); text-decoration:underline; }
+    /* Total cell */
+    .pf-total-val { font-family:'Outfit',sans-serif; font-size:14px; font-weight:700; color:var(--text); white-space:nowrap; }
+    /* Message cell */
+    .pf-msg-cell { max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted); font-size:12px; }
+    /* Date cell */
+    .pf-date-cell { font-size:12px; color:var(--muted); white-space:nowrap; }
+    /* Sticky action column */
+    .pf-table th.pf-col-action, .pf-table td.pf-col-action { position:sticky; right:0; background:var(--surface); box-shadow:-2px 0 6px rgba(0,0,0,.04); text-align:right; }
+    .pf-table thead th.pf-col-action { background:var(--surface2); }
+    .pf-table tbody tr:hover td.pf-col-action { background:var(--bg); }
+
+    /* ═══ Botão Liberar ═══ */
+    .pf-btn-liberar { display:inline-flex; align-items:center; justify-content:center; gap:5px; padding:7px 14px; background:var(--green); color:#fff; border:none; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; white-space:nowrap; box-shadow:0 1px 3px var(--green-glow); transition:all .15s; }
+    .pf-btn-liberar:hover:not(:disabled) { background:#059669; transform:translateY(-1px); box-shadow:0 3px 10px var(--green-glow); }
+    .pf-btn-liberar:active:not(:disabled) { transform:translateY(0); box-shadow:0 1px 3px var(--green-glow); }
+    .pf-btn-liberar:disabled { opacity:.45; cursor:not-allowed; transform:none; box-shadow:none; }
+    .pf-btn-liberar .spinner { width:13px; height:13px; border-width:2px; border-color:rgba(255,255,255,.3); border-top-color:#fff; }
+
+    /* ═══ Mobile cards ═══ */
+    .pf-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:10px; box-shadow:var(--shadow-sm); transition:border-color .15s, box-shadow .15s; }
+    .pf-card:hover { border-color:var(--border-hover); box-shadow:var(--shadow); }
+    .pf-card-header { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+    .pf-card-cb { flex-shrink:0; width:16px; height:16px; cursor:pointer; accent-color:var(--accent); }
+    .pf-card-identity { display:flex; align-items:center; gap:10px; flex:1; min-width:0; }
+    .pf-card-info { min-width:0; flex:1; }
+    .pf-card-nome { font-size:14px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .pf-card-orc-link { font-size:12px; color:var(--muted); text-decoration:none; }
+    .pf-card-orc-link:hover { color:var(--accent); }
+    .pf-card-section { margin-bottom:12px; }
+    .pf-card-total-big { font-family:'Outfit',sans-serif; font-size:20px; font-weight:700; color:var(--text); margin-bottom:6px; }
+    .pf-card-pay-section { margin-bottom:12px; }
+    .pf-card-footer { display:flex; align-items:center; justify-content:space-between; margin-top:12px; padding-top:12px; border-top:1px solid var(--border); }
+    .pf-card-date { font-size:12px; color:var(--muted); }
+    .pf-card-msg-details { margin-bottom:10px; }
+    .pf-card-msg-details summary { cursor:pointer; font-size:12px; font-weight:500; color:var(--muted); list-style:none; display:flex; align-items:center; gap:4px; }
+    .pf-card-msg-details summary::before { content:'▸'; transition:transform .15s; }
+    .pf-card-msg-details[open] summary::before { transform:rotate(90deg); }
+    .pf-card-msg-details p { margin:6px 0 0; padding:10px; background:var(--surface2); border-radius:8px; font-size:12px; line-height:1.55; color:var(--text); }
+    .pf-btn-liberar-full { width:100%; padding:10px; font-size:13px; border-radius:10px; }
+
+    /* ═══ Skeleton ═══ */
+    @keyframes pf-shimmer { 0% { background-position:-600px 0 } 100% { background-position:600px 0 } }
+    .pf-skeleton { display:flex; flex-direction:column; gap:10px; }
+    .pf-skeleton-row { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px; display:grid; grid-template-columns:32px 1fr 140px 80px; gap:12px; align-items:center; }
+    .pf-sk { border-radius:6px; background:linear-gradient(90deg,var(--surface2) 25%,var(--border) 50%,var(--surface2) 75%); background-size:600px 100%; animation:pf-shimmer 1.5s infinite linear; }
+    .pf-sk-circle { width:32px; height:32px; border-radius:8px; }
+    .pf-sk-block { display:flex; flex-direction:column; gap:6px; }
+    .pf-sk-line { height:12px; }
+    .pf-sk-line.s-l { width:80%; }
+    .pf-sk-line.s-m { width:55%; }
+    .pf-sk-line.s-s { width:35%; height:6px; margin-top:2px; border-radius:99px; }
+    .pf-sk-bar { height:30px; border-radius:8px; }
+    .pf-sk-btn { height:30px; width:70px; border-radius:8px; margin-left:auto; }
+
+    /* ═══ Empty state ═══ */
+    .pf-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:60px 20px; text-align:center; }
+    .pf-empty-icon { color:var(--muted); opacity:.3; margin-bottom:16px; }
+    .pf-empty-title { font-size:15px; font-weight:600; color:var(--text); margin:0 0 6px; }
+    .pf-empty-hint { font-size:13px; color:var(--muted); margin:0; max-width:360px; line-height:1.6; }
+
+    /* ═══ Dark mode ═══ */
+    [data-theme="dark"] .agd-panel-toggle { background:rgba(255,255,255,.07); }
+    [data-theme="dark"] .agd-panel-toggle-btn.active { background:var(--surface); box-shadow:0 1px 3px rgba(0,0,0,.4); }
+    [data-theme="dark"] .pf-status-ok  { color:#34d399; }
+    [data-theme="dark"] .pf-status-partial { color:#fbbf24; }
+    [data-theme="dark"] .pf-canal-badge.pf-canal-whatsapp { background:rgba(16,185,129,.15); color:#34d399; }
+    [data-theme="dark"] .pf-canal-badge.pf-canal-publico  { background:rgba(59,130,246,.15); color:#60a5fa; }
+    [data-theme="dark"] .pf-canal-badge.pf-canal-ia       { background:rgba(139,92,246,.15); color:#a78bfa; }
+    [data-theme="dark"] .pf-canal-badge.pf-canal-manual   { background:rgba(255,255,255,.07); color:var(--muted); }
+    [data-theme="dark"] .pf-table th.pf-col-action, [data-theme="dark"] .pf-table td.pf-col-action { background:var(--surface); }
+    [data-theme="dark"] .pf-table thead th.pf-col-action  { background:var(--surface2); }
+    [data-theme="dark"] .pf-table tbody tr:hover td.pf-col-action { background:var(--bg); }
+    [data-theme="dark"] .pf-card { background:var(--surface); border-color:var(--border); }
+    [data-theme="dark"] .pf-batch-bar { background:var(--surface); border-color:var(--border); }
+    [data-theme="dark"] .pf-canal-chip { border-color:var(--border); }
+    [data-theme="dark"] .pf-canal-chip:hover { border-color:var(--border-hover); color:var(--text); }
+    [data-theme="dark"] .pf-canal-chip.active[data-canal="whatsapp"] { background:rgba(16,185,129,.15); color:#34d399; }
+    [data-theme="dark"] .pf-canal-chip.active[data-canal="publico"]  { background:rgba(59,130,246,.15); color:#60a5fa; }
+    [data-theme="dark"] .pf-canal-chip.active[data-canal="ia"]       { background:rgba(139,92,246,.15); color:#a78bfa; }
+    [data-theme="dark"] .pf-canal-chip.active[data-canal="manual"]   { background:rgba(255,255,255,.08); color:var(--muted); }
+    [data-theme="dark"] .pf-search:focus { box-shadow:0 0 0 3px rgba(6,182,212,.2); }
+    [data-theme="dark"] .pf-sk { background:linear-gradient(90deg,rgba(255,255,255,.05) 25%,rgba(255,255,255,.10) 50%,rgba(255,255,255,.05) 75%); background-size:600px 100%; }
+
+    /* ═══ Responsive ═══ */
+    @media (max-width: 768px) {
+      .pf-table-view  { display:none; }
+      .pf-card-view   { display:block; }
+      .pf-search-wrap { max-width:100%; }
+      .pf-canal-filters { gap:5px; }
+      .pf-canal-chip  { padding:5px 10px; font-size:11px; }
+      .pf-batch-bar   { flex-direction:column; align-items:stretch; gap:var(--agd-gap-sm); }
+      .pf-batch-obs   { max-width:100%; }
+      .pf-batch-actions { margin-left:0; justify-content:flex-end; }
+      .pf-batch-sep   { display:none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar"></aside>
+
+<!-- MAIN -->
+<main class="main">
+  <!-- Topbar padrão do sistema -->
+  <div class="topbar">
+    <div class="topbar-title-wrap">
+      <div class="page-title" id="agd-page-title">Agendamentos</div>
+      <div class="page-sub" id="agd-page-sub">Gerencie sua agenda</div>
+    </div>
+    <div class="topbar-actions" id="agd-topbar-actions">
+      <div class="agd-status-chips" id="agd-status-chips"></div>
+      <div class="agd-status-actions">
+        <button class="agd-status-action-btn" onclick="selecionarTodosStatus()">Todos</button>
+        <button class="agd-status-action-btn" onclick="limparTodosStatus()">Limpar</button>
+      </div>
+      <button class="btn btn-primary" onclick="abrirModalCriar()">＋ Novo Agendamento</button>
+    </div>
+  </div>
+
+  <!-- Container do calendário -->
+  <div class="agd-container">
+    <!-- Toolbar -->
+    <div class="agd-toolbar">
+      <div class="agd-toolbar-left">
+        <div class="agd-nav-btns">
+          <button class="agd-nav-btn" onclick="navegarCal(-1)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <button class="agd-nav-btn" onclick="navegarCal(1)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+        <button class="agd-today-btn" onclick="irHoje()">Hoje</button>
+        <span class="agd-title" id="agd-title">Carregando…</span>
+      </div>
+
+      <div class="agd-toolbar-right">
+        <div class="agd-dash">
+          <div class="agd-dash-item" onclick="abrirModalDash('hoje')" title="Ver agendamentos de hoje">
+            <span>Hoje</span>
+            <span class="agd-dash-num" id="dash-hoje">0</span>
+          </div>
+          <div class="agd-dash-item" onclick="abrirModalDash('pendentes')" title="Ver agendamentos pendentes">
+            <span>Pendentes</span>
+            <span class="agd-dash-num" id="dash-pendentes">0</span>
+          </div>
+          <div class="agd-dash-item" onclick="abrirModalDash('confirmados')" title="Ver confirmados de hoje">
+            <span>Confirmados</span>
+            <span class="agd-dash-num" id="dash-confirmados">0</span>
+          </div>
+          <div class="agd-dash-item" onclick="abrirModalDash('andamento')" title="Ver em andamento">
+            <span>Em andamento</span>
+            <span class="agd-dash-num" id="dash-andamento">0</span>
+          </div>
+          <div class="agd-dash-item" onclick="abrirModalDash('proximos')" title="Ver próximos 7 dias">
+            <span>Próx. 7 dias</span>
+            <span class="agd-dash-num" id="dash-proximos">0</span>
+          </div>
+        </div>
+        <div class="agd-view-btns">
+          <button class="agd-view-btn" data-view="dayGridMonth" onclick="mudarView('dayGridMonth')">Mês</button>
+          <button class="agd-view-btn active" data-view="timeGridWeek" onclick="mudarView('timeGridWeek')">Semana</button>
+          <button class="agd-view-btn" data-view="timeGridDay" onclick="mudarView('timeGridDay')">Dia</button>
+          <button class="agd-view-btn" data-view="hoje" onclick="mudarView('hoje')">Hoje</button>
+        </div>
+        <div class="agd-mobile-views" style="border:1px solid var(--agd-border);border-radius:6px;overflow:hidden">
+          <button class="agd-view-btn" data-view="dayGridMonth" onclick="mudarView('dayGridMonth')">Mês</button>
+          <button class="agd-view-btn active" data-view="timeGridWeek" style="border-left:1px solid var(--agd-border)" onclick="mudarView('timeGridWeek')">Sem</button>
+          <button class="agd-view-btn" data-view="timeGridDay" style="border-left:1px solid var(--agd-border)" onclick="mudarView('timeGridDay')">Dia</button>
+          <button class="agd-view-btn" data-view="hoje" style="border-left:1px solid var(--agd-border)" onclick="mudarView('hoje')">Hoje</button>
+        </div>
+        <div class="agd-panel-toggle">
+          <button type="button" class="agd-panel-toggle-btn active" id="btn-modo-agenda" onclick="mostrarPainelAgenda()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Agenda
+          </button>
+          <button type="button" class="agd-panel-toggle-btn" id="btn-modo-prefila" onclick="mostrarPainelPreFila()">
+            Pré-agendamento<span class="agd-badge" id="pre-fila-count" style="display:none">0</span>
+          </button>
+        </div>
+        <button class="agd-config-btn" onclick="abrirModalConfig()" title="Configurações da agenda">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="agd-filters-bar">
+      <div class="agd-search-wrap">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35" stroke-linecap="round"/></svg>
+        <input class="agd-search-input" id="agd-busca" placeholder="Buscar cliente…" oninput="filtrarPorCliente()">
+      </div>
+      <select class="agd-filter-select" id="agd-filtro-tipo" onchange="filtrarEventos()">
+        <option value="">Todos os tipos</option>
+        <option value="servico">Serviço</option>
+        <option value="entrega">Entrega</option>
+        <option value="instalacao">Instalação</option>
+        <option value="manutencao">Manutenção</option>
+        <option value="visita_tecnica">Visita Técnica</option>
+        <option value="outro">Outro</option>
+      </select>
+      <select class="agd-filter-select" id="agd-filtro-responsavel" onchange="filtrarEventos()">
+        <option value="">Todos responsáveis</option>
+      </select>
+    </div>
+
+    <!-- Calendário / pré-agendamento -->
+    <div class="agd-calendar-area">
+      <div id="agd-pre-fila-panel" class="agd-pre-fila" style="display:none">
+        <div class="pf-toolbar">
+          <div class="pf-toolbar-row">
+            <div class="pf-search-wrap">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35" stroke-linecap="round"/></svg>
+              <input type="search" id="pre-fila-busca" class="pf-search" placeholder="Buscar cliente ou número…">
+              <button type="button" class="pf-refresh-btn" id="pf-refresh-btn" onclick="refreshPreFila()" title="Atualizar">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="pf-canal-filters" id="pf-canal-filters">
+            <button type="button" class="pf-canal-chip active" data-canal="todos" onclick="resetCanalFilter(this)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" stroke-linecap="round"/></svg>
+              Todos
+            </button>
+            <button type="button" class="pf-canal-chip" data-canal="whatsapp" onclick="toggleCanalFilter(this)">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+              WhatsApp <span class="pf-chip-count" data-count-canal="whatsapp"></span>
+            </button>
+            <button type="button" class="pf-canal-chip" data-canal="publico" onclick="toggleCanalFilter(this)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+              Link Público <span class="pf-chip-count" data-count-canal="publico"></span>
+            </button>
+            <button type="button" class="pf-canal-chip" data-canal="manual" onclick="toggleCanalFilter(this)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              Painel <span class="pf-chip-count" data-count-canal="manual"></span>
+            </button>
+            <button type="button" class="pf-canal-chip" data-canal="ia" onclick="toggleCanalFilter(this)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a4 4 0 014 4v2H8V6a4 4 0 014-4z"/><rect x="4" y="8" width="16" height="12" rx="2"/><circle cx="9" cy="14" r="1.5" fill="currentColor"/><circle cx="15" cy="14" r="1.5" fill="currentColor"/></svg>
+              IA <span class="pf-chip-count" data-count-canal="ia"></span>
+            </button>
+          </div>
+        </div>
+        <div id="pre-fila-lista"></div>
+        <div class="pf-batch-bar" id="pf-batch-bar" style="display:none">
+          <span class="pf-batch-count" id="pf-batch-count">0 selecionados</span>
+          <div class="pf-batch-sep"></div>
+          <input id="pre-fila-obs" type="text" class="pf-batch-obs" placeholder="Nota de auditoria (opcional)…">
+          <div class="pf-batch-actions">
+            <button type="button" class="pf-batch-cancel" onclick="desmarcarTodosPreFila()">Cancelar</button>
+            <button type="button" class="btn btn-primary" onclick="liberarPreAgendamentoSelecionados()">Liberar selecionados</button>
+          </div>
+        </div>
+      </div>
+      <div id="agd-cal-wrap">
+        <div id="calendar"></div>
+        <div id="agd-view-hoje" style="display:none;padding:16px;overflow-y:auto;height:100%;box-sizing:border-box">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <div style="font-size:15px;font-weight:700" id="hoje-titulo">Agendamentos de hoje</div>
+            <button class="agd-today-btn" onclick="carregarViewHoje()">↺ Atualizar</button>
+          </div>
+          <div id="hoje-lista"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- ═══ MODAL DASH ═══ -->
+<div class="agd-modal-dash" id="modal-dash" style="display:none" onclick="if(event.target===this)fecharModalDash()">
+  <div class="agd-modal-dash-inner">
+    <div class="agd-modal-dash-header">
+      <span class="agd-modal-dash-title" id="modal-dash-titulo"></span>
+      <button class="agd-modal-close" onclick="fecharModalDash()">×</button>
+    </div>
+    <div class="agd-modal-dash-body" id="modal-dash-body">
+      <div class="agd-dash-empty">Carregando…</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL ═══ -->
+<div class="agd-modal-overlay" id="modal-overlay" onclick="fecharModalFora(event)">
+  <div class="agd-modal">
+    <div class="agd-modal-header">
+      <h2 id="modal-title">Novo Agendamento</h2>
+      <button class="agd-modal-close" onclick="fecharModal()">×</button>
+    </div>
+    <div class="agd-modal-body">
+      <form id="agd-form" onsubmit="salvarAgendamento(event)">
+        <input type="hidden" id="form-id" value="">
+
+        <div class="agd-form-group">
+          <label>Cliente *</label>
+          <select id="form-cliente" required>
+            <option value="">Selecione…</option>
+          </select>
+        </div>
+
+        <div class="agd-form-group">
+          <label>Vincular Orçamento</label>
+          <select id="form-orcamento" onchange="toggleCriarViaOrcamento()">
+            <option value="">Nenhum</option>
+          </select>
+          <div id="criar-via-orcamento" style="display:none;margin-top:8px;display:none;align-items:center;gap:8px">
+            <button type="button" class="agd-btn" style="font-size:12px;padding:5px 12px" onclick="criarViaOrcamento()">📋 Criar via orçamento</button>
+            <span style="font-size:11px;color:var(--agd-muted)">Pré-preenche cliente e endereço do orçamento</span>
+          </div>
+        </div>
+
+        <div class="agd-form-row">
+          <div class="agd-form-group">
+            <label>Tipo</label>
+            <select id="form-tipo">
+              <option value="servico">Serviço</option>
+              <option value="entrega">Entrega</option>
+              <option value="instalacao">Instalação</option>
+              <option value="manutencao">Manutenção</option>
+              <option value="visita_tecnica">Visita Técnica</option>
+              <option value="outro">Outro</option>
+            </select>
+          </div>
+          <div class="agd-form-group">
+            <label>Responsável</label>
+            <select id="form-responsavel" onchange="buscarSlotsDisponiveis()">
+              <option value="">Eu</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="agd-form-row">
+          <div class="agd-form-group">
+            <label>Data e Hora *</label>
+            <input type="datetime-local" id="form-data" required onchange="buscarSlotsDisponiveis()">
+          </div>
+          <div class="agd-form-group">
+            <label>Duração (min)</label>
+            <input type="number" id="form-duracao" value="60" min="15" max="480" step="15">
+          </div>
+        </div>
+
+        <div id="slots-section" style="display:none;margin:-4px 0 12px">
+          <div style="font-size:11px;font-weight:600;color:var(--agd-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Horários disponíveis</div>
+          <div id="slots-lista" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        </div>
+
+        <div class="agd-form-group">
+          <label>Endereço</label>
+          <input type="text" id="form-endereco" placeholder="Será preenchido do cliente/orçamento">
+        </div>
+
+        <div class="agd-form-group">
+          <label>Observações</label>
+          <textarea id="form-obs" rows="2" placeholder="Instruções especiais…"></textarea>
+        </div>
+
+        <div id="form-status-actions" style="display:none">
+          <div class="agd-form-group">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <label style="margin:0">Status: <span id="form-status-atual" style="font-weight:600;color:var(--agd-text);text-transform:none"></span></label>
+              <button type="button" class="agd-btn" id="btn-reagendar-modal" style="padding:4px 10px;font-size:12px" onclick="abrirModalReagendar()">↺ Reagendar</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Histórico (visível só ao editar) -->
+        <div id="historico-section" style="display:none;margin-top:4px;border-top:1px solid var(--agd-border);padding-top:12px">
+          <div style="font-size:11px;font-weight:600;color:var(--agd-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Histórico</div>
+          <div id="historico-lista" style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto"></div>
+        </div>
+
+        <div class="agd-modal-actions">
+          <button type="button" class="agd-btn agd-btn-danger" id="btn-cancelar-ag" style="display:none" onclick="cancelarAgendamento()">✕ Cancelar ag.</button>
+          <div style="flex:1"></div>
+          <button type="button" class="agd-btn" onclick="fecharModal()">Fechar</button>
+          <button type="submit" class="agd-btn agd-btn-primary" id="btn-salvar">Criar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL REAGENDAR ═══ -->
+<div class="agd-modal-overlay" id="modal-reagendar" onclick="if(event.target===this)fecharModalReagendar()">
+  <div class="agd-modal" style="max-width:380px">
+    <div class="agd-modal-header">
+      <h2>↺ Reagendar</h2>
+      <button class="agd-modal-close" onclick="fecharModalReagendar()">×</button>
+    </div>
+    <div class="agd-modal-body">
+      <input type="hidden" id="reagendar-id">
+      <div class="agd-form-group">
+        <label>Nova data e hora *</label>
+        <input type="datetime-local" id="reagendar-data">
+      </div>
+      <div class="agd-form-group">
+        <label>Motivo</label>
+        <textarea id="reagendar-motivo" rows="2" placeholder="Motivo do reagendamento…"></textarea>
+      </div>
+      <div class="agd-modal-actions">
+        <button type="button" class="agd-btn" onclick="fecharModalReagendar()">Cancelar</button>
+        <button type="button" class="agd-btn agd-btn-primary" id="btn-confirmar-reagendar" onclick="confirmarReagendar()">Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL CONFIG ═══ -->
+<div class="agd-modal-overlay" id="modal-config" onclick="if(event.target===this)fecharModalConfig()">
+  <div class="agd-modal" style="max-width:560px">
+    <div class="agd-modal-header">
+      <h2>Configurações da Agenda</h2>
+      <button class="agd-modal-close" onclick="fecharModalConfig()">×</button>
+    </div>
+    <div class="agd-modal-body">
+      <div class="agd-tabs">
+        <button class="agd-tab active" id="tab-empresa" onclick="mudarAbaConfig('empresa')">🏢 Empresa</button>
+        <button class="agd-tab" id="tab-bloqueios" onclick="mudarAbaConfig('bloqueios')">🚫 Bloqueios</button>
+      </div>
+
+      <!-- Aba Empresa -->
+      <div id="aba-empresa">
+        <div class="agd-config-section">
+          <div class="agd-config-section-title">Horário de atendimento</div>
+          <div class="agd-config-row">
+            <div><div class="agd-config-label">Início</div></div>
+            <input type="time" class="agd-config-input" id="cfg-horario-inicio" value="08:00">
+          </div>
+          <div class="agd-config-row">
+            <div><div class="agd-config-label">Fim</div></div>
+            <input type="time" class="agd-config-input" id="cfg-horario-fim" value="18:00">
+          </div>
+        </div>
+
+        <div class="agd-config-section">
+          <div class="agd-config-section-title">Dias de trabalho</div>
+          <div class="agd-dias-wrap" id="cfg-dias-wrap">
+            <button type="button" class="agd-dia-btn on" data-dia="0" onclick="toggleDiaConfig(this)">Seg</button>
+            <button type="button" class="agd-dia-btn on" data-dia="1" onclick="toggleDiaConfig(this)">Ter</button>
+            <button type="button" class="agd-dia-btn on" data-dia="2" onclick="toggleDiaConfig(this)">Qua</button>
+            <button type="button" class="agd-dia-btn on" data-dia="3" onclick="toggleDiaConfig(this)">Qui</button>
+            <button type="button" class="agd-dia-btn on" data-dia="4" onclick="toggleDiaConfig(this)">Sex</button>
+            <button type="button" class="agd-dia-btn" data-dia="5" onclick="toggleDiaConfig(this)">Sáb</button>
+            <button type="button" class="agd-dia-btn" data-dia="6" onclick="toggleDiaConfig(this)">Dom</button>
+          </div>
+        </div>
+
+        <div class="agd-config-section">
+          <div class="agd-config-section-title">Agendamentos</div>
+          <div class="agd-config-row">
+            <div>
+              <div class="agd-config-label">Duração padrão</div>
+              <div class="agd-config-sub">Tempo padrão por atendimento</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <input type="number" class="agd-config-input" id="cfg-duracao" value="60" min="15" max="480" step="15" style="width:70px">
+              <span style="font-size:12px;color:var(--agd-muted)">min</span>
+            </div>
+          </div>
+          <div class="agd-config-row">
+            <div>
+              <div class="agd-config-label">Intervalo mínimo</div>
+              <div class="agd-config-sub">Tempo entre agendamentos</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <input type="number" class="agd-config-input" id="cfg-intervalo" value="30" min="0" max="120" step="15" style="width:70px">
+              <span style="font-size:12px;color:var(--agd-muted)">min</span>
+            </div>
+          </div>
+          <div class="agd-config-row">
+            <div>
+              <div class="agd-config-label">Antecedência mínima</div>
+              <div class="agd-config-sub">Prazo para novos agendamentos</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <input type="number" class="agd-config-input" id="cfg-antecedencia" value="24" min="0" max="720" style="width:70px">
+              <span style="font-size:12px;color:var(--agd-muted)">h</span>
+            </div>
+          </div>
+          <div class="agd-config-row">
+            <div>
+              <div class="agd-config-label">Requer confirmação manual</div>
+              <div class="agd-config-sub">Novos agendamentos entram como Pendente</div>
+            </div>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" id="cfg-requer-confirmacao" checked onchange="document.getElementById('cfg-confirmacao-label').textContent=this.checked?'Sim':'Não'">
+              <span style="font-size:13px;font-weight:500" id="cfg-confirmacao-label">Sim</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="agd-config-section">
+          <div class="agd-config-section-title">Acesso do cliente</div>
+          <div class="agd-config-row">
+            <div>
+              <div class="agd-config-label">Agendamento pelo cliente</div>
+              <div class="agd-config-sub">Cliente pode solicitar horário no portal</div>
+            </div>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" id="cfg-permite-cliente" onchange="document.getElementById('cfg-permite-cliente-label').textContent=this.checked?'Sim':'Não'">
+              <span style="font-size:13px;font-weight:500" id="cfg-permite-cliente-label">Não</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="agd-config-section">
+          <div class="agd-config-section-title">Mensagens automáticas <span style="font-weight:400;font-size:10px">(WhatsApp/e-mail)</span></div>
+          <div class="agd-form-group">
+            <label>Confirmação</label>
+            <textarea id="cfg-msg-confirmacao" rows="2" placeholder="Enviada ao confirmar agendamento…" style="font-family:inherit;font-size:13px"></textarea>
+          </div>
+          <div class="agd-form-group">
+            <label>Reagendamento</label>
+            <textarea id="cfg-msg-reagendamento" rows="2" placeholder="Enviada ao reagendar…" style="font-family:inherit;font-size:13px"></textarea>
+          </div>
+        </div>
+
+        <div class="agd-modal-actions">
+          <button type="button" class="agd-btn" onclick="fecharModalConfig()">Cancelar</button>
+          <button type="button" class="agd-btn agd-btn-primary" id="btn-salvar-config" onclick="salvarConfig()">Salvar configurações</button>
+        </div>
+      </div>
+
+      <!-- Aba Bloqueios -->
+      <div id="aba-bloqueios" style="display:none">
+        <div class="agd-config-section">
+          <div class="agd-config-section-title">Novo bloqueio</div>
+          <div class="agd-form-row">
+            <div class="agd-form-group">
+              <label>De *</label>
+              <input type="datetime-local" id="bloq-inicio">
+            </div>
+            <div class="agd-form-group">
+              <label>Até *</label>
+              <input type="datetime-local" id="bloq-fim">
+            </div>
+          </div>
+          <div class="agd-form-group">
+            <label>Motivo</label>
+            <input type="text" id="bloq-motivo" placeholder="Ex.: Feriado, Férias, Manutenção…">
+          </div>
+          <div class="agd-form-group">
+            <label>Responsável <span style="color:var(--agd-muted);font-weight:400">(vazio = empresa toda)</span></label>
+            <select id="bloq-responsavel">
+              <option value="">Empresa toda</option>
+            </select>
+          </div>
+          <button type="button" class="agd-btn agd-btn-primary" id="btn-add-bloqueio" onclick="adicionarBloqueio()">＋ Adicionar bloqueio</button>
+        </div>
+
+        <div class="agd-config-section-title">Bloqueios cadastrados</div>
+        <div id="lista-bloqueios" style="margin-top:8px">
+          <div style="font-size:13px;color:var(--agd-muted)">Carregando…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ POPOVER ═══ -->
+<div class="agd-popover" id="agd-popover">
+  <div class="agd-popover-header">
+    <div>
+      <div class="agd-popover-status" id="pop-status"></div>
+      <div class="agd-popover-title" id="pop-titulo"></div>
+    </div>
+    <button class="agd-modal-close" onclick="fecharPopover()">×</button>
+  </div>
+  <div class="agd-popover-body" id="pop-body"></div>
+  <div class="agd-popover-actions" id="pop-actions"></div>
+</div>
+
+<!-- ═══ TOAST ═══ -->
+<div class="agd-toast" id="agd-toast"></div>
+
+<script src="js/utils.js?v=1"></script>
+<script src="js/api.js?v=17"></script>
+<script src="js/layout.js?v=5"></script>
+<script src="js/agendamentos.js?v=6"></script>
+</body>
+</html>

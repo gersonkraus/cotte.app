@@ -1,0 +1,1843 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem("cotte_tema");if(t){document.documentElement.setAttribute("data-theme",t);}else{document.documentElement.setAttribute("data-theme","light");}})()</script>
+  <title>COTTE — Orçamentos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/style.css?v=11">
+  <style>
+    .action-btns .timeline-btn { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+    .action-btns .timeline-btn:hover { background: var(--accent); color: #fff; }
+    /* Filtros de busca/data */
+    .filtros-bar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .filtros-datas { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .filtro-data-label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); white-space: nowrap; }
+    .filtros-bar input,
+    .filtro-data-label input {
+      font-family: inherit;
+    }
+    @media (max-width: 600px) {
+      .filtros-bar { gap: 10px; }
+      .filtros-datas { width: 100%; gap: 8px; }
+      .filtro-data-label { flex: 1; min-width: 0; }
+      .filtro-data-label input[type="date"] { flex: 1; min-width: 0; width: 100%; }
+      #busca-input { min-width: 0 !important; }
+    }
+    @media (max-width: 480px) {
+      .filtros-datas { flex-direction: column; align-items: stretch; }
+      .filtro-data-label { width: 100%; }
+    }
+
+    /* ── Modal: Documentos da proposta (UX refinado) ── */
+    .modal-docs {
+      max-width: min(92vw, 640px) !important;
+      display: flex;
+      flex-direction: column;
+      max-height: min(90vh, 720px);
+      overflow: hidden;
+    }
+    .modal-docs .modal-header {
+      align-items: flex-start;
+    }
+    .modal-docs .modal-close {
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .modal-docs__loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 28px 16px;
+      color: var(--muted);
+      font-size: 13px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+    }
+    .modal-docs .modal-body.modal-docs__body {
+      padding: 0 24px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .modal-docs__section {
+      margin-bottom: 28px;
+    }
+    .modal-docs__section:last-of-type {
+      margin-bottom: 12px;
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .modal-docs__section-title {
+      margin: 0 0 12px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .modal-docs__section-hint {
+      margin: -6px 0 14px;
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--muted2);
+    }
+    .modal-docs__subtitle {
+      margin: 8px 0 0;
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--muted2);
+      max-width: 36rem;
+      font-weight: 400;
+    }
+    .modal-docs__scroll--vinculados {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      max-height: min(38vh, 280px);
+      overflow-y: auto;
+      padding-right: 4px;
+      margin-right: -4px;
+      scrollbar-gutter: stable;
+    }
+    .modal-docs__scroll--lista {
+      flex: 1;
+      min-height: 120px;
+      max-height: min(36vh, 320px);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-right: 4px;
+      margin-right: -4px;
+      scrollbar-gutter: stable;
+    }
+    .modal-docs__empty {
+      padding: 16px 18px;
+      border-radius: 12px;
+      border: 1px dashed var(--border);
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+      text-align: center;
+    }
+    .modal-docs__vinc-card {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: 16px 18px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      box-shadow: var(--shadow-xs);
+    }
+    .modal-docs__vinc-main {
+      min-width: 0;
+      flex: 1;
+    }
+    .modal-docs__doc-title {
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.35;
+      color: var(--text);
+      letter-spacing: -0.02em;
+    }
+    .modal-docs__doc-meta {
+      margin-top: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted2);
+      font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+      letter-spacing: 0.02em;
+    }
+    .modal-docs__channels {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .modal-docs__channel {
+      display: inline-flex;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    .modal-docs__channel-input {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .modal-docs__channel-ui {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 11px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      transition: border-color 0.15s, background 0.15s, color 0.15s, box-shadow 0.15s;
+    }
+    .modal-docs__channel-input:focus-visible + .modal-docs__channel-ui {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .modal-docs__channel-input:checked + .modal-docs__channel-ui {
+      color: var(--accent-dark);
+      background: var(--accent-dim);
+      border-color: rgba(6, 182, 212, 0.45);
+      box-shadow: 0 0 0 1px rgba(6, 182, 212, 0.12);
+    }
+    [data-theme="dark"] .modal-docs__channel-input:checked + .modal-docs__channel-ui {
+      color: var(--accent);
+    }
+    .modal-docs__obrigatorio {
+      margin-top: 16px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(245, 158, 11, 0.45);
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(249, 115, 22, 0.05));
+    }
+    [data-theme="dark"] .modal-docs__obrigatorio {
+      border-color: rgba(251, 191, 36, 0.35);
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(249, 115, 22, 0.08));
+    }
+    .modal-docs__obrigatorio-label {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      cursor: pointer;
+      margin: 0;
+    }
+    .modal-docs__obrigatorio-label input {
+      margin-top: 3px;
+      width: 18px;
+      height: 18px;
+      accent-color: #f59e0b;
+      flex-shrink: 0;
+    }
+    .modal-docs__obrigatorio-text {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .modal-docs__obrigatorio-title {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #b45309;
+    }
+    [data-theme="dark"] .modal-docs__obrigatorio-title {
+      color: #fbbf24;
+    }
+    .modal-docs__obrigatorio-hint {
+      display: block;
+      margin: 0;
+      font-size: 11px;
+      line-height: 1.45;
+      color: var(--muted);
+      max-width: 42ch;
+      font-weight: 400;
+      text-transform: none;
+      letter-spacing: normal;
+    }
+    .modal-docs__card-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .modal-docs__reorder {
+      display: flex;
+      flex-direction: column;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      background: var(--surface2);
+    }
+    .modal-docs__icon-btn {
+      width: 40px;
+      height: 36px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1;
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+    }
+    .modal-docs__icon-btn:hover:not(:disabled) {
+      background: var(--surface);
+      color: var(--text);
+    }
+    .modal-docs__icon-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+    .modal-docs__icon-btn + .modal-docs__icon-btn {
+      border-top: 1px solid var(--border);
+    }
+    .modal-docs__btn-remove {
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      background: transparent;
+      color: #ef4444;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .modal-docs__btn-remove:hover {
+      background: var(--red-dim);
+      border-color: rgba(239, 68, 68, 0.55);
+    }
+    .modal-docs__search-wrap {
+      display: block;
+      position: relative;
+      margin-bottom: 14px;
+    }
+    .modal-docs__search-icon {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 14px;
+      opacity: 0.55;
+      pointer-events: none;
+    }
+    .modal-docs__search {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 13px 16px 13px 44px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+    }
+    .modal-docs__search::placeholder {
+      color: var(--muted2);
+    }
+    .modal-docs__search:hover {
+      border-color: var(--border-hover);
+    }
+    .modal-docs__search:focus {
+      border-color: var(--accent);
+      background: var(--surface);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+    .modal-docs__row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 14px 16px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      box-shadow: var(--shadow-xs);
+    }
+    .modal-docs__row--linked {
+      background: var(--surface2);
+      border-style: dashed;
+      opacity: 0.92;
+      border-left: 3px solid var(--green);
+      padding-left: 13px;
+    }
+    .modal-docs__row-main { min-width: 0; flex: 1; }
+    .modal-docs__row-title {
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.35;
+      color: var(--text);
+    }
+    .modal-docs__row--linked .modal-docs__row-title {
+      color: var(--muted);
+    }
+    .modal-docs__row-meta {
+      margin-top: 5px;
+      font-size: 12px;
+      color: var(--muted2);
+      font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+    }
+    .modal-docs__badge-linked {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--green);
+      background: var(--green-dim);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .modal-docs__btn-vincular {
+      padding: 9px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+    }
+    .modal-docs__btn-vincular:hover {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+      color: var(--accent-dark);
+      box-shadow: 0 0 0 1px rgba(6, 182, 212, 0.15);
+    }
+    [data-theme="dark"] .modal-docs__btn-vincular:hover {
+      color: var(--accent);
+    }
+    @media (max-width: 520px) {
+      .modal-docs .modal-body.modal-docs__body { padding: 0 16px 8px; }
+      .modal-docs__vinc-card { flex-direction: column; }
+      .modal-docs__card-actions {
+        flex-direction: row;
+        width: 100%;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .modal-docs__reorder { flex-direction: row; }
+      .modal-docs__icon-btn + .modal-docs__icon-btn {
+        border-top: none;
+        border-left: 1px solid var(--border);
+      }
+      .modal-docs__row { flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar"></aside>
+
+<!-- MAIN -->
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-title-wrap">
+      <div class="page-title">Orçamentos</div>
+      <div class="page-sub" id="page-sub">Carregando...</div>
+    </div>
+    <div class="topbar-actions">
+      <span id="topbar-notificacoes"></span>
+      <button class="btn btn-ghost" onclick="exportarOrcamentosCsv()" title="Exportar lista em CSV">📥 Exportar CSV</button>
+      <button class="btn btn-primary" onclick="void abrirModalNovoOrcamento()">＋ Novo Orçamento</button>
+    </div>
+  </div>
+
+  <!-- BUSCA + FILTROS -->
+  <div class="card" style="margin-bottom:20px;padding:16px 20px">
+    <div class="filtros-bar">
+      <input
+        type="text" id="busca-input"
+        placeholder="🔍 Buscar por cliente ou número..."
+        style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;color:var(--text);font-size:14px;outline:none;flex:1;min-width:160px"
+        oninput="debounceAplicarFiltros()"
+      >
+      <div class="filtros-datas">
+        <label class="filtro-data-label">
+          De <input type="date" id="filtro-data-inicio" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--text);font-size:13px" onchange="aplicarFiltros()">
+        </label>
+        <label class="filtro-data-label">
+          Até <input type="date" id="filtro-data-fim" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--text);font-size:13px" onchange="aplicarFiltros()">
+        </label>
+      </div>
+    </div>
+    <div class="table-filters" style="margin:8px 0 0;padding:0">
+      <button class="filter-chip active" onclick="setStatus(this,'')">Todos</button>
+      <button class="filter-chip" onclick="setStatus(this,'rascunho')">Rascunho</button>
+      <button class="filter-chip" onclick="setStatus(this,'enviado')">Enviados</button>
+      <button class="filter-chip filter-chip-vencendo" onclick="setStatus(this,'vencendo')">⏰ Vencendo</button>
+      <button class="filter-chip" onclick="setStatus(this,'aprovado')">Aprovados</button>
+      <button class="filter-chip filter-chip-execucao" onclick="setStatus(this,'em_execucao')">Em Execução</button>
+      <button class="filter-chip filter-chip-aguardando" onclick="setStatus(this,'aguardando_pagamento')">Aguard. Pagamento</button>
+      <button class="filter-chip" onclick="setStatus(this,'recusado')">Recusados</button>
+      <button class="filter-chip" onclick="setStatus(this,'expirado')">Expirados</button>
+    </div>
+  </div>
+
+  <!-- TABELA -->
+  <div class="card">
+    <div class="card-header" style="padding:14px 20px 10px;border-bottom:1px solid var(--border)">
+      <div class="card-title" style="margin:0">Lista de orçamentos</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span>🕐 <strong>Linha do tempo:</strong> clique no ícone em cada linha para ver criação, envio, visualização, ajustes e aceite.</span>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="col-hide-mobile">Nº</th>
+            <th>Cliente</th>
+            <th>Total</th>
+            <th class="col-hide-mobile">Status</th>
+            <th class="col-hide-mobile">Data</th>
+            <th class="col-hide-mobile">Ações · 🕐 Linha do tempo</th>
+          </tr>
+        </thead>
+        <tbody id="orc-tbody">
+          <tr><td colspan="6"><div class="loading"><div class="spinner"></div> Carregando...</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="mobile-cards-list"></div>
+    <div class="pagination-wrapper" id="pagination"></div>
+  </div>
+</main>
+
+<!-- COMPONENTES COMPARTILHADOS (carregados via JS) -->
+<!-- Modal de Orçamento com botão Documentos -->
+<script>
+  window.modalOrcamentoFooterConfig = `
+    <button class="btn btn-ghost" onclick="fecharModal()">Cancelar</button>
+    <button class="btn btn-ghost" type="button" onclick="abrirModalDocsOrcamento()" id="btn-docs-orc" style="display:none">📎 Documentos</button>
+    <button class="btn btn-primary" onclick="salvarOrcamento()" id="btn-criar-orc">✅ Criar Orçamento</button>
+  `;
+</script>
+<script src="js/components/modal-orcamento.js"></script>
+
+<!-- MODAL CATÁLOGO -->
+<div class="modal-overlay" id="modal-catalogo">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <div class="modal-title">📦 Selecionar do Catálogo</div>
+      <button class="modal-close" onclick="fecharModalCatalogo()">✕</button>
+    </div>
+    <div class="modal-body" style="padding-top:0">
+      <input type="text" id="catalogo-busca"
+        placeholder="🔍 Buscar produto ou serviço..."
+        style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;color:var(--text);font-size:14px;outline:none;width:100%;box-sizing:border-box;margin-bottom:12px"
+        oninput="filtrarCatalogo(this.value)">
+      <div id="catalogo-lista" style="display:flex;flex-direction:column;gap:8px;max-height:360px;overflow-y:auto"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="fecharModalCatalogo()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL LINHA DO TEMPO -->
+<div class="modal-overlay" id="modal-timeline">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <div class="modal-title" id="timeline-titulo">🕐 Linha do Tempo</div>
+      <button class="modal-close" onclick="fecharTimeline()">✕</button>
+    </div>
+    <div class="modal-body" style="padding:0 28px 24px;max-height:70vh;overflow-y:auto">
+      <div id="timeline-lista" style="display:flex;flex-direction:column;padding-top:8px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALHES ORÇAMENTO -->
+<div class="modal-overlay" id="modal-detalhes">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <div class="modal-title" id="detalhes-titulo">📋 Orçamento</div>
+      <button class="modal-close" onclick="fecharDetalhes()">✕</button>
+    </div>
+    <div class="modal-body" id="detalhes-body" style="padding:0 28px 4px;max-height:72vh;overflow-y:auto">
+      <!-- preenchido por JS -->
+    </div>
+    <div class="modal-footer" id="detalhes-footer" style="flex-wrap:wrap;gap:8px">
+      <!-- botões preenchidos por JS -->
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DOCUMENTOS DO ORÇAMENTO -->
+<div class="modal-overlay" id="modal-orc-docs">
+  <div class="modal modal-docs">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">📎 Documentos da proposta</div>
+        <p class="modal-docs__subtitle">
+          Defina onde cada arquivo aparece e se o cliente deve obrigatoriamente visualizá-lo antes de aceitar.
+        </p>
+      </div>
+      <button type="button" class="modal-close" onclick="fecharModalDocsOrcamento()" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-body modal-docs__body">
+      <section class="modal-docs__section" aria-labelledby="orc-docs-sec-vinculados">
+        <h3 id="orc-docs-sec-vinculados" class="modal-docs__section-title">Na proposta</h3>
+        <div id="orc-docs-vinculados" class="modal-docs__scroll modal-docs__scroll--vinculados" role="list"></div>
+      </section>
+      <section class="modal-docs__section" aria-labelledby="orc-docs-sec-biblioteca">
+        <h3 id="orc-docs-sec-biblioteca" class="modal-docs__section-title">Biblioteca da empresa</h3>
+        <p class="modal-docs__section-hint">Busque e vincule modelos. Itens já anexados aparecem destacados.</p>
+        <label class="modal-docs__search-wrap">
+          <span class="modal-docs__search-icon" aria-hidden="true">🔍</span>
+          <input
+            type="search"
+            id="orc-docs-busca"
+            class="modal-docs__search"
+            placeholder="Buscar por nome do documento..."
+            autocomplete="off"
+            oninput="carregarDocsDisponiveisOrcamento()"
+            aria-label="Buscar documentos para vincular"
+          >
+        </label>
+        <div id="orc-docs-disponiveis" class="modal-docs__scroll modal-docs__scroll--lista" role="list"></div>
+      </section>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-ghost" onclick="fecharModalDocsOrcamento()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: confirmação de reenvio (WhatsApp / e-mail) -->
+<div class="modal-overlay" id="modal-reenvio-orcamento" role="dialog" aria-modal="true" aria-labelledby="reenvio-orc-titulo">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title" id="reenvio-orc-titulo">Confirmar reenvio</div>
+      <button type="button" class="modal-close" id="reenvio-orc-btn-fechar" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-body">
+      <p id="reenvio-orc-mensagem" style="margin:0;font-size:14px;line-height:1.55;color:var(--text);"></p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" id="reenvio-orc-btn-cancelar">Cancelar</button>
+      <button type="button" class="btn btn-primary" id="reenvio-orc-btn-confirmar">Enviar</button>
+    </div>
+  </div>
+</div>
+
+<!-- NOTIFICAÇÃO -->
+<div class="notif" id="notif">
+  <div class="notif-icon">✅</div>
+  <div>
+    <div class="notif-title"></div>
+    <div class="notif-sub"></div>
+  </div>
+</div>
+
+<script src="js/utils.js?v=1"></script>
+<script src="js/api.js?v=17"></script>
+<script src="js/layout.js?v=5"></script>
+<script src="js/ux-improvements.js?v=1"></script>
+<script src="js/orcamento-reenvio-modal.js?v=1"></script>
+<script>
+  inicializarLayout('orcamentos');
+
+  // Proteger UI
+  if (typeof Permissoes !== 'undefined' && !Permissoes.pode('orcamentos', 'escrita')) {
+    document.querySelectorAll('.topbar-actions .btn-primary').forEach(el => el.style.display = 'none');
+  }
+
+  const POR_PAGINA = 15;
+  let orcamentosCache = [];
+  let clientesCache   = [];
+  let catalogoCache   = [];
+  let editandoId      = null;
+  let docsOrcamentoId = null;
+  let docsVinculadosCache = [];
+  let docsDisponiveisCache = [];
+  let paginaAtual     = 1;
+  let statusAtual     = '';
+  let _formasPagamento = [];
+  let _clientesProntos = false;
+  let _catalogoPronto = false;
+  let _formasProntas = false;
+  let _clientesCarregando = null;
+  let _catalogoCarregando = null;
+  let _formasCarregando = null;
+
+  async function garantirClientesCarregados() {
+    if (_clientesProntos) return;
+    if (!_clientesCarregando) {
+      _clientesCarregando = api
+        .get('/clientes/')
+        .then((c) => {
+          clientesCache = c || [];
+          preencherSelectClientes(clientesCache);
+          _clientesProntos = true;
+        })
+        .catch(() => {
+          /* próximo foco tenta de novo */
+        })
+        .finally(() => {
+          _clientesCarregando = null;
+        });
+    }
+    await _clientesCarregando;
+  }
+
+  async function garantirCatalogoCarregado() {
+    if (_catalogoPronto) return;
+    if (!_catalogoCarregando) {
+      _catalogoCarregando = api
+        .get('/catalogo/')
+        .then((c) => {
+          catalogoCache = c || [];
+          _catalogoPronto = true;
+        })
+        .catch(() => {})
+        .finally(() => {
+          _catalogoCarregando = null;
+        });
+    }
+    await _catalogoCarregando;
+  }
+
+  async function garantirFormasPagamentoCarregadas() {
+    if (_formasProntas) return;
+    if (!_formasCarregando) {
+      _formasCarregando = carregarFormasPagamento()
+        .then(() => {
+          _formasProntas = true;
+        })
+        .catch(() => {})
+        .finally(() => {
+          _formasCarregando = null;
+        });
+    }
+    await _formasCarregando;
+  }
+
+  function ordenarOrcamentosPorData(orcamentos) {
+    if (!Array.isArray(orcamentos)) return orcamentos;
+    return [...orcamentos].sort((a, b) => {
+      const dataA = new Date(a.criado_em || a.criado_em_iso || 0);
+      const dataB = new Date(b.criado_em || b.criado_em_iso || 0);
+      return dataB - dataA;
+    });
+  }
+
+  function _selecionarFormaPadraoNoSelect() {
+    const sel = document.getElementById('orc-pagamento');
+    if (!sel) return;
+    const padrao = _formasPagamento.find(f => f.padrao);
+    if (padrao) {
+      sel.value = String(padrao.id);
+    } else if (_formasPagamento.length) {
+      sel.value = String(_formasPagamento[0].id);
+    } else {
+      sel.value = '';
+    }
+    atualizarResumoFormaPagamento();
+  }
+
+  function _labelMetodoPag(m) {
+    const map = { pix: 'PIX', dinheiro: 'Dinheiro', cartao: 'Cartão', transferencia: 'Transferência', boleto: 'Boleto', na_execucao: 'Na execução', na_entrega: 'Na entrega', outro: 'Outro' };
+    return map[m] || m;
+  }
+
+  function atualizarResumoFormaPagamento() {
+    const sel = document.getElementById('orc-pagamento');
+    const resumo = document.getElementById('resumo-forma-pagamento');
+    if (!sel || !resumo) return;
+    const id = parseInt(sel.value);
+    const forma = _formasPagamento.find(f => f.id === id);
+    if (!forma) { resumo.style.display = 'none'; return; }
+    const partes = [];
+    if (forma.exigir_entrada_na_aprovacao && parseFloat(forma.percentual_entrada) > 0 && forma.metodo_entrada) {
+      partes.push(`<strong>Entrada:</strong> ${forma.percentual_entrada}% via ${_labelMetodoPag(forma.metodo_entrada)}`);
+    }
+    if (parseFloat(forma.percentual_saldo) > 0 && forma.metodo_saldo) {
+      const dias = forma.dias_vencimento_saldo ? ` (${forma.dias_vencimento_saldo} dias)` : '';
+      partes.push(`<strong>Saldo:</strong> ${forma.percentual_saldo}% ${_labelMetodoPag(forma.metodo_saldo)}${dias}`);
+    }
+    if (!partes.length) { resumo.style.display = 'none'; return; }
+    resumo.innerHTML = '📋 ' + partes.join(' · ');
+    resumo.style.display = '';
+  }
+
+  function preencherSelectClientes(clientes) {
+    // clientesCache já atualizado — autocomplete filtra dinamicamente
+  }
+
+  // ── FILTROS E RENDERIZAÇÃO ────────────────────────────────────────────
+  function setStatus(el, status) {
+    statusAtual = status;
+    document.querySelectorAll('.filter-chip').forEach(c => {
+      c.classList.remove('active');
+      c.style.background = '';
+      c.style.color = '';
+    });
+    el.classList.add('active');
+    aplicarFiltros();
+  }
+
+  let _debounceTimer;
+  function debounceAplicarFiltros() {
+    clearTimeout(_debounceTimer);
+    _debounceTimer = setTimeout(aplicarFiltros, 300);
+  }
+
+  function aplicarFiltros() {
+    const busca = (document.getElementById('busca-input')?.value || '').toLowerCase().trim();
+    const dataInicio = document.getElementById('filtro-data-inicio')?.value;
+    const dataFim = document.getElementById('filtro-data-fim')?.value;
+    let lista = orcamentosCache;
+
+    if (statusAtual) {
+      if (statusAtual === 'vencendo') {
+        const agora = new Date();
+        const em3dias = new Date(agora.getTime() + 3 * 24 * 60 * 60 * 1000);
+        lista = lista.filter(o => {
+          if (o.status !== 'enviado' || !o.validade_ate) return false;
+          const venc = new Date(o.validade_ate);
+          return venc >= agora && venc <= em3dias;
+        });
+      } else {
+        lista = lista.filter(o => o.status === statusAtual);
+      }
+    }
+    if (busca) {
+      lista = lista.filter(o => {
+        const nome = (o.cliente?.nome || '').toLowerCase();
+        const num = (o.numero || '').toLowerCase();
+        return nome.includes(busca) || num.includes(busca);
+      });
+    }
+    if (dataInicio) {
+      lista = lista.filter(o => o.criado_em && o.criado_em >= dataInicio);
+    }
+    if (dataFim) {
+      lista = lista.filter(o => o.criado_em && o.criado_em <= dataFim + 'T23:59:59');
+    }
+
+    document.getElementById('page-sub').textContent = `${lista.length} de ${orcamentosCache.length} orçamento(s)`;
+    renderizarOrcamentos(lista);
+    renderizarCardsMobile(lista);
+    atualizarContagemFiltros(orcamentosCache);
+
+    // Paginação
+    var totalPaginas = Math.ceil(lista.length / POR_PAGINA);
+    if (totalPaginas > 1) {
+      var pagEl = document.getElementById('pagination');
+      renderizarPaginacao(pagEl, {
+        paginaAtual: paginaAtual,
+        totalPaginas: totalPaginas,
+        totalItens: lista.length,
+        porPagina: POR_PAGINA,
+        onPaginar: function(p) { paginaAtual = p; aplicarFiltros(); },
+        onPorPagina: function(pp) { POR_PAGINA = pp; paginaAtual = 1; aplicarFiltros(); }
+      });
+    } else {
+      document.getElementById('pagination').innerHTML = '';
+    }
+  }
+
+  function irParaPagina(p) { paginaAtual = p; aplicarFiltros(); }
+  function alterarPorPagina(pp) { POR_PAGINA = pp; paginaAtual = 1; aplicarFiltros(); }
+
+  function renderizarOrcamentos(lista) {
+    const tbody = document.getElementById('orc-tbody');
+    if (!lista.length) {
+      tbody.innerHTML = '<tr><td colspan="6"><div style="text-align:center;padding:40px;color:var(--muted)"><div style="font-size:40px;margin-bottom:8px">📋</div>Nenhum orçamento encontrado</div></td></tr>';
+      return;
+    }
+    const slice = lista.slice(0, POR_PAGINA);
+    tbody.innerHTML = slice.map(o => {
+      const nome = o.cliente?.nome || '—';
+      const iniciais = nome.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+      const corFundo = '#' + ((nome.charCodeAt(0) * 37) % 0xFFFFFF).toString(16).padStart(6, '0') + '30';
+      const statusColors = { rascunho: '#94a3b8', enviado: '#3b82f6', aprovado: '#16a34a', recusado: '#ef4444', expirado: '#f59e0b' };
+      const stColor = statusColors[o.status] || 'var(--muted)';
+      const numEsc = (o.numero || '').replace(/'/g, "\\'");
+      const podeAprovar = ['rascunho', 'enviado'].includes(o.status);
+      return `<tr style="cursor:pointer" onclick="abrirDetalhesOrcamento(${o.id})">
+        <td class="col-hide-mobile" style="font-size:12px;color:var(--muted)">${escapeHtml(o.numero || '')}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:32px;height:32px;border-radius:8px;background:${corFundo};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--text)">${iniciais}</div>
+            <div>
+              <div style="font-weight:600;font-size:13px">${escapeHtml(nome)}</div>
+              ${o.itens?.length ? `<div style="font-size:11px;color:var(--muted)">${o.itens.length} item(ns)</div>` : ''}
+            </div>
+          </div>
+        </td>
+        <td style="font-weight:700;color:var(--green)">${formatarMoeda(o.total || 0)}</td>
+        <td class="col-hide-mobile"><span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;background:${stColor}20;color:${stColor}">${escapeHtml(o.status || '')}</span></td>
+        <td class="col-hide-mobile" style="font-size:12px;color:var(--muted)">${o.criado_em ? new Date(o.criado_em).toLocaleDateString('pt-BR') : '—'}</td>
+        <td class="col-hide-mobile" onclick="event.stopPropagation()">
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            <button class="btn btn-ghost" style="padding:4px 8px;font-size:14px" onclick="abrirTimeline(${o.id}, '${numEsc}')" title="Linha do tempo">🕐</button>
+            <button class="btn btn-ghost" style="padding:4px 8px;font-size:14px" onclick="window.open('orcamento-view.html?id=${o.id}','_blank')" title="Ver PDF">📄</button>
+            <button class="btn btn-ghost" style="padding:4px 8px;font-size:14px" onclick="void abrirModalEditarOrcamento(${o.id})" title="Editar">✏️</button>
+            <button class="btn btn-ghost" style="padding:4px 8px;font-size:14px" onclick="enviarWhatsapp(${o.id})" title="WhatsApp">📲</button>
+            <button class="btn btn-ghost" style="padding:4px 8px;font-size:14px" onclick="enviarEmail(${o.id})" title="E-mail">📧</button>
+            ${podeAprovar ? `<button class="btn btn-ghost" style="padding:4px 8px;font-size:14px;color:#16a34a" onclick="aprovarOrcamento(${o.id},'${numEsc}')" title="Aprovar">✅</button>` : ''}
+            ${o.status === 'aprovado' ? `<button class="btn btn-ghost" style="padding:4px 8px;font-size:14px;color:#1a73e8" onclick="abrirModalAgendamentoRapido(${o.id},'${numEsc}','${(o.cliente_nome || '').replace(/'/g, "\\'")}')" title="Agendar">📅</button>` : ''}
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ── AUTOCOMPLETE CLIENTE ──────────────────────────────────────────────
+  async function filtrarSugestoesCliente(query) {
+    await garantirClientesCarregados();
+    const box = document.getElementById('cliente-sugestoes');
+    const q = (query || '').trim().toLowerCase();
+    const lista = q
+      ? clientesCache.filter(c => c.nome.toLowerCase().includes(q))
+      : clientesCache.slice(0, 10);
+
+    if (!q && !lista.length) { box.style.display = 'none'; return; }
+
+    const jaExiste = lista.some(c => c.nome.toLowerCase() === q);
+    let html = lista.map(c => `
+      <div class="sugestao-item" onmousedown="selecionarCliente(${c.id}, '${c.nome.replace(/'/g, "\\'")}')">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--muted2)"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        ${c.nome}
+      </div>`).join('');
+    
+    if (q && !jaExiste) {
+       html += `<div class="sugestao-item" style="color:var(--accent);border-top:1px solid var(--border)" onmousedown="window.location.href='clientes.html?novo=${encodeURIComponent(q)}'">
+         ＋ Cadastrar "${q}"
+       </div>`;
+    }
+    box.innerHTML = html;
+    box.style.display = 'block';
+  }
+
+  function selecionarCliente(id, nome) {
+    document.getElementById('orc-cliente-input').value = nome;
+    document.getElementById('orc-cliente').value = id;
+    document.getElementById('cliente-sugestoes').style.display = 'none';
+  }
+
+  // ── MODAL CATÁLOGO ────────────────────────────────────────────────────
+  async function abrirModalCatalogo() {
+    await garantirCatalogoCarregado();
+    const buscaEl = document.getElementById('catalogo-busca');
+    const modalEl = document.getElementById('modal-catalogo');
+    if (!buscaEl || !modalEl) return;
+    buscaEl.value = '';
+    filtrarCatalogo('');
+    modalEl.classList.add('open');
+    setTimeout(() => buscaEl.focus(), 100);
+  }
+
+  function fecharModalCatalogo() {
+    document.getElementById('modal-catalogo').classList.remove('open');
+  }
+
+  function filtrarCatalogo(busca) {
+    const q = (busca || '').toLowerCase().trim();
+    const lista = q ? catalogoCache.filter(i => i.nome.toLowerCase().includes(q) || (i.categoria && i.categoria.toLowerCase().includes(q))) : catalogoCache;
+    const cont = document.getElementById('catalogo-lista');
+    if (!lista.length) {
+      cont.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Nenhum item encontrado no catálogo.</div>';
+      return;
+    }
+    cont.innerHTML = lista.map(i => `
+      <div class="catalogo-item-row" style="display:flex;align-items:center;justify-content:space-between;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--surface)">
+        <div style="min-width:0;flex:1">
+          <div style="font-weight:600;font-size:14px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(i.nome)}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">${formatarMoeda(i.preco_padrao || 0)}</div>
+        </div>
+        <button class="btn btn-ghost" style="padding:6px 10px;font-size:12px" onclick="selecionarDoCatalogo(${i.id})">Selecionar</button>
+      </div>
+    `).join('');
+  }
+
+  function selecionarDoCatalogo(itemId) {
+    const item = catalogoCache.find(i => i.id === itemId);
+    if (!item) return;
+    
+    // Se a primeira linha estiver vazia, usa ela
+    const rows = document.querySelectorAll('#items-list .item-row');
+    let targetRow = null;
+    if (rows.length === 1) {
+      const descInput = rows[0].querySelector('input[type="text"]');
+      if (descInput && !descInput.value.trim()) targetRow = rows[0];
+    }
+    
+    if (targetRow) {
+      const descInput = targetRow.querySelector('input[type="text"]');
+      const qtdInput = targetRow.querySelectorAll('input[type="number"]')[0];
+      const valInput = targetRow.querySelectorAll('input[type="number"]')[1];
+      if (descInput) descInput.value = item.nome || '';
+      if (qtdInput) qtdInput.value = '1';
+      if (valInput) valInput.value = item.preco_padrao ?? '';
+      targetRow.dataset.servicoId = item.id;
+    } else {
+      document.getElementById('items-list').insertAdjacentHTML('beforeend', _itemRowHTML(item.nome, 1, item.preco_padrao, item.id));
+    }
+    
+    updateTotal();
+    fecharModalCatalogo();
+    showNotif('📦', 'Item adicionado', item.nome);
+  }
+
+  // ── MODAL EDITAR ORÇAMENTO ────────────────────────────────────────────
+  function switchTab(btn, tab) {
+    document.querySelectorAll('#modal-tabs .tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-manual').style.display = tab === 'manual' ? 'flex' : 'none';
+    document.getElementById('tab-ia').style.display = tab === 'ia' ? 'flex' : 'none';
+  }
+
+  let _empresaCfgModalOrc = null;
+
+  function _garantirCampoAgendamentoModal() {
+    if (document.getElementById('orc-agendamento-modo')) return;
+    const modalBody = document.querySelector('#modal-novo-orcamento .modal-body');
+    if (!modalBody) return;
+
+    const container = document.createElement('div');
+    container.className = 'form-group';
+    container.style.marginTop = '6px';
+      container.innerHTML = `
+        <label>Agendamento neste orçamento</label>
+        <select id="orc-agendamento-modo" class="form-control"></select>
+        <p id="orc-agendamento-hint" class="text-muted" style="font-size:12px;margin:6px 0 0"></p>
+      `;
+
+    const otpGroup = document.getElementById('orc-exigir-otp')?.closest('.form-group');
+    if (otpGroup && otpGroup.parentNode) {
+      otpGroup.insertAdjacentElement('beforebegin', container);
+      return;
+    }
+    modalBody.prepend(container);
+  }
+
+  async function _obterPadroesEmpresaModalOrc() {
+    if (!_empresaCfgModalOrc) {
+      try {
+        _empresaCfgModalOrc = await api.get('/empresa/');
+      } catch (_) {
+        _empresaCfgModalOrc = {};
+      }
+    }
+    const emp = _empresaCfgModalOrc || {};
+    const dias = parseInt(emp.validade_padrao_dias, 10);
+    const validadeDias = Number.isFinite(dias) && dias > 0 ? dias : 7;
+    return { validadeDias, empresa: emp };
+  }
+
+  function _sincronizarSelectAgendamentoOrcamento(emp, modoSalvo, isEdicao) {
+    const sel = document.getElementById('orc-agendamento-modo');
+    const hint = document.getElementById('orc-agendamento-hint');
+    if (!sel) return;
+    const exige = !!(emp && emp.agendamento_escolha_obrigatoria);
+    const modoEmp = ((emp && emp.agendamento_modo_padrao) || 'NAO_USA').toString().toUpperCase().replace(/-/g, '_');
+    let html = '';
+    let disabled = false;
+    let valor = 'NAO_USA';
+    let hintText = '';
+
+    if (isEdicao) {
+      html =
+        '<option value="NAO_USA">Sem agendamento</option>' +
+        '<option value="OPCIONAL">Com agendamento (opcional para o cliente)</option>' +
+        '<option value="OBRIGATORIO">Agendamento obrigatório</option>';
+      valor = (modoSalvo || 'NAO_USA').toString().toUpperCase().replace(/-/g, '_');
+      hintText = 'Altere como este orçamento se relaciona ao fluxo de agendamento.';
+    } else if (exige) {
+      html =
+        '<option value="">Selecione se haverá agendamento…</option>' +
+        '<option value="NAO_USA">Não</option>' +
+        '<option value="OPCIONAL">Sim</option>';
+      valor = modoSalvo ? modoSalvo.toString().toUpperCase().replace(/-/g, '_') : '';
+      hintText = 'A empresa exige que você indique em cada proposta se haverá agendamento.';
+    } else if (modoEmp === 'OBRIGATORIO') {
+      html = '<option value="OBRIGATORIO">Sim — agendamento obrigatório neste orçamento</option>';
+      valor = 'OBRIGATORIO';
+      disabled = true;
+      hintText = 'Política da empresa: todos os orçamentos usam o fluxo de agendamento obrigatório.';
+    } else {
+      html =
+        '<option value="NAO_USA">Sem agendamento</option>' +
+        '<option value="OPCIONAL">Com agendamento (opcional para o cliente)</option>' +
+        '<option value="OBRIGATORIO">Agendamento obrigatório</option>';
+      valor = modoEmp === 'OPCIONAL' ? 'OPCIONAL' : 'NAO_USA';
+      hintText = 'Padrão definido em Configurações; você pode alterar por proposta.';
+    }
+
+    sel.innerHTML = html;
+    sel.disabled = disabled;
+    if (valor !== '' && [...sel.options].some(o => o.value === valor)) sel.value = valor;
+    else if (sel.options[0]) sel.value = sel.options[0].value;
+    if (hint) hint.textContent = hintText;
+  }
+
+  async function abrirModalNovoOrcamento(clienteIdPre = null, valorPre = null, descPre = null) {
+    await Promise.all([garantirFormasPagamentoCarregadas(), garantirClientesCarregados()]);
+    _garantirCampoAgendamentoModal();
+    const padroes = await _obterPadroesEmpresaModalOrc();
+    _resetarModal(padroes.validadeDias);
+    _sincronizarSelectAgendamentoOrcamento(padroes.empresa, null, false);
+    const btnManual = document.querySelector('#modal-tabs .tab:first-child');
+    if (btnManual) switchTab(btnManual, 'manual');
+    document.getElementById('modal-novo-orcamento').classList.add('open');
+
+    if (clienteIdPre) {
+      const c = clientesCache.find(x => x.id == clienteIdPre);
+      if (c) selecionarCliente(c.id, c.nome);
+    }
+    if (valorPre || descPre) {
+      document.getElementById('items-list').innerHTML = _itemRowHTML(descPre || 'Orçamento', 1, valorPre || '');
+      updateTotal();
+    }
+  }
+
+  function _definirValidadeModal(valorDias = 7) {
+    const select = document.getElementById('orc-validade');
+    if (!select) return;
+    const dias = parseInt(valorDias, 10);
+    const valorFinal = Number.isFinite(dias) && dias > 0 ? String(dias) : '7';
+    const optionExiste = Array.from(select.options).some(opt => opt.value === valorFinal);
+    if (!optionExiste) {
+      const option = document.createElement('option');
+      option.value = valorFinal;
+      option.textContent = `${valorFinal} dias`;
+      select.appendChild(option);
+    }
+    select.value = valorFinal;
+  }
+
+  function _resetarModal(validadePadraoDias = 7) {
+    editandoId = null;
+    docsOrcamentoId = null;
+    const btnDocs = document.getElementById('btn-docs-orc');
+    if (btnDocs) btnDocs.style.display = 'none';
+    document.getElementById('modal-orc-title').textContent = '✨ Novo Orçamento';
+    document.getElementById('btn-criar-orc').textContent = '✅ Criar Orçamento';
+    const tabIaBtn = document.getElementById('tab-ia-btn');
+    if (tabIaBtn) tabIaBtn.style.display = '';
+    document.getElementById('orc-cliente-input').value = '';
+    document.getElementById('orc-cliente').value = '';
+    _definirValidadeModal(validadePadraoDias);
+    _selecionarFormaPadraoNoSelect();
+    document.getElementById('orc-obs').value = '';
+    document.getElementById('orc-desconto').value = '';
+    document.getElementById('orc-desconto-tipo').value = 'percentual';
+    document.getElementById('orc-exigir-otp').checked = false;
+    const iaResult = document.getElementById('ia-result');
+    if (iaResult) iaResult.style.display = 'none';
+    const iaText = document.getElementById('ia-text');
+    if (iaText) iaText.value = '';
+    document.getElementById('items-list').innerHTML = _itemRowHTML();
+    updateTotal();
+  }
+
+  function _itemRowHTML(desc = '', qtd = 1, val = '', servicoId = '') {
+    const d = (desc || '').replace(/"/g, '&quot;');
+    const v = val !== '' ? `value="${val}"` : '';
+    return `<div class="item-row" data-servico-id="${servicoId || ''}">
+      <div style="position:relative">
+        <input type="text" placeholder="Descrição do serviço (digite para buscar no catálogo)" value="${d}"
+          oninput="void sugerirItemCatalogo(this)" onfocus="void sugerirItemCatalogo(this)"
+          onblur="setTimeout(()=>this.nextElementSibling.style.display='none',150)"
+          style="width:100%;box-sizing:border-box">
+        <div class="cliente-sugestoes-list item-catalogo-sugestoes" style="display:none"></div>
+      </div>
+      <input type="number" placeholder="Qtd" value="${qtd}" min="1">
+      <input type="number" placeholder="Valor R$" ${v} oninput="updateTotal()" onkeydown="handleItemRowKeydown(event,this)">
+      <button class="remove-btn" onclick="removeItem(this)">−</button>
+    </div>`;
+  }
+
+  function handleItemRowKeydown(event, inputEl) {
+    if (!event || !inputEl) return;
+    if (event.key !== 'Tab' && event.key !== 'Enter') return;
+
+    const row = inputEl.closest('.item-row');
+    if (!row) return;
+    const rows = Array.from(document.querySelectorAll('#items-list .item-row'));
+    if (!rows.length || rows[rows.length - 1] !== row) return;
+
+    const descInput = row.querySelector('input[type="text"]');
+    const numberInputs = row.querySelectorAll('input[type="number"]');
+    const qtd = parseFloat(numberInputs[0]?.value) || 0;
+    const val = parseFloat(numberInputs[1]?.value) || 0;
+    const hasContent = !!(descInput?.value || '').trim() || val > 0 || qtd > 1;
+    if (!hasContent) return;
+
+    event.preventDefault();
+    addItem();
+
+    const updatedRows = document.querySelectorAll('#items-list .item-row');
+    const newRow = updatedRows[updatedRows.length - 1];
+    const newDescInput = newRow?.querySelector('input[type="text"]');
+    if (newDescInput) newDescInput.focus();
+  }
+
+  function addItem() {
+    document.getElementById('items-list').insertAdjacentHTML('beforeend', _itemRowHTML());
+  }
+
+  function removeItem(btn) {
+    btn.closest('.item-row').remove();
+    updateTotal();
+  }
+
+  function updateTotal() {
+    let subtotal = 0;
+    document.querySelectorAll('#items-list .item-row').forEach(row => {
+      const inputs = row.querySelectorAll('input[type="number"]');
+      const qtd = parseFloat(inputs[0]?.value) || 0;
+      const val = parseFloat(inputs[1]?.value) || 0;
+      subtotal += qtd * val;
+    });
+
+    const descTipo = document.getElementById('orc-desconto-tipo').value;
+    const descValor = parseFloat(document.getElementById('orc-desconto').value) || 0;
+    let descontoReal = 0;
+
+    if (descValor > 0) {
+      descontoReal = descTipo === 'percentual' ? subtotal * (descValor / 100) : descValor;
+    }
+
+    const total = Math.max(0, subtotal - descontoReal);
+
+    const elSub = document.getElementById('subtotal-row');
+    const elSubVal = document.getElementById('subtotal-display');
+    const elDesc = document.getElementById('desconto-row');
+    const elDescVal = document.getElementById('desconto-display');
+    const elDescLabel = document.getElementById('desconto-label');
+    const elTotal = document.getElementById('total-display');
+
+    if (descontoReal > 0) {
+      if (elSub) elSub.style.display = 'flex';
+      if (elDesc) elDesc.style.display = 'flex';
+      if (elSubVal) elSubVal.textContent = formatarMoeda(subtotal);
+      if (elDescVal) elDescVal.textContent = '- ' + formatarMoeda(descontoReal);
+      if (elDescLabel) elDescLabel.textContent = descTipo === 'percentual' ? `Desconto (${descValor}%)` : 'Desconto';
+    } else {
+      if (elSub) elSub.style.display = 'none';
+      if (elDesc) elDesc.style.display = 'none';
+    }
+
+    const valorFmt = formatarMoeda(total);
+    const elTotalBody = document.getElementById('total-display');
+    if (elTotalBody) elTotalBody.textContent = valorFmt;
+    
+    const footerTotal = document.getElementById('footer-total-valor');
+    if (footerTotal) footerTotal.textContent = valorFmt;
+
+    if (elTotalBody) {
+      const totalRow = elTotalBody.parentElement;
+      if (totalRow && totalRow.style.display === 'none') {
+        totalRow.style.display = 'flex';
+      }
+    }
+    if (typeof atualizarStickyTotal === 'function') atualizarStickyTotal(total);
+  }
+
+  function fecharModal() {
+    document.getElementById('modal-novo-orcamento').classList.remove('open');
+  }
+
+  const novoOrcamentoModal = document.getElementById('modal-novo-orcamento');
+  if (novoOrcamentoModal) {
+    novoOrcamentoModal.addEventListener('click', function(e) {
+      if (e.target === this) fecharModal();
+    });
+  }
+
+  // ── MODAL DOCUMENTOS DO ORÇAMENTO ─────────────────────────────────────
+
+  function abrirModalDocsOrcamento(orcId) {
+    if (orcId) docsOrcamentoId = orcId;
+    if (!docsOrcamentoId) {
+      showNotif('⚠️', 'Selecione um orçamento', 'Abra um orçamento para gerenciar documentos.', 'error');
+      return;
+    }
+    document.getElementById('orc-docs-busca').value = '';
+    document.getElementById('modal-orc-docs').classList.add('open');
+    carregarDocsVinculadosOrcamento();
+    carregarDocsDisponiveisOrcamento();
+  }
+
+  function fecharModalDocsOrcamento() {
+    document.getElementById('modal-orc-docs').classList.remove('open');
+  }
+
+  function _renderizarDocsVinculados() {
+    const el = document.getElementById('orc-docs-vinculados');
+    if (!el) return;
+    if (!docsVinculadosCache.length) {
+      el.innerHTML = `<div style="padding:12px 14px;border-radius:10px;border:1px dashed var(--border);color:var(--muted);font-size:13px">Nenhum documento vinculado</div>`;
+      return;
+    }
+    el.innerHTML = docsVinculadosCache.map((d, idx) => {
+      const nome = escapeHtml(d.documento_nome || d.nome || 'Documento');
+      const tipo = escapeHtml(d.documento_tipo || d.tipo || '');
+      const versao = escapeHtml(d.documento_versao || d.versao || '');
+      return `
+        <div style="display:flex;gap:10px;align-items:flex-start;justify-content:space-between;border:1px solid var(--border);border-radius:12px;padding:12px;background:var(--surface)">
+          <div style="min-width:0;flex:1">
+            <div style="font-weight:700;font-size:13px">${nome}</div>
+            <div style="color:var(--muted);font-size:12px;margin-top:4px">${[tipo, versao ? ('v' + versao) : ''].filter(Boolean).join(' · ') || '—'}</div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px">
+              <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)"><input type="checkbox" ${d.exibir_no_portal ? 'checked' : ''} onchange="atualizarFlagDocOrcamento(${idx},'exibir_no_portal',this.checked)"> Portal</label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)"><input type="checkbox" ${d.enviar_por_email ? 'checked' : ''} onchange="atualizarFlagDocOrcamento(${idx},'enviar_por_email',this.checked)"> E-mail</label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)"><input type="checkbox" ${d.enviar_por_whatsapp ? 'checked' : ''} onchange="atualizarFlagDocOrcamento(${idx},'enviar_por_whatsapp',this.checked)"> WhatsApp</label>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+            <div style="display:flex;gap:4px">
+              <button type="button" class="btn btn-ghost" style="padding:4px 8px" onclick="moverDocOrcamento(${idx},-1)" ${idx === 0 ? 'disabled' : ''}>↑</button>
+              <button type="button" class="btn btn-ghost" style="padding:4px 8px" onclick="moverDocOrcamento(${idx},1)" ${idx === docsVinculadosCache.length - 1 ? 'disabled' : ''}>↓</button>
+            </div>
+            <button type="button" class="btn btn-ghost" style="padding:4px 8px;color:#ef4444" onclick="removerDocOrcamento(${idx})">Remover</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  async function carregarDocsVinculadosOrcamento() {
+    if (!docsOrcamentoId) { _renderizarDocsVinculados(); return; }
+    try {
+      docsVinculadosCache = await api.get(`/orcamentos/${docsOrcamentoId}/documentos`);
+    } catch (_) {
+      docsVinculadosCache = [];
+    }
+    _renderizarDocsVinculados();
+  }
+
+  async function carregarDocsDisponiveisOrcamento() {
+    const box = document.getElementById('orc-docs-disponiveis');
+    if (!box) return;
+    box.innerHTML = `<div class="loading"><div class="spinner"></div> Carregando...</div>`;
+    if (!docsOrcamentoId) { box.innerHTML = ''; return; }
+    const q = (document.getElementById('orc-docs-busca').value || '').trim();
+    try {
+      docsDisponiveisCache = await api.get(`/orcamentos/${docsOrcamentoId}/documentos/disponiveis${q ? ('?q=' + encodeURIComponent(q)) : ''}`);
+      if (!docsDisponiveisCache.length) {
+        box.innerHTML = `<div style="padding:18px 14px;color:var(--muted);text-align:center;font-size:13px">Nenhum documento disponível</div>`;
+        return;
+      }
+      box.innerHTML = docsDisponiveisCache.map(d => {
+        const ja = docsVinculadosCache.some(v => v.documento_id === d.id);
+        return `
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--border);border-radius:12px;padding:12px 14px;background:var(--surface)">
+            <div style="min-width:0">
+              <div style="font-weight:700;font-size:13px">${escapeHtml(d.nome || '')}</div>
+              <div style="color:var(--muted);font-size:12px;margin-top:4px">${escapeHtml(d.tipo || '')}${d.versao ? ' · v' + escapeHtml(d.versao) : ''}</div>
+            </div>
+            <button type="button" class="btn btn-primary" style="padding:8px 12px;white-space:nowrap" onclick="vincularDocDisponivel(${d.id})" ${ja ? 'disabled' : ''}>${ja ? 'Vinculado' : 'Vincular'}</button>
+          </div>`;
+      }).join('');
+    } catch (err) {
+      box.innerHTML = `<div style="padding:18px 14px;color:#ef4444;text-align:center;font-size:13px">${escapeHtml(err?.message || '')}</div>`;
+    }
+  }
+
+  async function vincularDocDisponivel(documentoId) {
+    if (!docsOrcamentoId) return;
+    if (docsVinculadosCache.some(v => v.documento_id === documentoId)) return;
+    await api.post(`/orcamentos/${docsOrcamentoId}/documentos`, {
+      documento_id: documentoId,
+      exibir_no_portal: true,
+      enviar_por_email: false,
+      enviar_por_whatsapp: false,
+    });
+    await carregarDocsVinculadosOrcamento();
+    await carregarDocsDisponiveisOrcamento();
+  }
+
+  async function atualizarFlagDocOrcamento(idx, campo, valor) {
+    const item = docsVinculadosCache[idx];
+    if (!item || !docsOrcamentoId) return;
+    item[campo] = !!valor;
+    _renderizarDocsVinculados();
+    try {
+      await api.patch(`/orcamentos/${docsOrcamentoId}/documentos/${item.id}`, { [campo]: !!valor });
+    } catch (err) {
+      showNotif('❌', 'Erro', err.message, 'error');
+      await carregarDocsVinculadosOrcamento();
+    }
+  }
+
+  async function removerDocOrcamento(idx) {
+    const item = docsVinculadosCache[idx];
+    if (!item || !docsOrcamentoId) return;
+    await api.delete(`/orcamentos/${docsOrcamentoId}/documentos/${item.id}`);
+    await carregarDocsVinculadosOrcamento();
+    await carregarDocsDisponiveisOrcamento();
+  }
+
+  async function moverDocOrcamento(idx, dir) {
+    const novo = idx + dir;
+    if (novo < 0 || novo >= docsVinculadosCache.length) return;
+    const tmp = docsVinculadosCache[idx];
+    docsVinculadosCache[idx] = docsVinculadosCache[novo];
+    docsVinculadosCache[novo] = tmp;
+    _renderizarDocsVinculados();
+    if (!docsOrcamentoId) return;
+    try {
+      const ids = docsVinculadosCache.map(v => v.id);
+      docsVinculadosCache = await api.put(`/orcamentos/${docsOrcamentoId}/documentos/ordem`, { ids_em_ordem: ids });
+      _renderizarDocsVinculados();
+    } catch (err) {
+      showNotif('❌', 'Erro', err.message, 'error');
+      await carregarDocsVinculadosOrcamento();
+    }
+  }
+
+  async function abrirModalEditarOrcamento(id) {
+    await Promise.all([garantirFormasPagamentoCarregadas(), garantirClientesCarregados()]);
+    _garantirCampoAgendamentoModal();
+    const orc = orcamentosCache.find(o => o.id === id);
+    if (!orc) return;
+    _resetarModal();
+    const padroes = await _obterPadroesEmpresaModalOrc();
+    _sincronizarSelectAgendamentoOrcamento(padroes.empresa, orc.agendamento_modo, true);
+    editandoId = id;
+    docsOrcamentoId = id;
+    const btnDocs = document.getElementById('btn-docs-orc');
+    if (btnDocs) btnDocs.style.display = '';
+
+    document.getElementById('modal-orc-title').textContent = `✏️ Editar ${orc.numero || '#' + id}`;
+    document.getElementById('btn-criar-orc').textContent = '💾 Salvar Alterações';
+
+    const btnManual = document.querySelector('#modal-tabs .tab:first-child');
+    if (btnManual) switchTab(btnManual, 'manual');
+
+    document.getElementById('orc-cliente-input').value = orc.cliente?.nome || '';
+    document.getElementById('orc-cliente').value = orc.cliente?.id || '';
+    _definirValidadeModal(orc.validade_dias || 7);
+
+    const selPag = document.getElementById('orc-pagamento');
+    const regraId = orc.regra_pagamento_id;
+    if (regraId && selPag) {
+      const opt = Array.from(selPag.options).find(o => parseInt(o.value) === regraId);
+      if (opt) selPag.value = opt.value;
+    } else if (selPag) {
+      selPag.value = '';
+    }
+    atualizarResumoFormaPagamento();
+
+    document.getElementById('orc-obs').value = orc.observacoes || '';
+    document.getElementById('orc-desconto').value = orc.desconto > 0 ? orc.desconto : '';
+    document.getElementById('orc-desconto-tipo').value = orc.desconto_tipo || 'percentual';
+    document.getElementById('orc-exigir-otp').checked = !!orc.exigir_otp;
+
+    const list = document.getElementById('items-list');
+    list.innerHTML = '';
+    if (orc.itens && orc.itens.length) {
+      orc.itens.forEach(item => {
+        list.insertAdjacentHTML('beforeend', _itemRowHTML(item.descricao, item.quantidade, item.valor_unit, item.servico_id || ''));
+      });
+    } else {
+      list.innerHTML = _itemRowHTML();
+    }
+    updateTotal();
+
+    document.getElementById('modal-novo-orcamento').classList.add('open');
+  }
+
+  async function salvarOrcamento() {
+    const clienteId = document.getElementById('orc-cliente').value;
+    if (!clienteId) { showNotif('⚠️', 'Selecione um cliente', '', 'error'); return; }
+
+    const itens = [];
+    document.querySelectorAll('#items-list .item-row').forEach(row => {
+      const inputs = row.querySelectorAll('input');
+      const desc = inputs[0]?.value?.trim();
+      const qtd = parseFloat(row.querySelectorAll('input[type="number"]')[0]?.value) || 1;
+      const val = parseFloat(row.querySelectorAll('input[type="number"]')[1]?.value) || 0;
+      if (desc) itens.push({ descricao: desc, quantidade: qtd, valor_unit: val, servico_id: row.dataset.servicoId || null });
+    });
+
+    const agSel = document.getElementById('orc-agendamento-modo');
+    const agRaw = agSel ? agSel.value : 'NAO_USA';
+    if (!editandoId && agSel && !agSel.disabled && agRaw === '') {
+      showNotif('⚠️', 'Agendamento', 'Selecione se haverá agendamento (Sim ou Não).', 'error');
+      return;
+    }
+    const payload = {
+      cliente_id: parseInt(clienteId),
+      validade_dias: parseInt(document.getElementById('orc-validade').value) || 7,
+      observacoes: document.getElementById('orc-obs').value.trim() || null,
+      desconto: parseFloat(document.getElementById('orc-desconto').value) || 0,
+      desconto_tipo: document.getElementById('orc-desconto-tipo').value,
+      exigir_otp: document.getElementById('orc-exigir-otp').checked,
+      agendamento_modo: agRaw || 'NAO_USA',
+      itens,
+    };
+    const formaPagId = document.getElementById('orc-pagamento').value;
+    if (formaPagId) payload.regra_pagamento_id = parseInt(formaPagId);
+
+    const btn = document.getElementById('btn-criar-orc');
+    setLoading(btn, true);
+    try {
+      if (editandoId) {
+        await api.put(`/orcamentos/${editandoId}`, payload);
+        showNotif('✅', 'Orçamento atualizado!', '');
+      } else {
+        await api.post('/orcamentos/', payload);
+        showNotif('✅', 'Orçamento criado!', '');
+      }
+      setLoading(btn, false, '✅ Sucesso!');
+      setTimeout(() => {
+        fecharModal();
+        carregar();
+      }, 500);
+    } catch (err) {
+      console.error(err);
+      let msg = 'Ocorreu um erro ao salvar o orçamento.';
+      if (err.response) {
+        if (err.response.status === 403) msg = 'Você atingiu o limite do seu plano para criar novos orçamentos.';
+        else if (err.response.data && err.response.data.detail) msg = err.response.data.detail;
+      } else if (!navigator.onLine) {
+        msg = 'Sem conexão com a internet. Verifique sua rede e tente novamente.';
+      }
+      showNotif('❌', 'Erro ao salvar', msg, 'error');
+    } finally {
+      setLoading(btn, false, editandoId ? '💾 Salvar Alterações' : '✅ Criar Orçamento');
+    }
+  }
+
+  // ── PROCESSAR IA ──────────────────────────────────────────────────────
+  let _iaResultado = null;
+
+  async function processarIA() {
+    const texto = document.getElementById('ia-text').value.trim();
+    if (!texto) return;
+    const btn = document.getElementById('btn-processar-ia');
+    setLoading(btn, true);
+    try {
+      const resultado = await api.post('/whatsapp/interpretar', { mensagem: texto });
+      _iaResultado = resultado;
+
+      const confiancaColor = resultado.confianca >= 0.8 ? 'var(--green)' : resultado.confianca >= 0.5 ? '#f59e0b' : 'var(--red)';
+
+      const resEl = document.getElementById('ia-result');
+      resEl.style.display = 'block';
+      let descTexto = '';
+      let totalFinal = resultado.valor;
+      if (resultado.desconto > 0) {
+        if (resultado.desconto_tipo === 'percentual') {
+          const descValor = resultado.valor * (resultado.desconto / 100);
+          totalFinal = resultado.valor - descValor;
+          descTexto = `<div>🏷️ <span style="color:var(--muted)">Desconto:</span> <span style="color:var(--red)">${resultado.desconto}% (- ${formatarMoeda(descValor)})</span></div>`;
+        } else {
+          totalFinal = resultado.valor - resultado.desconto;
+          descTexto = `<div>🏷️ <span style="color:var(--muted)">Desconto:</span> <span style="color:var(--red)">- ${formatarMoeda(resultado.desconto)}</span></div>`;
+        }
+      }
+
+      resEl.innerHTML = `
+      <div style="margin-bottom:12px">
+        ✅ <strong>IA identificou:</strong>
+        <span style="float:right;color:${confiancaColor};font-weight:600">${Math.round(resultado.confianca * 100)}% confiança</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:14px">
+        <div>👤 <span style="color:var(--muted)">Cliente:</span> <strong>${resultado.cliente_nome}</strong></div>
+        <div>🔧 <span style="color:var(--muted)">Serviço:</span> ${resultado.servico}</div>
+        <div>💰 <span style="color:var(--muted)">Valor bruto:</span> ${formatarMoeda(resultado.valor)}</div>
+        ${descTexto}
+        <div>✅ <span style="color:var(--muted)">Total:</span> <strong style="color:var(--green)">${formatarMoeda(totalFinal)}</strong></div>
+        ${resultado.observacoes ? `<div>📝 <span style="color:var(--muted)">Obs:</span> ${resultado.observacoes}</div>` : ''}
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="void usarDadosIA()">
+        ✅ Usar esses dados e criar orçamento
+      </button>
+    `;
+    } catch (err) {
+      showNotif('❌', 'Erro na IA', err.message, 'error');
+    } finally {
+      setLoading(btn, false, '🤖 Processar com IA');
+    }
+  }
+
+  async function usarDadosIA() {
+    if (!_iaResultado) return;
+    await garantirClientesCarregados();
+
+    document.getElementById('items-list').innerHTML = _itemRowHTML(_iaResultado.servico, 1, _iaResultado.valor);
+    document.getElementById('orc-obs').value = _iaResultado.observacoes || '';
+    document.getElementById('orc-desconto').value = _iaResultado.desconto > 0 ? _iaResultado.desconto : '';
+    document.getElementById('orc-desconto-tipo').value = _iaResultado.desconto_tipo || 'percentual';
+    updateTotal();
+
+    const nomeIA = (_iaResultado.cliente_nome || '').toLowerCase();
+    const clienteEncontrado = nomeIA && nomeIA !== 'a definir'
+      ? clientesCache.find(c => (c.nome || '').toLowerCase().includes(nomeIA) || nomeIA.includes((c.nome || '').toLowerCase()))
+      : null;
+
+    if (clienteEncontrado) {
+      selecionarCliente(clienteEncontrado.id, clienteEncontrado.nome);
+    } else if (nomeIA && nomeIA !== 'a definir') {
+      selecionarClienteNovo(_iaResultado.cliente_nome);
+      showNotif('💡', `"${_iaResultado.cliente_nome}" será criado`, 'O cliente será cadastrado ao salvar', 'info');
+    }
+
+    // Volta para aba manual
+    const btnManual = document.querySelector('#modal-tabs .tab:first-child');
+    if (btnManual) switchTab(btnManual, 'manual');
+
+    _iaResultado = null;
+  }
+
+  function selecionarClienteNovo(nome) {
+    document.getElementById('orc-cliente-input').value = nome;
+    document.getElementById('orc-cliente').value = '';
+    document.getElementById('cliente-sugestoes').style.display = 'none';
+  }
+
+  async function sugerirItemCatalogo(input) {
+    await garantirCatalogoCarregado();
+    const q = input.value.toLowerCase().trim();
+    const box = input.nextElementSibling;
+    if (!q || !catalogoCache.length) { box.style.display = 'none'; return; }
+    const matches = catalogoCache.filter(s => s.nome.toLowerCase().includes(q)).slice(0, 5);
+    if (!matches.length) { box.style.display = 'none'; return; }
+    box.innerHTML = matches.map(s =>
+      `<div class="sugestao-item" onmousedown="selecionarItemCatalogo(this, '${s.nome.replace(/'/g, "\\'")}', ${s.preco_padrao || 0}, ${s.id})">${s.nome} — ${formatarMoeda(s.preco_padrao)}</div>`
+    ).join('');
+    box.style.display = 'block';
+  }
+
+  function selecionarItemCatalogo(el, nome, preco, servicoId) {
+    const row = el.closest('.item-row');
+    const inputs = row.querySelectorAll('input');
+    inputs[0].value = nome;
+    const valInput = row.querySelectorAll('input[type="number"]')[1];
+    if (valInput && preco > 0) valInput.value = preco;
+    row.dataset.servicoId = servicoId;
+    el.parentElement.style.display = 'none';
+    updateTotal();
+  }
+
+  // ── AÇÕES ─────────────────────────────────────────────────────────────
+  async function enviarWhatsapp(id) {
+    const orc = orcamentosCache.find(o => o.id === id);
+    const st = (orc?.status || '').toLowerCase();
+    const precisa = !!(orc && (orc.enviado_em || (st && st !== 'rascunho')));
+    if (precisa) {
+      let ok = true;
+      if (typeof cotteConfirmarReenvioSeNecessario === 'function') {
+        ok = await cotteConfirmarReenvioSeNecessario(orc, 'whatsapp');
+      } else if (!confirm('Este orçamento já foi enviado ao cliente antes. Deseja enviar novamente pelo WhatsApp?')) {
+        ok = false;
+      }
+      if (!ok) return;
+    }
+    try {
+      const res = await api.post(`/orcamentos/${id}/enviar-whatsapp`);
+      showNotif('📲', 'Enviado!', 'Orçamento enviado via WhatsApp');
+      await carregar();
+    } catch (err) { showNotif('❌', 'Erro', err.message, 'error'); }
+  }
+
+  async function enviarEmail(id) {
+    const orc = orcamentosCache.find(o => o.id === id);
+    const st = (orc?.status || '').toLowerCase();
+    const precisa = !!(orc && (orc.enviado_em || (st && st !== 'rascunho')));
+    if (precisa) {
+      let ok = true;
+      if (typeof cotteConfirmarReenvioSeNecessario === 'function') {
+        ok = await cotteConfirmarReenvioSeNecessario(orc, 'email');
+      } else if (!confirm('Este orçamento já foi enviado ao cliente antes. Deseja enviar novamente por e-mail?')) {
+        ok = false;
+      }
+      if (!ok) return;
+    }
+    try {
+      await api.post(`/orcamentos/${id}/enviar-email`);
+      showNotif('📧', 'Enviado!', 'Orçamento enviado por e-mail');
+      await carregar();
+    } catch (err) {
+      const msg = err.response?.data?.detail || err.message;
+      showNotif('❌', 'Erro', typeof msg === 'string' ? msg : 'Falha ao enviar e-mail', 'error');
+    }
+  }
+
+  async function aprovarOrcamento(id, numero) {
+    if (!confirm(`Aprovar ${numero || 'orçamento #' + id}?`)) return;
+    try {
+      await api.patch(`/orcamentos/${id}/status?novo_status=aprovado`);
+      showNotif('✅', 'Aprovado!', numero || ('#' + id));
+      await carregar();
+    } catch (err) { showNotif('❌', 'Erro', err.message, 'error'); }
+  }
+
+  async function carregar() {
+    try {
+      const orcs = await api.get('/orcamentos/');
+      orcamentosCache = ordenarOrcamentosPorData(orcs || []);
+
+      document.getElementById('page-sub').textContent =
+        `${orcamentosCache.length} orçamento(s) no total`;
+
+      // Processar parâmetro de status da URL
+      const params = new URLSearchParams(window.location.search);
+      const statusParam = params.get('status');
+      if (statusParam) {
+        statusAtual = statusParam;
+        const chip = document.querySelector(`.filter-chip[onclick*="'${statusParam}'"]`);
+        if (chip) {
+          document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+          chip.classList.add('active');
+        }
+      }
+
+      aplicarFiltros();
+      if (typeof inicializarStickyFooterModal === 'function') inicializarStickyFooterModal();
+
+      // Verifica se veio do Comercial/Leads para abrir modal automaticamente
+      const leadId = params.get('lead_id');
+      const cliId  = params.get('cliente_id');
+      if (leadId || cliId) {
+        const valor = params.get('valor');
+        const desc  = params.get('desc');
+        window.history.replaceState({}, document.title, window.location.pathname);
+        await abrirModalNovoOrcamento(leadId || cliId, valor, desc);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function carregarFormasPagamento() {
+    try {
+      _formasPagamento = await api.get('/financeiro/formas-pagamento');
+    } catch (_) {
+      _formasPagamento = [];
+    }
+    const sel = document.getElementById('orc-pagamento');
+    if (!sel) return;
+    const atualVal = sel.value;
+    sel.innerHTML = '<option value="">— Selecionar forma —</option>' +
+      _formasPagamento.map(f =>
+        `<option value="${f.id}">${escapeHtml(f.icone || '💳')} ${escapeHtml(f.nome)}</option>`
+      ).join('');
+    if (atualVal && sel.querySelector(`option[value="${atualVal}"]`)) {
+      sel.value = atualVal;
+    }
+    if (!sel.value) _selecionarFormaPadraoNoSelect();
+    else atualizarResumoFormaPagamento();
+  }
+
+  carregar();
+
+  // ── ATALHOS DE TECLADO ──────────────────────────────────────────────
+  document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'n') {
+      e.preventDefault();
+      void abrirModalNovoOrcamento();
+    }
+    if (e.ctrlKey && e.key === 'k') {
+      e.preventDefault();
+      document.getElementById('busca-input')?.focus();
+    }
+    if (e.key === 'Escape') {
+      fecharModal();
+      fecharModalCatalogo();
+      fecharTimeline();
+      fecharDetalhes();
+      fecharModalDocsOrcamento();
+    }
+  });
+
+  // ── LINHA DO TEMPO ────────────────────────────────────────────────────
+  const _TL_ICONS = {
+    criado:     '📋', enviado:    '📲', visualizado:'👁',
+    lembrete:   '🔔', editado:    '✏️', aprovado:   '✅',
+    recusado:   '❌', expirado:   '⏰',
+    ajuste:     '✏️',
+    notif_aprovacao_whatsapp: '📱',
+    email_enviado: '📧', email_erro: '⚠️', email_pendente: '⏳',
+  };
+  const _TL_COLORS = {
+    criado:     'var(--muted)',  enviado:     'var(--blue)',
+    visualizado:'var(--green)', lembrete:    '#fbbf24',
+    editado:    'var(--blue)',  aprovado:    'var(--green)',
+    recusado:   '#ef4444',      expirado:    '#ef4444',
+    ajuste:     '#f59e0b',
+    notif_aprovacao_whatsapp: 'var(--green)',
+    email_enviado: 'var(--green)', email_erro: '#ef4444', email_pendente: '#f59e0b',
+  };
+
+  async function abrirTimeline(id, numero) {
+    document.getElementById('timeline-titulo').textContent = '🕐 Linha do Tempo — ' + (numero || ('#' + id));
+    document.getElementById('timeline-lista').innerHTML =
+      '<div style="padding:32px;text-align:center;color:var(--muted)"><div class="spinner" style="width:22px;height:22px;border-width:2px;margin:0 auto 8px"></div>Carregando...</div>';
+    document.getElementById('modal-timeline').classList.add('open');
+    try {
+      const eventos = await api.get('/orcamentos/' + id + '/timeline');
+      _renderTimeline(eventos);
+    } catch (err) {
+      document.getElementById('timeline-lista').innerHTML =
+        '<div style="padding:16px;color:#ef4444;font-size:13px">Erro: ' + escapeHtml(err?.message || '') + '</div>';
+    }
+  }
+
+  function fecharTimeline() {
+    document.getElementById('modal-timeline').classList.remove('open');
+  }
+
+  const timelineModal = document.getElementById('modal-timeline');
+  if (timelineModal) {
+    timelineModal.addEventListener('click', function(e) {
+      if (e.target === this) fecharTimeline();
+    });
+  }
+
+  function _renderTimeline(eventos) {
+    const el = document.getElementById('timeline-lista');
+    if (!eventos || !eventos.length) {
+      el.innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted);font-size:13px">Nenhum evento registrado.</div>';
+      return;
+    }
+    el.innerHTML = eventos.map(function(ev, idx) {
+      const icon   = _TL_ICONS[ev.tipo]  || '•';
+      const color  = _TL_COLORS[ev.tipo] || 'var(--muted)';
+      const isLast = idx === eventos.length - 1;
+      let sub = '';
+      const indicador = (ev.indicador || '').trim();
+      const badge = indicador
+        ? '<span style="display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:999px;border:1px solid ' + color + ';background:var(--surface2);color:' + color + ';font-size:11px;font-weight:700">' + escapeHtml(indicador) + '</span>'
+        : '';
+      if (ev.autor)   sub += '<div style="font-size:11px;color:var(--muted);margin-top:2px">Por: ' + escapeHtml(ev.autor) + '</div>';
+      if (ev.detalhe) sub += '<div style="font-size:12px;color:var(--muted);margin-top:3px;font-style:italic">"' + escapeHtml(ev.detalhe) + '"</div>';
+      const ts = ev.timestamp ? new Date(ev.timestamp).toLocaleString('pt-BR') : '';
+      return '<div style="display:flex;gap:14px;padding-bottom:' + (isLast ? 0 : 18) + 'px">'
+        + '<div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0">'
+        + '<div style="width:34px;height:34px;border-radius:50%;background:var(--surface2);border:2px solid ' + color + ';display:flex;align-items:center;justify-content:center;font-size:15px">' + icon + '</div>'
+        + (!isLast ? '<div style="width:2px;flex:1;background:var(--border);margin-top:4px"></div>' : '')
+        + '</div>'
+        + '<div style="flex:1;padding-top:7px;padding-bottom:' + (isLast ? 0 : 10) + 'px">'
+        + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><div style="font-weight:600;font-size:13px;color:var(--text)">' + escapeHtml(ev.titulo || '') + '</div>' + badge + '</div>'
+        + sub
+        + '<div style="font-size:11px;color:var(--muted);margin-top:4px">' + ts + '</div>'
+        + '</div></div>';
+    }).join('');
+  }
+
+  // Abrir agendamento rápido a partir de orçamento aprovado
+  function abrirModalAgendamentoRapido(orcamentoId, numero, clienteNome) {
+    window.location.href = `agendamentos.html?novo=true&orcamento_id=${orcamentoId}&cliente=${encodeURIComponent(clienteNome)}`;
+  }
+  </script>
+<script src="js/api-financeiro.js?v=1"></script>
+<script src="js/orcamento-detalhes.js?v=6"></script>
+</body>
+</html>

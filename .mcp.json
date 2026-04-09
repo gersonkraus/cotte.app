@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "sequentialthinking": {
+      "command": "node",
+      "args": [
+        "/home/gk/Projeto-izi/servers/src/sequentialthinking/dist/index.js"
+      ]
+    },
+    "context7": {
+      "command": "node",
+      "args": [
+        "/home/gk/Projeto-izi/context7/packages/mcp/dist/index.js"
+      ],
+      "env": {
+        "UPSTASH_REDIS_REST_URL": "",
+        "UPSTASH_REDIS_REST_TOKEN": ""
+      }
+    }
+  }
+}

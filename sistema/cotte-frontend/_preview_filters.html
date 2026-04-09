@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Preview — Filtros Agendamentos</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #f1f5f9; font-family: 'DM Sans', system-ui, sans-serif; padding: 48px 32px; }
+  h3 { font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 14px; }
+  :root { --agd-bg: #fff; --agd-border: #e5e7eb; --agd-text: #1e293b; --agd-muted: #94a3b8; }
+
+  .agd-filters-bar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 9px 20px; border-bottom: 1px solid var(--agd-border);
+    background: var(--agd-bg); width: fit-content; border-radius: 10px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  }
+  .agd-search-wrap { position: relative; flex-shrink: 0; }
+  .agd-search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); opacity: .45; pointer-events: none; }
+  .agd-search-input {
+    background: var(--agd-bg); border: 1px solid var(--agd-border);
+    border-radius: 20px; padding: 5px 12px 5px 32px; font-size: 13px;
+    color: var(--agd-text); font-family: inherit; outline: none; width: 180px;
+  }
+
+  /* NOVO estilo dos selects */
+  .agd-filter-select {
+    appearance: none; -webkit-appearance: none;
+    background: var(--agd-bg);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center;
+    border: 1px solid var(--agd-border); border-radius: 20px;
+    padding: 5px 30px 5px 14px; font-size: 12px; font-weight: 500;
+    color: var(--agd-text); font-family: inherit; outline: none;
+    cursor: pointer; transition: border-color .15s, box-shadow .15s;
+  }
+  .agd-filter-select:hover { border-color: #94a3b8; }
+  .agd-filter-select:focus { border-color: #1a73e8; box-shadow: 0 0 0 3px rgba(26,115,232,.12); }
+
+  /* Status dropdown */
+  .agd-status-wrap { position: relative; flex-shrink: 0; }
+  .agd-status-btn { display: flex; align-items: center; gap: 8px; justify-content: space-between; min-width: 150px; cursor: pointer; white-space: nowrap; }
+  .agd-status-dropdown {
+    position: absolute; top: calc(100% + 6px); left: 0;
+    background: var(--agd-bg); border: 1px solid var(--agd-border);
+    border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+    padding: 8px; display: flex; flex-direction: column; gap: 2px; z-index: 200; min-width: 170px;
+  }
+  .agd-status-option {
+    display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+    border-radius: 6px; font-size: 13px; cursor: pointer; color: #1e293b; user-select: none;
+  }
+  .agd-status-option:hover { background: #f1f5f9; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+</style>
+</head>
+<body>
+  <h3>Barra de filtros — Agendamentos</h3>
+  <div class="agd-filters-bar">
+    <div class="agd-search-wrap">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35" stroke-linecap="round"/></svg>
+      <input class="agd-search-input" placeholder="Buscar cliente…">
+    </div>
+    <select class="agd-filter-select">
+      <option>Todos os tipos</option>
+      <option>Serviço</option>
+      <option>Instalação</option>
+    </select>
+    <select class="agd-filter-select">
+      <option>Todos responsáveis</option>
+      <option>João Silva</option>
+    </select>
+    <div class="agd-status-wrap">
+      <button class="agd-filter-select agd-status-btn" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'flex' ? 'none' : 'flex'">
+        <span>Status: Todos</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="agd-status-dropdown" style="display:none">
+        <label class="agd-status-option"><input type="checkbox" checked> <span class="dot" style="background:#fbbc04"></span> Pendente</label>
+        <label class="agd-status-option"><input type="checkbox" checked> <span class="dot" style="background:#34a853"></span> Confirmado</label>
+        <label class="agd-status-option"><input type="checkbox" checked> <span class="dot" style="background:#1a73e8"></span> Em Andamento</label>
+        <label class="agd-status-option"><input type="checkbox"> <span class="dot" style="background:#5f6368"></span> Concluído</label>
+        <label class="agd-status-option"><input type="checkbox"> <span class="dot" style="background:#a142f4"></span> Reagendado</label>
+        <label class="agd-status-option"><input type="checkbox"> <span class="dot" style="background:#ea4335"></span> Cancelado</label>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

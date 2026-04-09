@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem("cotte_tema");if(t){document.documentElement.setAttribute("data-theme",t);}else{document.documentElement.setAttribute("data-theme","light");}})()</script>
+  <title>COTTE — Criar conta grátis</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/style.css?v=3">
+  <style>
+    body { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:20px }
+    .cadastro-wrap { width:100%; max-width:460px }
+    .cadastro-logo { text-align:center; margin-bottom:32px }
+    .logo-mark-lg { display:inline-flex; align-items:center; gap:6px; font-size:22px; font-weight:900; font-family:'Syne',sans-serif }
+    .logo-mark-lg span { background:var(--green); color:#0f1117; padding:4px 10px; border-radius:7px; font-size:18px }
+    .cadastro-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:32px }
+    .cadastro-title { font-size:20px; font-weight:700; margin-bottom:4px }
+    .cadastro-sub   { font-size:13px; color:var(--muted); margin-bottom:24px }
+    .trial-badge    { display:inline-flex; align-items:center; gap:6px; background:rgba(0,229,160,.1); color:var(--green); border:1px solid rgba(0,229,160,.2); border-radius:20px; padding:5px 14px; font-size:12px; font-weight:600; margin-bottom:20px }
+    .success-box    { display:none; text-align:center; padding:20px 0 }
+    .success-icon   { font-size:52px; margin-bottom:12px }
+    .success-title  { font-size:18px; font-weight:700; color:var(--green); margin-bottom:8px }
+    .success-msg    { font-size:13px; color:var(--muted); line-height:1.6; margin-bottom:20px }
+  </style>
+</head>
+<body>
+
+<div class="cadastro-wrap">
+  <!-- Logo -->
+  <div class="cadastro-logo">
+    <div class="logo-mark-lg"><span>C</span> COTTE</div>
+  </div>
+
+  <div class="cadastro-card">
+
+    <!-- Estado: formulário -->
+    <div id="estado-form">
+      <div class="trial-badge">🎁 14 dias grátis — sem cartão de crédito</div>
+      <div class="cadastro-title">Criar sua conta</div>
+      <div class="cadastro-sub">Preencha os dados e receba o acesso pelo WhatsApp em segundos.</div>
+
+      <div class="form-group">
+        <label>Seu nome completo *</label>
+        <input type="text" id="reg-nome" placeholder="João Silva" autocomplete="name">
+      </div>
+      <div class="form-group">
+        <label>Nome da sua empresa *</label>
+        <input type="text" id="reg-empresa" placeholder="Silva Serviços">
+      </div>
+      <div class="form-group">
+        <label>WhatsApp *</label>
+        <input type="tel" id="reg-telefone" placeholder="(48) 99999-9999" autocomplete="tel">
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">Você receberá o login e senha por aqui</div>
+      </div>
+      <div class="form-group">
+        <label>E-mail *</label>
+        <input type="email" id="reg-email" placeholder="joao@empresa.com" autocomplete="email">
+      </div>
+
+      <button class="btn btn-primary" id="btn-cadastrar" onclick="cadastrar()"
+        style="width:100%;justify-content:center;margin-top:8px;font-size:15px;padding:14px">
+        Criar conta grátis →
+      </button>
+
+      <div id="reg-erro" style="display:none;margin-top:12px;padding:10px 14px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);border-radius:8px;font-size:13px;color:#ef4444"></div>
+    </div>
+
+    <!-- Estado: sucesso -->
+    <div class="success-box" id="estado-sucesso">
+      <div class="success-icon">🎉</div>
+      <div class="success-title">Conta criada com sucesso!</div>
+      <div class="success-msg">
+        Suas credenciais de acesso foram enviadas para o seu <strong>WhatsApp</strong>.<br>
+        Verifique as mensagens e acesse o sistema.
+      </div>
+      <a href="./" class="btn btn-primary" style="width:100%;justify-content:center;font-size:15px;padding:14px">
+        Acessar o COTTE →
+      </a>
+    </div>
+
+  </div>
+
+  <div style="text-align:center;margin-top:20px;font-size:13px;color:var(--muted)">
+    Já tem conta? <a href="./" style="color:var(--green)">Entrar</a>
+    &nbsp;·&nbsp;
+    <a href="/" style="color:var(--muted)">Voltar ao início</a>
+  </div>
+</div>
+
+<script src="js/utils.js?v=1"></script>
+<script src="js/api.js?v=17"></script>
+<script>
+  // Se já estiver logado, redireciona
+  if (getToken()) window.location.href = './';
+
+  async function cadastrar() {
+    const btn   = document.getElementById('btn-cadastrar');
+    const erro  = document.getElementById('reg-erro');
+    const nome     = document.getElementById('reg-nome').value.trim();
+    const empresa  = document.getElementById('reg-empresa').value.trim();
+    const telefone = document.getElementById('reg-telefone').value.trim();
+    const email    = document.getElementById('reg-email').value.trim();
+
+    erro.style.display = 'none';
+
+    if (!nome || !empresa || !telefone || !email) {
+      erro.textContent = 'Preencha todos os campos obrigatórios.';
+      erro.style.display = 'block';
+      return;
+    }
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      erro.textContent = 'Informe um e-mail válido.';
+      erro.style.display = 'block';
+      return;
+    }
+    if (telefone.replace(/\D/g, '').length < 10) {
+      erro.textContent = 'Informe um WhatsApp válido com DDD.';
+      erro.style.display = 'block';
+      return;
+    }
+
+    setLoading(btn, true);
+    try {
+      await api.post('/auth/registro-publico', {
+        nome,
+        empresa_nome: empresa,
+        email,
+        telefone,
+      });
+      document.getElementById('estado-form').style.display = 'none';
+      document.getElementById('estado-sucesso').style.display = 'block';
+    } catch(e) {
+      erro.textContent = e.message || 'Erro ao criar conta. Tente novamente.';
+      erro.style.display = 'block';
+    } finally {
+      setLoading(btn, false);
+    }
+  }
+
+  // Submete com Enter
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter') cadastrar();
+  });
+</script>
+</body>
+</html>

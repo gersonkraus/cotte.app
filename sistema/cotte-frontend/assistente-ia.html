@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assistente COTTE</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="css/style.css?v=7">
+    <link rel="stylesheet" href="css/assistente-ia.css?v=4">
+    <!-- Dependências da IA para Markdown e Gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <main class="main">
+        <div class="topbar">
+            <div class="topbar-title-wrap">
+                <div class="page-title">Assistente Inteligente</div>
+                <div class="page-sub">Gestão por Comandos</div>
+            </div>
+            <div class="topbar-actions">
+                <button type="button" class="btn btn-ghost" id="btnNovaConversaTop" title="Limpar histórico e começar de novo">Nova conversa</button>
+                <button type="button" class="btn btn-secondary" onclick="location.href='index.html'">
+                    Voltar
+                </button>
+            </div>
+        </div>
+
+        <div class="ai-assistant-container">
+            
+            <!-- ── Hero ── -->
+            <div class="ai-hero">
+                <div class="ai-hero-icon">
+                    <svg viewBox="0 0 24 24" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path></svg>
+                </div>
+                <div class="ai-hero-info">
+                    <h1 class="ai-hero-title">Tudo o que sua empresa precisa, em um comando.</h1>
+                    <p class="ai-hero-sub">Organize finanças, clientes e orçamentos com inteligência e velocidade.</p>
+                </div>
+                <div class="ai-status-badge" id="aiStatusBadge" style="margin-left: auto;" aria-live="polite">
+                    <div class="ai-status-dot" id="aiStatusDot"></div>
+                    <span id="aiStatusLabel">IA Pronta</span>
+                </div>
+            </div>
+
+            <!-- ── Chat Area ── -->
+            <div class="chat-container">
+                <!-- Mobile Header -->
+                <div class="chat-header">
+                    <div class="chat-header-avatar">
+                       <svg viewBox="0 0 24 24" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path></svg>
+                    </div>
+                    <div class="chat-header-info">
+                        <div class="chat-header-name">Assistente COTTE</div>
+                        <div class="chat-header-status" id="aiStatusBadgeMobile" aria-live="polite">
+                            <div class="chat-header-status-dot" id="aiStatusDotMobile"></div>
+                            <span id="aiStatusLabelMobile">Ativo agora</span>
+                        </div>
+                    </div>
+                    <div class="chat-header-actions">
+                        <button type="button" class="chat-header-new-btn" id="btnNovaConversaMobile" title="Nova conversa">Nova</button>
+                        <a class="embed-expand-btn" href="assistente-ia.html" target="_blank" title="Abrir em tela cheia">⤢</a>
+                    </div>
+                </div>
+
+                <div class="chat-messages" id="chatMessages" role="log" aria-live="polite" aria-relevant="additions" aria-label="Mensagens do assistente">
+                    <!-- Welcome Message -->
+                    <div class="message ai" id="welcomeState">
+                        <div class="welcome-msg">
+                            <div class="wpp-title">Olá! Sou o seu copiloto no COTTE. 🚀</div>
+                            <p style="font-size: 0.875rem; color: var(--ai-muted); margin-bottom: 24px;">Escolha uma ação para começar ou digite qualquer dúvida sobre seu negócio.</p>
+                            
+                            <div class="suggestions-section">
+                                <div class="suggestion-group">
+                                    <span class="suggestion-group-title">Financeiro</span>
+                                    <div class="shortcuts-grid">
+                                        <button type="button" class="shortcut" data-quick-message="Quanto tenho em caixa hoje?">
+                                            <span class="shortcut-icon">💰</span>
+                                            <span class="shortcut-label">Quanto tenho em caixa hoje?</span>
+                                        </button>
+                                        <button type="button" class="shortcut" data-quick-message="Quem está devendo?">
+                                            <span class="shortcut-icon">💸</span>
+                                            <span class="shortcut-label">Quem está devendo?</span>
+                                        </button>
+                                        <button type="button" class="shortcut" data-quick-message="Resumo financeiro do mês">
+                                            <span class="shortcut-icon">📊</span>
+                                            <span class="shortcut-label">Resumo financeiro do mês</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="suggestion-group" style="margin-top: 8px;">
+                                    <span class="suggestion-group-title">Vendas & Serviços</span>
+                                    <div class="shortcuts-grid">
+                                        <button type="button" class="shortcut" data-quick-message="Gerar orçamento para cliente">
+                                            <span class="shortcut-icon">📝</span>
+                                            <span class="shortcut-label">Gerar novo orçamento</span>
+                                        </button>
+                                        <button type="button" class="shortcut" data-quick-message="Quais orçamentos pendentes?">
+                                            <span class="shortcut-icon">⏳</span>
+                                            <span class="shortcut-label">Orçamentos pendentes</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="button" class="chat-scroll-bottom-btn" id="chatScrollBottomBtn" aria-label="Ir para a mensagem mais recente" title="Últimas mensagens">↓</button>
+
+                <!-- Input Area -->
+                <div class="chat-input overflow-visible">
+                    <div class="input-wrapper" style="position: relative;">
+                        <!-- Menu Slash Commands -->
+                        <div id="slashCommandsMenu" class="slash-commands-menu" style="display: none;">
+                            <div class="slash-commands-list" id="slashCommandsList" role="listbox"></div>
+                        </div>
+
+                        <div class="input-group">
+                            <textarea id="messageInput" rows="1" placeholder="Pergunte algo ou dê um comando..." autocomplete="off" aria-label="Mensagem para o assistente"></textarea>
+                            
+                            <div class="input-actions-right">
+                                <button type="button" id="voiceButton" title="Ditar por voz" class="chat-input-btn btn-voice" aria-pressed="false">
+                                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                                </button>
+                                <button type="button" id="sendButton" title="Enviar" class="chat-input-btn btn-send">
+                                    <svg class="icon-send" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                                    <svg class="icon-stop" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" stroke="none" style="display: none;"><rect x="6" y="6" width="12" height="12" rx="2" ry="2"></rect></svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="input-hint">Enter para enviar, Shift+Enter para pular linha</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal: confirmação de reenvio (WhatsApp / e-mail) -->
+    <div class="modal-overlay" id="modal-reenvio-orcamento" role="dialog" aria-modal="true" aria-labelledby="reenvio-orc-titulo">
+        <div class="modal" style="max-width:420px">
+            <div class="modal-header">
+                <div class="modal-title" id="reenvio-orc-titulo">Confirmar reenvio</div>
+                <button type="button" class="modal-close" id="reenvio-orc-btn-fechar" aria-label="Fechar">✕</button>
+            </div>
+            <div class="modal-body">
+                <p id="reenvio-orc-mensagem" style="margin:0;font-size:14px;line-height:1.55;color:var(--text);"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="reenvio-orc-btn-cancelar">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="reenvio-orc-btn-confirmar">Enviar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/utils.js?v=1"></script>
+<script src="js/api.js?v=17"></script>
+    <script src="js/services/ApiService.js?v=2"></script>
+    <script>if (new URLSearchParams(location.search).get('embed') === '1') { document.body.classList.add('embed-mode'); document.addEventListener('DOMContentLoaded', function(){ var el = document.getElementById('messageInput'); if (el) el.placeholder = 'Pergunte algo...'; }); }</script>
+    <script src="js/layout.js?v=5"></script>
+    <script>
+      // Otimização para Tema Escuro antes de carregar o layout
+      if (localStorage.getItem('cotte_tema') === 'dark') {
+          document.documentElement.setAttribute('data-theme', 'dark');
+      }
+      inicializarLayout('assistente-ia');
+      // Proteção de UI por permissão de papel
+      if (typeof Permissoes !== 'undefined' && !Permissoes.pode('ia')) {
+        document.querySelector('.ai-assistant-container').innerHTML = `
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;text-align:center;padding:20px;background:var(--ai-card);border-radius:var(--ai-radius);border:1px solid var(--ai-border)">
+            <div style="font-size:48px;margin-bottom:20px">🔒</div>
+            <h2 style="margin-bottom:10px">Assistente IA Restrito</h2>
+            <p style="color:var(--ai-muted);max-width:400px">Você não tem permissão para usar o Assistente Inteligente. Solicite acesso ao gestor da sua empresa.</p>
+            <button class="btn btn-primary" style="margin-top:20px" onclick="window.location.href='./'">Voltar ao Dashboard</button>
+          </div>
+        `;
+      }
+      // Proteção de UI por plano (módulo ia)
+      const clienteApi = window.ApiService || window.api;
+      if (clienteApi && typeof clienteApi.get === 'function') clienteApi.get('/ai/status').catch(e => {
+        if (e.message && e.message.includes('não está disponível')) {
+          document.querySelector('.ai-assistant-container').innerHTML = `
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;text-align:center;padding:32px">
+              <div style="font-size:56px;margin-bottom:16px">🔒</div>
+              <h2 style="font-size:20px;font-weight:700;margin:0 0 8px">Módulo não disponível</h2>
+              <p style="color:var(--muted);max-width:380px;margin:0 0 24px">O módulo <strong>IA Hub</strong> não está incluso no seu plano atual. Faça upgrade para ter acesso.</p>
+              <div style="display:flex;gap:12px">
+                <button class="btn btn-primary" onclick="window.location.href='configuracoes.html#plano'">Ver planos</button>
+                <button class="btn btn-ghost" onclick="history.back()">Voltar</button>
+              </div>
+            </div>`;
+        }
+      });
+    </script>
+    <script src="js/orcamento-reenvio-modal.js?v=1"></script>
+    <script src="js/assistente-ia.js?v=14"></script>
+    <div class="notif" id="notif">
+        <div class="notif-icon">✅</div>
+        <div>
+            <div class="notif-title"></div>
+            <div class="notif-sub"></div>
+        </div>
+    </div>
+</body>
+</html>

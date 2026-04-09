@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <script>(function(){var t=localStorage.getItem("cotte_tema");if(t){document.documentElement.setAttribute("data-theme",t);}else{document.documentElement.setAttribute("data-theme","light");}})()</script>
+  <title>COTTE — Comercial</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="css/style.css?v=3">
+  <link rel="stylesheet" href="css/precision-atelier.css?v=2">
+  <link rel="stylesheet" href="css/comercial.css?v=5">
+  <link rel="stylesheet" href="css/comercial-precision.css?v=1">
+</head>
+<body>
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main precision-layout">
+    <header class="crm-topbar">
+      <div class="crm-topbar-left">
+        <h1 class="crm-topbar-title">Comercial</h1>
+        <span class="crm-topbar-badge">CRM Hub</span>
+      </div>
+      <div class="crm-topbar-actions">
+        <span id="topbar-notificacoes"></span>
+        <button class="btn btn-primary" id="btn-novo-lead" type="button">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          Novo Lead
+        </button>
+      </div>
+    </header>
+
+    <div class="content-container">
+      <!-- Mobile Tab Selector (Apenas Mobile) -->
+      <div class="mobile-tabs-selector" style="display:none">
+        <div class="mobile-tabs-current" id="mobile-tabs-current">📊 Dashboard</div>
+        <div class="mobile-tabs-menu" id="mobile-tabs-menu">
+          <!-- Gerado via JS -->
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="admin-tabs" role="tablist" aria-label="Menu Comercial">
+        <button class="admin-tab active" data-tab="dashboard" role="tab" aria-selected="true" aria-controls="tab-dashboard" id="tab-dashboard-btn">
+          <span class="admin-tab-icon">📊</span> Dashboard
+        </button>
+        <button class="admin-tab" data-tab="pipeline" role="tab" aria-selected="false" aria-controls="tab-pipeline" id="tab-pipeline-btn">
+          <span class="admin-tab-icon">🔄</span> Pipeline
+        </button>
+        <button class="admin-tab" data-tab="leads" role="tab" aria-selected="false" aria-controls="tab-leads" id="tab-leads-btn">
+          <span class="admin-tab-icon">👥</span> Leads
+        </button>
+        <button class="admin-tab" data-tab="templates" role="tab" aria-selected="false" aria-controls="tab-templates" id="tab-templates-btn">
+          <span class="admin-tab-icon">📝</span> Templates
+        </button>
+        <button class="admin-tab" data-tab="propostas-publicas" role="tab" aria-selected="false" aria-controls="tab-propostas-publicas" id="tab-propostas-publicas-btn">
+          <span class="admin-tab-icon">📄</span> Propostas Públicas
+        </button>
+        <button class="admin-tab" data-tab="campanhas" role="tab" aria-selected="false" aria-controls="tab-campanhas" id="tab-campanhas-btn">
+          <span class="admin-tab-icon">📧</span> Campanhas
+        </button>
+        <button class="admin-tab" data-tab="lembretes" role="tab" aria-selected="false" aria-controls="tab-lembretes" id="tab-lembretes-btn">
+          <span class="admin-tab-icon">⏰</span> Lembretes
+        </button>
+        <button class="admin-tab" data-tab="importacao" role="tab" aria-selected="false" aria-controls="tab-importacao" id="tab-importacao-btn">
+          <span class="admin-tab-icon">📥</span> Importação
+        </button>
+        <button class="admin-tab" data-tab="cadastros" role="tab" aria-selected="false" aria-controls="tab-cadastros" id="tab-cadastros-btn">
+          <span class="admin-tab-icon">📋</span> Cadastros
+        </button>
+        <button class="admin-tab" data-tab="config" role="tab" aria-selected="false" aria-controls="tab-config" id="tab-config-btn">
+          <span class="admin-tab-icon">⚙️</span> Config
+        </button>
+      </div>
+
+      <!-- ═══ TAB: Dashboard ═══ -->
+      <div class="tab-panel active" id="tab-dashboard" role="tabpanel" aria-labelledby="tab-dashboard-btn">
+        <div id="metrics-grid"><div class="loading"><div class="spinner"></div></div></div>
+        <div class="dashboard-grid">
+          <div class="dash-section">
+            <header class="dash-section-header">
+              <div class="dash-section-title">
+                <h2>📌 O que fazer hoje</h2>
+                <span class="badge" id="badge-followups">0</span>
+              </div>
+              <p class="dash-section-hint">Com base no <strong>Próximo contato</strong> do lead (pipeline aberto).</p>
+            </header>
+            <div class="dash-section-body">
+              <div id="followups-list" class="action-list"><div class="loading"><div class="spinner"></div></div></div>
+            </div>
+          </div>
+          <div class="dash-sidebar">
+            <div class="dash-section">
+              <header class="dash-section-header">
+                <div class="dash-section-title">
+                  <h2>🕐 Leads recentes</h2>
+                </div>
+              </header>
+              <div class="dash-section-body">
+                <div id="recent-leads" class="action-list"><div class="loading"><div class="spinner"></div></div></div>
+              </div>
+            </div>
+            <div class="dash-section" style="margin-top:var(--space-8)">
+              <header class="dash-section-header">
+                <div class="dash-section-title">
+                  <h2>🚀 Novos Clientes (Trial)</h2>
+                  <span class="badge" id="badge-novos-clientes">0</span>
+                </div>
+              </header>
+              <div class="dash-section-body">
+                <div id="novos-clientes-list" class="action-list"><div class="loading"><div class="spinner"></div></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ TAB: Pipeline ═══ -->
+      <div class="tab-panel" id="tab-pipeline">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+          <div style="font-size:13px;color:var(--muted)">Arraste os cards entre colunas para atualizar o status</div>
+          <button class="btn btn-secondary btn-sm" id="btn-toggle-fechados">👁 Mostrar fechados</button>
+        </div>
+        <div class="kanban" id="kanban-board">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <!-- ═══ TAB: Leads ═══ -->
+      <div class="tab-panel" id="tab-leads">
+        <div id="leads-followup-banner" class="leads-followup-banner" style="display:none" role="status" aria-live="polite"></div>
+        <div class="leads-toolbar">
+          <input type="search" class="search-input" id="leads-search" placeholder="Buscar por empresa, responsável ou contato..." autocomplete="off">
+          <select id="leads-filter-status">
+            <option value="">Todos os status</option>
+          </select>
+          <select id="leads-filter-score">
+            <option value="">Todo score</option>
+            <option value="quente">🔴 Quente</option>
+            <option value="morno">🟡 Morno</option>
+            <option value="frio">🔵 Frio</option>
+          </select>
+          <select id="leads-filter-arquivados">
+            <option value="ativos">Apenas ativos</option>
+            <option value="arquivados">Apenas arquivados</option>
+            <option value="todos">Todos</option>
+          </select>
+        </div>
+        <div class="leads-table-wrap">
+          <table class="leads-table" id="leads-table">
+            <thead>
+              <tr>
+                <th data-col="nome_empresa">Empresa ↕</th>
+                <th data-col="nome_responsavel">Responsável ↕</th>
+                <th>Contato</th>
+                <th>Segmento</th>
+                <th>Origem</th>
+                <th data-col="status_pipeline">Status ↕</th>
+                <th data-col="lead_score">Score ↕</th>
+                <th data-col="criado_em">Criado ↕</th>
+                <th style="width:120px">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="leads-tbody"><tr><td colspan="9"><div class="loading"><div class="spinner"></div></div></td></tr></tbody>
+          </table>
+        </div>
+        <!-- Mobile Cards para Leads -->
+        <div class="leads-mobile-cards" id="leads-mobile-cards">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+        <div class="pagination" id="leads-pagination"></div>
+      </div>
+
+      <!-- ═══ TAB: Templates ═══ -->
+      <div class="tab-panel" id="tab-templates">
+        <div class="sec">
+          <div class="sec-head">
+            <div class="sec-title">📝 Templates de Mensagem</div>
+            <button type="button" class="btn btn-primary btn-sm" id="btn-nova-campanha-mensagem">+ Novo</button>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="crud-table">
+              <thead><tr><th>Nome</th><th>Tipo</th><th>Canal</th><th>Status</th><th>Ações</th></tr></thead>
+              <tbody id="templates-tbody"><tr><td colspan="5"><div class="loading"><div class="spinner"></div></div></td></tr></tbody>
+            </table>
+          </div>
+          <div class="mobile-cards-list" id="templates-cards-mobile"></div>
+        </div>
+      </div>
+
+      <!-- ═══ TAB: Propostas Públicas ═══ -->
+      <div class="tab-panel" id="tab-propostas-publicas" role="tabpanel" aria-labelledby="tab-propostas-publicas-btn">
+        <div class="sec">
+          <div class="sec-head">
+            <div class="sec-title">📄 Propostas Públicas</div>
+            <button type="button" class="btn btn-primary btn-sm" id="btn-nova-proposta-publica">+ Nova Proposta</button>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="crud-table">
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Blocos</th>
+                  <th>Variáveis</th>
+                  <th>Status</th>
+                  <th>Criado</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="propostas-publicas-tbody">
+                <tr><td colspan="6"><div class="loading"><div class="spinner"></div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="mobile-cards-list" id="propostas-publicas-cards-mobile"></div>
+        </div>
+      </div>
+
+      <!-- ═══ TAB: Campanhas ═══ -->
+      <div class="tab-panel" id="tab-campanhas">
+        <div class="sec">
+          <div class="sec-head">
+            <div class="sec-title">📧 Campanhas</div>
+            <button type="button" class="btn btn-primary btn-sm" id="btn-nova-campanha">+ Nova Campanha</button>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="crud-table">
+              <thead><tr><th>Nome</th><th>Canal</th><th>Status</th><th>Leads</th><th>Enviados</th><th>Entregues</th><th>Respondidos</th><th>Ações</th></tr></thead>
+              <tbody id="campanhas-tbody"><tr><td colspan="8"><div class="loading"><div class="spinner"></div></div></td></tr></tbody>
+            </table>
+          </div>
+          <div class="mobile-cards-list" id="campanhas-cards-mobile"></div>
+        </div>
+      </div>
+
+      <!-- ═══ TAB: Lembretes ═══ -->
+      <div class="tab-panel" id="tab-lembretes">
+        <div class="sec">
+          <div class="sec-head">
+            <div class="sec-title">⏰ Lembretes</div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <select id="lembretes-filter-status">
+                <option value="">Todos</option>
+                <option value="pendente">Pendentes</option>
+                <option value="atrasado">Atrasados</option>
+                <option value="concluido">Concluídos</option>
+              </select>
+              <button type="button" class="btn btn-primary btn-sm" id="btn-novo-lembrete">+ Novo</button>
+            </div>
+          </div>
+          <div class="sec-body">
+            <p class="dash-sec-hint dash-sec-hint--compact">Compromissos com título e data (agenda). O bloco «O que fazer hoje» no dashboard usa o campo <strong>Próximo contato</strong> do cadastro do lead.</p>
+            <div id="lembretes-list" class="action-list"><div class="loading"><div class="spinner"></div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ TAB: Cadastros ═══ -->
+      <div class="tab-panel" id="tab-cadastros">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">🏷️ Segmentos</div>
+              <button class="btn btn-primary btn-sm" id="btn-novo-segmento">+ Novo</button>
+            </div>
+            <div style="overflow-x:auto">
+              <table class="crud-table"><thead><tr><th>Nome</th><th>Status</th><th>Ações</th></tr></thead>
+              <tbody id="segmentos-tbody"></tbody></table>
+            </div>
+            <div class="mobile-cards-list" id="segmentos-cards-mobile"></div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">📍 Origens</div>
+              <button class="btn btn-primary btn-sm" id="btn-nova-origem">+ Nova</button>
+            </div>
+            <div style="overflow-x:auto">
+              <table class="crud-table"><thead><tr><th>Nome</th><th>Status</th><th>Ações</th></tr></thead>
+              <tbody id="origens-tbody"></tbody></table>
+            </div>
+            <div class="mobile-cards-list" id="origens-cards-mobile"></div>
+          </div>
+        </div>
+        <div class="sec">
+          <div class="sec-head">
+            <div class="sec-title">🔄 Etapas do Pipeline</div>
+            <button class="btn btn-primary btn-sm">+ Nova</button>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="crud-table">
+              <thead><tr><th>Emoji</th><th>Nome</th><th>Slug</th><th>Cor</th><th>Ordem</th><th>Tipo</th><th>Status</th><th>Ações</th></tr></thead>
+              <tbody id="pipeline-stages-tbody"></tbody>
+              </table>
+            </div>
+            <div class="mobile-cards-list" id="historico-cards-mobile"></div>
+          </div>
+      </div>
+
+      <!-- ═══ TAB: Importação ═══ -->
+      <div class="tab-panel" id="tab-importacao" role="tabpanel" aria-labelledby="tab-importacao-btn">
+        <div class="sec">
+          <div class="sec-head">
+            <div class="sec-title">📥 Importação de Leads</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button type="button" class="btn btn-ghost btn-sm" id="btn-toggle-historico-import">📋 Exibir importações anteriores</button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-dash-from-import">← Dashboard</button>
+            </div>
+          </div>
+          
+          <!-- Stepper compacto -->
+          <div class="import-stepper">
+            <div class="import-step-indicator">
+              <div class="import-step-node"><div class="import-step-circle active" id="sc-1">1</div><div class="import-step-label">Colar Dados</div></div>
+              <div class="import-step-line" id="sl-12"></div>
+              <div class="import-step-node"><div class="import-step-circle" id="sc-2">2</div><div class="import-step-label">Revisar</div></div>
+              <div class="import-step-line" id="sl-23"></div>
+              <div class="import-step-node"><div class="import-step-circle" id="sc-3">3</div><div class="import-step-label">Configurar</div></div>
+              <div class="import-step-line" id="sl-34"></div>
+              <div class="import-step-node"><div class="import-step-circle" id="sc-4">4</div><div class="import-step-label">Resultado</div></div>
+            </div>
+          </div>
+
+          <!-- Etapa 1: Entrada de Dados (unificado) -->
+          <div class="import-step" id="step-1">
+            <div class="m-card">
+              <h4 style="margin:0 0 4px 0">Cole seus contatos</h4>
+              <p style="font-size:13px;color:var(--muted);margin:0 0 16px 0">A IA vai analisar automaticamente e extrair nome, WhatsApp, e-mail e cidade de qualquer formato.</p>
+              
+              <textarea id="text-data" rows="10" style="width:100%;padding:14px;border:1px solid var(--border);border-radius:10px;font-family:monospace;font-size:13px;line-height:1.6;resize:vertical;background:var(--surface);color:var(--text);transition:border-color .2s" placeholder="Cole aqui listas, e-mails, planilhas copiadas...
+
+Exemplos de formatos aceitos:
+  João Silva - 5548999999999 - joao@email.com - São Paulo
+  Maria Santos, 48988888888, maria@teste.com
+  (11) 97777-6666 - Pedro Costa
+  Ana Lima — ana@empresa.com.br — Belo Horizonte"></textarea>
+              
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;flex-wrap:wrap;gap:8px">
+                <div style="display:flex;gap:8px;align-items:center">
+                  <label class="btn btn-ghost btn-sm" id="btn-csv-trigger" for="csv-file" style="cursor:pointer;margin:0">
+                    📄 CSV
+                    <input type="file" id="csv-file" accept=".csv" style="display:none">
+                  </label>
+                  <span id="csv-file-name" style="font-size:12px;color:var(--muted)"></span>
+                </div>
+                <button class="btn btn-primary" id="btn-analisar-import">🤖 Analisar com IA →</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Etapa 2: Pré-visualização -->
+          <div class="import-step hidden" id="step-2">
+            <div class="m-card">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+                <h4 style="margin:0">Revisar contatos encontrados</h4>
+                <div style="display:flex;gap:12px;font-size:12px">
+                  <span style="color:var(--green)">✓ <strong id="valid-records">0</strong> válidos</span>
+                  <span style="color:#f59e0b">⟳ <strong id="duplicate-records">0</strong> duplicados</span>
+                  <span style="color:var(--red)">✕ <strong id="invalid-records">0</strong> inválidos</span>
+                </div>
+              </div>
+
+              <!-- Barra de seleção -->
+              <div class="preview-select-bar">
+                <label class="preview-select-all">
+                  <input type="checkbox" id="select-all-leads" checked>
+                  Selecionar todos válidos
+                </label>
+                <span id="selection-info" class="preview-selection-info">0 selecionados</span>
+              </div>
+
+              <div class="preview-table-wrap">
+                <table class="preview-table" id="preview-table">
+                  <thead>
+                    <tr>
+                      <th class="preview-col-check"></th>
+                      <th>Nome</th>
+                      <th>Empresa</th>
+                      <th>WhatsApp</th>
+                      <th>E-mail</th>
+                      <th>Cidade</th>
+                      <th class="preview-col-status">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+
+              <div style="display:flex;gap:10px;margin-top:16px;justify-content:space-between">
+                <button class="btn btn-ghost" id="btn-voltar-import-step1">← Voltar e editar</button>
+                <button class="btn btn-primary" id="btn-importar">Continuar →</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Etapa 3: Configurações -->
+          <div class="import-step hidden" id="step-3">
+            <div class="m-card">
+              <h4 style="margin:0 0 16px 0">Configurar importação</h4>
+              <form id="import-config-form">
+                <div class="fg">
+                  <label class="fl">Segmento</label>
+                  <select class="fs" id="segment-select">
+                    <option value="">Nenhum</option>
+                  </select>
+                </div>
+
+                <div class="fg" style="margin-top:12px">
+                  <label class="fl">Template</label>
+                  <select class="fs" id="template-select-import">
+                    <option value="">Nenhum</option>
+                  </select>
+                  <p style="font-size:11px;color:var(--muted);margin-top:4px">Opcional: modelo de mensagem para usar no envio em lote (WhatsApp ou e-mail) após a importação.</p>
+                </div>
+
+                <div style="display:flex;gap:10px;margin-top:20px;justify-content:space-between">
+                  <button type="button" class="btn btn-ghost" id="btn-voltar-import-step2">← Voltar</button>
+                  <button type="submit" class="btn btn-primary">📥 Importar agora</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- Etapa 4: Resultado -->
+          <div class="import-step hidden" id="step-4">
+            <div class="m-card">
+              <h4 style="margin:0 0 16px 0">Resultado</h4>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+                <div style="padding:20px;background:#10b98110;border:1px solid #10b98130;border-radius:12px;text-align:center">
+                  <div style="font-size:32px;font-weight:800;color:#10b981" id="success-count">0</div>
+                  <div style="font-size:12px;color:var(--muted);margin-top:4px">Importados</div>
+                </div>
+                <div style="padding:20px;background:#ef444410;border:1px solid #ef444430;border-radius:12px;text-align:center">
+                  <div style="font-size:32px;font-weight:800;color:#ef4444" id="error-count">0</div>
+                  <div style="font-size:12px;color:var(--muted);margin-top:4px">Erros</div>
+                </div>
+              </div>
+
+              <div id="success-list" style="margin-bottom:12px">
+                <ul id="success-ul" style="font-size:13px;color:var(--muted);padding-left:20px;max-height:150px;overflow-y:auto"></ul>
+              </div>
+              <div id="error-list">
+                <ul id="error-ul" style="font-size:13px;color:var(--red);padding-left:20px;max-height:150px;overflow-y:auto"></ul>
+              </div>
+
+              <div style="display:flex;gap:10px;margin-top:20px;justify-content:space-between">
+                <button class="btn btn-ghost">📥 Nova importação</button>
+                <button class="btn btn-primary">Ver leads →</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Histórico de Importações (exibido sob demanda) -->
+          <div id="import-historico-panel" class="import-historico-hidden" style="margin-top:24px">
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">📋 Importações Anteriores</div>
+              <button type="button" class="btn btn-ghost btn-sm" id="btn-atualizar-historico-import">🔄 Atualizar lista</button>
+            </div>
+            <div style="overflow-x:auto">
+              <table class="crud-table">
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>Método</th>
+                    <th style="text-align:center">Importados</th>
+                    <th style="text-align:center">Válidos</th>
+                    <th style="text-align:center">Erros</th>
+                    <th>Data</th>
+                  </tr>
+                </thead>
+                <tbody id="historico-importacoes-tbody">
+                  <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted)">Carregue a lista com o botão acima.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="mobile-cards-list" id="historico-cards-mobile"></div>
+          </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ TAB: Config ═══ -->
+      <div class="tab-panel" id="tab-config">
+        <div class="sec" style="max-width:640px">
+          <div class="sec-head">
+            <div class="sec-title">⚙️ Configurações do Comercial</div>
+          </div>
+          <div class="sec-body">
+            <div class="fg">
+              <label class="fl">Link de demonstração</label>
+              <input type="url" class="fi" id="cfg-link-demo" placeholder="https://demo.cotte.app">
+            </div>
+            <div class="fg">
+              <label class="fl">Link de proposta</label>
+              <input type="url" class="fi" id="cfg-link-proposta" placeholder="https://proposta.cotte.app">
+            </div>
+            <div class="fg">
+              <label class="fl">Canal preferencial</label>
+              <select class="fs" id="cfg-canal-pref">
+                <option value="whatsapp">WhatsApp</option>
+                <option value="email">E-mail</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label class="fl">Assinatura comercial</label>
+              <textarea class="ft" id="cfg-assinatura" rows="3" placeholder="Assinatura para e-mails e mensagens"></textarea>
+            </div>
+            <button class="btn btn-primary">Salvar Configurações</button>
+          </div>
+        </div>
+      </div>
+    </div>
+</main>
+
+  <!-- ═══ MODALS ═══ -->
+
+  <!-- Modal Lead (Novo/Editar) -->
+  <div class="modal-overlay" id="modal-lead">
+    <div class="modal" style="max-width:640px">
+      <header class="modal-header">
+        <div>
+          <h3 class="modal-title" id="modal-lead-title">Novo Lead</h3>
+          <p style="font:var(--text-label-sm);color:var(--color-on-surface-muted);margin-top:4px">Preencha os dados do contato comercial</p>
+        </div>
+        <button class="modal-close" aria-label="Fechar">&times;</button>
+      </header>
+      <div class="modal-body">
+        <form id="form-lead">
+          <input type="hidden" id="lead-id">
+          <div style="margin-bottom:16px">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin-bottom:12px">👤 Contato</div>
+            <div class="fr">
+              <div class="fg"><label class="fl">Responsável *</label><input type="text" class="fi" id="lead-nome-responsavel" required placeholder="Nome completo"></div>
+              <div class="fg"><label class="fl">Empresa *</label><input type="text" class="fi" id="lead-nome-empresa" required placeholder="Nome da empresa"></div>
+            </div>
+            <div class="fr">
+              <div class="fg"><label class="fl">WhatsApp</label><input type="tel" class="fi" id="lead-whatsapp" placeholder="(48) 99999-9999"></div>
+              <div class="fg"><label class="fl">E-mail</label><input type="email" class="fi" id="lead-email" placeholder="email@empresa.com"></div>
+            </div>
+            <div class="fg"><label class="fl">Cidade</label><input type="text" class="fi" id="lead-cidade" placeholder="Cidade do lead"></div>
+          </div>
+          <div style="border-top:1px solid var(--border);padding-top:16px;margin-bottom:16px">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin-bottom:12px">💼 Negócio</div>
+            <div class="fr">
+              <div class="fg"><label class="fl">Segmento</label><select class="fs" id="lead-segmento-id"><option value="">Selecione...</option></select></div>
+              <div class="fg"><label class="fl">Origem do Lead</label><select class="fs" id="lead-origem-id"><option value="">Selecione...</option></select></div>
+            </div>
+            <div class="fr">
+              <div class="fg"><label class="fl">Interesse Plano</label>
+                <select class="fs" id="lead-plano"><option value="">Selecione...</option><option value="trial">Trial</option><option value="starter">Starter</option><option value="pro">Pro</option><option value="business">Business</option></select>
+              </div>
+              <div class="fg"><label class="fl">Valor Proposto (R$)</label><input type="number" class="fi" id="lead-valor" step="0.01" placeholder="0,00"></div>
+            </div>
+            <div class="fg"><label class="fl">Próximo Contato</label><input type="datetime-local" class="fi" id="lead-proximo-contato"></div>
+            <div class="fg"><label class="fl">ID Empresa (opcional)</label><input type="number" class="fi" id="lead-empresa-id" placeholder="Vincular empresa existente no sistema"></div>
+            <div style="border-top:1px dashed var(--border);padding-top:14px;margin-top:14px">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin-bottom:12px">📄 Vincular Proposta</div>
+              <div class="fr">
+                <div class="fg">
+                  <label class="fl">Proposta Pública</label>
+                  <select class="fs" id="lead-proposta-publica-id">
+                    <option value="">Não vincular agora</option>
+                  </select>
+                </div>
+                <div class="fg">
+                  <label class="fl">Validade (dias)</label>
+                  <input type="number" class="fi" id="lead-proposta-validade" min="1" max="365" value="7">
+                </div>
+              </div>
+              <p style="font-size:12px;color:var(--color-on-surface-muted);margin:8px 0 0">
+                Ao salvar o lead com uma proposta selecionada, o sistema já cria o vínculo e gera o link público.
+              </p>
+              <div id="lead-proposta-vinculada-info" style="display:none;margin-top:10px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);font-size:12px;color:var(--color-on-surface-muted)"></div>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:12px">📝 Observações</div>
+            <div class="fg"><textarea class="ft" id="lead-observacoes" placeholder="Informações adicionais sobre este lead..."></textarea></div>
+          </div>
+        </form>
+      </div>
+      <footer class="modal-footer">
+        <button class="btn btn-secondary">Cancelar</button>
+        <button class="btn btn-primary" id="btn-salvar-lead">Salvar Lead</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Modal Detalhe Lead (CRM Profissional) -->
+  <div class="modal-overlay" id="modal-detail">
+    <div class="modal wide" style="max-width:820px;max-height:92vh;display:flex;flex-direction:column">
+      <div id="detail-content"><div class="loading" style="padding:60px"><div class="spinner"></div></div></div>
+    </div>
+  </div>
+
+  <!-- Modal WhatsApp -->
+  <div class="modal-overlay" id="modal-whatsapp">
+    <div class="modal">
+      <header class="modal-header">
+        <h3 class="modal-title">Enviar WhatsApp</h3>
+        <button class="modal-close" aria-label="Fechar">&times;</button>
+      </header>
+      <div class="modal-body">
+        <div class="fg"><label class="fl">Template (opcional)</label><select class="fs" id="wa-template"><option value="">Escrever manualmente</option></select></div>
+        <div class="fg"><label class="fl">Mensagem</label><textarea class="ft" id="wa-mensagem" rows="6"></textarea></div>
+        <div id="wa-preview-area" style="display:none"><div class="fl">Preview</div><div class="tpl-preview" id="wa-preview"></div></div>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn btn-secondary">Cancelar</button>
+        <button type="button" class="btn btn-primary">Enviar</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Modal Email -->
+  <div class="modal-overlay" id="modal-email">
+    <div class="modal">
+      <header class="modal-header">
+        <h3 class="modal-title">Enviar E-mail</h3>
+        <button class="modal-close" aria-label="Fechar">&times;</button>
+      </header>
+      <div class="modal-body">
+        <div class="fg"><label class="fl">Template (opcional)</label><select class="fs" id="em-template"><option value="">Escrever manualmente</option></select></div>
+        <div class="fg"><label class="fl">Assunto</label><input type="text" class="fi" id="em-assunto"></div>
+        <div class="fg"><label class="fl">Mensagem</label><textarea class="ft" id="em-mensagem" rows="6"></textarea></div>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn btn-secondary">Cancelar</button>
+        <button type="button" class="btn btn-primary">Enviar</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Modal Campanha -->
+  <div class="modal-overlay" id="modal-campanha">
+    <div class="modal" style="max-width:600px">
+      <header class="modal-header">
+        <h3 class="modal-title" id="modal-camp-title">Nova Campanha</h3>
+        <button class="modal-close" aria-label="Fechar">&times;</button>
+      </header>
+      <div class="modal-body">
+        <input type="hidden" id="camp-id">
+        <div class="fg"><label class="fl">Nome *</label><input type="text" class="fi" id="camp-nome" required></div>
+        <div class="fr">
+          <div class="fg"><label class="fl">Template *</label><select class="fs" id="camp-template"><option value="">Selecione...</option></select></div>
+          <div class="fg"><label class="fl">Canal *</label>
+            <select class="fs" id="camp-canal"><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option><option value="ambos">Ambos</option></select>
+          </div>
+        </div>
+        <div class="fg">
+          <label class="fl">Leads (selecione ou deixe vazio para todos)</label>
+          <select class="fs" id="camp-leads" multiple style="min-height:120px"></select>
+        </div>
+      </div>
+      <footer class="modal-footer">
+        <button class="btn btn-secondary">Cancelar</button>
+        <button class="btn btn-primary">Salvar</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Modal Métricas Campanha -->
+  <div class="modal-overlay" id="modal-campanha-metricas">
+    <div class="modal" style="max-width:700px">
+      <header class="modal-header">
+        <h3 class="modal-title" id="modal-camp-metricas-title">Métricas da Campanha</h3>
+        <button class="modal-close" aria-label="Fechar">&times;</button>
+      </header>
+      <div class="modal-body">
+        <div id="camp-metricas-content"></div>
+        <div style="margin-top:20px">
+          <div class="sec-title" style="font-size:14px;margin-bottom:8px">Leads da Campanha</div>
+          <div style="overflow-x:auto">
+            <table class="crud-table" style="font-size:12px">
+              <thead><tr><th>Lead</th><th>Status</th><th>Envio</th><th>Entrega</th><th>Resposta</th></tr></thead>
+              <tbody id="camp-leads-tbody"></tbody>
+            </table>
+          </div>
+          <div class="mobile-cards-list" id="camp-leads-cards-mobile"></div>
+        </div>
+      </div>
+      <footer class="modal-footer">
+        <button class="btn btn-secondary">Fechar</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Modal Template -->
+  <div class="modal-overlay" id="modal-template">
+    <div class="modal">
+      <header class="modal-header">
+        <h3 class="modal-title" id="modal-tpl-title">Novo Template</h3>
+        <button class="modal-close" aria-label="Fechar">&times;</button>
+      </header>
+      <div class="modal-body">
+        <input type="hidden" id="tpl-id">
+        <div class="fg"><label class="fl">Nome *</label><input type="text" class="fi" id="tpl-nome" required></div>
+        <div class="fr">
+          <div class="fg"><label class="fl">Tipo</label>
+            <select class="fs" id="tpl-tipo"><option value="mensagem_inicial">Mensagem Inicial</option><option value="followup">Follow-up</option><option value="proposta_comercial">Proposta Comercial</option><option value="email_comercial">E-mail Comercial</option></select>
+          </div>
+          <div class="fg"><label class="fl">Canal</label>
+            <select class="fs" id="tpl-canal"><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option><option value="ambos">Ambos</option></select>
+          </div>
+        </div>
+        <div class="fg"><label class="fl">Assunto (e-mail)</label><input type="text" class="fi" id="tpl-assunto"></div>
+        <div class="fg"><label class="fl">Conteúdo *</label><textarea class="ft" id="tpl-conteudo" rows="6" required></textarea></div>
+        <div class="tpl-vars">Variáveis: <code>{{nome}}</code> <code>{{empresa}}</code> <code>{{cidade}}</code> <code>{{segmento}}</code> <code>{{plano}}</code> <code>{{valor}}</code> <code>{{link_demo}}</code> <code>{{link_proposta}}</code></div>
+      </div>
+      <footer class="modal-footer">
+        <button class="btn btn-secondary">Cancelar</button>
+        <button class="btn btn-primary">Salvar</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Modal Lembrete -->
+  <div class="modal-overlay" id="modal-lembrete">
+    <div class="modal">
+      <header class="modal-header">
+        <h3 class="modal-title" id="modal-lemb-title">Novo Lembrete</h3>
+        <button class="modal-close" aria-label="Fechar">&times;</button>
+      </header>
+      <div class="modal-body">
+        <input type="hidden" id="lemb-id">
+        <div class="fg">
+          <label class="fl">Lead *</label>
+          <div class="lead-ac-wrapper">
+            <input type="search" class="fi" id="lemb-lead-search" placeholder="Buscar lead por nome ou empresa..." autocomplete="off">
+            <div id="lemb-lead-dropdown" class="lead-ac-dropdown" style="display:none"></div>
+          </div>
+          <input type="hidden" id="lemb-lead-id">
+        </div>
+        <div class="fg"><label class="fl">Título *</label><input type="text" class="fi" id="lemb-titulo" required></div>
+        <div class="fg"><label class="fl">Descrição</label><textarea class="ft" id="lemb-descricao" rows="2"></textarea></div>
+        <div class="fr">
+          <div class="fg"><label class="fl">Data/Hora *</label><input type="datetime-local" class="fi" id="lemb-data-hora" required></div>
+          <div class="fg"><label class="fl">Canal sugerido</label>
+            <select class="fs" id="lemb-canal"><option value="">Nenhum</option><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option><option value="ligacao">Ligação</option><option value="reuniao">Reunião</option></select>
+          </div>
+        </div>
+      </div>
+      <footer class="modal-footer">
+        <button class="btn btn-secondary">Cancelar</button>
+        <button class="btn btn-primary">Salvar</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Modal Segmento -->
+  <div class="modal-overlay" id="modal-segmento">
+    <div class="modal" style="max-width:400px">
+      <header class="modal-header">
+        <h3 class="modal-title" id="modal-seg-title">Novo Segmento</h3>
+        <button class="modal-close" aria-label="Fechar">&times;</button>
+      </header>
+      <div class="modal-body">
+        <input type="hidden" id="seg-id">
+        <div class="fg"><label class="fl">Nome *</label><input type="text" class="fi" id="seg-nome" required></div>
+      </div>
+      <footer class="modal-footer">
+        <button class="btn btn-secondary">Cancelar</button>
+        <button class="btn btn-primary">Salvar</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Modal Origem -->
+  <div class="modal-overlay" id="modal-origem">
+    <div class="modal" style="max-width:400px">
+      <header class="modal-header">
+        <h3 class="modal-title" id="modal-ori-title">Nova Origem</h3>
+        <button class="modal-close" aria-label="Fechar">&times;</button>
+      </header>
+      <div class="modal-body">
+        <input type="hidden" id="ori-id">
+        <div class="fg"><label class="fl">Nome *</label><input type="text" class="fi" id="ori-nome" required></div>
+      </div>
+      <footer class="modal-footer">
+        <button class="btn btn-secondary">Cancelar</button>
+        <button class="btn btn-primary">Salvar</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Modal Pipeline Stage -->
+  <div class="modal-overlay" id="modal-pipeline-stage">
+    <div class="modal" style="max-width:480px">
+      <header class="modal-header">
+        <h3 class="modal-title" id="modal-ps-title">Nova Etapa</h3>
+        <button class="modal-close" aria-label="Fechar">&times;</button>
+      </header>
+      <div class="modal-body">
+        <input type="hidden" id="ps-id">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="fg" style="grid-column:1/-1"><label class="fl">Nome da Etapa *</label><input type="text" class="fi" id="ps-label" placeholder="Ex: Em Análise"></div>
+          <div class="fg"><label class="fl">Slug (único) *</label><input type="text" class="fi" id="ps-slug" placeholder="em_analise"></div>
+          <div class="fg"><label class="fl">Emoji</label><input type="text" class="fi" id="ps-emoji" placeholder="🔍" maxlength="4"></div>
+          <div class="fg"><label class="fl">Cor</label><input type="color" class="fi" id="ps-cor" value="#94a3b8" style="height:38px;padding:4px"></div>
+          <div class="fg"><label class="fl">Ordem</label><input type="number" class="fi" id="ps-ordem" value="0" min="0"></div>
+          <div class="fg" style="grid-column:1/-1;display:flex;align-items:center;gap:8px">
+            <input type="checkbox" id="ps-fechado">
+            <label for="ps-fechado" style="font-size:13px">Etapa de encerramento (Ganho/Perdido)</label>
+          </div>
+        </div>
+      </div>
+      <footer class="modal-footer">
+        <button class="btn btn-secondary">Cancelar</button>
+        <button class="btn btn-primary">Salvar</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Modal Enviar Proposta -->
+  <div class="modal-overlay pp-modal" id="modal-enviar-proposta">
+    <div class="modal" style="max-width:640px">
+      <header class="modal-header">
+        <h3 class="modal-title">Enviar Proposta</h3>
+        <button class="modal-close" aria-label="Fechar">&times;</button>
+      </header>
+      <div class="modal-body">
+        <div class="fg">
+          <label class="fl">Template da Proposta *</label>
+          <select class="fs" id="ep-proposta-select">
+            <option value="">Selecione...</option>
+          </select>
+        </div>
+        
+        <div id="ep-variaveis-container">
+          <!-- Variáveis serão inseridas aqui via JS -->
+        </div>
+        
+        <div class="fg">
+          <label class="fl">Validade (dias)</label>
+          <input type="number" class="fi" id="ep-validade" value="7" min="1" max="365">
+        </div>
+      </div>
+      <footer class="modal-footer">
+        <button class="btn btn-secondary">Cancelar</button>
+        <button class="btn btn-primary" id="btn-confirmar-envio-proposta">Enviar Proposta</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Modal Analytics Proposta -->
+  <div class="modal-overlay pp-modal" id="modal-analytics-proposta">
+    <div class="modal" style="max-width:860px">
+      <header class="modal-header">
+        <h3 class="modal-title">Analytics da Proposta</h3>
+        <button class="modal-close" aria-label="Fechar">&times;</button>
+      </header>
+      <div class="modal-body">
+        <div id="analytics-content">
+          <!-- Analytics serão carregados aqui via JS -->
+        </div>
+      </div>
+      <footer class="modal-footer">
+        <button class="btn btn-secondary">Fechar</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Modal de Confirmação - Reenviar Proposta (z-index acima de outros modais e do toast) -->
+  <div class="modal-overlay" id="modal-confirmar-reenvio" style="z-index:10060">
+    <div class="modal" style="max-width:400px">
+      <header class="modal-header">
+        <h3 class="modal-title">Proposta Já Enviada</h3>
+        <button class="modal-close" aria-label="Fechar">&times;</button>
+      </header>
+      <div class="modal-body">
+        <p id="msg-reenvio" style="margin:0">Esta proposta já foi enviada para este lead. Deseja enviar novamente?</p>
+      </div>
+      <footer class="modal-footer">
+        <button class="btn btn-secondary" onclick="fecharModal('modal-confirmar-reenvio')">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btn-confirmar-reenvio" style="background:var(--accent)">Sim, Enviar Novamente</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script src="js/utils.js?v=1"></script>
+  <script src="js/services/ApiService.js?v=1"></script>
+  <script src="js/services/CacheService.js?v=1"></script>
+  <script src="js/api.js?v=17"></script>
+  <script src="js/layout.js?v=5"></script>
+  <!-- Comercial — módulos (ordem importa!) -->
+  <script src="js/comercial-core.js?v=7"></script>
+  <script src="js/comercial-dashboard.js?v=3"></script>
+  <script src="js/comercial-leads.js?v=3"></script>
+  <script src="js/comercial-pipeline.js?v=1"></script>
+  <script src="js/comercial-mensagens.js?v=1"></script>
+  <script src="js/comercial-lembretes.js?v=1"></script>
+  <script src="js/comercial-cadastros.js?v=1"></script>
+  <script src="js/comercial-propostas-publicas.js?v=1"></script>
+  <script src="js/comercial.js?v=24"></script>
+  <script>
+    /**
+     * Gerenciamento do Seletor de Abas Mobile (Elite UX)
+     * Refatorado para melhor performance e acessibilidade
+     */
+    (function() {
+      document.addEventListener('DOMContentLoaded', () => {
+        const mobileCurrent = document.getElementById('mobile-tabs-current');
+        const mobileMenu = document.getElementById('mobile-tabs-menu');
+        const adminTabs = document.querySelectorAll('.admin-tab');
+        
+        if (!mobileCurrent || !mobileMenu) return;
+
+        // 1. Popular o menu mobile baseado nas abas reais
+        const fragment = document.createDocumentFragment();
+        adminTabs.forEach(tab => {
+          const item = document.createElement('div');
+          item.className = 'mobile-tabs-item';
+          item.role = 'menuitem';
+          
+          if (tab.classList.contains('active')) {
+            item.classList.add('active');
+            mobileCurrent.innerHTML = tab.innerHTML;
+          }
+          
+          item.innerHTML = tab.innerHTML;
+          item.dataset.tab = tab.dataset.tab;
+          
+          item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // Sincronizar com o clique na aba real
+            tab.click();
+            
+            // Atualizar UI do seletor
+            mobileCurrent.innerHTML = tab.innerHTML;
+            mobileMenu.querySelectorAll('.mobile-tabs-item').forEach(i => i.classList.remove('active'));
+            item.classList.add('active');
+            
+            // Fechar menu
+            mobileMenu.classList.remove('open');
+            mobileCurrent.setAttribute('aria-expanded', 'false');
+          });
+          
+          fragment.appendChild(item);
+        });
+        mobileMenu.innerHTML = '';
+        mobileMenu.appendChild(fragment);
+
+        // 2. Toggle do menu
+        mobileCurrent.setAttribute('role', 'button');
+        mobileCurrent.setAttribute('aria-haspopup', 'true');
+        mobileCurrent.setAttribute('aria-expanded', 'false');
+        
+        mobileCurrent.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const isOpen = mobileMenu.classList.toggle('open');
+          mobileCurrent.setAttribute('aria-expanded', isOpen);
+        });
+
+        // 3. Fechar ao clicar fora
+        document.addEventListener('click', () => {
+          if (mobileMenu.classList.contains('open')) {
+            mobileMenu.classList.remove('open');
+            mobileCurrent.setAttribute('aria-expanded', 'false');
+          }
+        });
+
+        // 4. Sincronização reversa (se o core mudar a aba via código)
+        const observer = new MutationObserver((mutations) => {
+          mutations.forEach((mutation) => {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+              const tab = mutation.target;
+              if (tab.classList.contains('active')) {
+                mobileCurrent.innerHTML = tab.innerHTML;
+                mobileMenu.querySelectorAll('.mobile-tabs-item').forEach(i => {
+                  i.classList.toggle('active', i.dataset.tab === tab.dataset.tab);
+                });
+                
+                // Atualizar ARIA nas abas reais
+                adminTabs.forEach(t => {
+                  t.setAttribute('aria-selected', t === tab ? 'true' : 'false');
+                });
+              }
+            }
+          });
+        });
+
+        adminTabs.forEach(tab => {
+          observer.observe(tab, { attributes: true });
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>(function(){var t=localStorage.getItem("cotte_tema");if(t){document.documentElement.setAttribute("data-theme",t);}else{document.documentElement.setAttribute("data-theme","light");}})()</script>
+  <title>COTTE | Orçamento profissional pelo WhatsApp em segundos</title>
+  <meta name="description" content="Mande uma mensagem no WhatsApp e o COTTE cria e envia o orçamento profissional para seu cliente em segundos. Disponível 24h. Teste grátis por 14 dias, sem cartão.">
+  <meta name="keywords" content="software de orçamento, fazer orçamento online, sistema para prestadores de serviço, enviar orçamento para cliente, gerador de orçamento">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://cotte.app/">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="COTTE">
+  <meta property="og:title" content="COTTE | O cliente pediu orçamento. Você demorou. Ele foi no concorrente.">
+  <meta property="og:description" content="Mande uma mensagem no WhatsApp e o COTTE cria e envia o orçamento profissional em segundos. Sem salário, sem encargo, disponível 24h.">
+  <meta property="og:url" content="https://cotte.app/">
+  <meta property="og:image" content="https://cotte.app/og-image.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="COTTE | O cliente pediu orçamento. Você demorou. Ele foi no concorrente.">
+  <meta name="twitter:description" content="Mande uma mensagem no WhatsApp e o COTTE cria e envia o orçamento profissional em segundos. Sem salário, sem encargo, disponível 24h.">
+  <meta name="twitter:image" content="https://cotte.app/og-image.jpg">
+  <link rel="preload" href="/static/fonts/outfit-700.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/static/fonts/dmsans.woff2" as="font" type="font/woff2" crossorigin>
+  <style>
+    @font-face {
+      font-family: 'DM Sans';
+      font-style: normal;
+      font-weight: 400 700;
+      font-display: swap;
+      src: url('/static/fonts/dmsans.woff2') format('woff2');
+      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+    }
+    @font-face {
+      font-family: 'Outfit';
+      font-style: normal;
+      font-weight: 500 600;
+      font-display: swap;
+      src: url('/static/fonts/outfit-500-600.woff2') format('woff2');
+      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+    }
+    @font-face {
+      font-family: 'Outfit';
+      font-style: normal;
+      font-weight: 700;
+      font-display: swap;
+      src: url('/static/fonts/outfit-700.woff2') format('woff2');
+      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+    }
+    :root {
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --card-hover: #f8fafc;
+      --border: #e1e7f0;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --accent-blue: #06b6d4;
+      --text-app: #94a3b8;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --shadow-soft: 0 16px 40px rgba(15, 23, 42, 0.08);
+      --shadow-card: 0 8px 26px rgba(15, 23, 42, 0.06);
+      --container: 1160px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: "DM Sans", system-ui, -apple-system, sans-serif;
+      color: var(--text);
+      background: radial-gradient(1000px 500px at 80% -12%, rgba(6, 182, 212, 0.12), transparent 62%), var(--bg);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    a { color: inherit; text-decoration: none; }
+    .container { width: min(var(--container), 100% - 2.5rem); margin-inline: auto; }
+    .section { padding: 5.5rem 0; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.76rem; letter-spacing: 0.08em;
+      text-transform: uppercase; font-weight: 700; color: var(--accent-blue);
+      background: rgba(6, 182, 212, 0.08); border: 1px solid rgba(6, 182, 212, 0.24); border-radius: 999px; padding: 0.4rem 0.8rem;
+    }
+    .section-head { display: grid; gap: 0.9rem; margin-bottom: 2.1rem; }
+    .section-head.center { text-align: center; justify-items: center; }
+    .section-head h2 {
+      font-family: "Outfit", "DM Sans", sans-serif; font-size: clamp(1.8rem, 3.1vw, 2.9rem);
+      line-height: 1.14; letter-spacing: -0.03em;
+    }
+    .section-head p { max-width: 650px; color: var(--text-muted); font-size: 1.03rem; }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 0.8rem; align-items: center; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; border-radius: 999px;
+      font-size: 0.95rem; font-weight: 700; padding: 0.82rem 1.2rem; border: 1px solid transparent;
+      transition: transform 220ms ease, box-shadow 220ms ease, background-color 220ms ease, border-color 220ms ease;
+      will-change: transform;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn-primary {
+      background: linear-gradient(120deg, #0ea5e9, var(--accent-blue)); color: #ffffff;
+      box-shadow: 0 10px 24px rgba(6, 182, 212, 0.28);
+    }
+    .btn-primary:hover { box-shadow: 0 16px 28px rgba(6, 182, 212, 0.34); }
+    .btn-secondary { color: var(--text); background: #ffffff; border-color: var(--border); }
+    .btn-secondary:hover { background: var(--card-hover); }
+    .site-header {
+      position: sticky; top: 0; z-index: 40;
+      -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+      background: rgba(244, 247, 251, 0.84); border-bottom: 1px solid var(--border);
+    }
+    .nav-toggle {
+      display: flex; flex-direction: column; justify-content: center; gap: 5px;
+      width: 2rem; height: 2rem; background: none; border: none; cursor: pointer; padding: 0.1rem;
+    }
+    .nav-toggle span {
+      display: block; height: 2px; background: var(--text); border-radius: 999px;
+      transition: transform 240ms ease, opacity 240ms ease;
+    }
+    .nav-toggle.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .nav-toggle.open span:nth-child(2) { opacity: 0; }
+    .nav-toggle.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+    .nav-mobile-menu {
+      display: none; flex-direction: column; gap: 0.1rem;
+      padding: 0.6rem 1rem 0.9rem; border-top: 1px solid var(--border); background: rgba(244,247,251,0.97);
+    }
+    .nav-mobile-menu.open { display: flex; }
+    .nav-mobile-menu a {
+      color: var(--text-muted); font-size: 1rem; padding: 0.55rem 0.4rem; border-radius: 8px;
+      font-weight: 500; transition: color 180ms;
+    }
+    .nav-mobile-menu a:hover { color: var(--text); }
+    @media (min-width: 720px) { .nav-toggle { display: none; } }
+    .site-nav { min-height: 76px; display: flex; align-items: center; justify-content: space-between; gap: 0.9rem; }
+    .brand {
+      display: inline-flex; align-items: center; gap: 0.08rem; font-family: "Outfit", "DM Sans", sans-serif;
+      font-size: 1.4rem; font-weight: 700; letter-spacing: -0.04em;
+    }
+    .logo-text { color: var(--text); }
+    .logo-slash { color: var(--accent-blue); }
+    .nav-links { display: none; align-items: center; gap: 0.2rem; }
+    .nav-links a {
+      color: var(--text-muted); padding: 0.5rem 0.72rem; font-size: 0.92rem; border-radius: 999px;
+      transition: background-color 200ms ease, color 200ms ease;
+    }
+    .nav-links a:hover { color: var(--text); background: #ffffff; }
+    .nav-cta { display: flex; align-items: center; gap: 0.55rem; }
+    .nav-login {
+      font-weight: 700; color: var(--text-muted); font-size: 0.9rem; padding: 0.52rem 0.78rem;
+      border-radius: 999px; border: 1px solid var(--border); background: #ffffff;
+    }
+    .nav-login:hover { background: var(--card-hover); color: var(--text); }
+    .hero { padding: 4.6rem 0 4rem; }
+    .hero-grid { display: grid; gap: 2rem; align-items: center; }
+    .hero-copy h1 {
+      margin-top: 1rem; font-family: "Outfit", "DM Sans", sans-serif; font-size: clamp(2rem, 5vw, 4.2rem);
+      line-height: 1.05; letter-spacing: -0.04em; max-width: 12ch;
+    }
+    .hero-copy p { margin-top: 1.1rem; max-width: 56ch; color: var(--text-muted); font-size: 1.03rem; }
+    .hero-copy .btn-row { margin-top: 1.6rem; }
+    .micro-proof {
+      margin-top: 1.1rem; color: var(--text-app); font-size: 0.88rem; display: flex; flex-wrap: wrap; gap: 0.85rem;
+    }
+    .app-mockup {
+      border: 1px solid var(--border); background: #fbfdff; border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-soft); overflow: hidden;
+    }
+    .mock-top {
+      display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--border);
+      padding: 0.8rem 1rem; background: #f8fbff;
+    }
+    .mock-dot { width: 0.56rem; height: 0.56rem; border-radius: 999px; background: #d0dae8; }
+    .mock-url {
+      margin-left: auto; color: var(--text-app); font-size: 0.78rem; border: 1px solid var(--border);
+      border-radius: 999px; background: #ffffff; padding: 0.34rem 0.72rem;
+    }
+    .mock-main { padding: 1rem; display: grid; gap: 0.85rem; }
+    .mock-row {
+      border: 1px solid var(--border); border-radius: 12px; background: #ffffff; padding: 0.78rem; display: flex;
+      justify-content: space-between; gap: 0.6rem; align-items: center; font-size: 0.84rem;
+    }
+    .mock-row strong { font-weight: 700; color: var(--text); }
+    .mock-status {
+      color: #0369a1; font-weight: 700; background: rgba(14, 165, 233, 0.12); border-radius: 999px;
+      font-size: 0.72rem; padding: 0.25rem 0.65rem; white-space: nowrap;
+    }
+    .mock-status.done { color: #0f766e; background: rgba(13, 148, 136, 0.12); }
+    .feature-grid { display: grid; gap: 1rem; grid-template-columns: repeat(1, minmax(0, 1fr)); }
+    .card {
+      background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-card);
+      transition: transform 240ms ease, background-color 240ms ease, border-color 240ms ease;
+    }
+    .card:hover { background: var(--card-hover); border-color: #d4dfee; transform: translateY(-3px); }
+    .feature-card { padding: 1.15rem; display: grid; gap: 0.62rem; }
+    .icon-pill {
+      width: 2.2rem; height: 2.2rem; border-radius: 11px;
+      background: linear-gradient(135deg, rgba(6, 182, 212, 0.14), rgba(14, 165, 233, 0.24));
+      border: 1px solid rgba(6, 182, 212, 0.22); display: inline-flex; align-items: center; justify-content: center;
+      color: #0e7490; font-size: 1rem;
+    }
+    .feature-card h3 { font-size: 1.06rem; line-height: 1.25; letter-spacing: -0.02em; }
+    .feature-card p { color: var(--text-muted); font-size: 0.92rem; }
+    .steps { display: grid; gap: 1rem; grid-template-columns: repeat(1, minmax(0, 1fr)); }
+    .step-card { padding: 1.2rem; position: relative; }
+    .step-badge {
+      display: inline-flex; align-items: center; justify-content: center; width: 1.95rem; height: 1.95rem;
+      border-radius: 999px; font-size: 0.78rem; font-weight: 800; color: #0e7490;
+      border: 1px solid rgba(6, 182, 212, 0.32); background: rgba(6, 182, 212, 0.1); margin-bottom: 0.7rem;
+    }
+    .step-card h3 { font-size: 1.03rem; margin-bottom: 0.35rem; }
+    .step-card p { color: var(--text-muted); font-size: 0.92rem; }
+    .product-grid { display: grid; gap: 1rem; align-items: center; }
+    .product-copy p { color: var(--text-muted); font-size: 1rem; max-width: 58ch; margin-bottom: 1rem; }
+    .audience-list { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; margin-top: 0.25rem; }
+    .audience-list li {
+      border: 1px solid var(--border); border-radius: 999px; background: #ffffff;
+      padding: 0.4rem 0.85rem; font-size: 0.875rem; font-weight: 500; color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .audience-list li:last-child {
+      border-color: rgba(6, 182, 212, 0.35); background: rgba(6, 182, 212, 0.06);
+      color: #0e7490; font-style: italic;
+    }
+    .product-panel { padding: 1.15rem; display: grid; gap: 0.7rem; }
+    .panel-line {
+      border: 1px solid var(--border); border-radius: 10px; padding: 0.65rem 0.75rem; background: #ffffff;
+      display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-muted);
+    }
+    .panel-line strong { color: var(--text); }
+    .whatsapp-float {
+      position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 999;
+      width: 3.25rem; height: 3.25rem; border-radius: 999px;
+      background: #25d366; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 16px rgba(37, 211, 102, 0.45);
+      transition: transform 0.2s, box-shadow 0.2s; text-decoration: none;
+    }
+    .whatsapp-float:hover { transform: scale(1.08); box-shadow: 0 6px 22px rgba(37, 211, 102, 0.55); }
+    .whatsapp-tooltip {
+      position: absolute; right: 3.75rem; background: #0f172a; color: #fff;
+      font-size: 0.78rem; padding: 0.35rem 0.7rem; border-radius: 6px;
+      white-space: nowrap; opacity: 0; pointer-events: none;
+      transition: opacity 0.2s; font-family: inherit;
+    }
+    .whatsapp-float:hover .whatsapp-tooltip { opacity: 1; }
+
+    .pricing-grid { display: grid; gap: 1rem; grid-template-columns: repeat(1, minmax(0, 1fr)); }
+    .price-card { padding: 1.2rem; }
+    .price-card.featured {
+      border-color: rgba(6, 182, 212, 0.55); box-shadow: 0 16px 32px rgba(6, 182, 212, 0.15); position: relative;
+    }
+    .price-badge {
+      position: absolute; top: 0.85rem; right: 0.85rem; font-size: 0.68rem; letter-spacing: 0.06em;
+      text-transform: uppercase; font-weight: 700; color: #0e7490; background: rgba(6, 182, 212, 0.12);
+      border: 1px solid rgba(6, 182, 212, 0.28); border-radius: 999px; padding: 0.3rem 0.55rem;
+    }
+    .price-plan {
+      color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.73rem;
+      font-weight: 700; margin-bottom: 0.45rem;
+    }
+    .price-value {
+      font-family: "Outfit", "DM Sans", sans-serif; font-size: 2.2rem; line-height: 1; letter-spacing: -0.03em;
+      margin-bottom: 0.3rem;
+    }
+    .price-desc { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.95rem; }
+    .price-list {
+      list-style: none; display: grid; gap: 0.45rem; margin-bottom: 1rem; color: var(--text-muted); font-size: 0.88rem;
+    }
+    .price-list li::before { content: "• "; color: var(--accent-blue); font-weight: 800; }
+    .cta-final { padding: 4.5rem 0; }
+    .cta-wrap {
+      border: 1px solid #c8e9f4; background: linear-gradient(140deg, #e6f8fc 0%, #f3fbfd 50%, #e9f5ff 100%);
+      border-radius: 24px; padding: 2.2rem 1.2rem; text-align: center; box-shadow: var(--shadow-soft);
+    }
+    .cta-wrap h2 {
+      font-family: "Outfit", "DM Sans", sans-serif; font-size: clamp(1.8rem, 4vw, 2.8rem);
+      line-height: 1.12; letter-spacing: -0.03em;
+    }
+    .cta-wrap p { margin: 0.9rem auto 1.2rem; max-width: 620px; color: #155e75; }
+    .site-footer { border-top: 1px solid var(--border); padding: 2.3rem 0 1.4rem; background: #f8fbff; }
+    .footer-grid { display: grid; gap: 1.25rem; grid-template-columns: 1fr; }
+    .footer-col h3 {
+      font-size: 0.83rem; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-app); margin-bottom: 0.6rem;
+    }
+    .footer-col ul { list-style: none; display: grid; gap: 0.4rem; }
+    .footer-col a { color: var(--text-muted); font-size: 0.9rem; }
+    .footer-col a:hover { color: var(--text); }
+    .footer-bottom {
+      margin-top: 1.4rem; padding-top: 0.9rem; border-top: 1px solid var(--border); color: var(--text-app);
+      font-size: 0.82rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.8rem;
+    }
+    .reveal { opacity: 0; transform: translateY(14px); transition: opacity 520ms ease, transform 520ms ease; }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+    @media (min-width: 720px) {
+      .section { padding: 6.4rem 0; }
+      .nav-links { display: flex; }
+      .feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .steps { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .step-card:not(:last-child)::after {
+        content: "→";
+        position: absolute;
+        right: -0.65rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--accent-blue);
+        font-size: 1.1rem;
+        font-weight: 700;
+        opacity: 0.55;
+        z-index: 1;
+      }
+      .product-grid { grid-template-columns: 1.15fr 0.85fr; }
+
+      .pricing-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .footer-grid { grid-template-columns: 1.4fr 1fr 1fr 1fr; }
+      .cta-wrap { padding: 3rem 2rem; }
+    }
+    @media (min-width: 980px) {
+      .hero { padding: 5.6rem 0 4.9rem; }
+      .hero-grid { grid-template-columns: 1.05fr 0.95fr; gap: 2.4rem; }
+    }
+    /* ── Hero mini-chat ─────────────────────────────────────── */
+    .hero-chat {
+      border: 1px solid var(--border); border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-soft); overflow: hidden; background: #ffffff;
+    }
+    .hero-chat-top {
+      display: flex; align-items: center; gap: 0.55rem; padding: 0.75rem 1rem;
+      background: #f8fbff; border-bottom: 1px solid var(--border);
+    }
+    .hero-chat-dot {
+      width: 1.7rem; height: 1.7rem; border-radius: 999px;
+      background: linear-gradient(135deg, #0ea5e9, #06b6d4); flex-shrink: 0;
+    }
+    .hero-chat-name { font-weight: 700; font-size: 0.88rem; }
+    .hero-chat-status { margin-left: auto; font-size: 0.75rem; color: #10b981; font-weight: 600; }
+    .hero-chat-body {
+      padding: 0.85rem; min-height: 200px; max-height: 420px; display: flex; flex-direction: column;
+      gap: 0.6rem; overflow-y: auto;
+    }
+    /* ── Assistente Demo ─────────────────────────────────────── */
+    .ai-demo { display: grid; gap: 1.4rem; max-width: 780px; margin-inline: auto; }
+    .ai-chips {
+      display: flex; flex-wrap: wrap; gap: 0.55rem; align-items: center;
+    }
+    .ai-chip-label { font-size: 0.82rem; color: var(--text-muted); font-weight: 600; margin-right: 0.2rem; }
+    .ai-chip {
+      padding: 0.52rem 1rem; border-radius: 999px; font-size: 0.88rem; font-weight: 600;
+      border: 1.5px solid var(--border); background: #ffffff; color: var(--text-muted);
+      cursor: pointer; transition: all 200ms ease;
+    }
+    .ai-chip:hover { border-color: var(--accent-blue); color: var(--accent-blue); background: rgba(6,182,212,0.05); }
+    .ai-chip.active {
+      background: linear-gradient(120deg, #0ea5e9, var(--accent-blue));
+      color: #ffffff; border-color: transparent;
+      box-shadow: 0 4px 14px rgba(6,182,212,0.3);
+    }
+    .ai-window {
+      border: 1px solid var(--border); border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-soft); overflow: hidden; background: #ffffff;
+    }
+    .ai-window-top {
+      display: flex; align-items: center; gap: 0.55rem; padding: 0.85rem 1.1rem;
+      background: #f8fbff; border-bottom: 1px solid var(--border);
+    }
+    .ai-avatar-dot {
+      width: 2rem; height: 2rem; border-radius: 999px;
+      background: linear-gradient(135deg, #0ea5e9, #06b6d4);
+      flex-shrink: 0;
+    }
+    .ai-window-name { font-weight: 700; font-size: 0.92rem; }
+    .ai-window-status { margin-left: auto; font-size: 0.78rem; color: #10b981; font-weight: 600; }
+    .ai-chat {
+      padding: 1.1rem; min-height: 260px; max-height: 440px; display: flex; flex-direction: column;
+      gap: 0.75rem; overflow-y: auto;
+    }
+    .ai-msg {
+      display: flex; gap: 0.6rem; align-items: flex-end;
+      animation: msgIn 280ms ease both;
+    }
+    @keyframes msgIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .ai-msg.user { flex-direction: row-reverse; }
+    .ai-bubble {
+      max-width: 75%; padding: 0.65rem 0.9rem; border-radius: 16px;
+      font-size: 0.9rem; line-height: 1.5;
+    }
+    .ai-msg.bot .ai-bubble {
+      background: #f1f5f9; color: var(--text); border-bottom-left-radius: 4px;
+    }
+    .ai-msg.user .ai-bubble {
+      background: linear-gradient(120deg, #0ea5e9, #06b6d4);
+      color: #ffffff; border-bottom-right-radius: 4px;
+    }
+    .ai-typing {
+      display: flex; gap: 0.6rem; align-items: flex-end;
+      animation: msgIn 280ms ease both;
+    }
+    .ai-typing-dots {
+      background: #f1f5f9; padding: 0.7rem 1rem; border-radius: 16px;
+      border-bottom-left-radius: 4px; display: flex; gap: 5px; align-items: center;
+    }
+    .ai-typing-dots span {
+      width: 7px; height: 7px; border-radius: 999px; background: #94a3b8;
+      animation: dotBounce 1.2s infinite ease-in-out;
+    }
+    .ai-typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .ai-typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes dotBounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30%            { transform: translateY(-6px); }
+    }
+    .ai-more { text-align: center; }
+    .ai-more-label { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem; font-weight: 600; }
+    .ai-more-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.55rem;
+      text-align: left;
+    }
+    .ai-more-item {
+      background: #ffffff; border: 1px solid var(--border); border-radius: 10px;
+      padding: 0.6rem 0.8rem; font-size: 0.87rem; color: var(--text-muted);
+      transition: border-color 200ms, color 200ms;
+    }
+    .ai-more-item:hover { border-color: var(--accent-blue); color: var(--text); }
+    @media (min-width: 540px) {
+      .ai-more-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (min-width: 720px) {
+      .ai-more-grid { grid-template-columns: repeat(4, 1fr); }
+    }
+    @media (max-width: 480px) {
+      .ai-chat { min-height: 220px; max-height: 380px; }
+    }
+
+    /* ── Preview Card do Orçamento ────────────────────────────── */
+    .ai-card {
+      background: #ffffff;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      padding: 0.75rem 0.85rem;
+      margin-top: 0.55rem;
+      box-shadow: 0 4px 12px rgba(15,23,42,0.07);
+    }
+    .ai-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+    .ai-card-num {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+    }
+    .ai-card-badge-ok {
+      background: rgba(16,185,129,0.12);
+      color: #059669;
+      border: 1px solid rgba(16,185,129,0.28);
+      border-radius: 999px;
+      font-size: 0.67rem;
+      font-weight: 700;
+      padding: 0.16rem 0.48rem;
+    }
+    .ai-card-client {
+      font-weight: 700;
+      font-size: 0.88rem;
+      color: var(--text);
+      margin-bottom: 0.4rem;
+    }
+    .ai-card-items {
+      list-style: none;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      display: grid;
+      gap: 0.22rem;
+      margin-bottom: 0.5rem;
+    }
+    .ai-card-items li::before { content: "• "; color: var(--accent-blue); font-weight: 800; }
+    .ai-card-total {
+      font-weight: 800;
+      font-size: 0.97rem;
+      color: var(--text);
+      border-top: 1px solid var(--border);
+      padding-top: 0.42rem;
+      margin-bottom: 0.55rem;
+    }
+    .ai-card-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+    .ai-action-btn {
+      flex: 1;
+      min-width: 28%;
+      padding: 0.36rem 0.2rem;
+      border-radius: 8px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-align: center;
+      border: 1.5px solid transparent;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: filter 180ms ease;
+    }
+    .ai-action-btn:hover { filter: brightness(0.93); }
+    .ai-action-btn.wpp  { background: #dcfce7; color: #15803d; border-color: #bbf7d0; }
+    .ai-action-btn.mail { background: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
+    .ai-action-btn.view { background: rgba(6,182,212,0.08); color: #0e7490; border-color: rgba(6,182,212,0.25); }
+    /* ── Wow moment ─────────────────────────────────────────── */
+    .ai-wow-wrap {
+      display: flex;
+      justify-content: center;
+      animation: msgIn 280ms ease both;
+    }
+    .ai-wow {
+      background: linear-gradient(135deg, #fef9c3, #fef3c7);
+      border: 1px solid #fde68a;
+      border-radius: 10px;
+      padding: 0.52rem 0.9rem;
+      font-size: 0.81rem;
+      color: #78350f;
+      font-weight: 600;
+      text-align: center;
+      max-width: 360px;
+    }
+    /* ── FAQ ────────────────────────────────────────────────── */
+    .faq-list { display: grid; gap: 0.65rem; max-width: 780px; margin-inline: auto; }
+    .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-card); overflow: hidden; }
+    .faq-item summary {
+      list-style: none; padding: 1rem 1.1rem; font-weight: 700; font-size: 0.97rem;
+      cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 0.8rem;
+      transition: background-color 200ms;
+    }
+    .faq-item summary::-webkit-details-marker { display: none; }
+    .faq-item summary::after { content: "+"; font-size: 1.2rem; color: var(--accent-blue); flex-shrink: 0; line-height: 1; font-weight: 400; }
+    .faq-item[open] summary::after { content: "−"; }
+    .faq-item summary:hover { background: var(--card-hover); }
+    .faq-item[open] summary { border-bottom: 1px solid var(--border); }
+    .faq-answer { padding: 0.9rem 1.1rem; color: var(--text-muted); font-size: 0.93rem; line-height: 1.65; }
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+    .section-numbers {
+      padding: 3rem 0;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(255,255,255,0.66), rgba(255,255,255,0.35));
+    }
+    .numbers-strip {
+      display: grid;
+      grid-template-columns: repeat(1, minmax(0, 1fr));
+      gap: 1.5rem;
+      text-align: center;
+    }
+    .number-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .number-value {
+      font-family: "Outfit", "DM Sans", sans-serif;
+      font-size: clamp(1.8rem, 3vw, 2.5rem);
+      line-height: 1;
+      letter-spacing: -0.03em;
+      color: #0284c7;
+      font-weight: 700;
+    }
+    .number-label {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+    @media (min-width: 720px) {
+      .numbers-strip {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+  </style>
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "COTTE",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "url": "https://cotte.app",
+      "description": "Plataforma SaaS para criar e enviar orçamentos profissionais rapidamente.",
+      "keywords": [
+        "software de orçamento",
+        "fazer orçamento online",
+        "sistema para prestadores de serviço",
+        "enviar orçamento para cliente",
+        "gerador de orçamento"
+      ],
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "BRL",
+        "description": "Teste gratuito"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "COTTE",
+        "url": "https://cotte.app"
+      }
+    }
+  </script>
+</head>
+<body>
+  <header class="site-header" aria-label="Barra principal">
+    <div class="container">
+      <nav class="site-nav" aria-label="Navegação principal">
+        <a class="brand" href="#top" aria-label="Página inicial COTTE">
+          <span class="logo-text">cotte</span>
+          <span class="logo-slash">//</span>
+        </a>
+        <div class="nav-links">
+          <a href="#produto">Produto</a>
+          <a href="#recursos">Recursos</a>
+          <a href="#assistente">Assistente IA</a>
+          <a href="#precos">Preços</a>
+          <a href="/app/">Entrar</a>
+        </div>
+        <div class="nav-cta">
+          <a class="nav-login" href="/app/">Entrar</a>
+          <a class="btn btn-primary" href="/app/login.html#cadastro">Começar grátis</a>
+          <button class="nav-toggle" id="nav-toggle" aria-label="Menu" aria-expanded="false" aria-controls="nav-mobile-menu">
+            <span></span><span></span><span></span>
+          </button>
+        </div>
+      </nav>
+    </div>
+    <nav class="nav-mobile-menu" id="nav-mobile-menu" aria-label="Menu mobile">
+      <a href="#produto">Produto</a>
+      <a href="#recursos">Recursos</a>
+      <a href="#assistente">Assistente IA</a>
+      <a href="#precos">Preços</a>
+      <a href="/app/">Entrar</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="container hero-grid">
+        <div class="hero-copy reveal">
+          <span class="eyebrow">Orçamento profissional direto no WhatsApp</span>
+          <h1>O cliente pediu orçamento. Você demorou. Ele foi no concorrente.</h1>
+          <p>Com o COTTE, você manda "faz um orçamento para João, limpeza de split, R$180" no WhatsApp — e em segundos o PDF profissional já está no celular do cliente.</p>
+          <div class="btn-row">
+            <a class="btn btn-primary" href="/app/login.html#cadastro">Começar grátis — 14 dias →</a>
+            <a class="btn btn-secondary" href="#demo">Ver como funciona</a>
+          </div>
+          <div class="micro-proof" aria-label="Pontos de confiança">
+            <span>✓ 14 dias grátis</span>
+            <span>✓ Sem cartão de crédito</span>
+            <span>✓ Cancele quando quiser</span>
+          </div>
+        </div>
+        <div class="hero-chat reveal" id="demo" aria-label="Demonstração ao vivo do Assistente COTTE">
+          <div class="hero-chat-top">
+            <div class="hero-chat-dot"></div>
+            <span class="hero-chat-name">Assistente COTTE</span>
+            <span class="hero-chat-status">● online</span>
+          </div>
+          <div class="hero-chat-body" id="hero-chat-box" aria-live="polite"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="assistente">
+      <div class="container">
+        <div class="section-head center reveal">
+          <span class="eyebrow">A forma mais fácil de usar</span>
+          <h2>Funciona direto no WhatsApp que você já usa</h2>
+          <p>Sem aprender sistema novo. Sem abrir app. Você manda uma mensagem para o assistente COTTE no WhatsApp — ele cria o orçamento, envia para o cliente e registra tudo automaticamente. Disponível 24 horas por dia, 7 dias por semana — sem salário, sem encargo, sem folga.</p>
+        </div>
+
+        <div class="ai-demo reveal" aria-label="Demonstração do Assistente COTTE">
+          <!-- Chips de cenários -->
+          <div class="ai-chips" role="list" aria-label="Experimente perguntar">
+            <span class="ai-chip-label">Experimente:</span>
+            <button class="ai-chip active" data-scenario="orcamento" role="listitem">Fazer um orçamento</button>
+            <button class="ai-chip" data-scenario="financeiro" role="listitem">Ver financeiro</button>
+            <button class="ai-chip" data-scenario="clientes" role="listitem">Clientes pendentes</button>
+            <button class="ai-chip" data-scenario="lembrete" role="listitem">Cobrar cliente</button>
+            <button class="ai-chip" data-scenario="relatorio" role="listitem">Relatório do mês</button>
+          </div>
+
+          <!-- Janela de chat -->
+          <div class="ai-window">
+            <div class="ai-window-top">
+              <div class="ai-avatar-dot"></div>
+              <span class="ai-window-name">Assistente COTTE</span>
+              <span class="ai-window-status">● online</span>
+            </div>
+            <div class="ai-chat" id="ai-chat-box" aria-live="polite" aria-label="Conversa com o assistente"></div>
+          </div>
+
+          <!-- Grade de outras capacidades -->
+          <div class="ai-more">
+            <p class="ai-more-label">E muito mais que você pode pedir ao assistente:</p>
+            <div class="ai-more-grid">
+              <div class="ai-more-item">📄 Criar e editar orçamentos</div>
+              <div class="ai-more-item">📲 Enviar orçamento pelo WhatsApp</div>
+              <div class="ai-more-item">👥 Consultar e cadastrar clientes</div>
+              <div class="ai-more-item">💰 Ver contas a receber</div>
+              <div class="ai-more-item">📊 Relatórios de conversão</div>
+              <div class="ai-more-item">🔔 Enviar lembretes de cobrança</div>
+              <div class="ai-more-item">📅 Consultar agenda e follow-ups</div>
+              <div class="ai-more-item">🏷️ Gerenciar catálogo de serviços</div>
+              <div class="ai-more-item">📈 Resumo de faturamento</div>
+              <div class="ai-more-item">⚡ Responder dúvidas do sistema</div>
+              <div class="ai-more-item">🔁 Duplicar orçamentos anteriores</div>
+              <div class="ai-more-item">✅ Confirmar status de serviços</div>
+            </div>
+            <a class="btn btn-primary" href="/app/login.html#cadastro" style="margin-top:1.6rem">Experimentar de verdade — grátis →</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="recursos">
+      <div class="container">
+        <div class="section-head center reveal">
+          <span class="eyebrow">Por que +1.200 profissionais escolheram o COTTE</span>
+          <h2>Cada minuto sem orçamento é dinheiro na mão do concorrente</h2>
+          <p>O cliente decide rápido. Quem responde primeiro, fecha. O COTTE foi criado para você ser o primeiro.</p>
+        </div>
+        <div class="feature-grid">
+          <article class="card feature-card reveal">
+            <span class="icon-pill" aria-hidden="true">⚡</span>
+            <h3>De 20 minutos para 2 — sem exagero</h3>
+            <p>Esqueça papel, caderno e preço digitado no WhatsApp. Com o COTTE você preenche, revisa e envia em menos tempo do que leva para encontrar onde anotou o número do cliente.</p>
+          </article>
+          <article class="card feature-card reveal">
+            <span class="icon-pill" aria-hidden="true">📲</span>
+            <h3>O cliente recebe no WhatsApp, na hora</h3>
+            <p>Nada de e-mail que some na caixa de spam. O orçamento chega direto no celular do cliente pelo canal que ele mais usa e responde.</p>
+          </article>
+          <article class="card feature-card reveal">
+            <span class="icon-pill" aria-hidden="true">📄</span>
+            <h3>Orçamento que transmite profissionalismo na hora</h3>
+            <p>Enquanto o concorrente manda o preço no WhatsApp sem formatação, você entrega um documento com logo, descrição do serviço e condições de pagamento. A diferença aparece antes de negociar.</p>
+          </article>
+          <article class="card feature-card reveal">
+            <span class="icon-pill" aria-hidden="true">📊</span>
+            <h3>Histórico completo, zero confusão</h3>
+            <p>Saiba exatamente quem está esperando resposta, quais orçamentos já expiraram e quais foram aprovados — tudo em um painel limpo.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="como-funciona">
+      <div class="container">
+        <div class="section-head center reveal">
+          <span class="eyebrow">Como funciona</span>
+          <h2>De "qual o preço?" para "pode agendar?" em três passos</h2>
+          <p>Simples o suficiente para usar no meio de uma visita técnica, pelo celular.</p>
+        </div>
+        <div class="steps">
+          <article class="card step-card reveal">
+            <span class="step-badge">1</span>
+            <h3>Monte o orçamento em 2 minutos</h3>
+            <p>Selecione o serviço do seu catálogo, ajuste o valor se precisar e adicione as condições de pagamento. Em segundos está pronto.</p>
+          </article>
+          <article class="card step-card reveal">
+            <span class="step-badge">2</span>
+            <h3>Envie pelo WhatsApp com um clique</h3>
+            <p>O PDF profissional chega no celular do cliente na mesma conversa. Ele abre, lê e decide — sem sair do app que já usa.</p>
+          </article>
+          <article class="card step-card reveal">
+            <span class="step-badge">3</span>
+            <h3>Acompanhe e feche mais rápido</h3>
+            <p>Veja quem aprovou, quem está pensando e quem precisa de um lembrete — tudo num painel limpo. Sem planilha, sem post-it, sem perder nenhum cliente no caminho.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="produto">
+      <div class="container product-grid">
+        <div class="product-copy reveal">
+          <div class="section-head">
+            <span class="eyebrow">Feito para o seu mercado</span>
+            <h2>Você está perdendo negócios. Não por causa do preço.</h2>
+          </div>
+          <p>A maioria dos prestadores de serviço perde clientes antes mesmo de negociar. O cliente pediu orçamento, você demorou para responder e ele foi no concorrente. Com o COTTE, isso não acontece mais.</p>
+          <ul class="audience-list" aria-label="Profissionais atendidos">
+            <li>❄️ Instaladores e técnicos de ar-condicionado</li>
+            <li>⚡ Eletricistas residenciais e prediais</li>
+            <li>🖌️ Pintores e gesseiros</li>
+            <li>🧱 Pedreiros e reformistas</li>
+            <li>🔧 Técnicos de manutenção em geral</li>
+            <li>🚿 Encanadores e hidráulicos</li>
+            <li>🪟 Vidraceiros e serralheiros</li>
+            <li>+ qualquer prestador de serviço que faz orçamento</li>
+          </ul>
+        </div>
+        <aside class="card product-panel reveal" aria-label="Indicadores do produto">
+          <div class="panel-line"><span>Tempo para criar e enviar o orçamento</span><strong>segundos</strong></div>
+          <div class="panel-line"><span>Aumento médio na taxa de fechamento</span><strong>+30%</strong></div>
+          <div class="panel-line"><span>Canal de envio preferido pelos clientes</span><strong>WhatsApp</strong></div>
+          <div class="panel-line"><span>Nichos de mercado atendidos</span><strong>Todos</strong></div>
+          <div class="panel-line"><span>Tempo para configurar e usar</span><strong>menos de 5 min</strong></div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="section" id="precos">
+      <div class="container">
+        <div class="section-head center reveal">
+          <span class="eyebrow">Preços — sem surpresas</span>
+          <h2>Custa menos do que um serviço que você vai fechar com ele</h2>
+          <p>14 dias grátis para testar tudo. Sem cartão de crédito. Sem compromisso. Se não gostar, cancela em um clique.</p>
+        </div>
+        <div class="pricing-grid">
+          <article class="card price-card reveal">
+            <p class="price-plan">Starter</p>
+            <p class="price-value">R$ 89<span style="font-size:0.95rem;color:var(--text-muted)">/mês</span></p>
+            <p class="price-desc">Para autônomos que querem enviar orçamentos rápido e parecer mais profissional do que a concorrência.</p>
+            <ul class="price-list">
+              <li>Até 200 orçamentos por mês</li>
+              <li>Envio por WhatsApp com PDF</li>
+              <li>Catálogo de serviços</li>
+              <li>Histórico de clientes</li>
+            </ul>
+            <a class="btn btn-secondary" href="/app/login.html#cadastro">Começar grátis — 14 dias →</a>
+          </article>
+          <article class="card price-card featured reveal">
+            <span class="price-badge">Mais escolhido</span>
+            <p class="price-plan">Pro</p>
+            <p class="price-value">R$ 129<span style="font-size:0.95rem;color:var(--text-muted)">/mês</span></p>
+            <p class="price-desc">Para quem já fechou o primeiro serviço e quer escalar sem contratar mais gente.</p>
+            <ul class="price-list">
+              <li>Até 1.000 orçamentos por mês</li>
+              <li>Múltiplos usuários na equipe</li>
+              <li>Relatórios de conversão e receita</li>
+              <li>Tudo do Starter, mais controle</li>
+            </ul>
+            <a class="btn btn-primary" href="/app/login.html#cadastro">Quero o Pro — testar grátis →</a>
+          </article>
+          <article class="card price-card reveal">
+            <p class="price-plan">Business</p>
+            <p class="price-value">R$ 189<span style="font-size:0.95rem;color:var(--text-muted)">/mês</span></p>
+            <p class="price-desc">Para empresas com equipe maior, alto volume de orçamentos e necessidade de suporte rápido.</p>
+            <ul class="price-list">
+              <li>Orçamentos e usuários ilimitados</li>
+              <li>Suporte prioritário direto no WhatsApp</li>
+              <li>Onboarding personalizado</li>
+              <li>Tudo do Pro, sem limites</li>
+            </ul>
+            <a class="btn btn-secondary" href="/app/login.html#cadastro">Falar com a equipe</a>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="faq">
+      <div class="container">
+        <div class="section-head center reveal">
+          <span class="eyebrow">Dúvidas frequentes</span>
+          <h2>Respostas rápidas antes de começar</h2>
+        </div>
+        <div class="faq-list reveal">
+          <details class="faq-item">
+            <summary>Meu cliente precisa instalar algum aplicativo?</summary>
+            <p class="faq-answer">Não. O cliente recebe o orçamento direto no WhatsApp dele, como um PDF. Não precisa cadastrar nada nem baixar nenhum app.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Funciona no iPhone e no Android?</summary>
+            <p class="faq-answer">Sim. O COTTE funciona pelo navegador do celular — iPhone, Android, qualquer modelo. Não precisa instalar nada.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Posso colocar minha logo no orçamento?</summary>
+            <p class="faq-answer">Sim. Você cadastra sua logo uma vez e ela aparece em todos os orçamentos automaticamente.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Como funciona o assistente pelo WhatsApp?</summary>
+            <p class="faq-answer">Você adiciona o número do COTTE nos seus contatos e começa a mandar mensagens como se fosse um funcionário. Peça orçamentos, consulte clientes, veja o financeiro — tudo por texto.</p>
+          </details>
+          <details class="faq-item">
+            <summary>E se eu quiser cancelar?</summary>
+            <p class="faq-answer">Cancela com um clique, quando quiser, sem burocracia. Você não perde o histórico de orçamentos que já fez.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Preciso de internet para usar?</summary>
+            <p class="faq-answer">Sim, o COTTE funciona online. Como você usa pelo celular durante a visita, qualquer conexão 4G já é suficiente.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Posso testar antes de pagar?</summary>
+            <p class="faq-answer">Sim. São 14 dias grátis com acesso completo, sem precisar cadastrar cartão de crédito.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-numbers">
+  <div class="container">
+    <div class="numbers-strip">
+      <div class="number-item">
+        <span class="number-value">0 apps</span>
+        <span class="number-label">o cliente não precisa instalar nada</span>
+      </div>
+      <div class="number-item">
+        <span class="number-value">+30%</span>
+        <span class="number-label">de aumento médio na taxa de fechamento</span>
+      </div>
+      <div class="number-item">
+        <span class="number-value">- 5min</span>
+        <span class="number-label">para configurar e começar a usar</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+    <section class="cta-final">
+      <div class="container">
+        <div class="cta-wrap reveal">
+          <h2>Amanhã você pode fechar um serviço que hoje está perdendo.</h2>
+          <p>Crie sua conta, adicione o COTTE no WhatsApp e envie o primeiro orçamento ainda hoje. São menos de 5 minutos para configurar — sem precisar de suporte técnico.</p>
+          <div class="btn-row" style="justify-content:center">
+            <a class="btn btn-primary" href="/app/login.html#cadastro">Começar grátis — 14 dias →</a>
+          </div>
+          <p style="margin-top:0.9rem;font-size:0.85rem;color:#155e75;">14 dias grátis · Sem cartão · Cancele quando quiser · Suporte em português</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-col">
+          <a class="brand" href="https://cotte.app" aria-label="Site oficial COTTE">
+            <span class="logo-text">cotte</span>
+            <span class="logo-slash">//</span>
+          </a>
+          <p style="margin-top:0.7rem;color:var(--text-muted);max-width:32ch;">Sistema para prestadores de serviço criarem, enviarem e acompanharem orçamentos com mais velocidade.</p>
+        </div>
+        <div class="footer-col">
+          <h3>Produto</h3>
+          <ul><li><a href="#produto">Produto</a></li><li><a href="#recursos">Recursos</a></li><li><a href="#precos">Preços</a></li></ul>
+        </div>
+        <div class="footer-col">
+          <h3>Empresa</h3>
+          <ul><li><a href="https://cotte.app">Sobre</a></li><li><a href="mailto:contato@cotte.app">Contato</a></li><li><a href="/app/">Entrar</a></li></ul>
+        </div>
+        <div class="footer-col">
+          <h3>Legal</h3>
+          <ul><li><a href="https://cotte.app/termos">Termos</a></li><li><a href="https://cotte.app/privacidade">Privacidade</a></li><li><a href="https://cotte.app">cotte.app</a></li></ul>
+        </div>
+      </div>
+      <div class="footer-bottom"><span>© 2026 COTTE. Todos os direitos reservados.</span><span>Feito para profissionais de serviço no Brasil.</span></div>
+    </div>
+  </footer>
+
+  <script>
+    // ── Funções compartilhadas do chat ───────────────────────────
+    function buildCardInner(data) {
+      const items = data.items.map(i => `<li>${i.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</li>`).join('');
+      const code   = data.code.replace(/&/g,'&amp;');
+      const client = data.client.replace(/&/g,'&amp;');
+      const total  = data.total.replace(/&/g,'&amp;');
+      return `<div class="ai-card-header"><span class="ai-card-num">${code}</span><span class="ai-card-badge-ok">✓ Criado</span></div>`
+        + `<div class="ai-card-client">👤 ${client}</div>`
+        + `<ul class="ai-card-items">${items}</ul>`
+        + `<div class="ai-card-total">Total: ${total}</div>`
+        + `<div class="ai-card-actions">`
+        + `<button class="ai-action-btn wpp" data-done="✓ Enviado!">📲 WhatsApp</button>`
+        + `<button class="ai-action-btn mail" data-done="✓ Enviado!">📧 E-mail</button>`
+        + `<button class="ai-action-btn view" data-done="✓ Aberto!">🔍 Ver detalhes</button>`
+        + `</div>`;
+    }
+
+    function makeMsg(side, text, card, container) {
+      const wrap = document.createElement('div');
+      wrap.className = `ai-msg ${side}`;
+      const bubble = document.createElement('div');
+      bubble.className = 'ai-bubble';
+      bubble.innerHTML = text
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n/g, '<br>');
+      if (card) {
+        const cardEl = document.createElement('div');
+        cardEl.className = 'ai-card';
+        cardEl.innerHTML = buildCardInner(card);
+        cardEl.querySelectorAll('.ai-action-btn').forEach(btn => {
+          btn.addEventListener('click', function () {
+            if (this._clicked) return;
+            this._clicked = true;
+            const orig = this.innerHTML;
+            this.textContent = this.dataset.done;
+            this.style.opacity = '0.75';
+            setTimeout(() => { this.innerHTML = orig; this.style.opacity = ''; this._clicked = false; }, 1600);
+          });
+        });
+        bubble.appendChild(cardEl);
+        bubble.style.maxWidth = '88%';
+      }
+      wrap.appendChild(bubble);
+      container.appendChild(wrap);
+      container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+    }
+
+    function makeWow(text, container) {
+      const wrap = document.createElement('div');
+      wrap.className = 'ai-wow-wrap';
+      const el = document.createElement('div');
+      el.className = 'ai-wow';
+      el.textContent = text;
+      wrap.appendChild(el);
+      container.appendChild(wrap);
+      container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+    }
+
+    async function runMessages(msgs, container) {
+      let delay = 0;
+      for (const msg of msgs) {
+        if (msg.side === 'wow') {
+          await new Promise(r => setTimeout(r, delay + 300));
+          makeWow(msg.text, container);
+          delay = 400;
+        } else if (msg.side === 'bot') {
+          await new Promise(r => setTimeout(r, delay));
+          const tid = 'typing-' + Math.random().toString(36).slice(2);
+          const tw = document.createElement('div');
+          tw.className = 'ai-typing'; tw.id = tid;
+          tw.innerHTML = '<div class="ai-typing-dots"><span></span><span></span><span></span></div>';
+          container.appendChild(tw); container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+          await new Promise(r => setTimeout(r, 900));
+          const tel = document.getElementById(tid); if (tel) tel.remove();
+          makeMsg('bot', msg.text, msg.card || null, container);
+          delay = 500;
+        } else {
+          await new Promise(r => setTimeout(r, delay));
+          makeMsg('user', msg.text, null, container);
+          delay = 600;
+        }
+      }
+    }
+
+    // ── Hero mini-chat (autoplay loop) ───────────────────────────
+    (function () {
+      const heroBox = document.getElementById('hero-chat-box');
+      if (!heroBox) return;
+      const heroMsgs = [
+        { side: 'user', text: 'Quero fazer um orçamento para instalação de ar' },
+        { side: 'bot',  text: 'Para qual cliente?' },
+        { side: 'user', text: 'João Silva, (48) 99876-5432' },
+        { side: 'bot',  text: '✅ Orçamento criado!', card: {
+          code: 'ORC-186-26', client: 'João Silva',
+          items: ['Instalação Split 9.000 BTUs — R$ 350,00', 'Suporte e fixação — R$ 80,00'],
+          total: 'R$ 430,00'
+        }},
+        { side: 'wow', text: '⚡ COTTE: 12 segundos. Word: 5 minutos.' },
+      ];
+      let heroVisible = true;
+      let heroLooping = false;
+      async function loopHero() {
+        if (!heroVisible) { heroLooping = false; return; }
+        heroLooping = true;
+        heroBox.innerHTML = '';
+        heroBox.scrollTop = 0;
+        await runMessages(heroMsgs, heroBox);
+        heroLooping = false;
+        if (!heroVisible) return;
+        await new Promise(r => setTimeout(r, 3500));
+        if (!heroVisible) return;
+        loopHero();
+      }
+      new IntersectionObserver(entries => {
+        heroVisible = entries[0].isIntersecting;
+        if (heroVisible && !heroLooping) loopHero();
+      }, { threshold: 0 }).observe(document.getElementById('demo'));
+      loopHero();
+    })();
+
+    // ── Assistente Demo interativa (seção) ───────────────────────
+    (function () {
+      const scenarios = {
+        orcamento: [
+          { side: 'user', text: 'Quero fazer um orçamento para instalação de ar-condicionado' },
+          { side: 'bot',  text: 'Para qual cliente é o orçamento?' },
+          { side: 'user', text: 'João Silva, (48) 99876-5432' },
+          { side: 'bot',  text: '✅ Orçamento criado! Aqui está o preview:', card: {
+            code: 'ORC-186-26', client: 'João Silva',
+            items: ['Instalação Split 9.000 BTUs — R$ 350,00', 'Suporte e fixação — R$ 80,00'],
+            total: 'R$ 430,00'
+          }},
+          { side: 'user', text: 'Perfeito! Envia no WhatsApp' },
+          { side: 'bot',  text: '📲 Enviado! João Silva vai receber o PDF profissional agora.' },
+          { side: 'wow',  text: '⚡ Isso levaria ~5 min no Word. O COTTE fez em 12 segundos.' },
+        ],
+        financeiro: [
+          { side: 'user', text: 'Como está meu financeiro esse mês?' },
+          { side: 'bot',  text: '📊 **Resumo de março/2026:**\n\n• Faturado: R$ 12.480,00\n• Recebido: R$ 9.200,00\n• A receber: R$ 3.280,00\n• Orçamentos fechados: 14\n\nDeseja ver o detalhe por cliente ou por serviço?' },
+          { side: 'user', text: 'Por serviço' },
+          { side: 'bot',  text: '🏷️ **Por serviço em março:**\n\n1. Instalação de ar — R$ 6.100,00\n2. Manutenção elétrica — R$ 3.950,00\n3. Pintura — R$ 2.430,00\n\nSeu serviço mais rentável é instalação de ar. Quer um relatório em PDF?' },
+        ],
+        clientes: [
+          { side: 'user', text: 'Quais clientes ainda não aprovaram o orçamento?' },
+          { side: 'bot',  text: '⏳ **3 orçamentos aguardando resposta:**\n\n1. Maria Ferreira — ORC-183-26 — R$ 2.450 — 3 dias\n2. Carlos Ramos — ORC-181-26 — R$ 890 — 5 dias\n3. Fernanda Souza — ORC-179-26 — R$ 1.200 — 7 dias\n\nQuer que eu envie um lembrete para algum deles?' },
+          { side: 'user', text: 'Manda lembrete para Fernanda, faz 7 dias' },
+          { side: 'bot',  text: '📲 Lembrete enviado para Fernanda Souza no WhatsApp:\n\n_"Olá Fernanda! Passando para ver se teve dúvida sobre o orçamento que enviamos. Estamos à disposição!"_\n\nVou te avisar quando ela responder.' },
+        ],
+        lembrete: [
+          { side: 'user', text: 'Preciso cobrar o Carlos que está devendo desde fevereiro' },
+          { side: 'bot',  text: '💰 Encontrei: Carlos Ramos — R$ 890,00 vencido em 10/02/2026.\n\nQuer que eu envie a cobrança pelo WhatsApp com o boleto?' },
+          { side: 'user', text: 'Sim, manda uma mensagem simpática' },
+          { side: 'bot',  text: '📲 Mensagem enviada para Carlos Ramos:\n\n_"Olá Carlos! Tudo bem? Passando para lembrar que temos um valor em aberto de R$ 890,00 referente ao serviço de março. Qualquer dúvida, é só falar!"_\n\nSe ele não responder em 2 dias, te aviso de novo.' },
+        ],
+        relatorio: [
+          { side: 'user', text: 'Me dá um resumo rápido do mês' },
+          { side: 'bot',  text: '📈 **Resumo de março/2026:**\n\n• 23 orçamentos criados\n• 14 aprovados (61% de conversão)\n• Tempo médio de resposta: 4 min\n• Ticket médio: R$ 891,00\n\n🔥 Sua conversão subiu 8% em relação a fevereiro!' },
+          { side: 'user', text: 'Que ótimo! Qual foi o maior orçamento?' },
+          { side: 'bot',  text: '🏆 Maior orçamento do mês:\n\n**ORC-177-26** — Reforma elétrica completa\nCliente: Construtora Horizonte\nValor: **R$ 4.200,00** ✅ Aprovado\n\nQuer exportar o relatório completo em PDF?' },
+        ],
+      };
+
+      const chat    = document.getElementById('ai-chat-box');
+      const chips   = document.querySelectorAll('.ai-chip');
+      let running   = false;
+      let activeKey = 'orcamento';
+      let restartTimer = null;
+      let assistenteVisible = false;
+
+      async function runScenario(key) {
+        if (running || !assistenteVisible) return;
+        running = true;
+        clearTimeout(restartTimer);
+        chat.innerHTML = '';
+        chat.scrollTop = 0;
+        activeKey = key;
+        await runMessages(scenarios[key], chat);
+        running = false;
+        if (assistenteVisible) {
+          restartTimer = setTimeout(() => runScenario(activeKey), 4000);
+        }
+      }
+
+      chips.forEach(c => c.setAttribute('aria-pressed', 'false'));
+      document.querySelector('.ai-chip[data-scenario="orcamento"]')?.setAttribute('aria-pressed', 'true');
+
+      chips.forEach(chip => {
+        chip.addEventListener('click', function () {
+          chips.forEach(c => { c.classList.remove('active'); c.setAttribute('aria-pressed', 'false'); });
+          this.classList.add('active');
+          this.setAttribute('aria-pressed', 'true');
+          running = false;
+          runScenario(this.dataset.scenario);
+        });
+      });
+
+      new IntersectionObserver(entries => {
+        assistenteVisible = entries[0].isIntersecting;
+        if (!assistenteVisible) {
+          clearTimeout(restartTimer);
+        } else if (!running) {
+          runScenario(activeKey || 'orcamento');
+        }
+      }, { threshold: 0.1 }).observe(document.querySelector('.ai-demo'));
+    })();
+
+    // ── Nav hamburger ────────────────────────────────────────────
+    (function () {
+      const toggle = document.getElementById('nav-toggle');
+      const menu   = document.getElementById('nav-mobile-menu');
+      if (!toggle || !menu) return;
+      toggle.addEventListener('click', function () {
+        const open = menu.classList.toggle('open');
+        toggle.classList.toggle('open', open);
+        toggle.setAttribute('aria-expanded', String(open));
+      });
+      menu.querySelectorAll('a').forEach(a => {
+        a.addEventListener('click', () => {
+          menu.classList.remove('open');
+          toggle.classList.remove('open');
+          toggle.setAttribute('aria-expanded', 'false');
+        });
+      });
+    })();
+
+    // ── Scroll reveal ────────────────────────────────────────────
+    (function () {
+      const revealed = document.querySelectorAll(".reveal");
+      if (!("IntersectionObserver" in window)) {
+        revealed.forEach((el) => el.classList.add("visible"));
+        return;
+      }
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("visible");
+            io.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.15 });
+      revealed.forEach((el) => io.observe(el));
+    })();
+
+    // ── Google Analytics — rastrear cliques nos CTAs ─────────────
+    (function () {
+      document.querySelectorAll('a[href*="cadastro"]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          if (typeof gtag === 'function') {
+            gtag('event', 'cta_click', {
+              event_category: 'conversao',
+              event_label: btn.textContent.trim().slice(0, 60)
+            });
+          }
+        });
+      });
+    })();
+  </script>
+
+  <!-- Google Analytics 4 -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-YF5YYFLK8W"></script>
+  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-YF5YYFLK8W');</script>
+  <a class="whatsapp-float" href="https://wa.me/5548998152438?text=Ol%C3%A1%2C%20tenho%20uma%20d%C3%BAvida%20sobre%20o%20COTTE" target="_blank" rel="noopener" aria-label="Falar no WhatsApp">
+    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="white">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+      <path d="M12 0C5.373 0 0 5.373 0 12c0 2.126.556 4.117 1.521 5.851L.057 23.882a.5.5 0 0 0 .612.612l6.056-1.463A11.945 11.945 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.814 9.814 0 0 1-5.001-1.368l-.36-.214-3.716.898.928-3.63-.234-.374A9.818 9.818 0 1 1 12 21.818z"/>
+    </svg>
+    <span class="whatsapp-tooltip">Falar com suporte</span>
+  </a>
+</body>
+</html>

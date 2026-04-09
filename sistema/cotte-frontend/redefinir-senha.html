@@ -1,0 +1,308 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem("cotte_tema");if(t){document.documentElement.setAttribute("data-theme",t);}else{document.documentElement.setAttribute("data-theme","light");}})()</script>
+  <title>COTTE — Redefinir senha</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+  <style>
+
+    :root {
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --border: #e1e7f0;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --accent-blue: #06b6d4;
+      --danger: #dc2626;
+      --danger-bg: #fef2f2;
+      --success: #0f766e;
+      --success-bg: #f0fdfa;
+      --ring: rgba(6, 182, 212, 0.22);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(900px 420px at 10% -8%, rgba(6, 182, 212, 0.14), transparent 58%),
+        radial-gradient(860px 400px at 95% 110%, rgba(6, 182, 212, 0.10), transparent 56%),
+        var(--bg);
+    }
+
+    .card {
+      width: 100%;
+      max-width: 480px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      box-shadow: 0 26px 60px rgba(15, 23, 42, 0.10);
+      padding: 34px 30px;
+    }
+
+    .logo {
+      margin-bottom: 24px;
+    }
+
+    .logo-mark {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 30px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--text);
+      user-select: none;
+      line-height: 1;
+    }
+
+    .logo-mark span { color: var(--accent-blue); }
+
+    h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 28px;
+      line-height: 1.14;
+      letter-spacing: -0.02em;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+
+    .group { margin-bottom: 14px; }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #334155;
+      margin-bottom: 7px;
+    }
+
+    .input-wrap { position: relative; }
+
+    input {
+      width: 100%;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 42px 12px 14px;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--text);
+      background: #f8fafc;
+      outline: none;
+      transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+    }
+
+    input:focus {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 4px var(--ring);
+      background: #fff;
+    }
+
+    input.input-error {
+      border-color: var(--danger);
+      box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+      background: #fffafa;
+    }
+
+    .toggle {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: none;
+      background: transparent;
+      color: #94a3b8;
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 6px;
+    }
+
+    .toggle:hover { background: rgba(100, 116, 139, 0.1); color: #64748b; }
+    .toggle svg { width: 16px; height: 16px; }
+
+    .help {
+      color: var(--text-muted);
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    .btn {
+      width: 100%;
+      margin-top: 8px;
+      border: none;
+      border-radius: 12px;
+      padding: 13px 16px;
+      font-size: 14.5px;
+      font-weight: 600;
+      font-family: inherit;
+      color: #fff;
+      background: linear-gradient(135deg, #06b6d4 0%, #0284c7 100%);
+      box-shadow: 0 8px 24px rgba(6, 182, 212, 0.3);
+      cursor: pointer;
+    }
+
+    .btn:hover:not(:disabled) { transform: translateY(-1px); }
+    .btn:disabled { opacity: .65; cursor: not-allowed; }
+
+    .alert {
+      margin-bottom: 18px;
+      border-radius: 12px;
+      border: 1px solid transparent;
+      padding: 12px 14px;
+      font-size: 13px;
+      line-height: 1.45;
+      display: none;
+    }
+
+    .alert-error { color: #991b1b; background: var(--danger-bg); border-color: rgba(220, 38, 38, .2); }
+    .alert-success { color: var(--success); background: var(--success-bg); border-color: rgba(15, 118, 110, .22); }
+
+    .footer {
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .footer a {
+      color: #0284c7;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      color: #0369a1;
+    }
+  </style>
+</head>
+<body>
+  <main class="card" aria-label="Redefinir senha COTTE">
+    <div class="logo">
+      <div class="logo-mark">cotte<span>//</span></div>
+    </div>
+
+    <h1>Redefina sua senha</h1>
+    <p class="subtitle">Defina uma nova senha para continuar com segurança na plataforma.</p>
+
+    <div id="alert" class="alert alert-error" role="alert" aria-live="polite"></div>
+
+    <div class="group">
+      <label for="nova-senha">Nova senha</label>
+      <div class="input-wrap">
+        <input type="password" id="nova-senha" autocomplete="new-password" placeholder="Mínimo 8 caracteres">
+        <button type="button" class="toggle" onclick="toggleSenha('nova-senha', this)" aria-label="Mostrar senha">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="group">
+      <label for="confirmar-senha">Confirmar nova senha</label>
+      <div class="input-wrap">
+        <input type="password" id="confirmar-senha" autocomplete="new-password" placeholder="Repita a nova senha">
+        <button type="button" class="toggle" onclick="toggleSenha('confirmar-senha', this)" aria-label="Mostrar senha">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+      </div>
+      <div class="help">Use uma senha forte com letras, números e símbolos.</div>
+    </div>
+
+    <button id="btn-redefinir" class="btn" type="button" onclick="redefinirSenha()">
+      Salvar nova senha
+    </button>
+
+    <div class="footer">
+      Lembrou sua senha? <a href="login.html">Voltar para login</a>
+    </div>
+  </main>
+
+  <script src="js/utils.js?v=1"></script>
+<script src="js/api.js?v=17"></script>
+  <script>
+    function mostrarAlerta(msg, sucesso = false) {
+      const el = document.getElementById('alert');
+      el.textContent = msg;
+      el.classList.remove('alert-error', 'alert-success');
+      el.classList.add(sucesso ? 'alert-success' : 'alert-error');
+      el.style.display = 'block';
+    }
+
+    function limparErros() {
+      document.getElementById('nova-senha').classList.remove('input-error');
+      document.getElementById('confirmar-senha').classList.remove('input-error');
+    }
+
+    function toggleSenha(inputId, btn) {
+      const input = document.getElementById(inputId);
+      const oculto = input.type === 'password';
+      input.type = oculto ? 'text' : 'password';
+      btn.setAttribute('aria-label', oculto ? 'Ocultar senha' : 'Mostrar senha');
+    }
+
+    function tokenDaURL() {
+      return new URLSearchParams(window.location.search).get('token') || '';
+    }
+
+    async function redefinirSenha() {
+      const token = tokenDaURL();
+      const nova = document.getElementById('nova-senha').value;
+      const conf = document.getElementById('confirmar-senha').value;
+      const btn = document.getElementById('btn-redefinir');
+
+      limparErros();
+      document.getElementById('alert').style.display = 'none';
+
+      if (!token) {
+        return mostrarAlerta('Link inválido. Solicite uma nova recuperação de senha.');
+      }
+      if (!nova || nova.length < 8) {
+        document.getElementById('nova-senha').classList.add('input-error');
+        return mostrarAlerta('A nova senha deve ter pelo menos 8 caracteres.');
+      }
+      if (nova !== conf) {
+        document.getElementById('nova-senha').classList.add('input-error');
+        document.getElementById('confirmar-senha').classList.add('input-error');
+        return mostrarAlerta('A confirmação da senha não confere.');
+      }
+
+      setLoading(btn, true);
+      try {
+        await api.post('/auth/redefinir-senha', { token, nova_senha: nova });
+        mostrarAlerta('Senha redefinida com sucesso. Redirecionando para o login...', true);
+        setTimeout(() => window.location.href = 'login.html', 1800);
+      } catch (err) {
+        mostrarAlerta(err.message || 'Não foi possível redefinir a senha.');
+      } finally {
+        setLoading(btn, false, 'Salvar nova senha');
+      }
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') redefinirSenha();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem("cotte_tema");if(t){document.documentElement.setAttribute("data-theme",t);}else{document.documentElement.setAttribute("data-theme","light");}})()</script>
+  <title>COTTE — Gerenciar Pacotes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="css/style.css?v=3">
+  <link rel="stylesheet" href="css/precision-atelier.css?v=1">
+  <style>
+    /* Overrides específicos para manter o alinhamento com a sidebar global */
+    .main { background: var(--color-surface); }
+    .topbar { border-bottom: none; margin-bottom: var(--space-8); }
+    .page-title { font: var(--text-headline-lg); color: var(--color-on-surface); }
+    .page-sub { font: var(--text-body-md); color: var(--color-on-surface-variant); }
+    
+    /* Custom Modal Overrides for Precision */
+    .modal-overlay { background: rgba(24, 28, 31, 0.40); backdrop-filter: blur(8px); }
+    .modal { border: none; box-shadow: var(--shadow-4); }
+    .modal-header { border-bottom: none; padding: var(--space-6) var(--space-8); }
+    .modal-title { font: var(--text-headline-sm); }
+    .modal-body { padding: 0 var(--space-8) var(--space-8); gap: var(--space-6); }
+    .modal-footer { border-top: none; padding: var(--space-4) var(--space-8) var(--space-8); background: transparent; }
+    
+    .precision-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+    .precision-form-row .full { grid-column: 1 / -1; }
+  </style>
+</head>
+<body class="precision-layout">
+
+<aside class="sidebar" id="sidebar"></aside>
+
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-title-wrap">
+      <div class="page-title">Gestão de Pacotes</div>
+      <div class="page-sub">Configure planos, limites e módulos do sistema</div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn-precision-ghost" onclick="abrirModalPricing()">💰 Preços Landing</button>
+      <button class="btn-precision-ghost" onclick="abrirModalModulo()">🧩 Módulos</button>
+      <button class="btn-precision-primary" onclick="abrirModalPlano()">+ Novo Pacote</button>
+    </div>
+  </div>
+
+  <div class="pacote-grid" id="pacotes-grid">
+    <!-- Renderizado via JS -->
+  </div>
+</main>
+
+<!-- MODAL PLANO -->
+<div class="modal-overlay precision-modal" id="modal-plano">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-plano-title">Novo Pacote</div>
+      <button class="modal-close" onclick="fecharModalPlano()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="plano-id">
+      <div class="precision-form-row">
+        <div class="precision-field full">
+          <label class="precision-label">Nome do Pacote *</label>
+          <input type="text" class="precision-input" id="plano-nome" placeholder="Ex: Plano Profissional">
+        </div>
+        <div class="precision-field full">
+          <label class="precision-label">Descrição</label>
+          <textarea class="precision-input" id="plano-descricao" rows="2" placeholder="O que este plano oferece?"></textarea>
+        </div>
+        <div class="precision-field">
+          <label class="precision-label">Limite de Usuários</label>
+          <input type="number" class="precision-input" id="plano-lim-usr" value="1">
+        </div>
+        <div class="precision-field">
+          <label class="precision-label">Limite de Orçamentos</label>
+          <input type="number" class="precision-input" id="plano-lim-orc" value="50">
+        </div>
+        <div class="precision-field">
+          <label class="precision-label">Mensagens IA /mês</label>
+          <input type="number" class="precision-input" id="plano-lim-ia" value="100">
+        </div>
+        <div class="precision-field">
+          <label class="precision-label">Mensagens WhatsApp /mês</label>
+          <input type="number" class="precision-input" id="plano-lim-wa" value="500">
+        </div>
+        <div class="precision-field">
+          <label class="precision-label">Preço Mensal (R$)</label>
+          <input type="number" class="precision-input" id="plano-preco" step="0.01" value="0.00">
+        </div>
+        <div class="precision-field">
+            <label class="precision-label">Status</label>
+            <select class="precision-input" id="plano-ativo">
+                <option value="true">Ativo</option>
+                <option value="false">Inativo</option>
+            </select>
+        </div>
+
+        <div class="precision-field full">
+          <label class="precision-label">Módulos Liberados</label>
+          <div id="lista-modulos-checks" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:var(--space-4); margin-top:var(--space-2)">
+            <!-- Renderizado via JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-precision-ghost" onclick="fecharModalPlano()">Cancelar</button>
+      <button class="btn-precision-primary" id="btn-salvar-plano" onclick="salvarPlano()">Salvar Pacote</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL GESTÃO DE MÓDULOS -->
+<div class="modal-overlay precision-modal" id="modal-modulos">
+    <div class="modal" style="max-width:500px">
+        <div class="modal-header">
+            <div class="modal-title">🧩 Gerenciar Módulos</div>
+            <button class="modal-close" onclick="fecharModalModulo()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div id="lista-modulos-tabela" style="margin-bottom:var(--space-6)">
+                <!-- Renderizado via JS -->
+            </div>
+            <div style="background:var(--color-surface-low); padding:var(--space-6); border-radius:var(--radius-lg)">
+                <div style="font:var(--text-title-sm); margin-bottom:var(--space-4)">Adicionar Módulo</div>
+                <div class="precision-form-row">
+                    <div class="precision-field">
+                        <label class="precision-label">Nome</label>
+                        <input type="text" class="precision-input" id="novo-mod-nome" placeholder="Financeiro">
+                    </div>
+                    <div class="precision-field">
+                        <label class="precision-label">Slug</label>
+                        <input type="text" class="precision-input" id="novo-mod-slug" placeholder="financeiro">
+                    </div>
+                </div>
+                <button class="btn-precision-primary" style="width:100%; margin-top:var(--space-4)" onclick="criarModulo()">Adicionar Módulo</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL PRICING LANDING -->
+<div class="modal-overlay precision-modal" id="modal-pricing">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <div class="modal-title">💰 Configurar planos da landing</div>
+      <button class="modal-close" onclick="fecharModalPricing()">x</button>
+    </div>
+    <div class="modal-body">
+      <p style="font:var(--text-body-sm); color:var(--color-on-surface-muted); margin-bottom:var(--space-4)">
+        Ajuste os valores exibidos na sessão de planos da landing.
+      </p>
+      <div class="tabs" style="background:var(--color-surface-low); border:none; padding:4px">
+        <button class="tab active" id="tab-pricing-starter" onclick="selecionarTabPricing('starter')">Starter</button>
+        <button class="tab" id="tab-pricing-pro" onclick="selecionarTabPricing('pro')">Pro</button>
+        <button class="tab" id="tab-pricing-business" onclick="selecionarTabPricing('business')">Business</button>
+      </div>
+      
+      <div id="pricing-form-starter">
+        <div class="precision-form-row">
+          <div class="precision-field">
+            <label class="precision-label">Preço Starter (R$ / mês)</label>
+            <input type="number" class="precision-input" id="pricing-starter-preco" min="0" step="1">
+          </div>
+          <div class="precision-field">
+            <label class="precision-label">Orçamentos incluídos</label>
+            <input type="number" class="precision-input" id="pricing-starter-orc" min="0" step="1">
+          </div>
+          <div class="precision-field full">
+            <label class="precision-label">Usuários incluídos</label>
+            <input type="number" class="precision-input" id="pricing-starter-usr" min="1" step="1">
+          </div>
+        </div>
+      </div>
+      
+      <div id="pricing-form-pro" style="display:none">
+        <div class="precision-form-row">
+          <div class="precision-field">
+            <label class="precision-label">Preço Pro (R$ / mês)</label>
+            <input type="number" class="precision-input" id="pricing-pro-preco" min="0" step="1">
+          </div>
+          <div class="precision-field">
+            <label class="precision-label">Orçamentos incluídos</label>
+            <input type="number" class="precision-input" id="pricing-pro-orc" min="0" step="1">
+          </div>
+          <div class="precision-field full">
+            <label class="precision-label">Usuários incluídos</label>
+            <input type="number" class="precision-input" id="pricing-pro-usr" min="1" step="1">
+          </div>
+        </div>
+      </div>
+      
+      <div id="pricing-form-business" style="display:none">
+        <div class="precision-form-row">
+          <div class="precision-field">
+            <label class="precision-label">Preço Business (R$ / mês)</label>
+            <input type="number" class="precision-input" id="pricing-business-preco" min="0" step="1">
+          </div>
+          <div class="precision-field">
+            <label class="precision-label">Orçamentos incluídos</label>
+            <input type="number" class="precision-input" id="pricing-business-orc" min="0" step="1">
+          </div>
+          <div class="precision-field full">
+            <label class="precision-label">Usuários incluídos</label>
+            <input type="number" class="precision-input" id="pricing-business-usr" min="0" step="1">
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-precision-ghost" onclick="fecharModalPricing()">Cancelar</button>
+      <button class="btn-precision-primary" id="btn-salvar-pricing" onclick="salvarPricing()">Salvar preços</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/utils.js?v=1"></script>
+<script src="js/api.js?v=17"></script>
+<script src="js/layout.js?v=5"></script>
+<script>
+  inicializarLayout('admin-planos');
+
+  function esc(s) { if (!s) return ''; const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+  function showToast(msg, type='success') {
+    // Mantendo compatibilidade com toastr se disponível, senão usa o padrão do sistema
+    if (typeof toastr !== 'undefined') {
+        toastr[type](msg);
+    } else {
+        const notif = document.getElementById('notif');
+        if (!notif) { alert(msg); return; }
+        notif.querySelector('.notif-icon').textContent = type === 'success' ? '✅' : '⚠️';
+        notif.querySelector('.notif-title').textContent = msg;
+        notif.classList.add('show');
+        setTimeout(() => notif.classList.remove('show'), 3500);
+    }
+  }
+
+  let todosPacotes = [];
+  let todosModulos = [];
+
+  async function init() {
+    await carregarModulos();
+    await carregarPacotes();
+  }
+
+  async function carregarModulos() {
+    try {
+      todosModulos = await api.get('/admin/pacotes/modulos');
+      renderModulosChecks();
+      renderModulosTabela();
+    } catch(e) { console.error(e); }
+  }
+
+  async function carregarPacotes() {
+    try {
+      todosPacotes = await api.get('/admin/pacotes/');
+      renderPacotes();
+    } catch(e) { console.error(e); }
+  }
+
+  function renderPacotes() {
+    const grid = document.getElementById('pacotes-grid');
+    if(!todosPacotes.length) {
+      grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:var(--space-10); color:var(--color-on-surface-muted); font:var(--text-body-md)">Nenhum pacote cadastrado.</div>';
+      return;
+    }
+    grid.innerHTML = todosPacotes.map(p => `
+      <div class="pacote-card">
+        <div class="pacote-header">
+          <div>
+            <div class="pacote-nome">
+                ${esc(p.nome)} 
+                ${!p.ativo ? '<span class="chip chip-error" style="margin-left:var(--space-2)">Inativo</span>' : ''}
+            </div>
+            <div style="font:var(--text-body-sm); color:var(--color-on-surface-variant); margin-top:var(--space-1)">${esc(p.descricao || 'Sem descrição')}</div>
+          </div>
+          <div class="pacote-preco">R$ ${parseFloat(p.preco_mensal).toLocaleString('pt-BR', {minimumFractionDigits:2})}</div>
+        </div>
+        <div class="pacote-limites">
+          <div class="limite-item">
+            <span class="limite-label">Usuários</span>
+            <span class="limite-value">${p.limite_usuarios || 'Ilimitado'}</span>
+          </div>
+          <div class="limite-item">
+            <span class="limite-label">Orçamentos</span>
+            <span class="limite-value">${p.limite_orcamentos || 'Ilimitado'}</span>
+          </div>
+          <div class="limite-item">
+            <span class="limite-label">IA (mensagens)</span>
+            <span class="limite-value">${p.total_mensagem_ia || '0'}</span>
+          </div>
+          <div class="limite-item">
+            <span class="limite-label">WhatsApp</span>
+            <span class="limite-value">${p.total_mensagem_whatsapp || '0'}</span>
+          </div>
+        </div>
+        <div class="modulos-wrap">
+          ${(p.modulos || []).map(m => `<span class="modulo-tag">${esc(m.nome)}</span>`).join('')}
+        </div>
+        <div class="pacote-actions">
+          <button class="btn-precision-ghost" style="flex:1" onclick="abrirModalPlano(${p.id})">Editar</button>
+          <button class="btn-precision-ghost" style="color:var(--color-error)" onclick="confirmarExcluirPlano(${p.id})">Excluir</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function renderModulosChecks() {
+    const wrap = document.getElementById('lista-modulos-checks');
+    wrap.innerHTML = todosModulos.map(m => `
+      <label style="display:flex; align-items:center; gap:var(--space-2); font:var(--text-body-sm); cursor:pointer">
+        <input type="checkbox" name="modulos" value="${m.id}" style="width:18px; height:18px; accent-color:var(--color-primary)">
+        ${m.nome}
+      </label>
+    `).join('');
+  }
+
+  function renderModulosTabela() {
+      const wrap = document.getElementById('lista-modulos-tabela');
+      if(!todosModulos.length) {
+          wrap.innerHTML = '<div style="font:var(--text-body-sm); color:var(--color-on-surface-muted)">Nenhum módulo criado.</div>';
+          return;
+      }
+      wrap.innerHTML = todosModulos.map(m => `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:var(--space-3) 0; background:var(--color-surface-lowest); margin-bottom:var(--space-1)">
+            <div style="font:var(--text-body-md)">
+                <strong>${m.nome}</strong> 
+                <span style="font:var(--text-label-sm); color:var(--color-on-surface-muted); margin-left:var(--space-2)">${m.slug}</span>
+            </div>
+            <div class="chip ${m.ativo ? 'chip-success' : 'chip-error'}">${m.ativo ? 'ATIVO' : 'INATIVO'}</div>
+        </div>
+      `).join('');
+  }
+
+  // Ações Modais e CRUD
+  function abrirModalPlano(id = null) {
+    const modal = document.getElementById('modal-plano');
+    const title = document.getElementById('modal-plano-title');
+    modal.classList.add('open');
+    
+    // Reset form
+    document.getElementById('plano-id').value = id || '';
+    document.getElementById('plano-nome').value = '';
+    document.getElementById('plano-descricao').value = '';
+    document.getElementById('plano-lim-usr').value = 1;
+    document.getElementById('plano-lim-orc').value = 50;
+    document.getElementById('plano-lim-ia').value = 100;
+    document.getElementById('plano-lim-wa').value = 500;
+    document.getElementById('plano-preco').value = "0.00";
+    document.querySelectorAll('input[name="modulos"]').forEach(c => c.checked = false);
+
+    if (id) {
+      title.innerText = 'Editar Pacote';
+      const p = todosPacotes.find(x => x.id === id);
+      if(p) {
+        document.getElementById('plano-nome').value = p.nome;
+        document.getElementById('plano-descricao').value = p.descricao || '';
+        document.getElementById('plano-lim-usr').value = p.limite_usuarios;
+        document.getElementById('plano-lim-orc').value = p.limite_orcamentos;
+        document.getElementById('plano-lim-ia').value = p.total_mensagem_ia;
+        document.getElementById('plano-lim-wa').value = p.total_mensagem_whatsapp;
+        document.getElementById('plano-preco').value = p.preco_mensal;
+        document.getElementById('plano-ativo').value = String(p.ativo);
+        const mIds = p.modulos.map(m => m.id);
+        document.querySelectorAll('input[name="modulos"]').forEach(c => {
+          if(mIds.includes(parseInt(c.value))) c.checked = true;
+        });
+      }
+    } else {
+      title.innerText = 'Novo Pacote';
+    }
+  }
+
+  function fecharModalPlano() { document.getElementById('modal-plano').classList.remove('open'); }
+  function abrirModalModulo() { document.getElementById('modal-modulos').classList.add('open'); }
+  function fecharModalModulo() { document.getElementById('modal-modulos').classList.remove('open'); }
+
+  async function salvarPlano() {
+    const id = document.getElementById('plano-id').value;
+    const mIds = Array.from(document.querySelectorAll('input[name="modulos"]:checked')).map(c => parseInt(c.value));
+    
+    const payload = {
+      nome: document.getElementById('plano-nome').value,
+      descricao: document.getElementById('plano-descricao').value,
+      limite_usuarios: parseInt(document.getElementById('plano-lim-usr').value),
+      limite_orcamentos: parseInt(document.getElementById('plano-lim-orc').value),
+      total_mensagem_ia: parseInt(document.getElementById('plano-lim-ia').value),
+      total_mensagem_whatsapp: parseInt(document.getElementById('plano-lim-wa').value),
+      preco_mensal: parseFloat(document.getElementById('plano-preco').value),
+      ativo: document.getElementById('plano-ativo').value === 'true',
+      modulos_ids: mIds
+    };
+
+    try {
+      if(id) await api.put(`/admin/pacotes/${id}`, payload);
+      else await api.post('/admin/pacotes/', payload);
+      fecharModalPlano();
+      await carregarPacotes();
+      showToast('Pacote salvo com sucesso!');
+    } catch(e) { showToast('Erro ao salvar: ' + e.message, 'error'); }
+  }
+
+  async function criarModulo() {
+      const payload = {
+          nome: document.getElementById('novo-mod-nome').value,
+          slug: document.getElementById('novo-mod-slug').value,
+          ativo: true
+      };
+      try {
+          await api.post('/admin/pacotes/modulos', payload);
+      document.getElementById('novo-mod-nome').value = '';
+      document.getElementById('novo-mod-slug').value = '';
+      await carregarModulos();
+      showToast('Módulo adicionado!');
+    } catch(e) { showToast('Erro: ' + e.message, 'error'); }
+  }
+
+  async function confirmarExcluirPlano(id) {
+      if(!confirm('Tem certeza que deseja excluir este plano?')) return;
+      try {
+      await api.delete(`/admin/pacotes/${id}`);
+      showToast('Plano excluído!');
+      await carregarPacotes();
+    } catch(e) { showToast(e.message, 'error'); }
+  }
+
+  // ── PRICING LANDING ────────────────────────────────────────────────────────
+  function abrirModalPricing() {
+    carregarPricing();
+    document.getElementById('modal-pricing').classList.add('open');
+  }
+
+  function fecharModalPricing() {
+    document.getElementById('modal-pricing').classList.remove('open');
+  }
+
+  function selecionarTabPricing(plano) {
+    ['starter','pro','business'].forEach(p => {
+      document.getElementById('tab-pricing-' + p).classList.toggle('active', p === plano);
+      document.getElementById('pricing-form-' + p).style.display = p === plano ? '' : 'none';
+    });
+  }
+
+  async function carregarPricing() {
+    try {
+      const cfg = await api.get('/admin/pricing');
+      const st = cfg.starter || {};
+      const pr = cfg.pro || {};
+      const bs = cfg.business || {};
+      document.getElementById('pricing-starter-preco').value = st.preco ?? 49;
+      document.getElementById('pricing-starter-orc').value   = st.orcamentos ?? 200;
+      document.getElementById('pricing-starter-usr').value   = st.usuarios ?? 3;
+
+      document.getElementById('pricing-pro-preco').value = pr.preco ?? 119;
+      document.getElementById('pricing-pro-orc').value   = pr.orcamentos ?? 1000;
+      document.getElementById('pricing-pro-usr').value   = pr.usuarios ?? 10;
+
+      document.getElementById('pricing-business-preco').value = bs.preco ?? 299;
+      document.getElementById('pricing-business-orc').value   = bs.orcamentos ?? 0;
+      document.getElementById('pricing-business-usr').value   = bs.usuarios ?? 0;
+    } catch(e) {
+      showToast('Erro ao carregar preços: ' + e.message, 'error');
+    }
+  }
+
+  async function salvarPricing() {
+    const btn = document.getElementById('btn-salvar-pricing');
+    const payload = {
+      starter: {
+        preco: Number(document.getElementById('pricing-starter-preco').value || 0),
+        orcamentos: Number(document.getElementById('pricing-starter-orc').value || 0) || 0,
+        usuarios: Number(document.getElementById('pricing-starter-usr').value || 0) || 0,
+      },
+      pro: {
+        preco: Number(document.getElementById('pricing-pro-preco').value || 0),
+        orcamentos: Number(document.getElementById('pricing-pro-orc').value || 0) || 0,
+        usuarios: Number(document.getElementById('pricing-pro-usr').value || 0) || 0,
+      },
+      business: {
+        preco: Number(document.getElementById('pricing-business-preco').value || 0),
+        orcamentos: Number(document.getElementById('pricing-business-orc').value || 0) || 0,
+        usuarios: Number(document.getElementById('pricing-business-usr').value || 0) || 0,
+      },
+    };
+
+    if(btn) btn.disabled = true;
+    try {
+      await api.put('/admin/pricing', payload);
+      showToast('Preços atualizados! A landing já pode usar os novos valores.');
+      fecharModalPricing();
+    } catch(e) {
+      showToast('Erro ao salvar preços: ' + e.message, 'error');
+    } finally {
+      if(btn) btn.disabled = false;
+    }
+  }
+
+  // Fechar modals clicando fora
+  ['modal-plano','modal-modulos','modal-pricing'].forEach(id => {
+    document.getElementById(id).addEventListener('click', function(e) {
+      if (e.target === this) this.classList.remove('open');
+    });
+  });
+
+  init();
+</script>
+
+<!-- NOTIFICACAO (Fallback) -->
+<div class="notif" id="notif">
+  <div class="notif-icon"></div>
+  <div>
+    <div class="notif-title" style="font:var(--text-title-sm)"></div>
+  </div>
+</div>
+</body>
+</html>

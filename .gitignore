@@ -1,0 +1,102 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtualenv
+venv/
+.venv/
+env/
+.env/
+
+# Variáveis de ambiente
+.env
+*.env
+
+# Alembic
+# (manter versions/, ignorar apenas __pycache__)
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+nul
+*:Zone.Identifier
+
+# Logs
+*.log
+logs/
+
+# Coverage / testes
+.coverage
+htmlcov/
+.pytest_cache/
+.ruff_cache/
+
+# Node (se houver)
+node_modules/
+
+# Playwright
+playwright-report/
+test-results/
+
+# Banco de dados
+*.db
+
+# Artefatos gerados
+*.pdf
+*.zip
+*.deb
+*.docx
+sistema/openapi.json
+sistema/static/pdfs/
+sistema/static/logos/
+
+# Railway / Docker
+.railway/
+
+# Ferramentas de IA / IDE
+.aider*
+.claude/
+.cursor/
+.agentlens/
+.agents/
+.clinerules/
+.cline/
+.continue/
+.gemini/
+.kilo/
+.rtk/
+.windsurf/
+context7/
+servers/
+.openclaude-profile.json
+Screenshot_*.png
+
+# Obsidian
+.obsidian/
+memoriaclaude/
+ob-claude/
+
+# Playwright MCP
+.playwright-mcp/
+
+# Dados locais / debug
+DADOS COTTE/
+RTK.md
+sistema/debug_output.txt
+sistema/test_result.txt
+homegk
+COTTE_Documentacao.base

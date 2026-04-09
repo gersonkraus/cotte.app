@@ -1,0 +1,2786 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem("cotte_tema");if(t){document.documentElement.setAttribute("data-theme",t);}else{document.documentElement.setAttribute("data-theme","light");}})()</script>
+  <title>COTTE — Configurações</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/style.css?v=3">
+  <style>
+    /* ══════════════════════════════════════════════════════
+       CONFIGURAÇÕES — Layout de Navegação Interna
+    ══════════════════════════════════════════════════════ */
+
+    .cfg-layout {
+      display: flex;
+      gap: 0;
+      min-height: calc(100vh - 72px);
+      max-width: 1120px;
+      margin: 0 auto;
+    }
+
+    /* ── NAV LATERAL INTERNA ── */
+    .cfg-nav {
+      width: 220px;
+      flex-shrink: 0;
+      padding: 4px 0 24px;
+      position: sticky;
+      top: 72px;
+      height: fit-content;
+    }
+
+    .cfg-nav-section-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: var(--muted2);
+      padding: 16px 12px 6px;
+      margin-top: 4px;
+    }
+
+    .cfg-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      border-radius: 8px;
+      font-size: 13.5px;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      border: 1px solid transparent;
+      margin: 1px 0;
+      text-decoration: none;
+      user-select: none;
+    }
+
+    .cfg-nav-item:hover {
+      color: var(--text);
+      background: var(--surface2);
+      border-color: var(--border);
+    }
+
+    .cfg-nav-item.active {
+      color: var(--accent);
+      background: var(--accent-dim);
+      border-color: rgba(6,182,212,0.2);
+      font-weight: 600;
+    }
+
+    .cfg-nav-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      flex-shrink: 0;
+      transition: all 0.15s;
+    }
+
+    .cfg-nav-item.active .cfg-nav-icon {
+      background: var(--accent-dim);
+      border-color: rgba(6,182,212,0.25);
+      color: var(--accent);
+    }
+
+    .cfg-nav-badge {
+      margin-left: auto;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--orange-dim);
+      color: var(--orange);
+    }
+
+    /* ── CONTEÚDO DAS SEÇÕES ── */
+    .cfg-content {
+      flex: 1;
+      padding: 4px 0 40px 32px;
+      min-width: 0;
+    }
+
+    .cfg-section {
+      display: none;
+    }
+
+    .cfg-section.active {
+      display: block;
+    }
+
+    /* ── CABEÇALHO DA SEÇÃO ── */
+    .cfg-section-header {
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .cfg-section-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 5px;
+      letter-spacing: -0.3px;
+    }
+
+    .cfg-section-desc {
+      font-size: 13.5px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* ── BLOCOS DE CONFIGURAÇÃO ── */
+    .cfg-block {
+      margin-bottom: 20px;
+    }
+
+    .cfg-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: var(--shadow-xs);
+      transition: border-color 0.15s;
+    }
+
+    .cfg-card:hover {
+      border-color: var(--border-hover);
+    }
+
+    .cfg-card-header {
+      padding: 18px 24px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .cfg-card-header-info {
+      min-width: 0;
+    }
+
+    .cfg-card-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+
+    .cfg-card-subtitle {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .cfg-card-body {
+      padding: 20px 24px;
+    }
+
+    .cfg-card-footer {
+      padding: 14px 24px;
+      background: var(--surface2);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    /* ── GRID DE CAMPOS ── */
+    .cfg-fields-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .cfg-fields-grid.cols-1 {
+      grid-template-columns: 1fr;
+    }
+
+    .cfg-fields-grid.cols-3 {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    .cfg-field-span-2 {
+      grid-column: 1 / -1;
+    }
+
+    /* Responsividade: empilha campos em telas menores */
+    @media (max-width: 960px) {
+      .cfg-content {
+        padding: 4px 0 32px 20px;
+      }
+
+      .cfg-fields-grid,
+      .cfg-fields-grid.cols-3 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ── CAMPO DE FORM ── */
+    .cfg-form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .cfg-form-group label {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: 0.01em;
+    }
+
+    .cfg-form-group .cfg-field-hint {
+      font-size: 11.5px;
+      color: var(--muted);
+      line-height: 1.4;
+      margin-top: 2px;
+    }
+
+    .cfg-form-group input,
+    .cfg-form-group textarea,
+    .cfg-form-group select {
+      font-size: 13.5px;
+    }
+
+    /* ── MODAL FORMAS DE PAGAMENTO ── */
+    .modal-header-main {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    
+    .modal-subtitle {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .modal-form-grid {
+      margin-bottom: 12px;
+    }
+
+    .modal-options-row {
+      margin-top: 12px;
+      margin-bottom: 14px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 16px;
+      align-items: center;
+    }
+
+    .modal-option-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    .modal-option-toggle input[type="checkbox"] {
+      width: 15px;
+      height: 15px;
+      accent-color: var(--accent);
+    }
+
+    .modal-regra-section {
+      margin-top: 4px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+
+    .modal-regra-header {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: 8px;
+    }
+
+    .modal-saldo-grid {
+      grid-template-columns: 1fr 1fr 130px;
+    }
+
+    .modal-form-preview {
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: rgba(0,229,160,0.06);
+      border: 1px solid rgba(0,229,160,0.2);
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .modal-form-error {
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: rgba(239,68,68,.1);
+      border: 1px solid rgba(239,68,68,.3);
+      font-size: 12px;
+      color: #ef4444;
+      margin-bottom: 10px;
+    }
+
+    /* ── LOGO UPLOAD ── */
+    .cfg-logo-zone {
+      border: 1.5px dashed var(--border);
+      border-radius: 12px;
+      background: var(--surface2);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 130px;
+      padding: 20px;
+      gap: 10px;
+      transition: border-color 0.15s, background 0.15s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cfg-logo-zone:hover {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    .cfg-logo-zone img {
+      max-width: 100%;
+      max-height: 90px;
+      object-fit: contain;
+    }
+
+    .cfg-logo-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+    }
+
+    .cfg-logo-placeholder-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      background: var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .cfg-logo-placeholder span {
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .cfg-logo-remove {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      background: rgba(239,68,68,0.12);
+      border: 1px solid rgba(239,68,68,0.25);
+      color: var(--red);
+      cursor: pointer;
+      font-size: 13px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+
+    .cfg-logo-remove:hover {
+      background: rgba(239,68,68,0.2);
+    }
+
+    /* ── COR PICKER ── */
+    .cfg-color-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .cfg-color-swatch {
+      width: 42px;
+      height: 38px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1.5px solid var(--border);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .cfg-color-swatch input[type="color"] {
+      width: 200%;
+      height: 200%;
+      margin: -50%;
+      border: none;
+      background: none;
+      cursor: pointer;
+    }
+
+    /* ── PREVIEW HEADER ── */
+    .cfg-preview-wrap {
+      background: #f0f4f8;
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid var(--border);
+    }
+
+    [data-theme="dark"] .cfg-preview-wrap {
+      background: rgba(255,255,255,0.04);
+    }
+
+    /* Preview estático do template público (modal) */
+    .cfg-static-preview-host {
+      max-height: min(82vh, 720px);
+      overflow-y: auto;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      -webkit-overflow-scrolling: touch;
+    }
+    .cfg-static-preview {
+      pointer-events: none;
+      user-select: none;
+    }
+
+    /* ── MÉTRICAS DO PLANO ── */
+    .cfg-plan-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .cfg-plan-metric {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+
+    .cfg-plan-metric-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .cfg-plan-metric-value {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .cfg-plan-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 14px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      background: var(--accent-dim);
+      color: var(--accent);
+      border: 1px solid rgba(6,182,212,0.2);
+    }
+
+    .cfg-plan-cta {
+      background: var(--accent-dim);
+      border: 1px solid rgba(6,182,212,0.18);
+      border-radius: 10px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .cfg-plan-cta-text {
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    .cfg-plan-cta-text span {
+      color: var(--muted);
+    }
+
+    /* ── CARDS DE UPGRADE ── */
+    .cfg-upgrade-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .cfg-upgrade-card {
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: relative;
+      transition: border-color 0.15s;
+    }
+
+    .cfg-upgrade-card:hover { border-color: rgba(6,182,212,0.35); }
+
+    .cfg-upgrade-destaque {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    .cfg-upgrade-badge-top {
+      position: absolute;
+      top: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 999px;
+      white-space: nowrap;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+
+    .cfg-upgrade-nome {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      margin-top: 4px;
+    }
+
+    .cfg-upgrade-preco {
+      display: flex;
+      align-items: baseline;
+      gap: 2px;
+    }
+
+    .cfg-upgrade-valor {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .cfg-upgrade-periodo {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .cfg-upgrade-features {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      flex: 1;
+    }
+
+    .cfg-upgrade-features li {
+      font-size: 12px;
+      color: var(--muted);
+      padding-left: 16px;
+      position: relative;
+      line-height: 1.4;
+    }
+
+    .cfg-upgrade-features li::before {
+      content: '✓';
+      position: absolute;
+      left: 0;
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 11px;
+    }
+
+    .cfg-upgrade-btn {
+      width: 100%;
+      justify-content: center;
+      margin-top: 4px;
+      text-decoration: none;
+    }
+
+    .cfg-upgrade-trust {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      font-size: 11px;
+      color: var(--muted);
+      padding-top: 4px;
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 600px) {
+      .cfg-upgrade-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ── ESTADO VAZIO / EM BREVE ── */
+    .cfg-empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 52px 24px;
+      gap: 12px;
+      text-align: center;
+    }
+
+    .cfg-empty-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin-bottom: 4px;
+    }
+
+    .cfg-empty-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .cfg-empty-desc {
+      font-size: 13px;
+      color: var(--muted);
+      max-width: 320px;
+      line-height: 1.5;
+    }
+
+    .cfg-coming-soon-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: var(--purple-dim);
+      color: var(--purple);
+      border: 1px solid rgba(139,92,246,0.2);
+    }
+
+    /* ── LEMBRETE TEMPLATE ── */
+    .cfg-template-vars {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .cfg-var-chip {
+      font-family: 'Space Grotesk', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--accent);
+      cursor: default;
+    }
+
+    /* ── SEPARADOR INTERNO ── */
+    .cfg-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 20px 0;
+    }
+
+    /* ── ROW INLINE ── */
+    .cfg-inline-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .cfg-inline-row:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .cfg-inline-row:first-child {
+      padding-top: 0;
+    }
+
+    .cfg-inline-info {
+      min-width: 0;
+    }
+
+    .cfg-inline-title {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+
+    .cfg-inline-sub {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* ── INTEGRAÇÃO CARD ── */
+    .cfg-integration-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.12s;
+    }
+
+    .cfg-integration-item:last-child {
+      border-bottom: none;
+    }
+
+    .cfg-integration-item:hover {
+      background: var(--surface2);
+    }
+
+    .cfg-integration-logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .cfg-integration-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .cfg-integration-name {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+
+    .cfg-integration-desc {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .cfg-integration-status {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 999px;
+    }
+
+    .cfg-integration-status.active {
+      background: var(--green-dim);
+      color: var(--green);
+      border: 1px solid rgba(16,185,129,0.2);
+    }
+
+    .cfg-integration-status.inactive {
+      background: var(--surface2);
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+
+    /* ── BUSCA INTELIGENTE ── */
+    .cfg-search-wrap {
+      position: relative;
+      width: 320px;
+      flex-shrink: 0;
+    }
+
+    .cfg-search-input {
+      width: 100%;
+      height: 36px;
+      padding: 0 36px 0 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      font-size: 13px;
+      color: var(--text);
+      transition: all 0.15s;
+    }
+
+    .cfg-search-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      background: var(--surface2);
+    }
+
+    .cfg-search-input::placeholder {
+      color: var(--muted);
+    }
+
+    .cfg-search-icon {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 18px;
+      height: 18px;
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    .cfg-search-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: var(--shadow-lg);
+      max-height: min(80vh, 480px);
+      overflow-y: auto;
+      z-index: 1000;
+      display: none;
+    }
+
+    .cfg-search-dropdown.active {
+      display: block;
+    }
+
+    .cfg-search-group {
+      padding: 8px 0;
+    }
+
+    .cfg-search-group:not(:last-child) {
+      border-bottom: 1px solid var(--border);
+    }
+
+    .cfg-search-group-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      padding: 6px 12px;
+      background: var(--surface2);
+    }
+
+    .cfg-search-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      cursor: pointer;
+      transition: background 0.12s;
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    .cfg-search-item:hover {
+      background: var(--surface2);
+    }
+
+    .cfg-search-item.active {
+      background: var(--accent-dim);
+    }
+
+    .cfg-search-item-icon {
+      width: 20px;
+      height: 20px;
+      border-radius: 5px;
+      background: var(--surface2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      flex-shrink: 0;
+    }
+
+    .cfg-search-item-text {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .cfg-search-highlight {
+      background: var(--accent-dim);
+      color: var(--accent);
+      font-weight: 600;
+      padding: 0 2px;
+      border-radius: 3px;
+    }
+
+    /* Destaque visual ao navegar */
+    .cfg-search-target-highlight {
+      animation: cfgSearchPulse 2s ease-in-out;
+    }
+
+    @keyframes cfgSearchPulse {
+      0%, 100% { 
+        background: transparent;
+        box-shadow: none;
+      }
+      20%, 80% { 
+        background: var(--accent-dim);
+        box-shadow: 0 0 0 3px rgba(6,182,212,0.2);
+      }
+    }
+
+    /* Responsivo */
+    @media (max-width: 768px) {
+      .cfg-search-wrap {
+        width: 100%;
+        max-width: 400px;
+      }
+    }
+
+    /* ── TOPBAR OVERRIDES ── */
+    .cfg-topbar-save {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .cfg-save-indicator {
+      font-size: 12px;
+      color: var(--muted);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .cfg-save-indicator.visible {
+      opacity: 1;
+      color: var(--green);
+    }
+
+    /* ── RESPONSIVO ── */
+    @media (max-width: 768px) {
+      .cfg-layout {
+        flex-direction: column;
+        gap: 0;
+      }
+
+      .cfg-nav {
+        width: 100%;
+        position: static;
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding: 0 0 12px;
+        gap: 4px;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+
+      .cfg-nav::-webkit-scrollbar { display: none; }
+
+      .cfg-nav-section-label { display: none; }
+
+      .cfg-nav-item {
+        flex-shrink: 0;
+        white-space: nowrap;
+        padding: 8px 14px;
+      }
+
+      .cfg-nav-icon { display: none; }
+
+      .cfg-content {
+        padding: 16px 0 40px;
+      }
+
+      .cfg-fields-grid,
+      .cfg-fields-grid.cols-3 {
+        grid-template-columns: 1fr;
+      }
+
+      .cfg-field-span-2 {
+        grid-column: 1;
+      }
+
+      .cfg-plan-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .cfg-plan-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ── REDESIGN: novas classes ── */
+    .cfg-nav-group-label {
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted2);
+      padding: 14px 12px 6px;
+      margin-top: 4px;
+    }
+
+    .cfg-section-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: var(--accent-dim);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: var(--accent);
+    }
+
+    .cfg-section-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+
+    .cfg-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 20px 0;
+    }
+
+    .cfg-field-context {
+      font-size: 11px;
+      color: var(--accent);
+      background: var(--accent-dim);
+      border-radius: 6px;
+      padding: 4px 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 4px;
+    }
+
+    .cfg-save-row {
+      display: flex;
+      justify-content: flex-end;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════
+     SIDEBAR GLOBAL
+══════════════════════════════════════════════════════ -->
+<aside class="sidebar" id="sidebar"></aside>
+
+<!-- ══════════════════════════════════════════════════════
+     MAIN
+══════════════════════════════════════════════════════ -->
+<main class="main">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-title-wrap">
+      <div class="page-title">Configurações</div>
+      <div class="page-sub">Personalize sua conta, empresa e integrações</div>
+    </div>
+    <div class="cfg-search-wrap">
+      <input type="text" class="cfg-search-input" id="cfg-search-input" placeholder="Buscar configurações...">
+      <svg class="cfg-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/>
+        <path d="m21 21-4.35-4.35"/>
+      </svg>
+      <div class="cfg-search-dropdown" id="cfg-search-dropdown"></div>
+    </div>
+    <div class="cfg-topbar-save">
+      <span class="cfg-save-indicator" id="save-indicator">✓ Salvo com sucesso</span>
+      <button class="btn btn-primary" onclick="salvarEmpresa(this)" id="btn-salvar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+          <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+        </svg>
+        Salvar alterações
+      </button>
+    </div>
+  </div>
+
+  <!-- LAYOUT: nav interna + conteúdo -->
+  <div class="cfg-layout">
+
+    <!-- NAV INTERNA LATERAL -->
+    <nav class="cfg-nav" id="cfg-nav">
+
+      <div class="cfg-nav-group-label">Sua empresa</div>
+
+      <div class="cfg-nav-item active" onclick="irSecao('empresa')" data-secao="empresa" data-search-terms="empresa dados informações nome telefone email cor marca logo imagem">
+        <span class="cfg-nav-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+        </span>
+        Empresa
+      </div>
+
+      <div class="cfg-nav-item" onclick="irSecao('aparencia')" data-secao="aparencia" data-search-terms="aparência tema visual cores escuro claro modo dark light">
+        <span class="cfg-nav-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
+            <path d="M2 12h20"/>
+          </svg>
+        </span>
+        Aparência
+      </div>
+
+      <div class="cfg-nav-group-label">Orçamentos</div>
+
+      <div class="cfg-nav-item" onclick="irSecao('orcamentos')" data-secao="orcamentos" data-search-terms="orçamentos proposta padrão validade desconto número lembrete template modelo pdf">
+        <span class="cfg-nav-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+        </span>
+        Orçamentos
+      </div>
+
+      <div class="cfg-nav-item" onclick="irSecao('formas-pagamento')" data-secao="formas-pagamento" data-search-terms="pagamento formas cartão crédito débito pix banco boleto parcelas entrada saldo">
+        <span class="cfg-nav-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+            <line x1="1" y1="10" x2="23" y2="10"/>
+          </svg>
+        </span>
+        Formas de Pagamento
+      </div>
+
+      <div class="cfg-nav-item" onclick="irSecao('cfg-financeiro')" data-secao="cfg-financeiro" data-search-terms="financeiro cobranças contas receber parcelas lembrete vencimento automação">
+        <span class="cfg-nav-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+          </svg>
+        </span>
+        Financeiro
+      </div>
+
+      <div class="cfg-nav-group-label">Comunicação</div>
+
+      <div class="cfg-nav-item" onclick="irSecao('comunicacao')" data-secao="comunicacao" data-search-terms="comunicação whatsapp e-mail sms mensagem notificação template">
+        <span class="cfg-nav-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+        </span>
+        Comunicação
+      </div>
+
+      <div class="cfg-nav-group-label">Catálogo</div>
+
+      <div class="cfg-nav-item" onclick="irSecao('catalogo-modelos')" data-secao="catalogo-modelos" data-search-terms="catálogo modelos produtos serviços itens lista">
+        <span class="cfg-nav-icon">📐</span>
+        Modelos de catálogo
+      </div>
+
+      <div class="cfg-nav-group-label" id="cfg-nav-group-papeis">Equipe</div>
+
+      <a class="cfg-nav-item" href="papeis.html" id="cfg-nav-papeis">
+        <span class="cfg-nav-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </span>
+        Papéis
+      </a>
+
+      <div class="cfg-nav-group-label">Conta</div>
+
+      <div class="cfg-nav-item" onclick="irSecao('integracoes')" data-secao="integracoes" data-search-terms="integrações api zapier webhook conexões terceiros">
+        <span class="cfg-nav-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+          </svg>
+        </span>
+        Integrações
+      </div>
+
+      <div class="cfg-nav-item" onclick="irSecao('plano')" data-secao="plano" data-search-terms="plano assinatura upgrade downgrade fatura pagamento limite recursos">
+        <span class="cfg-nav-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+          </svg>
+        </span>
+        Plano e Assinatura
+      </div>
+
+      <div class="cfg-nav-item" onclick="irSecao('seguranca')" data-secao="seguranca" data-search-terms="segurança senha autenticação 2fa two factor acesso login">
+        <span class="cfg-nav-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </span>
+        Segurança
+      </div>
+
+    </nav>
+
+    <!-- ÁREA DE CONTEÚDO -->
+    <div class="cfg-content">
+
+      <!-- ════════════════════════════════════════
+           SEÇÃO: EMPRESA
+      ════════════════════════════════════════ -->
+      <section class="cfg-section active" id="sec-empresa">
+        <div class="cfg-section-header">
+          <div class="cfg-section-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+              <polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+          </div>
+          <div>
+            <div class="cfg-section-title">Empresa</div>
+            <div class="cfg-section-desc">Dados da sua empresa exibidos nos orçamentos e no cabeçalho do PDF.</div>
+          </div>
+        </div>
+
+        <!-- Card: Logo -->
+        <div class="cfg-block">
+          <div class="cfg-card" data-search-terms="logo imagem marca upload arquivo png jpg">
+            <div class="cfg-card-header">
+              <div class="cfg-card-header-info">
+                <div class="cfg-card-title">Logo da Empresa</div>
+                <div class="cfg-card-subtitle">Aparece no cabeçalho de todos os orçamentos gerados em PDF</div>
+              </div>
+            </div>
+            <div class="cfg-card-body">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+
+                <!-- Upload zone -->
+                <div>
+                  <div class="cfg-logo-zone" id="logo-preview-wrap" onclick="document.getElementById('input-logo').click()" style="cursor:pointer">
+                    <div id="logo-placeholder" class="cfg-logo-placeholder">
+                      <div class="cfg-logo-placeholder-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:.5">
+                          <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+                          <polyline points="21 15 16 10 5 21"/>
+                        </svg>
+                      </div>
+                      <span style="font-size:12.5px;font-weight:500">Clique para enviar logo</span>
+                      <span style="font-size:11px">PNG, JPG ou WEBP · fundo transparente</span>
+                    </div>
+                    <img id="logo-img" style="display:none;max-width:100%;max-height:90px;object-fit:contain" alt="Logo da empresa">
+                    <button id="btn-remover-logo" class="cfg-logo-remove" onclick="event.stopPropagation();removerLogo()">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                  </div>
+                  <input type="file" id="input-logo" accept=".png,.jpg,.jpeg,.webp" style="display:none" onchange="uploadLogo(this)">
+                  <button class="btn btn-ghost" id="btn-upload-logo" style="width:100%;justify-content:center;margin-top:10px" onclick="document.getElementById('input-logo').click()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/>
+                      <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+                    </svg>
+                    Enviar nova logo
+                  </button>
+                </div>
+
+                <!-- Dicas -->
+                <div style="display:flex;flex-direction:column;gap:12px;padding-top:4px">
+                  <div style="font-size:12.5px;font-weight:600;color:var(--text)">Dicas para melhor resultado</div>
+                  <div style="display:flex;flex-direction:column;gap:8px">
+                    <div style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--muted)">
+                      <span style="color:var(--green);flex-shrink:0;margin-top:1px">✓</span>
+                      Fundo transparente (PNG) para melhor integração visual
+                    </div>
+                    <div style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--muted)">
+                      <span style="color:var(--green);flex-shrink:0;margin-top:1px">✓</span>
+                      Proporção recomendada: 3:1 (ex: 300×100px)
+                    </div>
+                    <div style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--muted)">
+                      <span style="color:var(--green);flex-shrink:0;margin-top:1px">✓</span>
+                      Tamanho máximo: 2MB por arquivo
+                    </div>
+                    <div style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--muted)">
+                      <span style="color:var(--green);flex-shrink:0;margin-top:1px">✓</span>
+                      Formatos aceitos: PNG, JPG, WEBP
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card: Dados da Empresa -->
+        <div class="cfg-block">
+          <div class="cfg-card" data-search-terms="dados informações nome telefone email cor marca hexadecimal">
+            <div class="cfg-card-header">
+              <div class="cfg-card-header-info">
+                <div class="cfg-card-title">Dados da Empresa</div>
+                <div class="cfg-card-subtitle">Informações de contato exibidas nos orçamentos</div>
+              </div>
+            </div>
+            <div class="cfg-card-body">
+              <div class="cfg-fields-grid">
+                <div class="cfg-form-group cfg-field-span-2" data-search-terms="nome empresa razão social">
+                  <label for="emp-nome">Nome da empresa</label>
+                  <input type="text" id="emp-nome" placeholder="Ex: Silva Serviços">
+                </div>
+                <div class="cfg-form-group" data-search-terms="telefone whatsapp contato celular">
+                  <label for="emp-telefone">Telefone / WhatsApp</label>
+                  <input type="text" id="emp-telefone" placeholder="(48) 99999-9999">
+                </div>
+                <div class="cfg-form-group" data-search-terms="email contato e-mail">
+                  <label for="emp-email">E-mail de contato</label>
+                  <input type="email" id="emp-email" placeholder="contato@empresa.com">
+                </div>
+                <div class="cfg-form-group cfg-field-span-2" data-search-terms="cor principal marca hexadecimal rgb">
+                  <label for="emp-cor-hex">Cor principal da marca</label>
+                  <div class="cfg-color-row">
+                    <div class="cfg-color-swatch">
+                      <input type="color" id="emp-cor" value="#00e5a0">
+                    </div>
+                    <input type="text" id="emp-cor-hex" value="#00e5a0" placeholder="#00e5a0" oninput="sincronizarCor(this.value)" style="font-family:'Space Grotesk',monospace">
+                  </div>
+                  <div class="cfg-field-hint">Usada no cabeçalho do PDF e nos destaques visuais dos orçamentos</div>
+                </div>
+              </div>
+            </div>
+            <div class="cfg-card-footer">
+              <button class="btn btn-primary" onclick="salvarEmpresa(this)" id="btn-salvar-empresa">
+                Salvar dados da empresa
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card: Preview ao vivo -->
+        <div class="cfg-block">
+          <div class="cfg-card" data-search-terms="pré-visualização cabeçalho ao vivo tempo real preview">
+            <div class="cfg-card-header">
+              <div class="cfg-card-header-info">
+                <div class="cfg-card-title">Pré-visualização do Cabeçalho</div>
+                <div class="cfg-card-subtitle">Atualiza em tempo real conforme você edita os campos acima</div>
+              </div>
+              <span style="font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,0.2);white-space:nowrap">Ao vivo</span>
+            </div>
+            <div class="cfg-card-body">
+              <div class="cfg-preview-wrap">
+                <div id="preview-header" style="--cor: #00e5a0; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.08); padding: 20px 24px 14px; border-bottom: 3px solid var(--cor);">
+                  <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
+                    <img id="preview-logo" src="" alt="" style="display:none;height:52px;max-width:120px;object-fit:contain;flex-shrink:0">
+                    <div>
+                      <div id="preview-nome-fallback" style="font-size:22px;font-weight:900;color:var(--cor);letter-spacing:-0.5px"></div>
+                      <div id="preview-empresa-info" style="font-size:11px;color:#777;margin-top:3px"></div>
+                    </div>
+                  </div>
+                  <div style="text-align:right;flex-shrink:0">
+                    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#aaa;font-weight:700">Orçamento</div>
+                    <div id="preview-orc-numero" style="font-size:18px;font-weight:900;color:#111;margin-top:2px">ORC-1-26</div>
+                    <div id="preview-orc-datas" style="font-size:11px;color:#888;margin-top:4px">Emissão: 13/03/26<br>Validade: 20/03/26</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ════════════════════════════════════════
+           SEÇÃO: ORÇAMENTOS
+      ════════════════════════════════════════ -->
+      <section class="cfg-section" id="sec-orcamentos">
+        <div class="cfg-section-header">
+          <div class="cfg-section-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+          </div>
+          <div>
+            <div class="cfg-section-title">Orçamentos</div>
+            <div class="cfg-section-desc">Padrões e automações aplicadas automaticamente ao criar novos orçamentos.</div>
+          </div>
+        </div>
+
+        <!-- Card: Padrões -->
+        <div class="cfg-block">
+          <div class="cfg-card" data-search-terms="padrões criação orçamentos valores padrão configurações">
+            <div class="cfg-card-header">
+              <div class="cfg-card-header-info">
+                <div class="cfg-card-title">Padrões de Criação</div>
+                <div class="cfg-card-subtitle">Valores padrão aplicados em todos os novos orçamentos</div>
+              </div>
+            </div>
+            <div class="cfg-card-body">
+              <div class="cfg-fields-grid">
+                <div class="cfg-form-group" data-search-terms="validade dias prazo orçamento">
+                  <label for="emp-validade">Validade padrão (dias)</label>
+                  <input type="number" id="emp-validade" min="1" max="365" value="7" placeholder="7">
+                  <div class="cfg-field-hint">Aplicado automaticamente em novos orçamentos criados manualmente ou pelo WhatsApp</div>
+                </div>
+                <div class="cfg-form-group" data-search-terms="desconto máximo padrão percentual limite">
+                  <label for="emp-desconto-max">Desconto máximo padrão da empresa (%)</label>
+                  <input type="number" id="emp-desconto-max" min="0" max="100" value="100" placeholder="100">
+                  <div class="cfg-field-hint">Usado para usuários que não têm limite próprio (em Equipe → editar usuário). Ex.: 100 = até 100%; 20 = até 20%. Desconto em reais continua limitado ao subtotal.</div>
+                </div>
+                <div class="cfg-form-group" data-search-terms="política agendamento orçamentos padrão obrigatório opcional">
+                  <label for="emp-politica-agendamento-orc">Política de agendamento em novos orçamentos</label>
+                  <select id="emp-politica-agendamento-orc">
+                    <option value="PADRAO_NAO">Não — por padrão o orçamento vem sem agendamento (pode alterar no cadastro)</option>
+                    <option value="PADRAO_SIM">Sim — por padrão vem com agendamento (opcional para o cliente; pode alterar no cadastro)</option>
+                    <option value="EXIGE_ESCOLHA">Agendamento opcional — o operador deve escolher Sim ou Não em cada orçamento</option>
+                    <option value="PADRAO_OBRIGATORIO">Agendamento obrigatório — todo orçamento exige fluxo de agendamento</option>
+                  </select>
+                  <div class="cfg-field-hint">Define o comportamento do campo agendamento no modal de novo orçamento. Em todos os casos o valor pode ser ajustado por proposta, exceto quando a política é “obrigatório” (campo fixo em Sim).</div>
+                </div>
+                <div class="cfg-form-group" data-search-terms="agendamento automático aprovação cliente opções data hora">
+                  <label for="emp-utilizar-agendamento-auto">Utilizar agendamento automático</label>
+                  <select id="emp-utilizar-agendamento-auto">
+                    <option value="true">Sim</option>
+                    <option value="false">Não</option>
+                  </select>
+                  <div class="cfg-field-hint">Se Sim, ao aprovar um orçamento com agendamento opcional ou obrigatório, o sistema gera opções de data/hora para o cliente escolher. Se Não, a aprovação não cria esse agendamento automático (é possível agendar manualmente depois).</div>
+                </div>
+                <div class="cfg-form-group" data-search-terms="opções data liberação manual fila pré-agendamento">
+                  <label for="emp-agendamento-somente-pos-liberacao">Opções de data só após liberação manual</label>
+                  <select id="emp-agendamento-somente-pos-liberacao">
+                    <option value="false">Não — gerar opções logo na aprovação (comportamento usual)</option>
+                    <option value="true">Sim — entra na fila; libere em Agendamentos → Pré-agendamento</option>
+                  </select>
+                  <div class="cfg-field-hint">Quando Sim, a aprovação não envia horários ao cliente até alguém liberar na fila. Útil para checar pagamento ou prioridade. Requer agendamento automático ativo e orçamento com agendamento opcional ou obrigatório.</div>
+                </div>
+                <div class="cfg-form-group" style="opacity:.55;pointer-events:none">
+                  <label>Moeda padrão</label>
+                  <input type="text" value="BRL — Real Brasileiro" readonly style="cursor:not-allowed">
+                  <div class="cfg-field-hint">Em breve: suporte a múltiplas moedas</div>
+                </div>
+              </div>
+            </div>
+            <div class="cfg-card-footer">
+              <button class="btn btn-primary" onclick="salvarEmpresa(this)" id="btn-salvar-orc">
+                Salvar configurações
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card: Numeração de Orçamentos -->
+        <div class="cfg-block">
+          <div class="cfg-card">
+            <div class="cfg-card-header">
+              <div class="cfg-card-header-info">
+                <div class="cfg-card-title">Numeração de Orçamentos</div>
+                <div class="cfg-card-subtitle">Personalize o formato do número gerado automaticamente</div>
+              </div>
+            </div>
+            <div class="cfg-card-body">
+              <div class="cfg-fields-grid">
+
+                <div class="cfg-form-group">
+                  <label for="emp-numero-prefixo">Prefixo do número</label>
+                  <input type="text" id="emp-numero-prefixo" maxlength="10" placeholder="ORC"
+                         style="text-transform:uppercase"
+                         oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,''); atualizarPreviewNumero()">
+                  <div class="cfg-field-hint">Ex.: ORC, PROP, COT, OS — apenas letras e números</div>
+                </div>
+
+                <div class="cfg-form-group">
+                  <label for="emp-numero-prefixo-aprovado">Prefixo após aprovação <span style="font-weight:400;color:var(--muted)">(opcional)</span></label>
+                  <input type="text" id="emp-numero-prefixo-aprovado" maxlength="10" placeholder="Deixe vazio para não renomear"
+                         style="text-transform:uppercase"
+                         oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,''); atualizarPreviewNumero()">
+                  <div class="cfg-field-hint">Se preenchido, o número muda automaticamente ao aprovar. Ex.: PED → <em>PED-5-26</em></div>
+                </div>
+
+              </div>
+
+              <!-- Toggle: incluir ano -->
+              <div style="margin-top:16px;display:flex;align-items:center;gap:12px">
+                <label class="cfg-toggle">
+                  <input type="checkbox" id="emp-numero-incluir-ano" onchange="atualizarPreviewNumero()">
+                  <span class="cfg-toggle-slider"></span>
+                </label>
+                <div>
+                  <div style="font-size:13px;font-weight:500;color:var(--text)">Incluir ano no número</div>
+                  <div style="font-size:12px;color:var(--muted)">Ex. com ano: <strong>ORC-5-26</strong> &nbsp;·&nbsp; Sem ano: <strong>ORC-5</strong></div>
+                </div>
+              </div>
+
+              <!-- Preview dinâmico -->
+              <div id="preview-numero-orc" style="margin-top:16px;padding:10px 14px;background:var(--card-bg,#1a1a2e);border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--muted)">
+                Preview: <strong id="preview-numero-orc-valor" style="color:var(--text);font-family:'Space Grotesk',monospace;font-size:14px">ORC-5-26</strong>
+                <span id="preview-numero-orc-ap" style="display:none"> → aprovado: <strong id="preview-numero-orc-ap-valor" style="color:var(--green);font-family:'Space Grotesk',monospace;font-size:14px"></strong></span>
+              </div>
+            </div>
+            <div class="cfg-card-footer">
+              <button class="btn btn-primary" onclick="salvarNumeracao()" id="btn-salvar-numeracao">
+                Salvar numeração
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card: Lembrete automático -->
+        <div class="cfg-block">
+          <div class="cfg-card">
+            <div class="cfg-card-header">
+              <div class="cfg-card-header-info">
+                <div class="cfg-card-title">Lembrete Automático</div>
+                <div class="cfg-card-subtitle">Envio automático de WhatsApp ao cliente N dias após o orçamento ser enviado</div>
+              </div>
+              <span style="font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,0.2);white-space:nowrap">WhatsApp</span>
+            </div>
+            <div class="cfg-card-body">
+              <div class="cfg-fields-grid cols-1">
+                <div class="cfg-form-group">
+                  <label for="emp-lembrete">Dias para envio do lembrete</label>
+                  <input type="number" id="emp-lembrete" min="1" max="30" placeholder="Ex: 2 — deixe vazio para desativar">
+                  <div class="cfg-field-hint">Deixe em branco para desativar o lembrete automático. Recomendado: 2 a 3 dias.</div>
+                </div>
+
+                <div class="cfg-divider" style="margin:4px 0"></div>
+
+                <div class="cfg-form-group">
+                  <label for="emp-lembrete-texto">Mensagem do lembrete</label>
+                  <textarea id="emp-lembrete-texto" rows="6" style="resize:vertical;font-family:'DM Sans',sans-serif;font-size:13px;line-height:1.6" placeholder="Olá, {cliente_nome}! 👋
+
+Passando para lembrar que seu orçamento {numero_orc} da {empresa_nome} ainda está disponível para aprovação.
+
+Clique abaixo para visualizar a proposta:
+{link}
+
+Qualquer dúvida, estamos à disposição! 😊"></textarea>
+                  <div class="cfg-template-vars">
+                    <span style="font-size:11px;color:var(--muted);align-self:center;margin-right:2px">Variáveis:</span>
+                    <span class="cfg-var-chip">{cliente_nome}</span>
+                    <span class="cfg-var-chip">{numero_orc}</span>
+                    <span class="cfg-var-chip">{empresa_nome}</span>
+                    <span class="cfg-var-chip">{link}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="cfg-card-footer">
+              <button class="btn btn-primary" onclick="salvarEmpresa(this)" id="btn-salvar-lembrete">
+                Salvar lembrete
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card: Template do Orçamento (Unificado) -->
+        <div class="cfg-block">
+          <div class="cfg-card">
+            <div class="cfg-card-header">
+              <div class="cfg-card-header-info">
+                <div class="cfg-card-title">Template do Orçamento</div>
+                <div class="cfg-card-subtitle">Escolha o layout visual para a Página Pública e para o arquivo PDF gerado</div>
+              </div>
+            </div>
+            <div class="cfg-card-body">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" id="template-selector-grid">
+                <!-- Template Clássico -->
+                <div class="template-option" id="tpl-classico" data-template="classico" role="button" tabindex="0" aria-pressed="true" style="border:2px solid var(--border);border-radius:14px;padding:16px;cursor:pointer;transition:all .15s;background:var(--surface)">
+                  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+                    <div style="width:36px;height:36px;border-radius:8px;background:var(--accent-dim);display:flex;align-items:center;justify-content:center;font-size:18px">📄</div>
+                    <div>
+                      <div style="font-size:14px;font-weight:700;color:var(--text)">Clássico</div>
+                      <div style="font-size:11px;color:var(--muted)">Layout atual do COTTE</div>
+                    </div>
+                    <div id="check-classico" style="margin-left:auto;width:22px;height:22px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                  </div>
+                  <div style="background:var(--surface2);border-radius:8px;padding:12px;border:1px solid var(--border)">
+                    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.06em;margin-bottom:8px">Preview</div>
+                    <div style="background:var(--accent);height:6px;border-radius:4px;margin-bottom:6px;opacity:.6"></div>
+                    <div style="display:flex;gap:6px;margin-bottom:4px">
+                      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;height:16px;flex:1"></div>
+                      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;height:16px;flex:1"></div>
+                    </div>
+                    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;height:12px;margin-bottom:4px"></div>
+                    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;height:12px;width:70%"></div>
+                  </div>
+                </div>
+
+                <!-- Template Moderno -->
+                <div class="template-option" id="tpl-moderno" data-template="moderno" role="button" tabindex="0" aria-pressed="false" style="border:2px solid var(--border);border-radius:14px;padding:16px;cursor:pointer;transition:all .15s;background:var(--surface)">
+                  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+                    <div style="width:36px;height:36px;border-radius:8px;background:var(--accent-dim);display:flex;align-items:center;justify-content:center;font-size:18px">✨</div>
+                    <div>
+                      <div style="font-size:14px;font-weight:700;color:var(--text)">Moderno</div>
+                      <div style="font-size:11px;color:var(--muted)">Cards arredondados, tabela clean</div>
+                    </div>
+                    <div id="check-moderno" class="hidden" style="margin-left:auto;width:22px;height:22px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                  </div>
+                  <div style="background:#f8fafc;border-radius:10px;padding:12px;border:1px solid #e2e8f0">
+                    <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:700;letter-spacing:.06em;margin-bottom:8px">Preview</div>
+                    <div style="text-align:center;margin-bottom:8px">
+                      <div style="display:inline-block;background:var(--accent);color:white;font-size:8px;font-weight:700;padding:3px 10px;border-radius:999px">EMPRESA</div>
+                    </div>
+                    <div style="display:flex;gap:4px;margin-bottom:6px">
+                      <div style="background:white;border-radius:6px;height:20px;flex:1;box-shadow:0 1px 3px rgba(0,0,0,0.06)"></div>
+                      <div style="background:white;border-radius:6px;height:20px;flex:1;box-shadow:0 1px 3px rgba(0,0,0,0.06)"></div>
+                      <div style="background:white;border-radius:6px;height:20px;flex:1;box-shadow:0 1px 3px rgba(0,0,0,0.06)"></div>
+                    </div>
+                    <div style="background:white;border-radius:6px;height:10px;margin-bottom:3px;box-shadow:0 1px 2px rgba(0,0,0,0.04)"></div>
+                    <div style="background:white;border-radius:6px;height:10px;width:80%;box-shadow:0 1px 2px rgba(0,0,0,0.04)"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="cfg-card-footer">
+              <button type="button" class="btn btn-ghost" id="btn-preview-template">
+                👁️ Ver Preview
+              </button>
+              <button type="button" class="btn btn-primary" id="btn-salvar-template">
+                Salvar template do orçamento
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fim seção Orçamentos -->
+      </section>
+
+      <!-- ════════════════════════════════════════
+           SEÇÃO: FORMAS DE PAGAMENTO
+      ════════════════════════════════════════ -->
+      <section class="cfg-section" id="sec-formas-pagamento">
+        <div class="cfg-section-header">
+          <div class="cfg-section-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+              <line x1="1" y1="10" x2="23" y2="10"/>
+            </svg>
+          </div>
+          <div>
+            <div class="cfg-section-title">Formas de Pagamento</div>
+            <div class="cfg-section-desc">Configure as formas de pagamento aceitas pela sua empresa. A forma marcada como padrão será pré-selecionada em novos orçamentos.</div>
+          </div>
+        </div>
+
+        <!-- Card: Bancos e PIX da empresa -->
+        <div class="cfg-block">
+          <div class="cfg-card">
+            <div class="cfg-card-header" style="display:flex;justify-content:space-between;align-items:center">
+              <div class="cfg-card-header-info">
+                <div class="cfg-card-title">💳 Bancos e PIX da empresa</div>
+                <div class="cfg-card-subtitle">Cadastre suas contas bancárias e defina qual será usada como PIX padrão nos orçamentos.</div>
+              </div>
+              <button class="btn btn-primary" style="font-size:12px;padding:7px 14px" onclick="abrirModalBancoPix()">
+                + Novo banco
+              </button>
+            </div>
+            <div class="cfg-card-body">
+              <div id="bancos-pix-lista" style="display:flex;flex-direction:column;gap:10px;min-height:48px">
+                <div id="bancos-pix-loading" style="color:var(--muted);font-size:13px;text-align:center;padding:18px 0">
+                  Carregando bancos cadastrados...
+                </div>
+              </div>
+              <div id="bancos-pix-vazio" style="display:none;color:var(--muted);font-size:13px;text-align:center;padding:18px 0">
+                Nenhum banco cadastrado ainda. Clique em <strong>+ Novo banco</strong> para adicionar a primeira conta com PIX.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cfg-card" style="margin-bottom:16px">
+          <div class="cfg-card-header" style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div class="cfg-card-title">Formas cadastradas</div>
+              <div class="cfg-card-subtitle">Defina nome, regra de entrada/saldo e método de recebimento.</div>
+            </div>
+            <button class="btn btn-primary" style="font-size:12px;padding:7px 14px" onclick="abrirModalNovaForma()">+ Nova forma</button>
+          </div>
+          <div class="cfg-card-body">
+            <div id="formas-lista" style="display:flex;flex-direction:column;gap:10px;min-height:48px">
+              <div style="color:var(--muted);font-size:13px;text-align:center;padding:20px 0" id="formas-loading">Carregando...</div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ════════════════════════════════════════
+           SEÇÃO: CONFIGURAÇÕES FINANCEIRAS
+      ════════════════════════════════════════ -->
+      <section class="cfg-section" id="sec-cfg-financeiro">
+        <div class="cfg-section-header">
+          <div class="cfg-section-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+          </div>
+          <div>
+            <div class="cfg-section-title">Configurações Financeiras</div>
+            <div class="cfg-section-desc">Defina como o COTTE gera cobranças e lembretes automáticos ao aprovar orçamentos.</div>
+          </div>
+        </div>
+
+        <div class="cfg-block">
+          <div class="cfg-card">
+            <div class="cfg-card-header">
+              <div class="cfg-card-header-info">
+                <div class="cfg-card-title">Automação de cobranças</div>
+                <div class="cfg-card-subtitle">Controle quando e como as contas a receber são geradas</div>
+              </div>
+            </div>
+            <div class="cfg-card-body">
+
+              <!-- Toggle: Gerar contas ao aprovar -->
+              <div class="cfg-inline-row">
+                <div class="cfg-inline-info">
+                  <div class="cfg-inline-title">Gerar cobranças ao aprovar</div>
+                  <div class="cfg-inline-sub">Quando um orçamento é aprovado, cria automaticamente as parcelas no módulo financeiro.</div>
+                </div>
+                <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text);cursor:pointer;white-space:nowrap;flex-shrink:0">
+                  <input type="checkbox" id="fin-gerar-ao-aprovar" checked onchange="_toggleGerarAoAprovar(this)">
+                  Ativo
+                </label>
+              </div>
+
+              <!-- Toggle: Automações WhatsApp -->
+              <div class="cfg-inline-row">
+                <div class="cfg-inline-info">
+                  <div class="cfg-inline-title">Automações de cobrança WhatsApp</div>
+                  <div class="cfg-inline-sub">Envia lembretes automáticos via WhatsApp antes e após o vencimento das parcelas.</div>
+                </div>
+                <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text);cursor:pointer;white-space:nowrap;flex-shrink:0">
+                  <input type="checkbox" id="fin-automacoes-ativas" onchange="_toggleAutomacoesFinanceiro(this)">
+                  Ativo
+                </label>
+              </div>
+
+              <!-- Dias de lembrete (visível quando automações ativas) -->
+              <div id="fin-lembrete-config" style="display:none;padding-top:16px;border-top:1px solid var(--border)">
+                <div class="cfg-fields-grid" style="max-width:400px">
+                  <div class="cfg-form-group">
+                    <label for="fin-dias-antes">Dias antes do vencimento</label>
+                    <input type="number" id="fin-dias-antes" min="0" max="30" placeholder="2">
+                  </div>
+                  <div class="cfg-form-group">
+                    <label for="fin-dias-apos">Dias após o vencimento</label>
+                    <input type="number" id="fin-dias-apos" min="0" max="30" placeholder="3">
+                  </div>
+                </div>
+              </div>
+
+              <div class="cfg-divider"></div>
+
+              <!-- Vencimento padrão -->
+              <div class="cfg-fields-grid cols-1" style="max-width:280px">
+                <div class="cfg-form-group">
+                  <label for="fin-dias-vencimento">Vencimento padrão (dias após aprovação)</label>
+                  <input type="number" id="fin-dias-vencimento" min="0" max="365" placeholder="7">
+                </div>
+              </div>
+
+            </div>
+            <div class="cfg-card-footer">
+              <button class="btn btn-primary" id="btn-salvar-cfg-financeiro" onclick="salvarConfiguracaoFinanceira()">
+                Salvar configurações
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ════ MODAL: CADASTRAR / EDITAR BANCO PIX ════ -->
+      <div class="modal-overlay" id="modal-banco-pix" onclick="if(event.target===this)fecharModalBancoPix()">
+        <div class="modal" style="max-width:520px">
+          <div class="modal-header">
+            <div class="modal-header-main">
+              <div class="modal-title" id="modal-banco-pix-titulo">Novo banco com PIX</div>
+              <div class="modal-subtitle">Cadastre uma conta bancária e a chave PIX associada. Você pode marcar uma delas como padrão.</div>
+            </div>
+            <button class="modal-close" onclick="fecharModalBancoPix()">×</button>
+          </div>
+          <div class="modal-body">
+            <div class="cfg-fields-grid cols-2 modal-form-grid">
+              <div class="cfg-form-group">
+                <label for="banco-nome">Nome do banco *</label>
+                <input id="banco-nome" type="text" maxlength="100" placeholder="Ex: Nubank, Itaú, Caixa">
+              </div>
+              <div class="cfg-form-group">
+                <label for="banco-apelido">Apelido (opcional)</label>
+                <input id="banco-apelido" type="text" maxlength="100" placeholder="Ex: Conta principal, PJ Nubank">
+              </div>
+              <div class="cfg-form-group">
+                <label for="banco-agencia">Agência (opcional)</label>
+                <input id="banco-agencia" type="text" maxlength="20" placeholder="Ex: 0001">
+              </div>
+              <div class="cfg-form-group">
+                <label for="banco-conta">Conta (opcional)</label>
+                <input id="banco-conta" type="text" maxlength="30" placeholder="Ex: 12345-6">
+              </div>
+              <div class="cfg-form-group cfg-field-span-2">
+                <label for="banco-tipo-conta">Tipo de conta (opcional)</label>
+                <input id="banco-tipo-conta" type="text" maxlength="30" placeholder="Ex: Conta corrente PJ">
+              </div>
+            </div>
+
+            <div class="cfg-fields-grid cols-2 modal-form-grid">
+              <div class="cfg-form-group">
+                <label for="banco-pix-tipo">Tipo da chave PIX</label>
+                <select id="banco-pix-tipo">
+                  <option value="">— selecione —</option>
+                  <option value="cpf">CPF</option>
+                  <option value="cnpj">CNPJ</option>
+                  <option value="email">E-mail</option>
+                  <option value="telefone">Telefone</option>
+                  <option value="aleatoria">Chave aleatória</option>
+                </select>
+              </div>
+              <div class="cfg-form-group">
+                <label for="banco-pix-chave">Chave PIX</label>
+                <input id="banco-pix-chave" type="text" maxlength="200" placeholder="Ex: CNPJ, e-mail ou chave aleatória">
+              </div>
+              <div class="cfg-form-group cfg-field-span-2">
+                <label for="banco-pix-titular">Nome do titular</label>
+                <input id="banco-pix-titular" type="text" maxlength="150" placeholder="Nome exibido para o cliente">
+              </div>
+            </div>
+
+            <div class="modal-options-row">
+              <label class="modal-option-toggle">
+                <input type="checkbox" id="banco-padrao-pix">
+                <span>Usar este banco como PIX padrão da empresa</span>
+              </label>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="fecharModalBancoPix()">Cancelar</button>
+            <button class="btn btn-primary" id="btn-salvar-banco-pix" onclick="salvarBancoPix()">Salvar banco</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════ MODAL: PREVIEW ESTÁTICO — TEMPLATE PÚBLICO ════ -->
+      <div class="modal-overlay" id="modal-preview-template-publico" onclick="if(event.target===this)fecharModalPreviewTemplatePublico()">
+        <div class="modal" style="max-width:min(760px,96vw);width:96%">
+          <div class="modal-header">
+            <div class="modal-header-main">
+              <div class="modal-title">Preview do layout público</div>
+              <div class="modal-subtitle">Ilustração com dados fictícios. Nada é clicável nem é salvo.</div>
+            </div>
+            <button type="button" class="modal-close" id="btn-fechar-preview-template" aria-label="Fechar">×</button>
+          </div>
+          <div class="modal-body" style="padding-top:12px">
+            <div id="static-preview-template-host" class="cfg-static-preview-host" aria-hidden="true"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-primary" onclick="fecharModalPreviewTemplatePublico()">Fechar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════ MODAL: CRIAR/EDITAR FORMA DE PAGAMENTO ════ -->
+      <div class="modal-overlay" id="modal-forma-pagamento" style="display:none" onclick="if(event.target===this)fecharModalForma()">
+        <div class="modal" style="max-width:560px">
+          <div class="modal-header">
+            <div class="modal-header-main">
+              <div class="modal-title" id="modal-forma-titulo">Nova forma de pagamento</div>
+              <div class="modal-subtitle">Defina como o cliente poderá pagar este orçamento</div>
+            </div>
+            <button class="modal-close" onclick="fecharModalForma()">×</button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="forma-id">
+
+            <!-- Identificação da forma -->
+            <div class="cfg-fields-grid cols-3 modal-form-grid">
+              <div class="cfg-form-group cfg-field-span-2">
+                <label for="forma-nome">Nome da forma *</label>
+                <input id="forma-nome" type="text" maxlength="100" placeholder="Ex: PIX 50% + Saldo na execução">
+              </div>
+              <div class="cfg-form-group">
+                <label for="forma-icone">Ícone</label>
+                <input id="forma-icone" type="text" maxlength="4" placeholder="💳" style="text-align:center;font-size:18px">
+              </div>
+              <div class="cfg-form-group">
+                <label for="forma-cor">Cor</label>
+                <input id="forma-cor" type="color" value="#00e5a0">
+              </div>
+            </div>
+
+            <div class="cfg-form-group" style="margin-top:12px">
+              <label for="forma-descricao">Descrição interna</label>
+              <input id="forma-descricao" type="text" maxlength="200" placeholder="Opcional, apenas para sua organização interna">
+            </div>
+
+            <!-- Opções gerais -->
+            <div class="modal-options-row">
+              <label class="modal-option-toggle">
+                <input type="checkbox" id="forma-padrao">
+                <span>Forma padrão da empresa</span>
+              </label>
+              <label class="modal-option-toggle">
+                <input type="checkbox" id="forma-exigir-entrada" onchange="atualizarPreviewForma()">
+                <span>Exigir entrada na aprovação</span>
+              </label>
+            </div>
+
+            <!-- Regra de pagamento -->
+            <div id="forma-campos-entrada" class="modal-regra-section" style="display:none">
+              <div class="modal-regra-header">Regra de pagamento</div>
+              <div class="cfg-fields-grid cols-2 modal-form-grid">
+                <div class="cfg-form-group">
+                  <label for="forma-pct-entrada">% de entrada</label>
+                  <input id="forma-pct-entrada" type="number" min="0" max="100" step="1" placeholder="50"
+                    oninput="atualizarPctSaldo();atualizarPreviewForma()">
+                </div>
+                <div class="cfg-form-group">
+                  <label for="forma-metodo-entrada">Método da entrada</label>
+                  <select id="forma-metodo-entrada" onchange="atualizarPreviewForma()">
+                    <option value="pix">🏦 PIX</option>
+                    <option value="dinheiro">💵 Dinheiro</option>
+                    <option value="cartao">💳 Cartão</option>
+                    <option value="transferencia">🏛️ TED/DOC</option>
+                    <option value="boleto">📄 Boleto</option>
+                    <option value="na_execucao">🔧 Na execução</option>
+                    <option value="na_entrega">📦 Na entrega</option>
+                    <option value="outro">Outro</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="cfg-fields-grid modal-form-grid modal-saldo-grid">
+                <div class="cfg-form-group">
+                  <label for="forma-pct-saldo">% do saldo</label>
+                  <input id="forma-pct-saldo" type="number" min="0" max="100" step="1" placeholder="50" readonly>
+                </div>
+                <div class="cfg-form-group">
+                  <label for="forma-metodo-saldo">Método do saldo</label>
+                  <select id="forma-metodo-saldo" onchange="atualizarPreviewForma()">
+                    <option value="">— sem saldo —</option>
+                    <option value="pix">🏦 PIX</option>
+                    <option value="dinheiro">💵 Dinheiro</option>
+                    <option value="cartao">💳 Cartão</option>
+                    <option value="transferencia">🏛️ TED/DOC</option>
+                    <option value="boleto">📄 Boleto</option>
+                    <option value="na_execucao">🔧 Na execução</option>
+                    <option value="na_entrega">📦 Na entrega</option>
+                    <option value="outro">Outro</option>
+                  </select>
+                </div>
+                <div class="cfg-form-group">
+                  <label for="forma-dias-saldo">Dias para o saldo</label>
+                  <input id="forma-dias-saldo" type="number" min="0" max="365" placeholder="Ex: 30">
+                </div>
+              </div>
+
+              <div id="forma-preview" class="modal-form-preview" style="display:none"></div>
+              <div id="forma-erro-percentual" class="modal-form-error" style="display:none"></div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="fecharModalForma()">Cancelar</button>
+            <button class="btn btn-primary" id="btn-salvar-forma" onclick="salvarForma()">Salvar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════════
+           SEÇÃO: APARÊNCIA
+      ════════════════════════════════════════ -->
+      <section class="cfg-section" id="sec-aparencia">
+        <div class="cfg-section-header">
+          <div class="cfg-section-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
+              <path d="M2 12h20"/>
+            </svg>
+          </div>
+          <div>
+            <div class="cfg-section-title">Aparência</div>
+            <div class="cfg-section-desc">Personalize o visual do sistema e a identidade visual dos documentos.</div>
+          </div>
+        </div>
+
+        <!-- Card: Tema do sistema -->
+        <div class="cfg-block">
+          <div class="cfg-card">
+            <div class="cfg-card-header">
+              <div class="cfg-card-header-info">
+                <div class="cfg-card-title">Tema do Sistema</div>
+                <div class="cfg-card-subtitle">Escolha entre tema claro ou escuro para a interface</div>
+              </div>
+            </div>
+            <div class="cfg-card-body">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <!-- Tema Claro -->
+                <div id="tema-card-light" onclick="definirTema('light')" style="border:2px solid var(--accent);border-radius:12px;padding:16px;cursor:pointer;transition:all 0.15s;background:var(--accent-dim)">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                    <span style="font-size:13px;font-weight:600;color:var(--text)">Claro</span>
+                    <span id="tema-check-light" style="width:18px;height:18px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                    </span>
+                  </div>
+                  <div style="height:50px;background:#f4f7fb;border-radius:6px;border:1px solid #e1e7f0;display:flex;align-items:center;padding:8px;gap:8px">
+                    <div style="width:30px;height:34px;background:#fff;border-radius:4px;border:1px solid #e1e7f0"></div>
+                    <div style="flex:1;display:flex;flex-direction:column;gap:4px">
+                      <div style="height:6px;background:#e1e7f0;border-radius:3px;width:70%"></div>
+                      <div style="height:6px;background:#e1e7f0;border-radius:3px;width:50%"></div>
+                    </div>
+                  </div>
+                </div>
+                <!-- Tema Escuro -->
+                <div id="tema-card-dark" onclick="definirTema('dark')" style="border:2px solid var(--border);border-radius:12px;padding:16px;cursor:pointer;transition:all 0.15s">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                    <span style="font-size:13px;font-weight:600;color:var(--text)">Escuro</span>
+                    <span id="tema-check-dark" style="width:18px;height:18px;border-radius:50%;background:var(--border);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0"></span>
+                  </div>
+                  <div style="height:50px;background:#0b0f1a;border-radius:6px;border:1px solid #1e2a3a;display:flex;align-items:center;padding:8px;gap:8px">
+                    <div style="width:30px;height:34px;background:#111827;border-radius:4px;border:1px solid #1e2a3a"></div>
+                    <div style="flex:1;display:flex;flex-direction:column;gap:4px">
+                      <div style="height:6px;background:#1e2a3a;border-radius:3px;width:70%"></div>
+                      <div style="height:6px;background:#1e2a3a;border-radius:3px;width:50%"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card: Branding no PDF -->
+        <div class="cfg-block">
+          <div class="cfg-card">
+            <div class="cfg-card-header">
+              <div class="cfg-card-header-info">
+                <div class="cfg-card-title">Branding nos Documentos</div>
+                <div class="cfg-card-subtitle">Configure cor e logo usados nos PDFs dos orçamentos</div>
+              </div>
+            </div>
+            <div class="cfg-card-body">
+              <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;display:flex;align-items:center;gap:12px">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <div style="font-size:13px;color:var(--muted)">
+                  Configure a <strong style="color:var(--text)">cor principal</strong> e a <strong style="color:var(--text)">logo da empresa</strong> na aba
+                  <span onclick="irSecao('empresa')" style="color:var(--accent);cursor:pointer;text-decoration:underline;text-underline-offset:2px">Empresa</span>.
+                  Esses dados são usados diretamente nos PDFs gerados.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ════════════════════════════════════════
+           SEÇÃO: COMUNICAÇÃO
+      ════════════════════════════════════════ -->
+      <section class="cfg-section" id="sec-comunicacao">
+        <div class="cfg-section-header">
+          <div class="cfg-section-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="cfg-section-title">Comunicação</div>
+            <div class="cfg-section-desc">Configure textos e elementos exibidos na página pública da proposta para aumentar a confiança e a taxa de aprovação.</div>
+          </div>
+        </div>
+
+        <!-- Card: Apresentação -->
+        <div class="cfg-block">
+          <div class="cfg-card">
+            <div class="cfg-card-header">
+              <div class="cfg-card-header-info">
+                <div class="cfg-card-title">Apresentação</div>
+                <div class="cfg-card-subtitle">Textos que descrevem sua empresa na proposta pública</div>
+              </div>
+            </div>
+            <div class="cfg-card-body">
+              <div class="cfg-fields-grid cols-1">
+                <div class="cfg-form-group">
+                  <label for="descricao-publica-empresa">Descrição pública da empresa</label>
+                  <textarea id="descricao-publica-empresa" rows="4" placeholder="Profissional comprometido com qualidade e prazo. Este orçamento foi elaborado com atenção aos detalhes para atender sua necessidade."
+                    style="resize:vertical;font-family:'DM Sans',sans-serif;font-size:13px;line-height:1.6"></textarea>
+                  <div class="cfg-field-context">📄 Seção "Sobre a empresa" na proposta pública</div>
+                </div>
+                <hr class="cfg-divider">
+                <div class="cfg-form-group">
+                  <label for="texto-assinatura-proposta">Texto da assinatura do orçamento</label>
+                  <input type="text" id="texto-assinatura-proposta" placeholder="Proposta elaborada por">
+                  <div class="cfg-field-hint">Aparece no card final da proposta (ex.: "Proposta elaborada por" + nome da empresa).</div>
+                  <div class="cfg-field-context">📄 Rodapé da proposta pública</div>
+                </div>
+                <hr class="cfg-divider">
+                <div class="cfg-form-group" data-search-terms="assinatura e-mail rodapé assinatura email mensagens">
+                  <label for="assinatura-email">Assinatura de E-mail</label>
+                  <textarea id="assinatura-email" rows="4" placeholder="Ex: Att,&#10;João Silva&#10;(11) 99999-9999 | empresa@email.com"
+                    style="resize:vertical;font-family:'DM Sans',sans-serif;font-size:13px;line-height:1.6"></textarea>
+                  <div class="cfg-field-hint">Aparece no rodapé dos e-mails enviados ao cliente (orçamentos, confirmações de aceite).</div>
+                  <div class="cfg-field-context">✉️ Rodapé dos e-mails ao cliente</div>
+                  <button class="btn btn-ghost" style="margin-top:8px;width:fit-content" onclick="salvarAssinaturaEmail()">Salvar assinatura</button>
+                </div>
+              </div>
+            </div>
+            <div class="cfg-card-footer">
+              <button type="button" class="btn btn-primary" onclick="salvarComunicacao()" id="btn-salvar-comunicacao">Salvar apresentação</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card: Contato e WhatsApp -->
+        <div class="cfg-block">
+          <div class="cfg-card">
+            <div class="cfg-card-header">
+              <div class="cfg-card-header-info">
+                <div class="cfg-card-title">Contato e WhatsApp</div>
+                <div class="cfg-card-subtitle">Número e botão de contato exibidos na proposta pública</div>
+              </div>
+            </div>
+            <div class="cfg-card-body">
+              <div class="cfg-fields-grid cols-1">
+                <div class="cfg-form-group">
+                  <label for="telefone-operador">Telefone WhatsApp do responsável</label>
+                  <input type="text" id="telefone-operador" placeholder="55 11 99999-9999">
+                  <div class="cfg-field-hint">Se vazio, usa o telefone geral da empresa.</div>
+                  <div class="cfg-field-context">💬 Botão "Tirar dúvidas pelo WhatsApp" na proposta</div>
+                </div>
+                <div class="cfg-inline-row" data-search-terms="mostrar botão whatsapp proposta pública tirar dúvidas">
+                  <div class="cfg-inline-info">
+                    <div class="cfg-inline-title">Mostrar botão WhatsApp</div>
+                    <div class="cfg-inline-sub">Exibir o botão "Tirar dúvidas pelo WhatsApp" na proposta pública.</div>
+                  </div>
+                  <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text);cursor:pointer;white-space:nowrap;flex-shrink:0">
+                    <input type="checkbox" id="mostrar-botao-whatsapp" checked>
+                    Ativo
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div class="cfg-card-footer">
+              <button type="button" class="btn btn-primary" onclick="salvarComunicacao()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                  <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                </svg>
+                Salvar contato
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card: Aceite e Confiança -->
+        <div class="cfg-block">
+          <div class="cfg-card">
+            <div class="cfg-card-header">
+              <div class="cfg-card-header-info">
+                <div class="cfg-card-title">Aceite e Confiança</div>
+                <div class="cfg-card-subtitle">Mensagens exibidas antes e durante o processo de aprovação</div>
+              </div>
+            </div>
+            <div class="cfg-card-body">
+              <div class="cfg-fields-grid cols-1">
+                <div class="cfg-form-group">
+                  <label for="texto-aviso-aceite">Texto do aviso de aceite</label>
+                  <textarea id="texto-aviso-aceite" rows="3" placeholder="Seu aceite é registrado com data e hora pelo nome que você informar. Trata-se de aceite autodeclarado; a empresa pode confirmar sua identidade posteriormente."
+                    style="resize:vertical;font-family:'DM Sans',sans-serif;font-size:13px;line-height:1.6"></textarea>
+                  <div class="cfg-field-hint">Aviso exibido no modal de aceite.</div>
+                  <div class="cfg-field-context">🔒 Modal de aceite da proposta</div>
+                </div>
+                <hr class="cfg-divider">
+                <div class="cfg-form-group">
+                  <label for="mensagem-confianca-proposta">Mensagem de confiança na proposta</label>
+                  <textarea id="mensagem-confianca-proposta" rows="4" placeholder="Você está recebendo uma proposta organizada, com valores claros e possibilidade de aprovação online. Em caso de dúvidas, fale conosco pelo WhatsApp antes de aprovar."
+                    style="resize:vertical;font-family:'DM Sans',sans-serif;font-size:13px;line-height:1.6"></textarea>
+                  <div class="cfg-field-hint">Mensagem exibida para transmitir confiança antes da aprovação.</div>
+                  <div class="cfg-field-context">✅ Bloco de confiança antes dos botões de ação</div>
+                </div>
+                <div class="cfg-inline-row">
+                  <div class="cfg-inline-info">
+                    <div class="cfg-inline-title">Mostrar mensagem de confiança</div>
+                    <div class="cfg-inline-sub">Exibir o bloco de mensagem de confiança na proposta pública.</div>
+                  </div>
+                  <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text);cursor:pointer;white-space:nowrap;flex-shrink:0">
+                    <input type="checkbox" id="mostrar-mensagem-confianca" checked>
+                    Ativo
+                  </label>
+                </div>
+                <hr class="cfg-divider">
+                <div class="cfg-inline-row">
+                  <div class="cfg-inline-info">
+                    <div class="cfg-inline-title">Exigir confirmação por código (OTP)</div>
+                    <div class="cfg-inline-sub">Envia um código por WhatsApp ou e-mail para validar a identidade do cliente no aceite.</div>
+                  </div>
+                  <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text);cursor:pointer;white-space:nowrap;flex-shrink:0">
+                    <input type="checkbox" id="exigir-otp-aceite">
+                    Ativo
+                  </label>
+                </div>
+                <div id="wrap-otp-minimo" style="margin-top:8px;padding-left:0;display:none;align-items:center;gap:10px">
+
+                  <span style="font-size:12px;color:var(--muted)">Exigir apenas para orçamentos acima de:</span>
+                  <div style="position:relative;width:120px">
+                    <span style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted)">R$</span>
+                    <input type="number" id="otp-valor-minimo" placeholder="0,00" step="0.01" min="0"
+                      style="width:100%;padding:5px 8px 5px 28px;font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);outline:none">
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="cfg-card-footer">
+              <button type="button" class="btn btn-primary" onclick="salvarComunicacao()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                  <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                </svg>
+                Salvar aceite
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lembrete: info-link + notificações -->
+        <div class="cfg-block">
+          <div class="cfg-card">
+            <div class="cfg-card-header">
+              <div class="cfg-card-header-info">
+                <div class="cfg-card-title">Lembretes e Notificações</div>
+                <div class="cfg-card-subtitle">Configurações automáticas de acompanhamento</div>
+              </div>
+            </div>
+            <div class="cfg-card-body">
+              <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:12px;margin-bottom:16px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <div style="font-size:13px;color:var(--muted)">
+                  As configurações de lembrete automático estão em
+                  <span onclick="irSecao('orcamentos')" style="color:var(--accent);cursor:pointer;text-decoration:underline;text-underline-offset:2px">Orçamentos → Lembrete Automático</span>.
+                </div>
+              </div>
+              <div class="cfg-inline-row">
+                <div class="cfg-inline-info">
+                  <div class="cfg-inline-title">Notificação de visualização via WhatsApp</div>
+                  <div class="cfg-inline-sub">Receba uma mensagem no WhatsApp quando o cliente abrir o link da proposta pela primeira vez.</div>
+                </div>
+                <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text);cursor:pointer;white-space:nowrap;flex-shrink:0">
+                  <input type="checkbox" id="notif-whats-visualizacao" onchange="salvarNotifWhatsVisualizacao()">
+                  Ativo
+                </label>
+              </div>
+              <div class="cfg-inline-row">
+                <div class="cfg-inline-info">
+                  <div class="cfg-inline-title">Envio de orçamentos por e-mail</div>
+                  <div class="cfg-inline-sub">Quando ativado, o PDF do orçamento será enviado também como anexo no e-mail do cliente.</div>
+                </div>
+                <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text);cursor:pointer;white-space:nowrap;flex-shrink:0">
+                  <input type="checkbox" id="anexar-pdf-email" onchange="salvarAnexoPdfEmail()">
+                  Anexar PDF no e-mail
+                </label>
+              </div>
+              <div class="cfg-inline-row" data-search-terms="envio orçamentos whatsapp pdf anexo arquivo mensagem">
+                <div class="cfg-inline-info">
+                  <div class="cfg-inline-title">Envio de orçamentos por WhatsApp</div>
+                  <div class="cfg-inline-sub">Quando ativado, o arquivo PDF será enviado como anexo na conversa do WhatsApp.</div>
+                </div>
+                <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text);cursor:pointer;white-space:nowrap;flex-shrink:0">
+                  <input type="checkbox" id="enviar-pdf-whatsapp">
+                  Enviar PDF no WhatsApp
+
+                </label>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- Card: Mensagem de boas-vindas -->
+        <div class="cfg-block">
+          <div class="cfg-card">
+            <div class="cfg-card-header">
+              <div class="cfg-card-header-info">
+                <div class="cfg-card-title">Mensagem de Boas-vindas</div>
+                <div class="cfg-card-subtitle">Enviada automaticamente quando um cliente entra em contato pela primeira vez via WhatsApp</div>
+              </div>
+              <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--text);cursor:pointer;white-space:nowrap;flex-shrink:0">
+                <input type="checkbox" id="boas-vindas-ativo" onchange="salvarBoasVindas()">
+                Ativo
+              </label>
+            </div>
+            <div class="cfg-card-body">
+              <div class="cfg-fields-grid cols-1">
+                <div class="cfg-form-group">
+                  <label for="msg-boas-vindas">Mensagem personalizada</label>
+                  <textarea id="msg-boas-vindas" rows="6"
+                    style="resize:vertical;font-family:'DM Sans',sans-serif;font-size:13px;line-height:1.6"
+                    placeholder="Olá! 👋 Seja bem-vindo(a) à {empresa_nome}!
+
+Sou o assistente virtual e posso ajudar com orçamentos.
+
+Para solicitar um orçamento, descreva o serviço que precisa. Exemplo:
+"Pintura de 2 quartos"
+
+Estamos à disposição! 😊"></textarea>
+                  <div class="cfg-template-vars">
+                    <span style="font-size:11px;color:var(--muted)">Variável disponível:</span>
+                    <span class="cfg-var-chip">{empresa_nome}</span>
+                  </div>
+                  <div class="cfg-field-hint">Deixe em branco para usar a mensagem padrão do sistema</div>
+                  <div class="cfg-field-context">💬 Primeira mensagem recebida pelo cliente via WhatsApp</div>
+                </div>
+              </div>
+            </div>
+            <div class="cfg-card-footer">
+              <button class="btn btn-primary" type="button" onclick="salvarBoasVindas()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                  <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                </svg>
+                Salvar mensagem
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ════════════════════════════════════════
+           SEÇÃO: INTEGRAÇÕES
+      ════════════════════════════════════════ -->
+      <section class="cfg-section" id="sec-integracoes">
+        <div class="cfg-section-header">
+          <div class="cfg-section-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+            </svg>
+          </div>
+          <div>
+            <div class="cfg-section-title">Integrações</div>
+            <div class="cfg-section-desc">Conecte o COTTE a serviços externos de WhatsApp, e-mail e automações.</div>
+          </div>
+        </div>
+
+        <!-- Card: WhatsApp Próprio -->
+        <div class="cfg-block">
+          <div class="cfg-card" id="card-whatsapp-proprio">
+            <div class="cfg-card-header">
+              <div class="cfg-card-header-info">
+                <div class="cfg-card-title">WhatsApp Próprio</div>
+                <div class="cfg-card-subtitle">Envie orçamentos e mensagens usando o número da sua empresa</div>
+              </div>
+              <span id="wp-plano-badge" class="cfg-plan-badge" style="display:none">Pro / Business</span>
+            </div>
+            <div class="cfg-card-body">
+
+              <!-- Estado: plano não permite -->
+              <div id="wp-upgrade-state" style="display:none">
+                <div style="display:flex;align-items:flex-start;gap:16px;padding:8px 0">
+                  <div style="font-size:28px;line-height:1">📱</div>
+                  <div style="flex:1">
+                    <div style="font-weight:600;color:var(--text);margin-bottom:4px">Use o número da sua empresa como remetente</div>
+                    <div style="font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:16px">
+                      Com o WhatsApp próprio, seus clientes recebem orçamentos diretamente do número da sua empresa,
+                      não de um número genérico da plataforma. Disponível nos planos <strong>Pro</strong> e <strong>Business</strong>.
+                    </div>
+                    <a href="mailto:suporte@cotte.app?subject=Upgrade para Pro" class="btn btn-primary" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                      Fazer upgrade
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Estado: disponível, não conectado -->
+              <div id="wp-desconectado-state" style="display:none">
+                <div style="display:flex;align-items:center;gap:12px;padding:12px 0;margin-bottom:16px;border-bottom:1px solid var(--border)">
+                  <div style="width:10px;height:10px;border-radius:50%;background:var(--muted2);flex-shrink:0"></div>
+                  <span style="font-size:13px;color:var(--muted);font-weight:500">Desconectado — usando número da plataforma</span>
+                </div>
+                <div style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.6">
+                  Conecte o WhatsApp da sua empresa para que todos os envios (orçamentos, lembretes e notificações)
+                  partam do seu próprio número.
+                </div>
+                <button class="btn btn-primary" onclick="wpConectar()" id="wp-btn-conectar">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.65 3.4 2 2 0 0 1 3.64 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.6a16 16 0 0 0 6 6l.96-1.03a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.5 16z"/></svg>
+                  Conectar WhatsApp
+                </button>
+              </div>
+
+              <!-- Estado: aguardando QR code -->
+              <div id="wp-qrcode-state" style="display:none">
+                <div style="display:flex;align-items:center;gap:12px;padding:12px 0;margin-bottom:20px;border-bottom:1px solid var(--border)">
+                  <div style="width:10px;height:10px;border-radius:50%;background:var(--orange);flex-shrink:0;animation:pulse 1.5s infinite"></div>
+                  <span style="font-size:13px;color:var(--orange);font-weight:500">Aguardando leitura do QR Code...</span>
+                </div>
+                <div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap">
+                  <div id="wp-qrcode-img-wrap" style="background:#fff;padding:12px;border-radius:12px;border:2px solid var(--border);flex-shrink:0">
+                    <img id="wp-qrcode-img" src="" alt="QR Code" style="width:180px;height:180px;display:block">
+                  </div>
+                  <div style="flex:1;min-width:200px">
+                    <div style="font-weight:600;margin-bottom:8px;color:var(--text)">Como conectar:</div>
+                    <ol style="font-size:13px;color:var(--muted);line-height:1.8;padding-left:16px;margin:0 0 16px">
+                      <li>Abra o WhatsApp no celular da empresa</li>
+                      <li>Vá em <strong>Aparelhos conectados</strong></li>
+                      <li>Toque em <strong>Conectar um aparelho</strong></li>
+                      <li>Aponte a câmera para o QR code ao lado</li>
+                    </ol>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap">
+                      <button class="btn btn-ghost" onclick="wpAtualizarQR()" style="font-size:12px">
+                        🔄 Novo QR Code
+                      </button>
+                      <button class="btn btn-ghost" onclick="wpCancelar()" style="font-size:12px;color:var(--red)">
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Estado: conectado -->
+              <div id="wp-conectado-state" style="display:none">
+                <div style="display:flex;align-items:center;gap:12px;padding:12px 0;margin-bottom:16px;border-bottom:1px solid var(--border)">
+                  <div style="width:10px;height:10px;border-radius:50%;background:var(--green);flex-shrink:0"></div>
+                  <span style="font-size:13px;color:var(--green);font-weight:600">Conectado</span>
+                  <span id="wp-numero-display" style="font-size:13px;color:var(--muted);margin-left:4px"></span>
+                </div>
+                <div style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.6">
+                  Todos os orçamentos, lembretes e notificações serão enviados pelo número da sua empresa.
+                </div>
+                <button class="btn btn-ghost" onclick="wpDesconectar()" style="color:var(--red);border-color:rgba(239,68,68,0.3)">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                  Desconectar WhatsApp
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ════════════════════════════════════════
+           SEÇÃO: PLANO
+      ════════════════════════════════════════ -->
+      <section class="cfg-section" id="sec-plano">
+        <div class="cfg-section-header">
+          <div class="cfg-section-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+          </div>
+          <div>
+            <div class="cfg-section-title">Plano e Assinatura</div>
+            <div class="cfg-section-desc">Detalhes do seu plano atual, limites de uso e opções de upgrade.</div>
+          </div>
+        </div>
+
+        <!-- Card: Plano atual -->
+        <div class="cfg-block">
+          <div class="cfg-card" id="plano">
+            <div class="cfg-card-header">
+              <div class="cfg-card-header-info">
+                <div class="cfg-card-title">Plano Atual</div>
+                <div class="cfg-card-subtitle">Informações sobre sua assinatura e recursos disponíveis</div>
+              </div>
+              <span id="cfg-plano-badge" class="cfg-plan-badge">—</span>
+            </div>
+            <div class="cfg-card-body">
+              <div class="cfg-plan-grid" style="margin-bottom:20px">
+                <div class="cfg-plan-metric">
+                  <div class="cfg-plan-metric-label">Validade</div>
+                  <div class="cfg-plan-metric-value" id="cfg-plano-validade">—</div>
+                </div>
+                <div class="cfg-plan-metric">
+                  <div class="cfg-plan-metric-label">Orçamentos</div>
+                  <div class="cfg-plan-metric-value" id="cfg-plano-orc">—</div>
+                </div>
+                <div class="cfg-plan-metric">
+                  <div class="cfg-plan-metric-label">Usuários</div>
+                  <div class="cfg-plan-metric-value" id="cfg-plano-usr">—</div>
+                </div>
+              </div>
+
+              <div class="cfg-plan-cta">
+                <div class="cfg-plan-cta-text">
+                  Precisa de mais recursos? <span>Veja os planos disponíveis abaixo.</span>
+                </div>
+                <a href="#cfg-upgrade-section" class="btn btn-primary" style="text-decoration:none;white-space:nowrap" onclick="event.preventDefault();document.getElementById('cfg-upgrade-section').scrollIntoView({behavior:'smooth'});">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                  Ver planos de upgrade
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card: Upgrade de plano -->
+        <div class="cfg-block" id="cfg-upgrade-section" style="display:none">
+          <div class="cfg-card">
+            <div class="cfg-card-header">
+              <div class="cfg-card-header-info">
+                <div class="cfg-card-title">Fazer Upgrade</div>
+                <div class="cfg-card-subtitle">Escolha o plano ideal para o seu crescimento</div>
+              </div>
+            </div>
+            <div class="cfg-card-body">
+              <div class="cfg-upgrade-grid">
+
+                <!-- Starter -->
+                <div class="cfg-upgrade-card" data-plano="starter">
+                  <div class="cfg-upgrade-nome">Starter</div>
+                  <div class="cfg-upgrade-preco">
+                    <span class="cfg-upgrade-valor">R$ 89,90</span>
+                    <span class="cfg-upgrade-periodo">/mês</span>
+                  </div>
+                  <ul class="cfg-upgrade-features">
+                    <li>200 orçamentos/mês</li>
+                    <li>3 usuários</li>
+                    <li>Envio por WhatsApp</li>
+                    <li>Lembretes automáticos</li>
+                  </ul>
+                  <a href="https://pay.kiwify.com.br/mlUv9Ox" target="_blank" class="btn btn-ghost cfg-upgrade-btn">Escolher Starter</a>
+                </div>
+
+                <!-- Pro -->
+                <div class="cfg-upgrade-card cfg-upgrade-destaque" data-plano="pro">
+                  <div class="cfg-upgrade-badge-top">Mais escolhido</div>
+                  <div class="cfg-upgrade-nome">Pro</div>
+                  <div class="cfg-upgrade-preco">
+                    <span class="cfg-upgrade-valor">R$ 129</span>
+                    <span class="cfg-upgrade-periodo">/mês</span>
+                  </div>
+                  <ul class="cfg-upgrade-features">
+                    <li>1.000 orçamentos/mês</li>
+                    <li>10 usuários</li>
+                    <li>IA automática (Claude)</li>
+                    <li>WhatsApp próprio</li>
+                  </ul>
+                  <a href="https://pay.kiwify.com.br/GEEDagv" target="_blank" class="btn btn-primary cfg-upgrade-btn">Escolher Pro</a>
+                </div>
+
+                <!-- Business -->
+                <div class="cfg-upgrade-card" data-plano="business">
+                  <div class="cfg-upgrade-nome">Business</div>
+                  <div class="cfg-upgrade-preco">
+                    <span class="cfg-upgrade-valor">R$ 189</span>
+                    <span class="cfg-upgrade-periodo">/mês</span>
+                  </div>
+                  <ul class="cfg-upgrade-features">
+                    <li>Orçamentos ilimitados</li>
+                    <li>Usuários ilimitados</li>
+                    <li>Tudo do Pro</li>
+                    <li>Suporte prioritário</li>
+                  </ul>
+                  <a href="https://pay.kiwify.com.br/pA85TDN" target="_blank" class="btn btn-ghost cfg-upgrade-btn">Escolher Business</a>
+                </div>
+
+              </div>
+              <div class="cfg-upgrade-trust">
+                <span>🔒 Pagamento seguro via Kiwify</span>
+                <span>·</span>
+                <span>📅 Cancele quando quiser</span>
+                <span>·</span>
+                <span>✅ Sem fidelidade</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card: Recursos do plano -->
+        <div class="cfg-block">
+          <div class="cfg-card">
+            <div class="cfg-card-header">
+              <div class="cfg-card-header-info">
+                <div class="cfg-card-title">Recursos Incluídos</div>
+                <div class="cfg-card-subtitle">O que está disponível no seu plano atual</div>
+              </div>
+            </div>
+            <div class="cfg-card-body">
+              <div style="display:flex;flex-direction:column;gap:0">
+                <div class="cfg-inline-row">
+                  <div class="cfg-inline-info">
+                    <div class="cfg-inline-title">Bot WhatsApp com IA</div>
+                    <div class="cfg-inline-sub">Criação automática de orçamentos via mensagem</div>
+                  </div>
+                  <span style="color:var(--green);font-weight:700;font-size:13px">✓ Incluído</span>
+                </div>
+                <div class="cfg-inline-row">
+                  <div class="cfg-inline-info">
+                    <div class="cfg-inline-title">Geração de PDF</div>
+                    <div class="cfg-inline-sub">PDF profissional com logo e dados da empresa</div>
+                  </div>
+                  <span style="color:var(--green);font-weight:700;font-size:13px">✓ Incluído</span>
+                </div>
+                <div class="cfg-inline-row">
+                  <div class="cfg-inline-info">
+                    <div class="cfg-inline-title">Aprovação por link</div>
+                    <div class="cfg-inline-sub">Cliente aprova o orçamento pelo link público</div>
+                  </div>
+                  <span style="color:var(--green);font-weight:700;font-size:13px">✓ Incluído</span>
+                </div>
+                <div class="cfg-inline-row">
+                  <div class="cfg-inline-info">
+                    <div class="cfg-inline-title">Relatórios e métricas</div>
+                    <div class="cfg-inline-sub">Dashboard com conversão, faturamento e alertas</div>
+                  </div>
+                  <span style="color:var(--green);font-weight:700;font-size:13px">✓ Incluído</span>
+                </div>
+                <div class="cfg-inline-row">
+                  <div class="cfg-inline-info">
+                    <div class="cfg-inline-title">Multi-usuários</div>
+                    <div class="cfg-inline-sub">Adicione membros da equipe com diferentes níveis de acesso</div>
+                  </div>
+                  <span id="cfg-multi-usr-status" style="color:var(--green);font-weight:700;font-size:13px">✓ Incluído</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ════════════════════════════════════════
+           SEÇÃO: SEGURANÇA
+      ════════════════════════════════════════ -->
+      <section class="cfg-section" id="sec-seguranca">
+        <div class="cfg-section-header">
+          <div class="cfg-section-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="cfg-section-title">Segurança</div>
+            <div class="cfg-section-desc">Encerre sessões ativas e mantenha sua conta protegida.</div>
+          </div>
+        </div>
+
+        <div class="cfg-block">
+          <div class="cfg-card" style="border-color:rgba(239,68,68,0.2)">
+            <div class="cfg-card-header" style="border-bottom-color:rgba(239,68,68,0.1);background:rgba(239,68,68,0.02)">
+              <div class="cfg-card-header-info">
+                <div class="cfg-card-title" style="color:var(--red)">Zona de Perigo</div>
+                <div class="cfg-card-subtitle">Ações irreversíveis que afetam a sua conta</div>
+              </div>
+            </div>
+            <div class="cfg-card-body">
+              <div class="cfg-inline-row">
+                <div class="cfg-inline-info">
+                  <div class="cfg-inline-title">Encerrar sessão em todos os dispositivos</div>
+                  <div class="cfg-inline-sub">Desconecta sua conta de todos os acessos simultâneos</div>
+                </div>
+                <button class="btn btn-ghost" onclick="logout()" style="border-color:rgba(239,68,68,0.3);color:var(--red);white-space:nowrap">
+                  Sair agora
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ════════════════════════════════════════
+           SEÇÃO: CATÁLOGO — MODELOS
+      ════════════════════════════════════════ -->
+      <section class="cfg-section" id="sec-catalogo-modelos">
+        <div class="cfg-section-header">
+          <div class="cfg-section-icon">📐</div>
+          <div>
+            <div class="cfg-section-title">Modelos de catálogo</div>
+            <div class="cfg-section-desc">Importe um modelo pré-configurado para o seu segmento de atuação.</div>
+          </div>
+        </div>
+
+        <div class="cfg-block">
+          <div class="cfg-card">
+            <!-- Estado: lista de segmentos -->
+            <div id="cfg-templates-lista" style="display:flex;flex-direction:column;gap:10px;min-height:60px">
+              <div style="text-align:center;padding:20px"><div class="spinner"></div></div>
+            </div>
+            <!-- Estado: preview do template -->
+            <div id="cfg-templates-preview" style="display:none">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                <div>
+                  <div id="cfg-template-nome" style="font-weight:600;font-size:16px"></div>
+                  <div id="cfg-template-descricao" style="font-size:13px;color:var(--muted);margin-top:2px"></div>
+                </div>
+                <div id="cfg-template-total" style="font-size:13px;font-weight:600;color:var(--green)"></div>
+              </div>
+              <div id="cfg-template-conteudo" style="max-height:350px;overflow-y:auto;margin-bottom:16px"></div>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-ghost" onclick="cfgVoltarTemplates()">← Voltar</button>
+                <button class="btn btn-primary" id="cfg-btn-importar-template" onclick="cfgConfirmarImportarTemplate()">✅ Importar Modelo</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div><!-- /cfg-content -->
+  </div><!-- /cfg-layout -->
+
+</main>
+
+<!-- NOTIFICAÇÃO GLOBAL -->
+<div class="notif" id="notif">
+  <div class="notif-icon"></div>
+  <div>
+    <div class="notif-title"></div>
+    <div class="notif-sub"></div>
+  </div>
+</div>
+
+<script src="js/utils.js?v=2"></script>
+<script src="js/api.js?v=17"></script>
+<script src="js/layout.js?v=2"></script>
+<script src="js/configuracoes.js?v=33"></script>
+</body>
+</html>

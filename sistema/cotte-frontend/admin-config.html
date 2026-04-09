@@ -1,0 +1,1276 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem("cotte_tema");if(t){document.documentElement.setAttribute("data-theme",t);}else{document.documentElement.setAttribute("data-theme","light");}})()</script>
+  <title>COTTE — Configurações Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/style.css?v=3">
+  <style>
+    :root {
+      /* === TOKENS DESIGN SYSTEM PRECISION ATELIER v2.0 === */
+      --font-display: 'Plus Jakarta Sans', sans-serif;
+      --font-body:    'Inter', sans-serif;
+      --font-mono:    'JetBrains Mono', 'Fira Code', monospace;
+
+      /* === CORES (LIGHT MODE) === */
+      --color-primary:           #00687a;
+      --color-primary-hover:     #005566;
+      --color-primary-container: #06b6d4;
+      --color-primary-light:     #cff4fc;
+      --color-on-primary:        #ffffff;
+
+      --color-surface-lowest:    #ffffff;
+      --color-surface-low:       #f0f5f9;
+      --color-surface:           #f7fafe;
+      --color-surface-high:      #e8edf2;
+      --color-surface-highest:   #dde3e9;
+
+      --color-on-surface:        #181c1f;
+      --color-on-surface-variant:#42484e;
+      --color-on-surface-muted:  #6b737b;
+      --color-on-surface-faint:  #9aa3ab;
+
+      --color-outline:           rgba(24, 28, 31, 0.40);
+      --color-outline-variant:   rgba(24, 28, 31, 0.15);
+      --color-outline-subtle:    rgba(24, 28, 31, 0.08);
+
+      --color-success:           #1a6e3c;
+      --color-success-container: #b7f0cb;
+      --color-on-success-container:#002110;
+
+      --color-error:             #ba1a1a;
+      --color-error-container:   #ffdad6;
+      --color-on-error-container:#410002;
+
+      --color-warning:           #7a5200;
+      --color-warning-container: #ffdfa0;
+      --color-on-warning-container:#261900;
+
+      --color-info:              #00527a;
+      --color-info-container:    #c5e8ff;
+      --color-on-info-container: #001e30;
+
+      --color-secondary-container: #cde7ed;
+      --color-on-secondary-container: #051f24;
+
+      --color-tertiary-container:  #dbe2ff;
+
+      /* === TIPOGRAFIA === */
+      --text-headline-md: 600 1.5rem/1.3   var(--font-display);
+      --text-headline-sm: 600 1.25rem/1.35 var(--font-display);
+      --text-title-lg:    600 1.125rem/1.4 var(--font-body);
+      --text-title-md:    500 1rem/1.5     var(--font-body);
+      --text-title-sm:    500 0.875rem/1.5 var(--font-body);
+      --text-body-lg:     400 1rem/1.6     var(--font-body);
+      --text-body-md:     400 0.875rem/1.6 var(--font-body);
+      --text-body-sm:     400 0.75rem/1.5  var(--font-body);
+      --text-label-lg:    500 0.875rem/1.4 var(--font-body);
+      --text-label-md:    500 0.75rem/1.4  var(--font-body);
+      --text-label-sm:    500 0.6875rem/1.3 var(--font-body);
+
+      /* === ESPAÇAMENTO === */
+      --space-1:  4px;
+      --space-2:  8px;
+      --space-3:  12px;
+      --space-4:  16px;
+      --space-6:  24px;
+      --space-8:  32px;
+      --space-10: 40px;
+
+      /* === RAIOS === */
+      --radius-md:   8px;
+      --radius-lg:   12px;
+      --radius-xl:   16px;
+      --radius-2xl:  24px;
+      --radius-full: 9999px;
+
+      /* === SOMBRAS === */
+      --shadow-color: rgba(24, 28, 31, 0.08);
+      --shadow-1: 0 2px 8px var(--shadow-color), 0 1px 3px rgba(24, 28, 31, 0.04);
+      --shadow-2: 0 4px 16px var(--shadow-color), 0 2px 6px rgba(24, 28, 31, 0.05);
+      --shadow-4: 0 16px 40px rgba(24, 28, 31, 0.12), 0 8px 16px rgba(24, 28, 31, 0.07);
+
+      /* === ANIMAÇÃO === */
+      --duration-fast:     100ms;
+      --duration-base:     200ms;
+      --duration-moderate: 300ms;
+      --ease-out:       cubic-bezier(0.0, 0.0, 0.2, 1.0);
+      --ease-in-out:    cubic-bezier(0.4, 0.0, 0.2, 1.0);
+    }
+
+    [data-theme="dark"] {
+      --color-primary:           #4fd8eb;
+      --color-primary-container: #004f5d;
+      --color-on-primary:        #003640;
+
+      --color-surface-lowest:    #1a1f22;
+      --color-surface-low:       #1f2428;
+      --color-surface:           #111518;
+      --color-surface-high:      #262b2f;
+      --color-surface-highest:   #2e3438;
+
+      --color-on-surface:        #e1e3e5;
+      --color-on-surface-variant:#bdc4ca;
+      --color-on-surface-muted:  #8d9499;
+      --color-on-surface-faint:  #5a6166;
+
+      --color-outline:           rgba(225, 227, 229, 0.38);
+      --color-outline-variant:   rgba(225, 227, 229, 0.15);
+      --color-outline-subtle:    rgba(225, 227, 229, 0.08);
+
+      --shadow-color: rgba(0, 0, 0, 0.4);
+    }
+
+    body {
+      font-family: var(--font-body);
+      background-color: var(--color-surface);
+      color: var(--color-on-surface);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page-title, .section-title, .mini-card-value, .modal-title {
+      font-family: var(--font-display) !important;
+    }
+
+    /* ── TAB NAVIGATION ── */
+    .admin-tabs {
+      display: flex;
+      gap: var(--space-2);
+      padding: var(--space-1);
+      background: var(--color-surface-low);
+      border-radius: var(--radius-lg);
+      margin-bottom: var(--space-8);
+      width: fit-content;
+    }
+    .admin-tab {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: 10px var(--space-5);
+      border-radius: var(--radius-md);
+      border: none;
+      background: transparent;
+      color: var(--color-on-surface-variant);
+      font: var(--text-label-lg);
+      cursor: pointer;
+      transition: all var(--duration-base) var(--ease-in-out);
+    }
+    .admin-tab:hover {
+      color: var(--color-on-surface);
+      background: var(--color-surface-highest);
+    }
+    .admin-tab.active {
+      background: var(--color-surface-lowest);
+      color: var(--color-primary);
+      box-shadow: var(--shadow-1);
+      font-weight: 600;
+    }
+    .tab-btn .tab-icon {
+      font-size: 18px;
+    }
+    .tab-content {
+      display: none;
+      padding: 32px;
+      animation: fadeIn 0.3s ease;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── SECTION STYLING ── */
+    .config-section {
+      background: var(--color-surface-lowest);
+      border: none;
+      border-radius: var(--radius-xl);
+      padding: var(--space-8);
+      margin-bottom: var(--space-6);
+      box-shadow: var(--shadow-1);
+      transition: transform var(--duration-base) var(--ease-out), 
+                  box-shadow var(--duration-base) var(--ease-out);
+    }
+    .config-section:hover {
+      box-shadow: var(--shadow-2);
+      transform: translateY(-2px);
+    }
+    .config-section:last-child {
+      margin-bottom: 0;
+    }
+    .section-header {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-4);
+      margin-bottom: var(--space-5);
+    }
+    .section-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: var(--radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      flex-shrink: 0;
+      transition: transform var(--duration-moderate) var(--ease-out);
+    }
+    .config-section:hover .section-icon {
+      transform: scale(1.1) rotate(-5deg);
+    }
+    .section-icon.blue { background: var(--color-info-container); color: var(--color-on-info-container); }
+    .section-icon.green { background: var(--color-success-container); color: var(--color-on-success-container); }
+    .section-icon.orange { background: var(--color-warning-container); color: var(--color-on-warning-container); }
+    .section-icon.purple { background: var(--color-tertiary-container); color: var(--color-on-tertiary-container); }
+    .section-title {
+      font: var(--text-headline-sm);
+      color: var(--color-on-surface);
+      margin: 0 0 var(--space-2) 0;
+      letter-spacing: -0.02em;
+    }
+    .section-desc {
+      font: var(--text-body-md);
+      color: var(--color-on-surface-variant);
+      line-height: 1.6;
+      margin: 0;
+      max-width: 600px;
+    }
+
+    /* ── CARDS GRID ── */
+    .config-cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: var(--space-5);
+    }
+    .mini-card {
+      background: var(--color-surface-low);
+      border: none;
+      border-radius: var(--radius-lg);
+      padding: var(--space-6);
+      transition: all var(--duration-base) var(--ease-out);
+    }
+    .mini-card:hover {
+      background: var(--color-surface-lowest);
+      box-shadow: var(--shadow-1);
+    }
+    .mini-card-label {
+      font: var(--text-label-sm);
+      color: var(--color-on-surface-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: var(--space-2);
+    }
+    .mini-card-value {
+      font: var(--text-display-sm);
+      color: var(--color-on-surface);
+      letter-spacing: -0.03em;
+      font-feature-settings: "tnum";
+    }
+
+    /* ── CHIP LIST (MODERNO) ── */
+    .chip-lista {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      padding: var(--space-4);
+      background: var(--color-surface-low);
+      border-radius: var(--radius-lg);
+      border: 1px dashed var(--color-outline-variant);
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      background: var(--color-surface-lowest);
+      border: 1px solid var(--color-outline-subtle);
+      border-radius: var(--radius-full);
+      padding: 6px var(--space-4);
+      font: var(--text-label-sm);
+      color: var(--color-on-surface);
+      box-shadow: var(--shadow-1);
+      transition: all var(--duration-fast) var(--ease-out);
+    }
+    .chip:hover {
+      border-color: var(--color-primary);
+      box-shadow: var(--shadow-2);
+    }
+    .chip button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--color-on-surface-muted);
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--duration-fast) var(--ease-in-out);
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+    }
+    .chip button:hover {
+      color: var(--color-error);
+      background: var(--color-error-container);
+    }
+
+    /* ── INPUT GROUPS ── */
+
+
+    /* ── INPUT GROUPS ── */
+    .input-row {
+      display: flex;
+      gap: var(--space-3);
+      flex-wrap: wrap;
+    }
+    .input-field {
+      flex: 1;
+      min-width: 200px;
+      background: var(--color-surface-low);
+      color: var(--color-on-surface);
+      padding: 12px var(--space-4);
+      font: var(--text-body-md);
+      border: none;
+      border-bottom: 1.5px solid var(--color-outline-variant);
+      border-radius: var(--radius-md) var(--radius-md) 0 0;
+      outline: none;
+      transition: border-color var(--duration-fast) var(--ease-in-out),
+                  background var(--duration-fast) var(--ease-in-out);
+    }
+    .input-field:focus {
+      background: var(--color-surface-lowest);
+      border-bottom-color: var(--color-primary);
+      border-bottom-width: 2px;
+    }
+    .input-field::placeholder {
+      color: var(--color-on-surface-faint);
+    }
+    .input-field-sm {
+      min-width: 100px;
+      max-width: 140px;
+    }
+    .textarea-field {
+      width: 100%;
+      background: var(--color-surface-low);
+      color: var(--color-on-surface);
+      padding: 12px var(--space-4);
+      font: var(--text-body-md);
+      border: none;
+      border-bottom: 1.5px solid var(--color-outline-variant);
+      border-radius: var(--radius-md) var(--radius-md) 0 0;
+      outline: none;
+      resize: vertical;
+      transition: border-color var(--duration-fast) var(--ease-in-out),
+                  background var(--duration-fast) var(--ease-in-out);
+    }
+    .textarea-field:focus {
+      background: var(--color-surface-lowest);
+      border-bottom-color: var(--color-primary);
+      border-bottom-width: 2px;
+    }
+    .input-hint {
+      font: var(--text-label-sm);
+      color: var(--color-on-surface-muted);
+      margin-top: var(--space-2);
+    }
+    .input-hint code {
+      background: var(--color-surface-high);
+      padding: 2px 6px;
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      color: var(--color-primary);
+    }
+
+    /* ── BROADCAST CARD ── */
+    .broadcast-card {
+      background: var(--color-surface-low);
+      border: none;
+      border-radius: var(--radius-lg);
+      padding: var(--space-6);
+      margin-bottom: var(--space-4);
+      border-left: 6px solid var(--color-primary);
+      transition: all var(--duration-base) var(--ease-out);
+    }
+    .broadcast-card:hover {
+      background: var(--color-surface-lowest);
+      box-shadow: var(--shadow-1);
+    }
+    .broadcast-card.warning { border-left-color: var(--color-warning); }
+    .broadcast-card.urgent { border-left-color: var(--color-error); }
+    .broadcast-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--space-3);
+      flex-wrap: wrap;
+      gap: var(--space-2);
+    }
+    .broadcast-meta {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+    .broadcast-date {
+      font: var(--text-label-sm);
+      color: var(--color-on-surface-muted);
+    }
+    .status-badge {
+      font: var(--text-label-sm);
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: var(--radius-full);
+    }
+    .status-badge.active {
+      background: var(--color-success-container);
+      color: var(--color-on-success-container);
+    }
+    .status-badge.inactive {
+      background: var(--color-surface-high);
+      color: var(--color-on-surface-muted);
+    }
+    .broadcast-msg {
+      font: var(--text-body-md);
+      line-height: 1.6;
+      color: var(--color-on-surface);
+    }
+
+    /* ── TEMPLATE LIST ── */
+    .template-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+      padding: var(--space-5) var(--space-6);
+      background: var(--color-surface-low);
+      border: none;
+      border-radius: var(--radius-lg);
+      transition: all var(--duration-base) var(--ease-out);
+    }
+    .template-item:hover {
+      background: var(--color-surface-lowest);
+      box-shadow: var(--shadow-1);
+      transform: translateX(4px);
+    }
+    .template-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .template-name {
+      font: var(--text-title-sm);
+      color: var(--color-on-surface);
+      margin-bottom: var(--space-1);
+    }
+    .template-meta {
+      font: var(--text-label-md);
+      color: var(--color-on-surface-muted);
+    }
+    .template-meta code {
+      background: var(--color-surface-high);
+      padding: 2px 6px;
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      color: var(--color-primary);
+    }
+    .template-stats {
+      font: var(--text-label-sm);
+      color: var(--color-on-surface-faint);
+      margin-top: var(--space-1);
+    }
+    .template-badge {
+      font: var(--text-label-sm);
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: var(--radius-md);
+      background: var(--color-surface-high);
+      color: var(--color-on-surface-muted);
+    }
+    .template-badge.custom {
+      background: var(--color-primary-light);
+      color: var(--color-primary);
+    }
+
+    /* ── CREATE FORM ── */
+    .create-form {
+      border: 2px dashed var(--color-outline-variant);
+      border-radius: var(--radius-xl);
+      padding: var(--space-8);
+      margin-top: var(--space-8);
+      background: var(--color-surface-low);
+      transition: all var(--duration-base) var(--ease-out);
+    }
+    .create-form:focus-within {
+      border-color: var(--color-primary);
+      background: var(--color-surface-lowest);
+      box-shadow: var(--shadow-1);
+    }
+    .create-form-title {
+      font: var(--text-label-lg);
+      font-weight: 700;
+      color: var(--color-on-surface-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: var(--space-4);
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    /* ── WHATSAPP CARD ── */
+    .whatsapp-card {
+      background: linear-gradient(135deg, var(--color-primary), var(--color-primary-container));
+      border: none;
+      border-radius: var(--radius-2xl);
+      padding: var(--space-12) var(--space-8);
+      text-align: center;
+      color: white;
+      box-shadow: var(--shadow-4);
+    }
+    .whatsapp-card .whatsapp-title, 
+    .whatsapp-card .whatsapp-desc {
+      color: white;
+    }
+    .whatsapp-icon {
+      font-size: 48px;
+      margin-bottom: var(--space-4);
+    }
+    .whatsapp-title {
+      font: var(--text-headline-md);
+      margin-bottom: var(--space-2);
+    }
+    .whatsapp-desc {
+      font: var(--text-body-md);
+      margin-bottom: var(--space-6);
+      max-width: 400px;
+      margin-left: auto;
+      margin-right: auto;
+      opacity: 0.9;
+    }
+
+    /* ── SECTION DIVIDER ── */
+    .section-divider {
+      height: 1px;
+      background: var(--color-outline-subtle);
+      margin: var(--space-6) 0;
+    }
+
+    /* ── BOTÕES (DESIGN SYSTEM) ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: 10px var(--space-6);
+      font: var(--text-label-lg);
+      border-radius: var(--radius-md);
+      border: none;
+      cursor: pointer;
+      transition: opacity var(--duration-fast) var(--ease-in-out),
+                  transform var(--duration-fast) var(--ease-out),
+                  background var(--duration-fast) var(--ease-in-out);
+      white-space: nowrap;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--color-primary), var(--color-primary-container));
+      color: var(--color-on-primary);
+      box-shadow: var(--shadow-1);
+    }
+    .btn-primary:hover {
+      opacity: 0.92;
+      box-shadow: var(--shadow-2);
+      transform: translateY(-1px);
+    }
+    .btn-primary:active { transform: scale(0.98); opacity: 0.88; }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--color-on-surface-variant);
+      border: 1px solid var(--color-outline-variant);
+    }
+    .btn-ghost:hover {
+      background: var(--color-surface-low);
+      color: var(--color-on-surface);
+      border-color: var(--color-outline);
+    }
+
+    .btn-danger {
+      background: var(--color-error-container);
+      color: var(--color-on-error-container);
+    }
+    .btn-danger:hover {
+      background: var(--color-error);
+      color: var(--color-on-error);
+    }
+    .btn:disabled {
+      opacity: 0.38;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+    
+    /* Override para botão dentro do card de whatsapp */
+    .whatsapp-card .btn-primary {
+      background: white;
+      color: var(--color-primary);
+    }
+
+    /* ── CHIP LIST (MODERNO) ── */
+    .chip-lista {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      padding: var(--space-4);
+      background: var(--color-surface-low);
+      border-radius: var(--radius-lg);
+      border: 1px dashed var(--color-outline-variant);
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      background: var(--color-surface-lowest);
+      border: 1px solid var(--color-outline-subtle);
+      border-radius: var(--radius-full);
+      padding: 6px var(--space-4);
+      font: var(--text-label-sm);
+      color: var(--color-on-surface);
+      box-shadow: var(--shadow-1);
+      transition: all var(--duration-fast) var(--ease-out);
+    }
+    .chip:hover {
+      border-color: var(--color-primary);
+      box-shadow: var(--shadow-2);
+    }
+    .chip button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--color-on-surface-muted);
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--duration-fast) var(--ease-in-out);
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+    }
+    .chip button:hover {
+      color: var(--color-error);
+      background: var(--color-error-container);
+    }
+    .modal-close:hover {
+      background: var(--color-surface-highest);
+      color: var(--color-on-surface);
+    }
+    .modal-body {
+      padding: 0 var(--space-8) var(--space-8);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+    }
+    .modal-footer {
+      padding: var(--space-6) var(--space-8);
+      border-top: none;
+      display: flex;
+      gap: var(--space-3);
+      justify-content: flex-end;
+      background: var(--color-surface-low);
+      border-radius: 0 0 var(--radius-2xl) var(--radius-2xl);
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      .admin-tabs {
+        width: 100%;
+        overflow-x: auto;
+        padding: var(--space-1);
+      }
+      .admin-tab {
+        padding: 8px var(--space-3);
+        font-size: 13px;
+        white-space: nowrap;
+      }
+      .tab-content {
+        padding: var(--space-4) 0;
+      }
+      .config-section {
+        padding: var(--space-5);
+        border-radius: var(--radius-lg);
+      }
+      .section-header {
+        flex-direction: column;
+        gap: var(--space-3);
+      }
+      .section-icon {
+        width: 44px;
+        height: 44px;
+        font-size: 20px;
+        border-radius: var(--radius-md);
+      }
+      .config-cards-grid {
+        grid-template-columns: 1fr;
+      }
+      .input-row {
+        flex-direction: column;
+      }
+      .input-field {
+        min-width: 100%;
+      }
+      .broadcast-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .template-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-3);
+      }
+    }
+  </style>
+</head>
+<body>
+
+<aside class="sidebar" id="sidebar"></aside>
+
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-title-wrap">
+      <div class="page-title">Configurações Globais</div>
+      <div class="page-sub">Gerencie parâmetros do sistema e notificações admin</div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn btn-primary" onclick="salvarConfigAdmin()" id="btn-salvar-config">Salvar Alterações</button>
+    </div>
+  </div>
+
+  <!-- TAB NAVIGATION -->
+  <div class="admin-tabs">
+    <button class="admin-tab active" onclick="switchTab('geral')">
+      <span class="admin-tab-icon">⚙️</span> <span class="tab-label">Geral</span>
+    </button>
+    <button class="admin-tab" onclick="switchTab('broadcast')">
+      <span class="admin-tab-icon">📢</span> <span class="tab-label">Broadcast</span>
+    </button>
+    <button class="admin-tab" onclick="switchTab('catalogo')">
+      <span class="admin-tab-icon">📐</span> <span class="tab-label">Catálogo</span>
+    </button>
+    <button class="admin-tab" onclick="switchTab('whatsapp')">
+      <span class="admin-tab-icon">💬</span> <span class="tab-label">WhatsApp</span>
+    </button>
+  </div>
+
+    <!-- TAB: GERAL -->
+    <div class="tab-content active" id="tab-geral">
+      <!-- Monitoramento -->
+      <div class="config-section">
+        <div class="section-header">
+          <div class="section-icon blue">🔔</div>
+          <div>
+            <h3 class="section-title">Monitoramento de Novos Cadastros</h3>
+            <p class="section-desc">Defina os números de WhatsApp que receberão alertas automáticos sempre que uma nova empresa se cadastrar na plataforma.</p>
+          </div>
+        </div>
+
+        <div id="config-numeros-lista" class="chip-lista">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+
+        <div class="input-row" style="margin-top: 16px;">
+          <input id="config-novo-numero" type="tel"
+            class="input-field"
+            placeholder="Ex: 5548999999999"
+            autocomplete="off"
+            onkeydown="if(event.key==='Enter'){adicionarNumeroConfig();event.preventDefault()}"
+          >
+          <button class="btn btn-ghost" onclick="adicionarNumeroConfig()" style="height: 50px; white-space: nowrap;">+ Adicionar</button>
+        </div>
+        <div class="input-hint">
+          Use o formato internacional: código do país + DDD + número (ex: <code>5548999123456</code>)
+        </div>
+      </div>
+
+      <!-- Trial Padrão -->
+      <div class="config-section">
+        <div class="section-header">
+          <div class="section-icon green">🎁</div>
+          <div>
+            <h3 class="section-title">Trial Padrão</h3>
+            <p class="section-desc">Defina a quantidade padrão de dias gratuitos concedidos a uma nova empresa ao se cadastrar.</p>
+          </div>
+        </div>
+
+        <div class="config-cards-grid">
+          <div class="mini-card">
+            <div class="mini-card-label">Dias de Trial</div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <input id="config-dias-trial" type="number"
+                class="input-field input-field-sm"
+                placeholder="14"
+                autocomplete="off"
+                min="1"
+              >
+              <span class="mini-card-suffix">dias por padrão</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: BROADCAST -->
+    <div class="tab-content" id="tab-broadcast">
+      <div class="config-section">
+        <div class="section-header">
+          <div class="section-icon orange">📣</div>
+          <div>
+            <h3 class="section-title">Broadcast para Empresas</h3>
+            <p class="section-desc">Envie mensagens que aparecerão como banner no dashboard de todas as empresas cadastradas.</p>
+          </div>
+        </div>
+
+        <!-- Novo Broadcast -->
+        <div style="margin-bottom: 20px;">
+          <textarea id="broadcast-mensagem" rows="3"
+            class="textarea-field"
+            placeholder="Digite a mensagem que será exibida no dashboard das empresas..."
+          ></textarea>
+        </div>
+
+        <div class="input-row" style="align-items: center;">
+          <select id="broadcast-tipo" class="input-field" style="max-width: 180px; cursor: pointer;">
+            <option value="info">ℹ️ Info</option>
+            <option value="aviso">⚠️ Aviso</option>
+            <option value="urgente">🔴 Urgente</option>
+          </select>
+          <button class="btn btn-primary" onclick="enviarBroadcast()" id="btn-enviar-broadcast" style="height: 50px;">
+            📤 Enviar Broadcast
+          </button>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <!-- Lista de broadcasts -->
+        <div>
+          <div style="font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px;">
+            Mensagens Enviadas
+          </div>
+          <div id="broadcasts-lista">
+            <div class="loading"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: CATÁLOGO -->
+    <div class="tab-content" id="tab-catalogo">
+      <div class="config-section">
+        <div class="section-header">
+          <div class="section-icon purple">📋</div>
+          <div>
+            <h3 class="section-title">Modelos de Catálogo</h3>
+            <p class="section-desc">Gerencie os modelos de catálogo por segmento. Templates padrão (somente leitura) + templates custom editáveis.</p>
+          </div>
+        </div>
+
+        <!-- Lista de templates -->
+        <div id="templates-admin-lista" style="display:flex;flex-direction:column;gap:12px;">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+
+        <!-- Formulário criar novo -->
+        <div class="create-form">
+          <div class="create-form-title">
+            <span>✨</span> Criar novo modelo
+          </div>
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div class="input-row">
+              <input id="novo-template-slug" type="text" class="input-field" placeholder="slug (ex: jardineiro)" autocomplete="off">
+              <input id="novo-template-nome" type="text" class="input-field" placeholder="Nome (ex: Jardineiro)" autocomplete="off">
+            </div>
+            <input id="novo-template-descricao" type="text" class="input-field" placeholder="Descrição breve" autocomplete="off">
+            <textarea id="novo-template-categorias" rows="2" class="textarea-field" placeholder='Categorias (uma por linha, ex: "Serviços", "Materiais")'></textarea>
+            <textarea id="novo-template-servicos" rows="4" class="textarea-field" style="font-family: monospace; font-size: 12px;" placeholder='Serviços em JSON (array): [{"nome":"Corte de grama","preco_padrao":50,"unidade":"m²","categoria":"Serviços"}]'></textarea>
+            <button class="btn btn-primary" onclick="criarTemplateAdmin()" id="btn-criar-template" style="align-self:flex-end; height: 46px;">
+              ＋ Criar Modelo
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: WHATSAPP -->
+    <div class="tab-content" id="tab-whatsapp">
+      <div class="whatsapp-card">
+        <div class="whatsapp-icon">💬</div>
+        <h3 class="whatsapp-title">WhatsApp Bot (Global)</h3>
+        <p class="whatsapp-desc">Configure a conexão global do WhatsApp para envio automático de orçamentos e monitoramento de mensagens.</p>
+        <button type="button" class="btn btn-primary" onclick="window.location.href='whatsapp.html'" style="height: 52px; padding: 0 32px;">
+          Abrir painel do WhatsApp Bot (global) →
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL EDITAR TEMPLATE -->
+  <!-- MODAL EDITAR TEMPLATE -->
+  <div class="modal-overlay" id="modal-editar-template">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">✏️ Editar Modelo</div>
+        <button class="modal-close" onclick="fecharModalEditarTemplate()">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-template-slug">
+        <div class="field">
+          <label class="field-label">Nome do Modelo</label>
+          <input id="edit-template-nome" type="text" placeholder="Ex: Jardineiro" class="input-field">
+        </div>
+        <div class="field">
+          <label class="field-label">Descrição</label>
+          <input id="edit-template-descricao" type="text" placeholder="Descrição breve" class="input-field">
+        </div>
+        <div class="field">
+          <label class="field-label">Categorias (uma por linha)</label>
+          <textarea id="edit-template-categorias" rows="2" class="textarea-field"></textarea>
+        </div>
+        <div class="field">
+          <label class="field-label">Serviços em JSON</label>
+          <textarea id="edit-template-servicos" rows="6" class="textarea-field" style="font-family: var(--font-mono); font-size: 12px;"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="fecharModalEditarTemplate()">Cancelar</button>
+        <button class="btn btn-primary" onclick="salvarEdicaoTemplate()" id="btn-salvar-template">Salvar Alterações</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- NOTIFICAÇÃO -->
+  <div class="notif" id="notif">
+    <div class="notif-icon"></div>
+    <div>
+      <div class="notif-title"></div>
+      <div class="notif-sub"></div>
+    </div>
+  </div>
+</main>
+
+<script src="js/utils.js?v=1"></script>
+<script src="js/api.js?v=17"></script>
+<script src="js/layout.js?v=5"></script>
+<script>
+  inicializarLayout('admin-config');
+
+  const _u = getUsuario();
+  if (!_u || !_u.is_superadmin) {
+    window.location.href = './';
+  }
+
+  // ── TAB SWITCHING ──────────────────────────────────────────────────────────
+  function switchTab(tabId) {
+    document.querySelectorAll('.admin-tab').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+    const tabIndex = ['geral', 'broadcast', 'catalogo', 'whatsapp'].indexOf(tabId);
+    document.querySelectorAll('.admin-tab')[tabIndex]?.classList.add('active');
+    document.getElementById('tab-' + tabId)?.classList.add('active');
+  }
+
+  // ── CONFIG GERAL ───────────────────────────────────────────────────────────
+  let _numerosConfig = [];
+
+  async function carregarConfig() {
+    const lista = document.getElementById('config-numeros-lista');
+    try {
+      const config = await api.get('/admin/config');
+      _numerosConfig = config.numeros_monitoramento || [];
+      document.getElementById('config-dias-trial').value = config.dias_trial_padrao || 14;
+      renderChips();
+    } catch (e) {
+      showNotif('✕', 'Erro', 'Falha ao carregar configurações: ' + e.message, 'error');
+      lista.innerHTML = '<span style="color:var(--red)">Erro ao carregar dados.</span>';
+    }
+  }
+
+  function renderChips() {
+    const lista = document.getElementById('config-numeros-lista');
+    if (!_numerosConfig.length) {
+      lista.innerHTML = '<span style="font-size:13px;color:var(--muted);padding:8px">Nenhum número cadastrado para alertas.</span>';
+      return;
+    }
+    lista.innerHTML = _numerosConfig.map((n, i) => `
+      <div class="chip">
+        <span>📱 ${n}</span>
+        <button type="button" onclick="removerNumero(${i})" title="Remover">✕</button>
+      </div>`).join('');
+  }
+
+  function adicionarNumeroConfig() {
+    const input = document.getElementById('config-novo-numero');
+    const num = input.value.trim().replace(/\D/g, '');
+    if (!num) return;
+    if (num.length < 10) {
+      showNotif('⚠️', 'Número inválido', 'O número parece estar incompleto.', 'warning');
+      return;
+    }
+    if (_numerosConfig.includes(num)) {
+      showNotif('⚠️', 'Já existe', 'Este número já está na lista.', 'warning');
+      return;
+    }
+    _numerosConfig.push(num);
+    input.value = '';
+    renderChips();
+    showNotif('✅', 'Adicionado', num, 'success');
+  }
+
+  function removerNumero(idx) {
+    _numerosConfig.splice(idx, 1);
+    renderChips();
+  }
+
+  async function salvarConfigAdmin() {
+    const btn = document.getElementById('btn-salvar-config');
+    setLoading(btn, true);
+    
+    const dias_trial_padrao = parseInt(document.getElementById('config-dias-trial').value) || 14;
+
+    try {
+      await api.put('/admin/config', { 
+        numeros_monitoramento: _numerosConfig,
+        dias_trial_padrao: dias_trial_padrao 
+      });
+      showNotif('✔', 'Sucesso', 'Configurações globais atualizadas!', 'success');
+    } catch (e) {
+      showNotif('✕', 'Erro', 'Erro ao salvar: ' + e.message, 'error');
+    } finally {
+      setLoading(btn, false, 'Salvar Alterações');
+    }
+  }
+
+  // Init
+  carregarConfig();
+  carregarBroadcasts();
+  carregarTemplatesAdmin();
+
+  // ── BROADCASTS ──────────────────────────────────────────────────────────
+  let _broadcasts = [];
+
+  async function carregarBroadcasts() {
+    const lista = document.getElementById('broadcasts-lista');
+    try {
+      _broadcasts = await api.get('/admin/broadcasts');
+      renderBroadcasts();
+    } catch (e) {
+      lista.innerHTML = '<span style="font-size:13px;color:var(--muted)">Erro ao carregar broadcasts.</span>';
+    }
+  }
+
+  function renderBroadcasts() {
+    const lista = document.getElementById('broadcasts-lista');
+    if (!_broadcasts.length) {
+      lista.innerHTML = '<span style="font-size:13px;color:var(--muted)">Nenhuma mensagem enviada ainda.</span>';
+      return;
+    }
+
+    const tipoClass = { info: '', aviso: 'warning', urgente: 'urgent' };
+    const tipoIcon = { info: 'ℹ️', aviso: '⚠️', urgente: '🔴' };
+
+    lista.innerHTML = _broadcasts.map(b => {
+      const data = new Date(b.criado_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      const statusClass = b.ativo ? 'active' : 'inactive';
+      const statusLabel = b.ativo ? 'ATIVO' : 'INATIVO';
+
+      return `
+        <div class="broadcast-card ${tipoClass[b.tipo] || ''}">
+          <div class="broadcast-header">
+            <div class="broadcast-meta">
+              <span>${tipoIcon[b.tipo] || 'ℹ️'}</span>
+              <span class="broadcast-date">${data}</span>
+              <span class="status-badge ${statusClass}">● ${statusLabel}</span>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-ghost" onclick="toggleBroadcast(${b.id})" style="padding:6px 14px;font-size:12px;height:auto">
+                ${b.ativo ? 'Desativar' : 'Ativar'}
+              </button>
+              <button class="btn btn-ghost" onclick="deletarBroadcast(${b.id})" style="padding:6px 14px;font-size:12px;height:auto;color:var(--red)">
+                ✕
+              </button>
+            </div>
+          </div>
+          <div class="broadcast-msg">${escapeHtml(b.mensagem)}</div>
+        </div>`;
+    }).join('');
+  }
+
+  async function enviarBroadcast() {
+    const msgInput = document.getElementById('broadcast-mensagem');
+    const tipoSelect = document.getElementById('broadcast-tipo');
+    const btn = document.getElementById('btn-enviar-broadcast');
+    const mensagem = msgInput.value.trim();
+
+    if (!mensagem) {
+      showNotif('⚠️', 'Campo vazio', 'Digite uma mensagem para o broadcast.', 'warning');
+      return;
+    }
+
+    setLoading(btn, true);
+    try {
+      await api.post('/admin/broadcasts', {
+        mensagem: mensagem,
+        tipo: tipoSelect.value
+      });
+      msgInput.value = '';
+      showNotif('✔', 'Enviado', 'Broadcast enviado para todas as empresas!', 'success');
+      await carregarBroadcasts();
+    } catch (e) {
+      showNotif('✕', 'Erro', 'Erro ao enviar: ' + e.message, 'error');
+    } finally {
+      setLoading(btn, false, '📤 Enviar Broadcast');
+    }
+  }
+
+  async function toggleBroadcast(id) {
+    try {
+      await api.patch(`/admin/broadcasts/${id}/toggle-ativo`);
+      await carregarBroadcasts();
+    } catch (e) {
+      showNotif('✕', 'Erro', 'Erro ao alterar: ' + e.message, 'error');
+    }
+  }
+
+  async function deletarBroadcast(id) {
+    if (!confirm('Deseja realmente remover este broadcast?')) return;
+    try {
+      await api.delete(`/admin/broadcasts/${id}`);
+      showNotif('✔', 'Removido', 'Broadcast removido.', 'success');
+      await carregarBroadcasts();
+    } catch (e) {
+      showNotif('✕', 'Erro', 'Erro ao remover: ' + e.message, 'error');
+    }
+  }
+
+  // ── MODELOS DE CATÁLOGO ──────────────────────────────────────────────
+  async function carregarTemplatesAdmin() {
+    const lista = document.getElementById('templates-admin-lista');
+    try {
+      const templates = await api.get('/admin/catalogo/templates');
+      if (!templates.length) {
+        lista.innerHTML = '<div style="font-size:13px;color:var(--muted)">Nenhum modelo encontrado.</div>';
+        return;
+      }
+      lista.innerHTML = templates.map(t => `
+        <div class="template-item">
+          <div class="template-info">
+            <div class="template-name">${escapeHtml(t.nome)}</div>
+            <div class="template-meta">${escapeHtml(t.descricao)} · slug: <code>${t.slug}</code></div>
+            <div class="template-stats">${t.categorias.length} categorias · ${t.servicos.length} itens</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;flex-shrink:0">
+            <span class="template-badge ${t.custom ? 'custom' : ''}">${t.custom ? 'Custom' : 'Padrão'}</span>
+            ${t.custom
+              ? `<button class="btn btn-ghost" onclick="abrirEditarTemplate('${t.slug}')" style="padding:6px 12px;font-size:12px;height:auto">✏️ Editar</button>
+                 <button class="btn btn-ghost" onclick="deletarTemplateAdmin('${t.slug}')" style="padding:6px 12px;font-size:12px;height:auto;color:var(--red)">✕</button>`
+              : ''
+            }
+          </div>
+        </div>
+      `).join('');
+      window._templatesAdminCache = templates;
+    } catch (e) {
+      lista.innerHTML = `<div style="font-size:13px;color:var(--red)">Erro ao carregar: ${e.message}</div>`;
+    }
+  }
+
+  async function criarTemplateAdmin() {
+    const slug = document.getElementById('novo-template-slug').value.trim().toLowerCase().replace(/\s+/g, '-');
+    const nome = document.getElementById('novo-template-nome').value.trim();
+    const descricao = document.getElementById('novo-template-descricao').value.trim();
+    const categoriasRaw = document.getElementById('novo-template-categorias').value.trim();
+    const servicosRaw = document.getElementById('novo-template-servicos').value.trim();
+
+    if (!slug || !nome) {
+      showNotif('⚠️', 'Campos obrigatórios', 'Slug e Nome são necessários', 'error');
+      return;
+    }
+    const categorias = categoriasRaw ? categoriasRaw.split('\n').map(c => c.trim()).filter(Boolean) : [];
+    let servicos = [];
+    if (servicosRaw) {
+      try { servicos = JSON.parse(servicosRaw); }
+      catch { showNotif('⚠️', 'JSON inválido', 'Corrija os serviços (deve ser um array JSON)', 'error'); return; }
+    }
+    const btn = document.getElementById('btn-criar-template');
+    setLoading(btn, true);
+    try {
+      await api.post('/admin/catalogo/templates', { slug, nome, descricao, categorias, servicos });
+      showNotif('✅', 'Modelo criado!', nome);
+      document.getElementById('novo-template-slug').value = '';
+      document.getElementById('novo-template-nome').value = '';
+      document.getElementById('novo-template-descricao').value = '';
+      document.getElementById('novo-template-categorias').value = '';
+      document.getElementById('novo-template-servicos').value = '';
+      await carregarTemplatesAdmin();
+    } catch (e) {
+      showNotif('✕', 'Erro', e.message, 'error');
+    } finally {
+      setLoading(btn, false, '＋ Criar Modelo');
+    }
+  }
+
+  function abrirEditarTemplate(slug) {
+    const t = (window._templatesAdminCache || []).find(x => x.slug === slug);
+    if (!t) return;
+    document.getElementById('edit-template-slug').value = slug;
+    document.getElementById('edit-template-nome').value = t.nome;
+    document.getElementById('edit-template-descricao').value = t.descricao;
+    document.getElementById('edit-template-categorias').value = (t.categorias || []).join('\n');
+    document.getElementById('edit-template-servicos').value = JSON.stringify(t.servicos || [], null, 2);
+    document.getElementById('modal-editar-template').classList.add('open');
+  }
+
+  function fecharModalEditarTemplate() {
+    document.getElementById('modal-editar-template').classList.remove('open');
+  }
+
+  async function salvarEdicaoTemplate() {
+    const slug = document.getElementById('edit-template-slug').value;
+    const nome = document.getElementById('edit-template-nome').value.trim();
+    const descricao = document.getElementById('edit-template-descricao').value.trim();
+    const categoriasRaw = document.getElementById('edit-template-categorias').value.trim();
+    const servicosRaw = document.getElementById('edit-template-servicos').value.trim();
+    const categorias = categoriasRaw ? categoriasRaw.split('\n').map(c => c.trim()).filter(Boolean) : [];
+    let servicos = [];
+    if (servicosRaw) {
+      try { servicos = JSON.parse(servicosRaw); }
+      catch { showNotif('⚠️', 'JSON inválido', 'Corrija os serviços', 'error'); return; }
+    }
+    const btn = document.getElementById('btn-salvar-template');
+    setLoading(btn, true);
+    try {
+      await api.put(`/admin/catalogo/templates/${slug}`, { nome, descricao, categorias, servicos });
+      showNotif('✅', 'Modelo atualizado!', nome);
+      fecharModalEditarTemplate();
+      await carregarTemplatesAdmin();
+    } catch (e) {
+      showNotif('✕', 'Erro', e.message, 'error');
+    } finally {
+      setLoading(btn, false, 'Salvar');
+    }
+  }
+
+  async function deletarTemplateAdmin(slug) {
+    if (!confirm(`Deseja realmente deletar o modelo "${slug}"?`)) return;
+    try {
+      await api.delete(`/admin/catalogo/templates/${slug}`);
+      showNotif('✅', 'Modelo removido!', slug);
+      await carregarTemplatesAdmin();
+    } catch (e) {
+      showNotif('✕', 'Erro', e.message, 'error');
+    }
+  }
+
+  document.getElementById('modal-editar-template').addEventListener('click', function(e) {
+    if (e.target === this) fecharModalEditarTemplate();
+  });
+</script>
+</body>
+</html>

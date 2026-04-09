@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem("cotte_tema");if(t){document.documentElement.setAttribute("data-theme",t);}else{document.documentElement.setAttribute("data-theme","light");}})()</script>
+  <title>COTTE — Clientes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/style.css?v=3">
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar"></aside>
+
+<!-- MAIN -->
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-title-wrap">
+      <div class="page-title">Clientes</div>
+      <div class="page-sub">Gerencie sua base de clientes</div>
+    </div>
+    <div class="topbar-actions">
+      <span id="topbar-notificacoes"></span>
+      <button class="btn btn-ghost" onclick="baixarExportar('/clientes/exportar/csv', 'clientes_' + new Date().toISOString().slice(0,10) + '.csv')" title="Exportar lista em CSV">📥 Exportar CSV</button>
+      <button class="btn btn-primary" onclick="abrirModalNovoCliente()">＋ Novo Cliente</button>
+    </div>
+  </div>
+
+  <!-- BUSCA -->
+  <div class="card" style="margin-bottom:20px;padding:16px 24px">
+    <input
+      type="text"
+      placeholder="🔍 Buscar cliente por nome..."
+      style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;color:var(--text);font-size:14px;font-family:inherit;outline:none;width:100%;max-width:400px"
+      oninput="onBuscaCliente(this.value)"
+    >
+  </div>
+
+  <!-- TABELA -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Todos os Clientes</div>
+      <div id="total-clientes" style="font-size:12px;color:var(--muted)"></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th class="col-hide-mobile">CPF / CNPJ</th>
+            <th class="col-hide-mobile">Telefone</th>
+            <th class="col-hide-mobile">Endereço</th>
+            <th class="col-hide-mobile">Cadastrado em</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="clientes-tbody">
+          <tr><td colspan="6"><div class="loading"><div class="spinner"></div> Carregando...</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="mobile-cards-list" id="clientes-cards-mobile"></div>
+  </div>
+</main>
+
+<!-- MODAL NOVO/EDITAR CLIENTE -->
+<div class="modal-overlay" id="modal-cliente">
+  <div class="modal" style="display:flex;flex-direction:column;overflow:hidden">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-cliente-title">👤 Novo Cliente</div>
+      <button class="modal-close" onclick="fecharModalCliente()">✕</button>
+    </div>
+    <div class="modal-body" style="flex:1;overflow-y:auto">
+      <div style="display:flex;flex-direction:column;gap:20px">
+
+        <!-- SEÇÃO: IDENTIFICAÇÃO -->
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <span style="font-size:12px;background:var(--green-dim);color:var(--green);padding:4px 8px;border-radius:6px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">1. Identificação</span>
+          </div>
+
+          <!-- TIPO DE PESSOA (Segmented Toggle) -->
+          <div class="form-group full">
+            <div style="display:flex;background:var(--surface2);padding:4px;border-radius:12px;border:1px solid var(--border)">
+              <button type="button" id="btn-pf" onclick="selecionarTipoPessoa('PF')"
+                style="flex:1;padding:8px;border-radius:10px;border:none;background:var(--green);color:white;font-weight:600;cursor:pointer;font-size:13px;transition:all 0.2s">
+                👤 Pessoa Física
+              </button>
+              <button type="button" id="btn-pj" onclick="selecionarTipoPessoa('PJ')"
+                style="flex:1;padding:8px;border-radius:10px;border:none;background:transparent;color:var(--muted);font-weight:600;cursor:pointer;font-size:13px;transition:all 0.2s">
+                🏢 Pessoa Jurídica
+              </button>
+            </div>
+            <input type="hidden" id="cli-tipo-pessoa" value="PF">
+          </div>
+
+          <!-- CAMPOS PF -->
+          <div id="campos-pf" style="display:block">
+            <div class="form-row" style="margin:0;display:flex;flex-wrap:wrap;gap:12px">
+              <div class="form-group" style="flex:1;min-width:200px">
+                <label id="label-cli-nome">Nome completo *</label>
+                <input type="text" id="cli-nome" placeholder="Nome do cliente" oninput="this.classList.remove('input-error')">
+              </div>
+              <div class="form-group" style="width:160px;min-width:160px">
+                <label>CPF</label>
+                <input type="text" id="cli-cpf" placeholder="000.000.000-00" maxlength="14" oninput="mascararCpf(this)">
+              </div>
+            </div>
+          </div>
+
+          <!-- CAMPOS PJ -->
+          <div id="campos-pj" style="display:none">
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <div class="form-row" style="margin:0;display:flex;flex-wrap:wrap;gap:12px">
+                <div class="form-group" style="width:200px;min-width:200px">
+                  <label>CNPJ</label>
+                  <div style="display:flex;gap:8px">
+                    <input type="text" id="cli-cnpj" placeholder="00.000.000/0000-00" maxlength="18"
+                      oninput="mascararCnpj(this)"
+                      onkeydown="if(event.key==='Enter'){event.preventDefault();buscarCnpj();}"
+                      style="flex:1;min-width:0">
+                    <button type="button" id="btn-buscar-cnpj" onclick="buscarCnpj()" title="Buscar dados do CNPJ"
+                      style="width:38px;height:38px;flex-shrink:0;border-radius:10px;background:var(--green-dim);border:1px solid rgba(0,229,160,0.3);color:var(--green);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .2s">
+                      🔍
+                    </button>
+                  </div>
+                  <div id="cnpj-status" style="font-size:10px;margin-top:4px;min-height:14px"></div>
+                </div>
+                <div class="form-group" style="flex:1;min-width:240px">
+                  <label>Razão Social</label>
+                  <input type="text" id="cli-razao-social" placeholder="Nome jurídico oficial">
+                </div>
+              </div>
+              <div class="form-group full">
+                <label>Nome Fantasia <span style="color:var(--muted);font-weight:400">(opcional)</span></label>
+                <input type="text" id="cli-nome-fantasia" placeholder="Nome comercial da empresa">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SEÇÃO: CONTATO -->
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <span style="font-size:12px;background:var(--green-dim);color:var(--green);padding:4px 8px;border-radius:6px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">2. Contato</span>
+          </div>
+          <div class="form-row" style="margin:0;display:flex;flex-wrap:wrap;gap:12px">
+            <div class="form-group" style="flex:1;min-width:180px">
+              <label>WhatsApp</label>
+              <input type="text" id="cli-telefone" placeholder="(00) 00000-0000">
+            </div>
+            <div class="form-group" style="flex:1.5;min-width:220px">
+              <label>E-mail</label>
+              <input type="email" id="cli-email" placeholder="cliente@email.com">
+            </div>
+          </div>
+        </div>
+
+        <!-- SEÇÃO: ENDEREÇO -->
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <span style="font-size:12px;background:var(--green-dim);color:var(--green);padding:4px 8px;border-radius:6px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">3. Endereço</span>
+          </div>
+
+          <div class="form-row" style="margin:0;display:flex;flex-wrap:wrap;gap:12px">
+            <div class="form-group" style="width:160px;min-width:160px">
+              <label>CEP</label>
+              <div style="display:flex;gap:8px">
+                <input type="text" id="cli-cep" placeholder="00000-000" maxlength="9" oninput="mascararCep(this)"
+                  onkeydown="if(event.key==='Enter'){event.preventDefault();buscarCep();}" style="flex:1;min-width:0">
+                <button type="button" onclick="buscarCep()" id="btn-buscar-cep" title="Buscar CEP"
+                  style="width:38px;height:38px;flex-shrink:0;border-radius:10px;background:var(--green-dim);border:1px solid rgba(0,229,160,0.3);color:var(--green);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .2s">
+                  🔍
+                </button>
+              </div>
+              <div id="cep-status" style="font-size:10px;margin-top:4px;min-height:14px"></div>
+            </div>
+            <div class="form-group" style="flex:1;min-width:240px">
+              <label>Logradouro</label>
+              <input type="text" id="cli-logradouro" placeholder="Rua, Av., Travessa...">
+            </div>
+            <div class="form-group" style="width:100px;min-width:100px">
+              <label>Número</label>
+              <input type="text" id="cli-numero" placeholder="Nº">
+            </div>
+          </div>
+
+          <div class="form-row" style="margin:0;display:flex;flex-wrap:wrap;gap:12px">
+            <div class="form-group" style="flex:1;min-width:180px">
+              <label>Bairro</label>
+              <input type="text" id="cli-bairro" placeholder="Bairro">
+            </div>
+            <div class="form-group" style="flex:1;min-width:180px">
+              <label>Complemento</label>
+              <input type="text" id="cli-complemento" placeholder="Apto, sala, bloco...">
+            </div>
+          </div>
+
+          <div class="form-row" style="margin:0;display:flex;flex-wrap:wrap;gap:12px">
+            <div class="form-group" style="flex:1;min-width:200px">
+              <label>Cidade</label>
+              <input type="text" id="cli-cidade" placeholder="Cidade">
+            </div>
+            <div class="form-group" style="width:90px;min-width:90px">
+              <label>UF</label>
+              <select id="cli-estado">
+                <option value="">—</option>
+                <option>AC</option><option>AL</option><option>AM</option><option>AP</option>
+                <option>BA</option><option>CE</option><option>DF</option><option>ES</option>
+                <option>GO</option><option>MA</option><option>MG</option><option>MS</option>
+                <option>MT</option><option>PA</option><option>PB</option><option>PE</option>
+                <option>PI</option><option>PR</option><option>RJ</option><option>RN</option>
+                <option>RO</option><option>RR</option><option>RS</option><option>SC</option>
+                <option>SE</option><option>SP</option><option>TO</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- DADOS FISCAIS (IE/IM) colapsável -->
+        <div class="form-group full" style="margin-top:4px;cursor:pointer" onclick="toggleDadosFiscais()">
+          <label style="color:var(--muted);font-size:11px;letter-spacing:.05em;text-transform:uppercase;font-weight:700;cursor:pointer;user-select:none">
+            🧾 Dados Fiscais (opcional) <span id="icon-fiscal" style="font-style:normal;font-size:10px">▶</span>
+          </label>
+        </div>
+        <div id="secao-dados-fiscais" style="display:none;width:100%">
+          <div class="form-row" style="margin:0">
+            <div class="form-group">
+              <label>Inscrição Estadual (IE)</label>
+              <input type="text" id="cli-ie" placeholder="Inscrição Estadual">
+            </div>
+            <div class="form-group">
+              <label>Inscrição Municipal (IM)</label>
+              <input type="text" id="cli-im" placeholder="Inscrição Municipal">
+            </div>
+          </div>
+        </div>
+
+        <!-- Observações -->
+        <div class="form-group full">
+          <label>Observações</label>
+          <textarea id="cli-obs" placeholder="Notas sobre o cliente..."></textarea>
+        </div>
+
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="fecharModalCliente()">Cancelar</button>
+      <button class="btn btn-primary" id="btn-salvar-cliente" onclick="salvarCliente()">Salvar Cliente</button>
+    </div>
+  </div>
+</div>
+
+<!-- NOTIFICAÇÃO -->
+<div class="notif" id="notif">
+  <div class="notif-icon">✅</div>
+  <div>
+    <div class="notif-title"></div>
+    <div class="notif-sub"></div>
+  </div>
+</div>
+
+<script src="js/utils.js?v=1"></script>
+<script src="js/api.js?v=17"></script>
+<script src="js/layout.js?v=5"></script>
+<script src="js/clientes.js"></script>
+<script>
+  inicializarLayout('clientes');
+  
+  // Proteger UI
+  if (typeof Permissoes !== 'undefined' && !Permissoes.pode('clientes', 'escrita')) {
+    document.querySelectorAll('.topbar-actions .btn-primary').forEach(el => el.style.display = 'none');
+  }
+
+  carregarClientes().then(() => {
+    const total = document.getElementById('total-clientes');
+    if (total) total.textContent = todosClientes.length + ' clientes';
+  });
+
+  // Fecha modal clicando fora
+  document.getElementById('modal-cliente').addEventListener('click', function(e) {
+    if (e.target === this) fecharModalCliente();
+  });
+</script>
+</body>
+</html>

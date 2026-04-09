@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Proposta Comercial</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --color-primary: #00e5a0;
+      --color-surface: #f8fafc;
+      --color-text: #1e293b;
+      --color-muted: #64748b;
+    }
+    
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+    
+    .proposta-container {
+      background: white;
+      max-width: 900px;
+      margin: 40px auto;
+      border-radius: 16px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+    
+    .bloco-problema-solucao {
+      background: var(--color-surface);
+      padding: 40px;
+    }
+    
+    .bloco-funcionalidades {
+      padding: 40px;
+    }
+    
+    .funcionalidade-item {
+      display: flex;
+      align-items: start;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    
+    .funcionalidade-icon {
+      width: 48px;
+      height: 48px;
+      background: var(--color-primary);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    
+    .bloco-planos {
+      background: var(--color-surface);
+      padding: 40px;
+    }
+    
+    .plano-card {
+      background: white;
+      border-radius: 12px;
+      padding: 32px;
+      text-align: center;
+      border: 2px solid transparent;
+      transition: all 0.3s ease;
+    }
+    
+    .plano-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .plano-recomendado {
+      border-color: var(--color-primary);
+      position: relative;
+    }
+    
+    .plano-recomendado::before {
+      content: "RECOMENDADO";
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--color-primary);
+      color: white;
+      padding: 4px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    
+    .bloco-depoimentos {
+      padding: 40px;
+    }
+    
+    .depoimento-card {
+      background: var(--color-surface);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+    
+    .depoimento-texto {
+      font-style: italic;
+      margin-bottom: 16px;
+    }
+    
+    .depoimento-autor {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .depoimento-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      color: var(--color-muted);
+    }
+    
+    .bloco-roi {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 40px;
+      text-align: center;
+    }
+    
+    .roi-number {
+      font-size: 48px;
+      font-weight: 700;
+      margin: 16px 0;
+    }
+    
+    .bloco-cta {
+      padding: 40px;
+      text-align: center;
+      background: var(--color-surface);
+    }
+    
+    .btn-aceite {
+      background: var(--color-primary);
+      color: white;
+      padding: 16px 32px;
+      border-radius: 8px;
+      font-size: 18px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .btn-aceite:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 15px -3px rgba(0, 229, 160, 0.3);
+    }
+    
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 400px;
+    }
+    
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #e2e8f0;
+      border-top-color: var(--color-primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .expirada {
+      text-align: center;
+      padding: 60px 20px;
+    }
+    
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    
+    .modal {
+      background: white;
+      border-radius: 12px;
+      padding: 32px;
+      max-width: 400px;
+      width: 90%;
+    }
+    
+    .modal-title {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+    
+    .form-group {
+      margin-bottom: 16px;
+    }
+    
+    .form-label {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    
+    .form-input {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    
+    .form-input:focus {
+      outline: none;
+      border-color: var(--color-primary);
+    }
+    
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+    
+    .btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .btn-primary {
+      background: var(--color-primary);
+      color: white;
+    }
+    
+    .btn-secondary {
+      background: #e2e8f0;
+      color: var(--color-text);
+    }
+    
+    .btn:hover {
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="loading">
+      <div class="spinner"></div>
+    </div>
+  </div>
+
+  <script>
+    let propostaData = null;
+    let secaoAtual = '';
+    let tempoInicio = Date.now();
+    let pingInterval = null;
+
+    // Obter slug da URL
+    const slug = window.location.pathname.split('/').pop();
+    
+    // Carregar proposta
+    async function carregarProposta() {
+      try {
+        const response = await fetch(`/p/${slug}/data`);
+        if (!response.ok) {
+          if (response.status === 404) {
+            mostrarErro('Proposta não encontrada');
+          } else if (response.status === 410) {
+            mostrarExpirada();
+          } else {
+            mostrarErro('Erro ao carregar proposta');
+          }
+          return;
+        }
+        
+        propostaData = await response.json();
+        renderizarProposta();
+        iniciarRastreamento();
+      } catch (error) {
+        console.error('Erro:', error);
+        mostrarErro('Erro ao carregar proposta');
+      }
+    }
+    
+    function renderizarProposta() {
+      const app = document.getElementById('app');
+      const dados = propostaData.dados_personalizados || {};
+      const empresaNome = dados.empresa || dados.nome_empresa || 'Sua Empresa';
+      const responsavelNome = dados.responsavel || dados.nome_responsavel || 'Contato';
+      const segmentoNome = dados.segmento || 'Segmento não informado';
+      const expiraData = propostaData.expira_em ? new Date(propostaData.expira_em) : null;
+      const diasRestantes = expiraData
+        ? Math.max(0, Math.ceil((expiraData.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+        : null;
+      const validadeLabel = expiraData
+        ? `Válida por ${diasRestantes} dias · Expira em ${expiraData.toLocaleDateString('pt-BR')}`
+        : 'Validade sob consulta';
+      
+      let html = `
+        <div class="proposta-container">
+          <!-- Header -->
+          <div style="background:#0f172a;color:white;padding:40px;text-align:center;">
+            ${propostaData.empresa ? `
+              <div style="display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 24px;">
+                ${propostaData.empresa.logo_url ? `<img src="${propostaData.empresa.logo_url}" alt="Logo" style="height: 48px;">` : ''}
+                <h1 style="font-size: 28px; font-weight: 700; margin: 0;">${propostaData.empresa.nome}</h1>
+              </div>
+            ` : ''}
+            <div style="display:inline-block;background:#1e293b;color:#cbd5e1;padding:6px 14px;border-radius:999px;font-size:12px;margin-bottom:16px">
+              ${segmentoNome}
+            </div>
+            <h2 style="font-size: 36px; font-weight: 700; margin-bottom: 16px;">${propostaData.nome} para ${empresaNome}</h2>
+            <p style="font-size: 18px; opacity: 0.9;">
+              Responsável: ${responsavelNome}
+            </p>
+            <p style="font-size: 14px; opacity: 0.8; margin-top: 8px;">${validadeLabel}</p>
+          </div>
+      `;
+      
+      // Renderizar blocos ativos
+      const blocosAtivos = propostaData.blocos.filter(b => b.ativo).sort((a, b) => a.ordem - b.ordem);
+      
+      blocosAtivos.forEach(bloco => {
+        switch (bloco.tipo) {
+          case 'problema_solucao':
+            html += renderBlocoProblemaSolucao(bloco);
+            break;
+          case 'funcionalidades':
+            html += renderBlocoFuncionalidades(bloco);
+            break;
+          case 'planos_precos':
+            html += renderBlocoPlanosPrecos(bloco);
+            break;
+          case 'depoimentos':
+            html += renderBlocoDepoimentos(bloco);
+            break;
+          case 'roi_estimado':
+            html += renderBlocoROI(bloco);
+            break;
+          case 'cta_aceite':
+            html += renderBlocoCTA(bloco);
+            break;
+          default:
+            html += renderBlocoCustom(bloco);
+            break;
+        }
+      });
+      
+      html += '</div>';
+      app.innerHTML = html;
+    }
+    
+    function renderBlocoProblemaSolucao(bloco) {
+      const titulo = bloco?.config?.titulo || 'O Desafio';
+      const conteudo = bloco?.config?.conteudo || 'Gerenciar processos comerciais de forma manual é trabalhoso, demorado e propenso a erros. Empresas perdem oportunidades valiosas por falta de organização e acompanhamento adequado.';
+      return `
+        <div class="bloco-problema-solucao" data-secao="problema_solucao">
+          <h2 style="font-size: 28px; font-weight: 600; margin-bottom: 16px;">${titulo}</h2>
+          <p style="font-size: 16px; line-height: 1.6; color: var(--color-muted); margin-bottom: 32px;">
+            ${conteudo}
+          </p>
+          
+          <h2 style="font-size: 28px; font-weight: 600; margin-bottom: 16px;">Nossa Solução</h2>
+          <p style="font-size: 16px; line-height: 1.6; color: var(--color-muted);">
+            O COTTE é um sistema completo que automatiza e otimiza todo o seu processo comercial, 
+            desde a captação de leads até o fechamento de negócios. Com ferramentas intuitivas e 
+            inteligentes, você vai vender mais em menos tempo.
+          </p>
+        </div>
+      `;
+    }
+
+    function renderBlocoCustom(bloco) {
+      const titulo = bloco?.config?.titulo || bloco?.nome || 'Bloco';
+      const conteudo = bloco?.config?.conteudo || '';
+      const itens = Array.isArray(bloco?.config?.itens) ? bloco.config.itens : [];
+      return `
+        <div style="padding:32px;background:white;border-bottom:1px solid #e2e8f0" data-secao="${bloco.tipo}">
+          <h2 style="font-size: 26px; font-weight: 600; margin-bottom: 12px;">${titulo}</h2>
+          ${conteudo ? `<p style="color:var(--color-muted);margin-bottom:12px">${conteudo}</p>` : ''}
+          ${itens.length ? `<ul style="margin:0;padding-left:18px;color:var(--color-muted)">${itens.map(item => `<li style='padding:4px 0'>${item}</li>`).join('')}</ul>` : ''}
+        </div>
+      `;
+    }
+    
+    function renderBlocoFuncionalidades(bloco) {
+      const titulo = bloco?.config?.titulo || 'Funcionalidades em Destaque';
+      const itens = Array.isArray(bloco?.config?.itens) && bloco.config.itens.length
+        ? bloco.config.itens
+        : ['Dashboard Completo', 'Gestão de Leads', 'Propostas Inteligentes', 'Automação'];
+      return `
+        <div class="bloco-funcionalidades" data-secao="funcionalidades">
+          <h2 style="font-size: 28px; font-weight: 600; text-align: center; margin-bottom: 32px;">${titulo}</h2>
+          ${itens.map((item, idx) => `
+            <div class="funcionalidade-item">
+              <div class="funcionalidade-icon">${['📊','👥','📝','⚡'][idx % 4]}</div>
+              <div>
+                <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">${item}</h3>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+    
+    function renderBlocoPlanosPrecos(bloco) {
+      const titulo = bloco?.config?.titulo || 'Planos e Preços';
+      const conteudo = bloco?.config?.conteudo || 'Apresente aqui seus planos e valores.';
+      return `
+        <div class="bloco-planos" data-secao="planos_precos">
+          <h2 style="font-size: 28px; font-weight: 600; text-align: center; margin-bottom: 16px;">${titulo}</h2>
+          <p style="text-align:center;color:var(--color-muted)">${conteudo}</p>
+        </div>
+      `;
+    }
+    
+    function renderBlocoDepoimentos(bloco) {
+      const titulo = bloco?.config?.titulo || 'O Que Nossos Clientes Dizem';
+      const conteudo = bloco?.config?.conteudo || '"Excelente solução e ótimo suporte."';
+      return `
+        <div class="bloco-depoimentos" data-secao="depoimentos">
+          <h2 style="font-size: 28px; font-weight: 600; text-align: center; margin-bottom: 24px;">${titulo}</h2>
+          <div class="depoimento-card">
+            <div class="depoimento-texto">${conteudo}</div>
+          </div>
+        </div>
+      `;
+    }
+    
+    function renderBlocoROI(bloco) {
+      const valor = propostaData.dados_personalizados.valor || 10000;
+      const economia = valor * 0.3; // 30% de economia
+      const roi = Math.round((economia / 297) * 100); // ROI baseado no plano Pro
+      const titulo = bloco?.config?.titulo || 'Seu Retorno sobre Investimento';
+      const conteudo = bloco?.config?.conteudo || 'Com base no seu volume de negócios atual, estimamos:';
+      
+      return `
+        <div class="bloco-roi" data-secao="roi_estimado">
+          <h2 style="font-size: 28px; font-weight: 600; margin-bottom: 16px;">${titulo}</h2>
+          <p style="opacity: 0.9; margin-bottom: 24px;">
+            ${conteudo}
+          </p>
+          
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 32px; max-width: 600px; margin: 0 auto;">
+            <div>
+              <div style="font-size: 14px; opacity: 0.8;">Economia Mensal</div>
+              <div class="roi-number">R$ ${economia.toLocaleString('pt-BR')}</div>
+            </div>
+            <div>
+              <div style="font-size: 14px; opacity: 0.8;">ROI Estimado</div>
+              <div class="roi-number">${roi}%</div>
+            </div>
+          </div>
+          
+          <p style="margin-top: 32px; opacity: 0.9;">
+            Retorno do investimento em menos de 4 meses
+          </p>
+        </div>
+      `;
+    }
+    
+    function renderBlocoCTA(bloco) {
+      const titulo = bloco?.config?.titulo || 'Pronto para Transformar Suas Vendas?';
+      const conteudo = bloco?.config?.conteudo || 'Clique abaixo para aceitar esta proposta e nossa equipe entrará em contato imediatamente para dar início à sua jornada.';
+      const botao = bloco?.config?.botao_texto || 'Aceitar esta proposta';
+      return `
+        <div class="bloco-cta" data-secao="cta_aceite">
+          <h2 style="font-size: 28px; font-weight: 600; margin-bottom: 16px;">${titulo}</h2>
+          <p style="color: var(--color-muted); margin-bottom: 32px;">
+            ${conteudo}
+          </p>
+          <button class="btn-aceite" onclick="abrirModalAceite()">${botao}</button>
+          <div style="margin-top:14px;">
+            <a href="https://wa.me/?text=Tenho%20d%C3%BAvidas%20sobre%20a%20proposta" target="_blank" rel="noopener" style="font-size:14px;color:var(--color-muted);text-decoration:underline;">
+              Tenho dúvidas, quero conversar
+            </a>
+          </div>
+          ${propostaData.expira_em ? `<p style="font-size:12px;color:var(--color-muted);margin-top:12px">Expira em ${new Date(propostaData.expira_em).toLocaleDateString('pt-BR')}</p>` : ''}
+        </div>
+      `;
+    }
+    
+    function mostrarErro(mensagem) {
+      document.getElementById('app').innerHTML = `
+        <div class="proposta-container">
+          <div style="text-align: center; padding: 60px 20px;">
+            <div style="font-size: 48px; margin-bottom: 16px;">😞</div>
+            <h2 style="font-size: 24px; font-weight: 600; margin-bottom: 8px;">Oops!</h2>
+            <p style="color: var(--color-muted);">${mensagem}</p>
+          </div>
+        </div>
+      `;
+    }
+    
+    function mostrarExpirada() {
+      document.getElementById('app').innerHTML = `
+        <div class="proposta-container">
+          <div class="expirada">
+            <div style="font-size: 48px; margin-bottom: 16px;">⏰</div>
+            <h2 style="font-size: 24px; font-weight: 600; margin-bottom: 8px;">Proposta Expirada</h2>
+            <p style="color: var(--color-muted);">Esta proposta não está mais disponível.</p>
+            <p style="color: var(--color-muted); margin-top: 8px;">Entre em contato para solicitar uma nova proposta.</p>
+          </div>
+        </div>
+      `;
+    }
+    
+    // Modal de aceite
+    function abrirModalAceite() {
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.innerHTML = `
+        <div class="modal">
+          <h3 class="modal-title">Confirmar Aceite</h3>
+          <form onsubmit="confirmarAceite(event)">
+            <div class="form-group">
+              <label class="form-label">Seu Nome *</label>
+              <input type="text" class="form-input" id="aceite-nome" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Seu E-mail *</label>
+              <input type="email" class="form-input" id="aceite-email" required>
+            </div>
+            <div class="modal-actions">
+              <button type="button" class="btn btn-secondary" onclick="fecharModal()">Cancelar</button>
+              <button type="submit" class="btn btn-primary">Confirmar Aceite</button>
+            </div>
+          </form>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    }
+    
+    function fecharModal() {
+      const modal = document.querySelector('.modal-overlay');
+      if (modal) modal.remove();
+    }
+    
+    async function confirmarAceite(event) {
+      event.preventDefault();
+      
+      const nome = document.getElementById('aceite-nome').value;
+      const email = document.getElementById('aceite-email').value;
+      
+      try {
+        const response = await fetch(`/p/${slug}/aceitar`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ nome, email })
+        });
+        
+        if (!response.ok) {
+          throw new Error('Erro ao confirmar aceite');
+        }
+        
+        const result = await response.json();
+        
+        // Mostrar sucesso
+        document.getElementById('app').innerHTML = `
+          <div class="proposta-container">
+            <div style="text-align: center; padding: 60px 20px;">
+              <div style="font-size: 48px; margin-bottom: 16px;">🎉</div>
+              <h2 style="font-size: 24px; font-weight: 600; margin-bottom: 8px;">Proposta Aceita!</h2>
+              <p style="color: var(--color-muted);">Obrigado, ${nome}!</p>
+              <p style="color: var(--color-muted); margin-top: 8px;">Nossa equipe entrará em contato em breve.</p>
+            </div>
+          </div>
+        `;
+        
+        // Parar rastreamento
+        if (pingInterval) {
+          clearInterval(pingInterval);
+        }
+        
+        // Ping final
+        await enviarPing(true);
+        
+      } catch (error) {
+        console.error('Erro:', error);
+        alert('Erro ao confirmar aceite. Tente novamente.');
+      }
+      
+      fecharModal();
+    }
+    
+    // Rastreamento
+    function iniciarRastreamento() {
+      enviarPing();
+
+      // Observer para detectar seção visível
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            secaoAtual = entry.target.dataset.secao || '';
+          }
+        });
+      }, { threshold: 0.5 });
+      
+      // Observar todos os blocos
+      document.querySelectorAll('[data-secao]').forEach(bloco => {
+        observer.observe(bloco);
+      });
+      
+      // Ping a cada 30 segundos
+      pingInterval = setInterval(() => {
+        enviarPing();
+      }, 30000);
+      
+      // Ping ao fechar página
+      window.addEventListener('beforeunload', () => {
+        const payload = new Blob([JSON.stringify({
+          secao: secaoAtual,
+          tempo: Math.floor((Date.now() - tempoInicio) / 1000)
+        })], { type: 'application/json' });
+        navigator.sendBeacon(`/p/${slug}/ping`, payload);
+      });
+    }
+    
+    async function enviarPing(final = false) {
+      try {
+        const tempo = Math.floor((Date.now() - tempoInicio) / 1000);
+        await fetch(`/p/${slug}/ping`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            secao: secaoAtual,
+            tempo: tempo
+          })
+        });
+      } catch (error) {
+        console.error('Erro no ping:', error);
+      }
+    }
+    
+    // Iniciar
+    carregarProposta();
+  </script>
+</body>
+</html>

@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem("cotte_tema");if(t){document.documentElement.setAttribute("data-theme",t);}else{document.documentElement.setAttribute("data-theme","light");}})()</script>
+  <title>Orçamento — COTTE</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #e5e7eb; color: #1a1a1a; font-size: 13px; }
+
+    /* ── PÁGINA A4 ── */
+    .a4-page {
+      width: 210mm;
+      min-height: 297mm;
+      padding: 14mm 16mm;
+      margin: 16px auto;
+      background: #fff;
+      box-shadow: 0 4px 24px rgba(0,0,0,.14);
+    }
+
+    /* ── CABEÇALHO ── */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      padding-bottom: 14px;
+      margin-bottom: 14px;
+      border-bottom: 3px solid var(--cor);   /* cor da empresa */
+    }
+    .header-left  { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; }
+    .empresa-logo { height: 52px; max-width: 120px; object-fit: contain; flex-shrink: 0; display: none; }
+    .empresa-nome { font-size: 22px; font-weight: 900; color: var(--cor); letter-spacing: -0.5px; }
+    .empresa-info { font-size: 11px; color: #777; margin-top: 3px; }
+    .header-right { text-align: right; flex-shrink: 0; }
+    .orc-label    { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: #aaa; font-weight: 700; }
+    .orc-numero   { font-size: 18px; font-weight: 900; color: #111; margin-top: 2px; }
+    .orc-datas    { font-size: 11px; color: #888; margin-top: 4px; }
+
+    /* ── BLOCO CLIENTE / CONDIÇÕES ── */
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      background: #f9f9f9;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      border-left: 4px solid var(--cor);
+    }
+    .info-label { font-size: 9px; text-transform: uppercase; letter-spacing: .1em; color: #bbb; font-weight: 700; margin-bottom: 4px; }
+    .info-nome  { font-size: 15px; font-weight: 800; color: #111; }
+    .info-sub   { font-size: 11px; color: #666; margin-top: 2px; }
+    .info-right { text-align: right; }
+
+    /* ── STATUS BADGE ── */
+    .status-badge {
+      display: inline-block; border-radius: 20px; padding: 2px 10px;
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+    }
+    .status-rascunho { background:#f3f4f6; color:#6b7280; }
+    .status-enviado  { background:#fef3c7; color:#92400e; }
+    .status-aprovado { background:#d1fae5; color:#065f46; }
+    .status-recusado { background:#fee2e2; color:#991b1b; }
+    .status-expirado { background:#f3f4f6; color:#9ca3af; }
+
+    /* ── TABELA DE ITENS ── */
+    .section-title {
+      font-size: 9px; text-transform: uppercase; letter-spacing: .12em;
+      color: #999; font-weight: 700; margin-bottom: 8px;
+      padding-bottom: 6px; border-bottom: 1px solid #e5e7eb;
+    }
+    .items-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+    .items-table thead tr { background: var(--cor); color: #fff; }
+    .items-table th {
+      padding: 7px 10px; font-size: 10px; text-transform: uppercase;
+      letter-spacing: .07em; font-weight: 700; text-align: left;
+    }
+    .items-table th.right { text-align: right; }
+    .items-table th.center { text-align: center; }
+    .items-table tbody tr { border-bottom: 1px solid #f0f0f0; }
+    .items-table tbody tr:nth-child(even) { background: #fafafa; }
+    .items-table tbody tr:last-child { border-bottom: none; }
+    .items-table td { padding: 7px 10px; font-size: 12px; vertical-align: middle; }
+    .items-table td.right { text-align: right; }
+    .items-table td.center { text-align: center; }
+    .td-thumb { width: 46px; padding: 4px 6px; }
+    .thumb-img {
+      width: 38px; height: 38px; object-fit: contain;
+      border-radius: 5px; border: 1px solid #eee; display: block;
+    }
+    .thumb-placeholder {
+      width: 38px; height: 38px; border-radius: 5px;
+      background: #f3f4f6; border: 1px solid #e5e7eb;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .desc-nome { font-weight: 600; color: #111; }
+    .col-qtd   { width: 52px; }
+    .col-unit  { width: 90px; }
+    .col-total { width: 90px; font-weight: 700; }
+
+    /* ── TOTAIS ── */
+    .totais-wrap { display: flex; justify-content: flex-end; margin-bottom: 16px; }
+    .totais-box  { min-width: 210px; }
+    .totais-row  { display: flex; justify-content: space-between; padding: 5px 0; font-size: 12px; color: #555; }
+    .totais-row.sub { border-top: 1px solid #e5e7eb; margin-top: 4px; }
+    .totais-row.desc-row { color: #ef4444; }
+    .totais-row.total-row {
+      background: var(--cor); color: #fff; font-weight: 900;
+      font-size: 14px; padding: 9px 12px; border-radius: 6px; margin-top: 6px;
+    }
+
+    /* ── OBSERVAÇÕES / ASSINATURA ── */
+    .footer-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 16px; margin-top: 24px; padding-top: 16px;
+      border-top: 1px solid #e5e7eb;
+    }
+    .obs-box  { font-size: 10px; color: #888; line-height: 1.7; }
+    .obs-box strong { color: #555; }
+    .sign-box { border-top: 1px solid #ccc; text-align: center; padding-top: 6px; }
+    .sign-box p { font-size: 9px; color: #bbb; text-transform: uppercase; letter-spacing: .08em; }
+
+    /* ── FORA DA PÁGINA (print) ── */
+    @media print {
+      body { background: white; }
+      .no-print { display: none !important; }
+      .a4-page { box-shadow: none; margin: 0; padding: 14mm 16mm; width: 210mm; }
+    }
+
+    /* ── BOTÕES ── */
+    .btn-bar  { max-width: 210mm; margin: 0 auto 24px; display: flex; gap: 10px; }
+    .btn      { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; border: none; transition: opacity .15s; }
+    .btn:hover { opacity: .85; }
+    .btn-dark { background: #1f2937; color: #fff; }
+    .btn-ghost { background: #e5e7eb; color: #374151; text-decoration: none; }
+
+    /* ── CARD ACEITE / RECUSA (operador) ── */
+    .aceite-card {
+      max-width: 210mm; margin: 0 auto 16px;
+      border-radius: 10px; padding: 14px 18px;
+      box-shadow: 0 1px 6px rgba(0,0,0,.08);
+    }
+    .aceite-card.aprovado { background: #f0fdf4; border: 1px solid #bbf7d0; }
+    .aceite-card.recusado { background: #fff1f2; border: 1px solid #fecdd3; }
+    .aceite-card-topo { display: flex; align-items: center; gap: 10px; }
+    .aceite-card-icone { font-size: 22px; }
+    .aceite-card-titulo { font-weight: 700; font-size: 13px; }
+    .aceite-card.aprovado .aceite-card-titulo { color: #166534; }
+    .aceite-card.recusado .aceite-card-titulo { color: #9f1239; }
+    .aceite-card-sub { font-size: 11px; color: #888; margin-top: 2px; }
+    .aceite-msg-box { margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e7eb; }
+    .aceite-msg-label { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: #aaa; font-weight: 700; margin-bottom: 4px; }
+    .aceite-msg-texto { font-size: 12px; color: #374151; font-style: italic; }
+
+    /* ── CARD SITUAÇÃO DO PAGAMENTO ── */
+    .pagamento-card {
+      max-width: 210mm; margin: 0 auto 16px;
+      background: #fff; border-radius: 10px;
+      box-shadow: 0 1px 6px rgba(0,0,0,.08);
+      padding: 14px 18px; border: 1px solid #e5e7eb;
+    }
+    .pagamento-card-titulo {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .08em; color: #999; margin-bottom: 12px;
+    }
+    .pgto-prog-wrap { background: #f3f4f6; border-radius: 99px; height: 8px; overflow: hidden; margin-bottom: 6px; }
+    .pgto-prog-bar  { height: 100%; border-radius: 99px; background: #16a34a; transition: width .4s; }
+    .pgto-sumario   { display: flex; gap: 16px; font-size: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+    .pgto-sum-item  { display: flex; flex-direction: column; gap: 2px; }
+    .pgto-sum-label { font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: #aaa; font-weight: 700; }
+    .pgto-sum-value { font-size: 14px; font-weight: 700; color: #111; }
+    .pgto-sum-value.verde  { color: #16a34a; }
+    .pgto-sum-value.vermelho { color: #dc2626; }
+    .pgto-contas-lista { border-top: 1px solid #f3f4f6; margin-top: 8px; padding-top: 8px; }
+    .pgto-conta-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 0; border-bottom: 1px solid #f9f9f9; font-size: 12px;
+    }
+    .pgto-conta-item:last-child { border-bottom: none; }
+    .pgto-conta-desc { flex: 1; color: #374151; }
+    .pgto-conta-valor { font-weight: 700; color: #111; white-space: nowrap; }
+    .pgto-conta-venc  { font-size: 10px; color: #aaa; white-space: nowrap; }
+    .pgto-badge {
+      display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 99px;
+      font-size: 10px; font-weight: 700; letter-spacing: .02em; white-space: nowrap;
+    }
+    .pgto-badge.pendente { background: #dbeafe; color: #1d4ed8; }
+    .pgto-badge.parcial  { background: #fef3c7; color: #92400e; }
+    .pgto-badge.pago     { background: #d1fae5; color: #065f46; }
+    .pgto-badge.vencido  { background: #fee2e2; color: #991b1b; }
+    .pgto-badge.cancelado{ background: #f3f4f6; color: #6b7280; }
+    .pgto-btn-confirmar {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 7px 14px; border-radius: 7px; font-size: 12px; font-weight: 700;
+      background: #1d4ed8; color: #fff; border: none; cursor: pointer;
+      text-decoration: none; margin-top: 12px; transition: opacity .15s;
+    }
+    .pgto-btn-confirmar:hover { opacity: .85; }
+
+    /* ── HISTÓRICO ── */
+    .historico-card {
+      max-width: 210mm; margin: 0 auto 24px;
+      background: #fff; border-radius: 10px;
+      box-shadow: 0 1px 6px rgba(0,0,0,.08);
+      padding: 14px 18px;
+    }
+    .historico-titulo { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #999; margin-bottom: 10px; }
+    .historico-item   { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f3f4f6; }
+    .historico-item:last-child { border-bottom: none; }
+    .historico-icon   { font-size: 15px; margin-top: 1px; }
+    .historico-nome   { font-weight: 600; font-size: 12px; color: #111; }
+    .historico-data   { font-size: 10px; color: #aaa; margin-top: 1px; }
+    .historico-desc   { font-size: 11px; color: #666; margin-top: 2px; }
+
+    /* ── LOADING / ERRO ── */
+    .center-box { max-width: 210mm; margin: 60px auto; text-align: center; }
+    .spinner    { display: inline-block; width: 36px; height: 36px; border: 4px solid #ddd; border-top-color: var(--cor,#3b82f6); border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .erro-card  { background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 24px; }
+  </style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading" class="center-box no-print">
+  <div class="spinner"></div>
+  <p style="margin-top:14px;color:#888">Carregando orçamento...</p>
+</div>
+
+<!-- Erro -->
+<div id="erro" class="center-box no-print" style="display:none">
+  <div class="erro-card">
+    <p id="erro-msg" style="color:#b91c1c;font-weight:600"></p>
+    <a href="./" style="display:inline-block;margin-top:12px;color:#3b82f6;font-size:13px">← Voltar ao Dashboard</a>
+  </div>
+</div>
+
+<!-- Conteúdo -->
+<div id="conteudo" style="display:none; padding-top: 16px;">
+
+  <!-- PÁGINA A4 -->
+  <div class="a4-page">
+
+    <!-- Cabeçalho -->
+    <div class="header">
+      <div class="header-left">
+        <img id="empresa-logo" class="empresa-logo" src="" alt="">
+        <div>
+          <div id="empresa-nome" class="empresa-nome"></div>
+          <div id="empresa-info" class="empresa-info"></div>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="orc-label">Orçamento</div>
+        <div id="orc-numero" class="orc-numero"></div>
+        <div id="orc-datas" class="orc-datas"></div>
+      </div>
+    </div>
+
+    <!-- Cliente + Condições -->
+    <div class="info-grid">
+      <div>
+        <div class="info-label">Para</div>
+        <div id="cli-nome" class="info-nome"></div>
+        <div id="cli-tel" class="info-sub" style="display:none"></div>
+        <div id="cli-email" class="info-sub" style="display:none"></div>
+      </div>
+      <div class="info-right">
+        <div class="info-label">Condições</div>
+        <div class="info-sub">Pagamento: <strong id="forma-pgto"></strong></div>
+        <div class="info-sub" style="margin-top:4px" id="validade-info"></div>
+        <div style="margin-top:6px"><span id="status-badge" class="status-badge"></span></div>
+      </div>
+    </div>
+
+    <!-- Itens -->
+    <div style="margin-bottom:16px">
+      <div class="section-title">Serviços / Produtos</div>
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th id="th-img" class="td-thumb" style="display:none"></th>
+            <th>Descrição</th>
+            <th class="center col-qtd">Qtd</th>
+            <th class="right col-unit">Unit.</th>
+            <th class="right col-total">Total</th>
+          </tr>
+        </thead>
+        <tbody id="itens-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- Totais -->
+    <div class="totais-wrap">
+      <div class="totais-box">
+        <div id="linha-subtotal" class="totais-row" style="display:none">
+          <span>Subtotal</span><span id="subtotal-val"></span>
+        </div>
+        <div id="linha-desconto" class="totais-row desc-row" style="display:none">
+          <span id="desconto-label"></span><span id="desconto-val"></span>
+        </div>
+        <div class="totais-row total-row">
+          <span>TOTAL</span><span id="total-val"></span>
+        </div>
+        <p style="font-size:9px;color:#bbb;text-align:right;margin-top:5px;font-style:italic">Valores em Reais (BRL)</p>
+      </div>
+    </div>
+
+    <!-- Footer: Observações + Assinatura -->
+    <div class="footer-grid">
+      <div class="obs-box">
+        <strong>Observações:</strong>
+        <br><span id="obs-texto">Este orçamento está sujeito à disponibilidade de agenda.</span>
+      </div>
+      <div class="sign-box">
+        <p>Aceite do Cliente (Assinatura Digital)</p>
+      </div>
+    </div>
+
+  </div><!-- /a4-page -->
+
+  <!-- Card aceite digital (fora da impressão, visível ao operador) -->
+  <div id="aceite-card" class="aceite-card aprovado no-print" style="display:none">
+    <div class="aceite-card-topo">
+      <div class="aceite-card-icone">✅</div>
+      <div>
+        <div class="aceite-card-titulo">Aceite digital registrado</div>
+        <div class="aceite-card-sub">Por: <strong id="aceite-por"></strong> · <span id="aceite-quando"></span></div>
+      </div>
+    </div>
+    <div id="aceite-msg-box" class="aceite-msg-box" style="display:none">
+      <div class="aceite-msg-label">Mensagem do cliente</div>
+      <div id="aceite-msg-texto" class="aceite-msg-texto"></div>
+    </div>
+  </div>
+
+  <!-- Card recusa (fora da impressão, visível ao operador) -->
+  <div id="recusa-card" class="aceite-card recusado no-print" style="display:none">
+    <div class="aceite-card-topo">
+      <div class="aceite-card-icone">❌</div>
+      <div>
+        <div class="aceite-card-titulo">Orçamento recusado pelo cliente</div>
+        <div class="aceite-card-sub">O cliente recusou esta proposta digitalmente.</div>
+      </div>
+    </div>
+    <div id="recusa-motivo-box" class="aceite-msg-box" style="display:none">
+      <div class="aceite-msg-label">Motivo informado</div>
+      <div id="recusa-motivo-texto" class="aceite-msg-texto"></div>
+    </div>
+  </div>
+
+  <!-- Card Situação do Pagamento (apenas orçamentos aprovados) -->
+  <div id="pagamento-card" class="pagamento-card no-print" style="display:none">
+    <div class="pagamento-card-titulo">💰 Situação do Pagamento</div>
+    <div id="pgto-loading" style="color:#aaa;font-size:12px">Carregando...</div>
+    <div id="pgto-conteudo" style="display:none">
+      <div class="pgto-prog-wrap"><div class="pgto-prog-bar" id="pgto-barra" style="width:0%"></div></div>
+      <div class="pgto-sumario" id="pgto-sumario"></div>
+      <div class="pgto-contas-lista" id="pgto-contas"></div>
+      <a id="pgto-btn-link" class="pgto-btn-confirmar" href="#">
+        💳 Confirmar Recebimento
+      </a>
+    </div>
+  </div>
+
+  <!-- Linha do Tempo (fora da área de impressão) -->
+  <div id="historico-section" class="historico-card no-print" style="display:none">
+    <div class="historico-titulo">🕐 Linha do Tempo</div>
+    <div id="historico-lista"></div>
+  </div>
+
+  <!-- Barra de ações -->
+  <div class="btn-bar no-print">
+    <button class="btn btn-dark" onclick="window.print()">⬇ Baixar PDF</button>
+    <a class="btn btn-ghost" href="./">← Dashboard</a>
+  </div>
+
+</div><!-- /conteudo -->
+
+<script src="js/utils.js?v=1"></script>
+<script src="js/api.js?v=17"></script>
+<script>
+(function() {
+  if (!requireAuth()) return;
+
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get('id');
+
+  if (!id) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('erro').style.display    = 'block';
+    document.getElementById('erro-msg').textContent  = 'Informe o ID na URL: orcamento-view.html?id=1';
+    return;
+  }
+
+  // ── HELPERS ────────────────────────────────────────────────────────────
+  function moeda(v) {
+    return 'R$ ' + Number(v || 0).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+  function fmtData(d) {
+    if (!d) return '—';
+    return new Date(d).toLocaleDateString('pt-BR');
+  }
+  function fmtDataHora(d) {
+    if (!d) return '—';
+    return new Date(d).toLocaleString('pt-BR');
+  }
+  function vencimento(criado, dias) {
+    const d = new Date(criado);
+    d.setDate(d.getDate() + (dias || 7));
+    return d.toLocaleDateString('pt-BR');
+  }
+  function esc(s) { return (s || '').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  const FORMA_LABELS = { pix:'PIX', a_vista:'À vista', '2x':'2x', '3x':'3x', '4x':'4x' };
+  const STATUS_LABEL = { rascunho:'Rascunho', enviado:'Aguardando Aprovação', aprovado:'Aprovado', recusado:'Recusado', expirado:'Expirado' };
+  const STATUS_CLS   = { rascunho:'status-rascunho', enviado:'status-enviado', aprovado:'status-aprovado', recusado:'status-recusado', expirado:'status-expirado' };
+
+  // ── CARREGAR ────────────────────────────────────────────────────────────
+  Promise.all([
+    api.get('/empresa/'),
+    api.get('/orcamentos/' + id),
+    api.get('/catalogo/?apenas_ativos=false').catch(function() { return []; }),
+  ]).then(function([empresa, orc, catalogo]) {
+
+    // Sempre redireciona para a versão visual (que respeita o template configurado) com flag de admin
+    if (orc.link_publico) {
+      window.location.replace('orcamento-publico.html?token=' + orc.link_publico + '&view=admin');
+      return;
+    }
+
+    // Cor primária da empresa
+    const cor = empresa.cor_primaria || '#1d4ed8';
+    document.documentElement.style.setProperty('--cor', cor);
+    // Garante que o spinner usa a cor antes de sumir
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('conteudo').style.display = 'block';
+
+    // Mapa de imagens
+    const base = (typeof API_URL !== 'undefined' ? API_URL : window.location.origin).replace(/\/$/, '');
+    const imgById  = {};
+    const imgByNome = {};
+    (catalogo || []).forEach(function(s) {
+      if (s.imagem_url) {
+        imgById[s.id] = s.imagem_url;
+        imgByNome[s.nome.toLowerCase().trim()] = s.imagem_url;
+      }
+    });
+
+    function resolverImg(item) {
+      var url = null;
+      if (item.imagem_url) url = item.imagem_url;
+      else if (item.servico_id && imgById[item.servico_id]) url = imgById[item.servico_id];
+      else if (item.descricao) url = imgByNome[(item.descricao||'').toLowerCase().trim()] || null;
+      if (!url) return '';
+      return url.startsWith('http') ? url : base + url;
+    }
+
+    // ── EMPRESA ──
+    document.getElementById('empresa-nome').textContent = empresa.nome || 'Empresa';
+    var infoTexts = [];
+    if (empresa.telefone) infoTexts.push(empresa.telefone);
+    if (empresa.email)    infoTexts.push(empresa.email);
+    document.getElementById('empresa-info').textContent = infoTexts.join('  ·  ');
+
+    var logoEl = document.getElementById('empresa-logo');
+    if (empresa.logo_url) {
+      var logoSrc = api.resolveUrl(empresa.logo_url);
+      logoEl.src = logoSrc;
+      logoEl.alt = empresa.nome || 'Logo';
+      logoEl.style.display = 'block';
+      logoEl.onerror = function() { logoEl.style.display = 'none'; };
+    }
+
+    // ── CABEÇALHO ORC ──
+    document.getElementById('orc-numero').textContent = orc.numero || '#' + orc.id;
+    document.getElementById('orc-datas').innerHTML =
+      'Emissão: ' + fmtData(orc.criado_em) + '<br>' +
+      'Validade: ' + vencimento(orc.criado_em, orc.validade_dias);
+
+    // ── CLIENTE ──
+    var cli = orc.cliente || {};
+    document.getElementById('cli-nome').textContent = cli.nome || '—';
+    if (cli.telefone) {
+      var t = document.getElementById('cli-tel');
+      t.textContent = '📱 ' + cli.telefone; t.style.display = '';
+    }
+    if (cli.email) {
+      var e = document.getElementById('cli-email');
+      e.textContent = '✉ ' + cli.email; e.style.display = '';
+    }
+
+    // ── CONDIÇÕES ──
+    document.getElementById('forma-pgto').textContent = FORMA_LABELS[orc.forma_pagamento] || orc.forma_pagamento || 'PIX';
+    document.getElementById('validade-info').textContent = 'Válido por ' + (orc.validade_dias || 7) + ' dias';
+    var sb = document.getElementById('status-badge');
+    sb.textContent  = STATUS_LABEL[orc.status] || orc.status;
+    sb.className    = 'status-badge ' + (STATUS_CLS[orc.status] || '');
+
+    // ── ITENS ──
+    var itens     = orc.itens || [];
+    var temImagem = itens.some(function(i) { return !!resolverImg(i); });
+
+    if (temImagem) {
+      document.getElementById('th-img').style.display = '';
+    }
+
+    var tbody = document.getElementById('itens-tbody');
+    if (!itens.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#bbb;padding:20px">Nenhum item</td></tr>';
+    } else {
+      tbody.innerHTML = itens.map(function(item) {
+        var qtd    = item.quantidade === Math.floor(item.quantidade) ? item.quantidade : Number(item.quantidade).toFixed(1);
+        var imgSrc = resolverImg(item);
+        var imgCol = '';
+        if (temImagem) {
+          imgCol = imgSrc
+            ? '<td class="td-thumb"><img class="thumb-img" src="' + imgSrc + '" alt="' + esc(item.descricao) + '" onerror="this.parentNode.innerHTML=\'<div class=thumb-placeholder></div>\'"></td>'
+            : '<td class="td-thumb"><div class="thumb-placeholder"></div></td>';
+        }
+        return '<tr>'
+          + imgCol
+          + '<td class="desc-nome">' + esc(item.descricao) + '</td>'
+          + '<td class="center">' + qtd + '</td>'
+          + '<td class="right">' + moeda(item.valor_unit) + '</td>'
+          + '<td class="right">' + moeda(item.total) + '</td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    // ── TOTAIS ──
+    var subtotal  = itens.reduce(function(s, i) { return s + (i.total || 0); }, 0);
+    var desc      = orc.desconto || 0;
+    var descTipo  = orc.desconto_tipo || 'percentual';
+
+    if (desc > 0) {
+      document.getElementById('linha-subtotal').style.display = 'flex';
+      document.getElementById('subtotal-val').textContent = moeda(subtotal);
+      document.getElementById('linha-desconto').style.display = 'flex';
+      document.getElementById('desconto-label').textContent = descTipo === 'percentual' ? 'Desconto (' + desc + '%)' : 'Desconto';
+      document.getElementById('desconto-val').textContent = '- ' + moeda(descTipo === 'percentual' ? subtotal * desc / 100 : desc);
+    }
+    document.getElementById('total-val').textContent = moeda(orc.total);
+
+    // ── OBSERVAÇÕES ──
+    if (orc.observacoes) {
+      document.getElementById('obs-texto').textContent = orc.observacoes;
+    }
+
+    // ── ACEITE DIGITAL (card do operador) ──
+    if (orc.aceite_nome && orc.aceite_em) {
+      var aceiteCard = document.getElementById('aceite-card');
+      aceiteCard.style.display = 'block';
+      document.getElementById('aceite-por').textContent = orc.aceite_nome;
+      document.getElementById('aceite-quando').textContent = fmtDataHora(orc.aceite_em);
+      if (orc.aceite_mensagem) {
+        document.getElementById('aceite-msg-box').style.display = 'block';
+        document.getElementById('aceite-msg-texto').textContent = orc.aceite_mensagem;
+      }
+    }
+
+    // ── RECUSA DIGITAL (card do operador) ──
+    if (orc.status === 'recusado') {
+      var recusaCard = document.getElementById('recusa-card');
+      recusaCard.style.display = 'block';
+      if (orc.recusa_motivo) {
+        document.getElementById('recusa-motivo-box').style.display = 'block';
+        document.getElementById('recusa-motivo-texto').textContent = orc.recusa_motivo;
+      }
+    }
+
+    // ── HISTÓRICO ──
+    carregarHistorico(id);
+
+    // ── SITUAÇÃO DO PAGAMENTO (apenas aprovados) ──
+    if (orc.status === 'aprovado') {
+      carregarSituacaoPagamento(id, orc);
+    }
+
+  }).catch(function(err) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('erro').style.display    = 'block';
+    document.getElementById('erro-msg').textContent  = err.message || 'Erro ao carregar o orçamento.';
+  });
+
+  // ── LINHA DO TEMPO (unificada) ────────────────────────────────────────────
+  var _TL_ICONS = {
+    criado:'📋', enviado:'📲', visualizado:'👁', lembrete:'🔔',
+    editado:'✏️', aprovado:'✅', recusado:'❌', expirado:'⏰',
+    ajuste:'✏️', notif_aprovacao_whatsapp:'📱',
+    email_enviado:'📧', email_erro:'⚠️', email_pendente:'⏳',
+    documento_vinculado:'📎', documento_visualizado:'👀', documento_aceito:'✅'
+  };
+
+  function carregarHistorico(orcId) {
+    api.get('/orcamentos/' + orcId + '/timeline').then(function(eventos) {
+      if (!eventos || !eventos.length) return;
+      var section = document.getElementById('historico-section');
+      section.style.display = 'block';
+      document.getElementById('historico-lista').innerHTML = eventos.map(function(ev, idx) {
+        var icon   = _TL_ICONS[ev.tipo] || '•';
+        var isLast = idx === eventos.length - 1;
+        var sub = '';
+        if (ev.autor)   sub += '<div class="historico-data">Por: ' + esc(ev.autor) + '</div>';
+        if (ev.detalhe) sub += '<div class="historico-desc">"' + esc(ev.detalhe) + '"</div>';
+        if (ev.indicador) sub += '<div class="historico-data">' + esc(ev.indicador) + '</div>';
+        var ts = ev.timestamp ? fmtDataHora(ev.timestamp) : '';
+        return '<div class="historico-item" style="padding-bottom:' + (isLast ? '4' : '10') + 'px">'
+          + '<div class="historico-icon">' + icon + '</div>'
+          + '<div>'
+          + '<div class="historico-nome">' + esc(ev.titulo) + '</div>'
+          + sub
+          + '<div class="historico-data">' + ts + '</div>'
+          + '</div></div>';
+      }).join('');
+    }).catch(function() { /* silencioso */ });
+  }
+
+  // ── SITUAÇÃO DO PAGAMENTO ────────────────────────────────────────────────
+  var _PGTO_STATUS = {
+    pendente:  { cls: 'pendente',  label: 'Pendente'  },
+    parcial:   { cls: 'parcial',   label: 'Parcial'   },
+    pago:      { cls: 'pago',      label: 'Pago'      },
+    vencido:   { cls: 'vencido',   label: 'Vencido'   },
+    cancelado: { cls: 'cancelado', label: 'Cancelado' },
+  };
+  function _labelParcelaView(c) {
+    var tl = c.tipo_lancamento || '';
+    if (tl === 'entrada') return '🔑 Entrada';
+    if (tl === 'integral') return '📋 Pagamento único';
+    if (tl === 'saldo') {
+      if (c.total_parcelas === 1) return '💰 Pagamento final';
+      if (c.numero_parcela && c.total_parcelas) return '💰 ' + c.numero_parcela + 'ª parcela de ' + c.total_parcelas;
+      return '💰 Saldo';
+    }
+    return esc(c.descricao || '');
+  }
+
+  function _cobrarContaView(contaId, btn) {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    var orig = btn.innerHTML;
+    btn.innerHTML = '⏳';
+    fetch(window._apiBase + '/financeiro/contas/' + contaId + '/cobrar', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token'), 'Content-Type': 'application/json' },
+      body: '{}',
+    }).then(function(r) {
+      if (r.ok) {
+        btn.innerHTML = '✅';
+        setTimeout(function() { btn.innerHTML = '📲 Enviado'; }, 800);
+      } else {
+        btn.disabled = false;
+        btn.innerHTML = orig;
+        alert('Erro ao enviar cobrança. Verifique a integração WhatsApp.');
+      }
+    }).catch(function() {
+      btn.disabled = false;
+      btn.innerHTML = orig;
+    });
+  }
+
+  function carregarSituacaoPagamento(orcId, orc) {
+    var card = document.getElementById('pagamento-card');
+    card.style.display = 'block';
+
+    api.get('/financeiro/contas?orcamento_id=' + orcId + '&tipo=receber').then(function(contas) {
+      document.getElementById('pgto-loading').style.display = 'none';
+      document.getElementById('pgto-conteudo').style.display = 'block';
+
+      var total = parseFloat(orc.total || 0);
+      var totalPago  = 0;
+      var temPendente = false;
+
+      contas.forEach(function(c) {
+        totalPago += parseFloat(c.valor_pago || 0);
+        var st = (c.status || '').toLowerCase();
+        if (st === 'pendente' || st === 'parcial' || st === 'vencido') temPendente = true;
+      });
+
+      var saldoGlobal = Math.max(total - totalPago, 0);
+      var pct = total > 0 ? Math.min(Math.round(totalPago / total * 100), 100) : 0;
+
+      // Barra de progresso
+      document.getElementById('pgto-barra').style.width = pct + '%';
+
+      // Sumário
+      var cor = saldoGlobal <= 0 ? 'verde' : 'vermelho';
+      document.getElementById('pgto-sumario').innerHTML =
+        '<div class="pgto-sum-item"><span class="pgto-sum-label">Total</span><span class="pgto-sum-value">' + moeda(total) + '</span></div>' +
+        '<div class="pgto-sum-item"><span class="pgto-sum-label">Recebido</span><span class="pgto-sum-value verde">' + moeda(totalPago) + '</span></div>' +
+        '<div class="pgto-sum-item"><span class="pgto-sum-label">Falta</span><span class="pgto-sum-value ' + cor + '">' + moeda(saldoGlobal) + '</span></div>' +
+        '<div class="pgto-sum-item"><span class="pgto-sum-label">Status</span><span class="pgto-sum-value" style="font-size:12px">' + (saldoGlobal <= 0 ? '✅ Quitado' : pct + '% pago') + '</span></div>';
+
+      // Contas individuais com labels humanizados e botão cobrar
+      if (contas.length) {
+        document.getElementById('pgto-contas').innerHTML = contas.map(function(c) {
+          var st = _PGTO_STATUS[(c.status || '').toLowerCase()] || { cls: 'pendente', label: c.status };
+          var desc = _labelParcelaView(c);
+          var metodo = (c.metodo_previsto || '').toUpperCase().replace('_', ' ');
+          var venc = c.data_vencimento ? fmtData(c.data_vencimento) : '—';
+          var isCobrable = (c.status === 'pendente' || c.status === 'parcial' || c.status === 'vencido');
+          var cobrarBtn = isCobrable
+            ? '<button onclick="_cobrarContaView(' + c.id + ', this)" style="font-size:10px;padding:2px 8px;border:none;background:#16a34a;color:#fff;border-radius:5px;cursor:pointer;margin-left:6px;font-weight:700">📲</button>'
+            : '';
+          return '<div class="pgto-conta-item">'
+            + '<span class="pgto-conta-desc">' + desc + (metodo ? ' · ' + metodo : '') + '</span>'
+            + '<span class="pgto-conta-venc">Vence ' + venc + '</span>'
+            + '<span class="pgto-conta-valor">' + moeda(c.valor) + '</span>'
+            + '<span class="pgto-badge ' + st.cls + '">' + st.label + '</span>'
+            + cobrarBtn
+            + '</div>';
+        }).join('');
+      } else {
+        document.getElementById('pgto-contas').innerHTML = '<div style="color:#aaa;font-size:12px;padding:8px 0">Nenhuma conta registrada.</div>';
+      }
+
+      // Botão de confirmar pagamento
+      var btnLink = document.getElementById('pgto-btn-link');
+      if (!temPendente) {
+        btnLink.style.display = 'none';
+      } else {
+        var oNum = (orc.numero || '').replace(/['"]/g, '');
+        btnLink.href = 'financeiro.html?orc=' + encodeURIComponent(oNum);
+        btnLink.style.display = 'inline-flex';
+      }
+
+    }).catch(function() {
+      document.getElementById('pgto-loading').textContent = 'Sem dados financeiros.';
+    });
+  }
+
+})();
+</script>
+</body>
+</html>

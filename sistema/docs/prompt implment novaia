@@ -1,0 +1,329 @@
+# 🚀 PROMPT — CRIAR SERVIÇO COTTE AI (ARQUITETURA SEPARADA)
+
+Atue como um engenheiro de software sênior especialista em:
+
+- FastAPI
+- Arquitetura de microserviços
+- Integração com LLM (Anthropic / tool use)
+- Sistemas multi-tenant seguros
+- Integração via API entre serviços
+
+Você irá criar um novo serviço chamado:
+
+👉 cotte-ai-service
+
+Esse serviço será responsável exclusivamente pela IA do sistema COTTE.
+
+---
+
+# 🎯 OBJETIVO
+
+Criar um serviço de IA desacoplado do ERP principal, com as seguintes responsabilidades:
+
+- Interpretar mensagens do usuário
+- Decidir ações (tools)
+- Chamar endpoints do ERP via HTTP
+- Retornar respostas estruturadas
+
+⚠️ IMPORTANTE:
+Este serviço NÃO pode acessar banco de dados diretamente.
+Toda regra de negócio deve permanecer no ERP.
+
+---
+
+# 🧠 CONTEXTO DO SISTEMA
+
+O COTTE é um ERP SaaS multi-tenant para pequenas empresas.
+
+Stack atual do ERP:
+- FastAPI
+- SQLAlchemy
+- PostgreSQL
+
+A IA atual está acoplada ao backend e precisa ser separada.
+
+---
+
+# 🏗️ ARQUITETURA DESEJADA
+
+Fluxo:
+
+[Frontend / WhatsApp]
+        ↓
+cotte-ai-service
+        ↓
+(HTTP REST)
+        ↓
+COTTE ERP
+
+---
+
+# ⚠️ REGRAS CRÍTICAS
+
+## Segurança
+- Nunca acessar banco diretamente
+- Nunca executar lógica crítica internamente
+- Sempre chamar API do ERP
+- Sempre enviar empresa_id
+
+## Multi-tenant
+- Toda requisição deve conter empresa_id
+- Nunca misturar dados entre empresas
+
+## Arquitetura
+- Código modular
+- Fácil de expandir
+- Sem overengineering
+
+## Integração
+- Toda ação via HTTP (requests/async http client)
+- Base URL do ERP configurável
+
+---
+
+# 📁 ESTRUTURA DO PROJETO
+
+Crie o projeto com esta estrutura:
+
+cotte-ai-service/
+├── app/
+│   ├── main.py
+│   ├── core/
+│   │   ├── config.py
+│   │   └── settings.py
+│   ├── agent/
+│   │   ├── executor.py
+│   │   ├── tool_registry.py
+│   │   ├── policy.py
+│   │   └── prompts.py
+│   ├── tools/
+│   │   ├── financeiro.py
+│   │   ├── orcamento.py
+│   │   └── whatsapp.py
+│   ├── infra/
+│   │   ├── anthropic_client.py
+│   │   └── http_client.py
+│   ├── schemas/
+│   │   └── agent.py
+│   └── services/
+│       └── agent_service.py
+├── requirements.txt
+└── README.md
+
+---
+
+# ⚙️ FUNCIONALIDADES A IMPLEMENTAR
+
+## 1. Endpoint principal
+
+Criar endpoint:
+
+POST /agent/execute
+
+Request:
+
+{
+  "mensagem": "string",
+  "empresa_id": "int",
+  "sessao_id": "string"
+}
+
+Response:
+
+{
+  "resposta": "string"
+}
+
+---
+
+## 2. Executor do agente
+
+Implementar executor com:
+
+- loop de tool use (até 5 iterações)
+- suporte a múltiplas tools
+- fallback seguro
+- separação de responsabilidades
+
+---
+
+## 3. Integração com Anthropic
+
+Criar client em:
+
+infra/anthropic_client.py
+
+- usar modelo atual suportado
+- preparar para troca futura
+- permitir configuração via env
+
+---
+
+## 4. Tool Registry
+
+Criar dispatcher central:
+
+TOOLS = {
+  "consultar_saldo_caixa": fn,
+  "aprovar_orcamento": fn
+}
+
+Função:
+
+executar_tool(nome, input, empresa_id)
+
+---
+
+## 5. Tools via HTTP (NÃO DB)
+
+### financeiro.py
+
+consultar_saldo_caixa:
+- chama ERP: GET /financeiro/saldo
+- retorna JSON padronizado
+
+consultar_valor_a_receber:
+- GET /financeiro/a_receber
+
+---
+
+### orcamento.py
+
+buscar_orcamento:
+- GET /orcamentos/{id}
+
+aprovar_orcamento:
+- POST /orcamentos/{id}/aprovar
+
+---
+
+### whatsapp.py
+
+enviar_mensagem:
+- POST /whatsapp/enviar
+
+---
+
+## 6. HTTP Client
+
+Criar client reutilizável:
+
+infra/http_client.py
+
+- async
+- timeout
+- tratamento de erro
+- base_url configurável
+
+---
+
+## 7. Padronização de retorno
+
+Todas as tools devem retornar:
+
+{
+  "status": "success | error | requires_confirmation",
+  "data": {},
+  "message": "string opcional"
+}
+
+---
+
+## 8. Policy de segurança
+
+Criar:
+
+agent/policy.py
+
+- classificar tools: READ, DRAFT, WRITE
+- WRITE exige confirmação
+- bloquear execução direta
+
+---
+
+## 9. Prompts do agente
+
+Criar prompts base:
+
+agent/prompts.py
+
+Instruções:
+
+- usar tools sempre que necessário
+- não inventar dados
+- não assumir valores financeiros
+- não executar ação sem confirmação
+
+---
+
+## 10. Logging
+
+- log de entrada
+- log de tools chamadas
+- log de erros
+- incluir empresa_id e sessao_id
+
+---
+
+# 🧪 EXEMPLOS QUE DEVEM FUNCIONAR
+
+Entrada:
+"quanto tenho em caixa?"
+
+→ chama tool consultar_saldo_caixa  
+→ retorna valor correto (sem análise extra)
+
+---
+
+Entrada:
+"aprovar orçamento 123"
+
+→ NÃO executa direto  
+→ retorna requires_confirmation
+
+---
+
+# 🚫 O QUE NÃO FAZER
+
+- Não acessar banco
+- Não importar models do ERP
+- Não duplicar regra de negócio
+- Não fazer lógica crítica dentro do prompt
+- Não criar endpoints desnecessários
+
+---
+
+# 📌 RESULTADO ESPERADO
+
+Ao final quero:
+
+1. Projeto completo criado
+2. Código funcional
+3. Estrutura modular
+4. Executor com tool use funcionando
+5. Integração HTTP com ERP
+6. Pronto para expansão
+
+---
+
+# 🧾 ENTREGA
+
+Você deve:
+
+1. Explicar rapidamente a estrutura criada
+2. Mostrar principais arquivos
+3. Garantir que está pronto para rodar
+4. Listar próximos passos recomendados
+
+---
+
+# ⚠️ IMPORTANTE FINAL
+
+Se tiver dúvida entre:
+
+- fazer algo mais inteligente
+- fazer algo mais seguro
+
+Escolha sempre o mais seguro.
+
+Este serviço vai operar dados reais de clientes.

@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem("cotte_tema");if(t){document.documentElement.setAttribute("data-theme",t);}else{document.documentElement.setAttribute("data-theme","light");}})()</script>
+  <title>COTTE — Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/style.css?v=3">
+  <style>
+
+    :root {
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --card-hover: #f8fafc;
+      --border: #e1e7f0;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --accent-blue: #06b6d4;
+      --text-app: #94a3b8;
+      --danger: #dc2626;
+      --danger-bg: #fef2f2;
+      --success: #0f766e;
+      --success-bg: #f0fdfa;
+      --ring: rgba(6, 182, 212, 0.22);
+      --shadow-page: 0 40px 100px rgba(15, 23, 42, 0.10), 0 0 0 1px rgba(15, 23, 42, 0.04);
+      --radius-xl: 28px;
+      --radius-lg: 16px;
+      --radius-md: 12px;
+      --radius-sm: 8px;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(ellipse 1100px 520px at 8% -8%, rgba(6, 182, 212, 0.13) 0%, transparent 58%),
+        radial-gradient(ellipse 900px 440px at 96% 108%, rgba(6, 182, 212, 0.09) 0%, transparent 54%),
+        var(--bg);
+      line-height: 1.5;
+    }
+
+    /* ─── Layout ───────────────────────────────────────────────── */
+
+    .login-page {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 28px 20px;
+    }
+
+    .auth-shell {
+      width: 100%;
+      max-width: 1020px;
+      display: grid;
+      grid-template-columns: 1.08fr 1fr;
+      border-radius: var(--radius-xl);
+      overflow: hidden;
+      box-shadow: var(--shadow-page);
+      animation: fadeUp 0.48s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ─── Left Panel ───────────────────────────────────────────── */
+
+    .auth-panel {
+      position: relative;
+      padding: 54px 50px;
+      background: linear-gradient(158deg, #f0f9ff 0%, #e8f3fb 45%, #ecfbff 100%);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 36px;
+      overflow: hidden;
+    }
+
+    /* Orb superior esquerdo */
+    .auth-panel::before {
+      content: '';
+      position: absolute;
+      width: 380px;
+      height: 380px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(6, 182, 212, 0.17) 0%, transparent 62%);
+      top: -120px;
+      left: -100px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Orb inferior direito */
+    .auth-panel::after {
+      content: '';
+      position: absolute;
+      width: 280px;
+      height: 280px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(6, 182, 212, 0.11) 0%, transparent 62%);
+      bottom: -40px;
+      right: -60px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Grade pontilhada decorativa */
+    .dot-grid {
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(circle, rgba(6, 182, 212, 0.22) 1px, transparent 1px);
+      background-size: 26px 26px;
+      opacity: 0.55;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .panel-content,
+    .panel-stat {
+      position: relative;
+      z-index: 1;
+    }
+
+    .brand-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 11px;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: #0891b2;
+      background: rgba(6, 182, 212, 0.09);
+      border: 1px solid rgba(6, 182, 212, 0.24);
+      border-radius: 999px;
+      padding: 5px 13px;
+      margin-bottom: 26px;
+    }
+
+    .brand-badge::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-blue);
+      flex-shrink: 0;
+      box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.3);
+    }
+
+    .panel-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: clamp(27px, 3vw, 38px);
+      line-height: 1.1;
+      letter-spacing: -0.026em;
+      color: var(--text);
+      margin-bottom: 16px;
+    }
+
+    .panel-title em {
+      font-style: normal;
+      color: var(--accent-blue);
+    }
+
+    .panel-subtitle {
+      color: var(--text-muted);
+      font-size: 14.5px;
+      line-height: 1.65;
+      max-width: 330px;
+    }
+
+    /* Lista de recursos */
+    .feature-list {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-top: 34px;
+    }
+
+    .feature-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 13px;
+    }
+
+    .feature-icon {
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.75);
+      border: 1px solid rgba(6, 182, 212, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(6, 182, 212, 0.1);
+    }
+
+    .feature-icon svg {
+      width: 16px;
+      height: 16px;
+      color: var(--accent-blue);
+    }
+
+    .feature-text strong {
+      display: block;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #1e293b;
+      margin-bottom: 2px;
+    }
+
+    .feature-text span {
+      font-size: 12.5px;
+      color: var(--text-muted);
+    }
+
+    /* Card de estatística */
+    .panel-stat {
+      background: rgba(255, 255, 255, 0.82);
+      border: 1px solid rgba(6, 182, 212, 0.2);
+      border-radius: var(--radius-lg);
+      padding: 20px 22px;
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .stat-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(6, 182, 212, 0.15) 0%, rgba(6, 182, 212, 0.08) 100%);
+      border: 1px solid rgba(6, 182, 212, 0.22);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .stat-icon svg {
+      width: 20px;
+      height: 20px;
+      color: var(--accent-blue);
+    }
+
+    .stat-number {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+
+    .stat-label {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+
+    /* ─── Right Panel (Login Box) ──────────────────────────────── */
+
+    .login-box {
+      width: 100%;
+      background: var(--card);
+      padding: 50px 46px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    /* Logo */
+    .login-logo {
+      margin-bottom: 34px;
+    }
+
+    .logo-mark {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 30px;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: -0.03em;
+      color: var(--text);
+      user-select: none;
+    }
+
+    .login-logo .logo-mark span {
+      background: none;
+      color: var(--accent-blue);
+      width: auto;
+      height: auto;
+      border-radius: 0;
+      display: inline;
+      font-size: inherit;
+    }
+
+    .logo-sub {
+      margin-top: 7px;
+      font-size: 11px;
+      color: var(--text-app);
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    /* Cabeçalho do form */
+    .login-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 25px;
+      font-weight: 700;
+      line-height: 1.15;
+      margin: 0 0 7px;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+
+    .login-subtitle {
+      margin: 0 0 26px;
+      color: var(--text-muted);
+      line-height: 1.55;
+      font-size: 14px;
+    }
+
+    /* Trial badge */
+    .trial-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12.5px;
+      border-radius: 999px;
+      border: 1px solid rgba(6, 182, 212, 0.26);
+      background: rgba(6, 182, 212, 0.07);
+      color: #0284c7;
+      padding: 6px 14px;
+      margin-bottom: 18px;
+      font-weight: 600;
+    }
+
+    /* Alert */
+    .alert {
+      margin-bottom: 20px;
+      border-radius: var(--radius-md);
+      padding: 12px 15px;
+      font-size: 13.5px;
+      line-height: 1.45;
+      border: 1px solid transparent;
+      display: none;
+      align-items: flex-start;
+      gap: 10px;
+      animation: alertIn 0.22s ease both;
+    }
+
+    .alert[style*="display: flex"],
+    .alert[style*="display:flex"] {
+      display: flex !important;
+    }
+
+    @keyframes alertIn {
+      from { opacity: 0; transform: translateY(-5px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .alert-icon {
+      flex-shrink: 0;
+      margin-top: 1px;
+      display: flex;
+    }
+
+    .alert-error {
+      color: #991b1b;
+      background: var(--danger-bg);
+      border-color: rgba(220, 38, 38, 0.2);
+    }
+
+    .alert-success {
+      color: var(--success);
+      background: var(--success-bg);
+      border-color: rgba(15, 118, 110, 0.22);
+    }
+
+    .alert-error .icon-success,
+    .alert-success .icon-error {
+      display: none;
+    }
+
+    /* Form */
+    .form-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .form-group label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #334155;
+      letter-spacing: 0.01em;
+    }
+
+    /* Wrapper para ícone + input */
+    .input-wrapper {
+      position: relative;
+    }
+
+    .input-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-app);
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      transition: color 0.18s ease;
+    }
+
+    .input-icon svg {
+      width: 15px;
+      height: 15px;
+    }
+
+    .input-wrapper:focus-within .input-icon {
+      color: var(--accent-blue);
+    }
+
+    .form-group input {
+      width: 100%;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--bg);
+      padding: 12px 14px 12px 42px;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--text);
+      transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+      outline: none;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    .form-group input::placeholder {
+      color: #aab4be;
+    }
+
+    .form-group input:hover:not(:focus):not(.input-error) {
+      border-color: #c7d5e6;
+      background: #f1f5f9;
+    }
+
+    .form-group input:focus {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 4px var(--ring);
+      background: #ffffff;
+    }
+
+    .form-group input.input-error {
+      border-color: var(--danger);
+      box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.11);
+      background: #fffafa;
+    }
+
+    /* Botão de mostrar/ocultar senha */
+    .pw-toggle {
+      position: absolute;
+      right: 11px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-app);
+      display: flex;
+      align-items: center;
+      padding: 5px;
+      border-radius: 6px;
+      transition: color 0.15s ease, background 0.15s ease;
+    }
+
+    .pw-toggle:hover {
+      color: var(--text-muted);
+      background: rgba(100, 116, 139, 0.09);
+    }
+
+    .pw-toggle svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* Senha com padding direito extra (ícone de olho) */
+    .form-group input.pw-field {
+      padding-right: 44px;
+    }
+
+    .field-help {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Form actions */
+    .form-actions {
+      margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* Botões */
+    .btn {
+      border: none;
+      border-radius: var(--radius-md);
+      font-family: inherit;
+      font-size: 14.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.18s ease, box-shadow 0.2s ease, background 0.2s ease, opacity 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      text-decoration: none;
+      letter-spacing: 0.01em;
+    }
+
+    .btn:focus-visible {
+      outline: 3px solid var(--ring);
+      outline-offset: 2px;
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 13px 16px;
+      color: #ffffff;
+      background: linear-gradient(135deg, #06b6d4 0%, #0284c7 100%);
+      box-shadow: 0 6px 20px rgba(6, 182, 212, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 30px rgba(6, 182, 212, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+      background: linear-gradient(135deg, #0ccae6 0%, #0293d4 100%);
+    }
+
+    .btn-primary:active:not(:disabled) {
+      transform: translateY(0);
+      box-shadow: 0 4px 14px rgba(6, 182, 212, 0.24);
+    }
+
+    .btn:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+
+    /* Spinner de loading */
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.35);
+      border-top-color: #ffffff;
+      border-radius: 50%;
+      animation: spin 0.72s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Links auxiliares */
+    .helper-links {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      flex-wrap: wrap;
+    }
+
+    .security-note {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    .security-note svg {
+      width: 13px;
+      height: 13px;
+      color: #22c55e;
+    }
+
+    .helper-links a,
+    .login-footer a {
+      color: #0284c7;
+      text-decoration: none;
+      font-weight: 600;
+      cursor: pointer;
+      transition: color 0.15s ease;
+      font-size: 13px;
+    }
+
+    .helper-links a:hover,
+    .login-footer a:hover {
+      color: #0369a1;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    /* Rodapé do form */
+    .login-footer {
+      margin-top: 22px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-muted);
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ─── Responsivo ───────────────────────────────────────────── */
+
+    @media (max-width: 768px) {
+      .auth-shell {
+        grid-template-columns: 1fr;
+        max-width: 480px;
+      }
+
+      /* No mobile: login primeiro, apresentação depois */
+      .login-box {
+        order: 1;
+      }
+
+      .auth-panel {
+        order: 2;
+        border-right: none;
+        border-top: 1px solid var(--border);
+        border-bottom: none;
+        padding: 34px 30px;
+        gap: 22px;
+      }
+
+      .panel-stat {
+        display: none;
+      }
+
+      .login-box {
+        padding: 34px 30px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .login-page {
+        padding: 14px 12px;
+      }
+
+      .auth-shell {
+        border-radius: var(--radius-xl);
+        max-width: 100%;
+      }
+
+      .auth-panel {
+        padding: 24px 20px;
+      }
+
+      .login-box {
+        padding: 24px 20px;
+      }
+
+      .logo-mark {
+        font-size: 26px;
+      }
+
+      .login-title {
+        font-size: 22px;
+      }
+
+      .helper-links {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="login-page">
+  <main class="auth-shell" aria-label="Autenticação COTTE">
+
+    <!-- ── Painel esquerdo: identidade institucional ───────────── -->
+    <section class="auth-panel" aria-label="Apresentação do produto">
+      <div class="dot-grid" aria-hidden="true"></div>
+
+      <div class="panel-content">
+        <div class="brand-badge">Plataforma COTTE</div>
+
+        <h1 class="panel-title">
+          Orçamentos profissionais<br>
+          <em>em segundos.</em>
+        </h1>
+        <p class="panel-subtitle">
+          Uma experiência SaaS moderna para criar, organizar e acompanhar orçamentos com segurança, clareza e desempenho.
+        </p>
+
+        <div class="feature-list">
+          <div class="feature-item">
+            <div class="feature-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+            </div>
+            <div class="feature-text">
+              <strong>Conexão segura e protegida</strong>
+              <span>Sessões autenticadas com token JWT</span>
+            </div>
+          </div>
+
+          <div class="feature-item">
+            <div class="feature-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+              </svg>
+            </div>
+            <div class="feature-text">
+              <strong>Rápido e sem fricção</strong>
+              <span>Do briefing ao PDF em poucos cliques</span>
+            </div>
+          </div>
+
+          <div class="feature-item">
+            <div class="feature-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="5" y="2" width="14" height="20" rx="2"/>
+                <line x1="12" y1="18" x2="12.01" y2="18"/>
+              </svg>
+            </div>
+            <div class="feature-text">
+              <strong>Desktop e mobile</strong>
+              <span>Interface otimizada para qualquer tela</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-stat" aria-hidden="true">
+        <div class="stat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+        </div>
+        <div>
+          <div class="stat-number">2.000+</div>
+          <div class="stat-label">orçamentos gerados pela plataforma</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Painel direito: formulários ────────────────────────── -->
+    <section class="login-box">
+
+      <!-- Logo -->
+      <div class="login-logo">
+        <div class="logo-mark">cotte<span>//</span></div>
+        <div class="logo-sub">Sistema de Orçamentos</div>
+      </div>
+
+      <!-- Alerta de feedback (erro ou sucesso) -->
+      <div id="alert" class="alert alert-error" role="alert" aria-live="polite">
+        <span class="alert-icon">
+          <!-- Ícone de erro -->
+          <svg class="icon-error" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <!-- Ícone de sucesso -->
+          <svg class="icon-success" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+        </span>
+        <span id="alert-text"></span>
+      </div>
+
+      <!-- ── Form: Login ──────────────────────────────────────── -->
+      <div id="form-login">
+        <h2 class="login-title">Acesse sua conta</h2>
+        <p class="login-subtitle">Entre para gerenciar seus orçamentos com rapidez e segurança.</p>
+
+        <div class="form-stack">
+          <div class="form-group">
+            <label for="login-email">E-mail</label>
+            <div class="input-wrapper">
+              <input
+                type="email"
+                id="login-email"
+                placeholder="seu@email.com"
+                autocomplete="email"
+                required
+                autofocus
+              >
+              <span class="input-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="4" width="20" height="16" rx="2"/>
+                  <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                </svg>
+              </span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="login-senha">Senha</label>
+            <div class="input-wrapper">
+              <input
+                type="password"
+                id="login-senha"
+                class="pw-field"
+                placeholder="••••••••"
+                autocomplete="current-password"
+                onkeydown="if(event.key==='Enter') fazerLogin()"
+                required
+              >
+              <span class="input-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+              </span>
+              <button
+                type="button"
+                class="pw-toggle"
+                id="pw-toggle-login"
+                onclick="toggleSenha('login-senha','pw-toggle-login')"
+                aria-label="Mostrar senha"
+              >
+                <svg id="pw-eye-login" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="fazerLogin()" id="btn-login" type="button">
+            Entrar
+          </button>
+
+          <div class="helper-links">
+            <span class="security-note" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+              Autenticação segura
+            </span>
+            <a
+              href="#"
+              onclick="event.preventDefault(); mostrarEsqueciSenha();"
+            >Esqueci minha senha</a>
+          </div>
+        </div>
+
+        <div class="login-footer">
+          Não tem conta? <a onclick="mostrarCadastro()">Criar conta grátis</a>
+        </div>
+        <div style="margin-top:14px;text-align:center">
+          <a href="landing.html" style="font-size:12px;color:var(--text-app);text-decoration:none;display:inline-flex;align-items:center;gap:5px;transition:color 0.15s ease" onmouseover="this.style.color='var(--text-muted)'" onmouseout="this.style.color='var(--text-app)'">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            Voltar ao site
+          </a>
+        </div>
+      </div>
+
+      <!-- ── Form: Esqueci senha ──────────────────────────────── -->
+      <div id="form-esqueci" style="display:none">
+        <h2 class="login-title">Recuperar acesso</h2>
+        <p class="login-subtitle">
+          Informe seu e-mail para receber um link seguro de redefinição de senha.
+        </p>
+
+        <div class="form-stack">
+          <div class="form-group">
+            <label for="reset-email">E-mail da conta</label>
+            <div class="input-wrapper">
+              <input
+                type="email"
+                id="reset-email"
+                placeholder="seu@email.com"
+                autocomplete="email"
+              >
+              <span class="input-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="4" width="20" height="16" rx="2"/>
+                  <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                </svg>
+              </span>
+            </div>
+            <div class="field-help">O link expira em 30 minutos por segurança.</div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="fazerEsqueciSenha()" id="btn-reset" type="button">
+            Enviar link de recuperação
+          </button>
+        </div>
+
+        <div class="login-footer">
+          Lembrou sua senha? <a onclick="mostrarLogin()">Voltar para entrar</a>
+        </div>
+      </div>
+
+      <!-- ── Form: Cadastro ───────────────────────────────────── -->
+      <div id="form-cadastro" style="display:none">
+        <div class="trial-badge" id="trial-badge">🎁 14 dias grátis — sem cartão de crédito</div>
+        <h2 class="login-title">Criar sua conta</h2>
+        <p class="login-subtitle">Preencha os dados e receba seu acesso pelo WhatsApp em segundos.</p>
+
+        <div class="form-stack">
+          <div class="form-group">
+            <label for="cad-nome">Nome completo</label>
+            <div class="input-wrapper">
+              <input type="text" id="cad-nome" placeholder="João Silva" autocomplete="name">
+              <span class="input-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+              </span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="cad-empresa">Nome da empresa</label>
+            <div class="input-wrapper">
+              <input type="text" id="cad-empresa" placeholder="Silva Serviços">
+              <span class="input-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                  <polyline points="9 22 9 12 15 12 15 22"/>
+                </svg>
+              </span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="cad-telefone">WhatsApp</label>
+            <div class="input-wrapper">
+              <input type="tel" id="cad-telefone" placeholder="(48) 99999-9999" autocomplete="tel" maxlength="15" inputmode="numeric">
+              <span class="input-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4 2 2 0 0 1 3.58 1h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 8.6a16 16 0 0 0 6.07 6.07l.95-.95a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                </svg>
+              </span>
+            </div>
+            <div class="field-help">Digite apenas os números com DDD. Você receberá login e senha por este número.</div>
+          </div>
+
+          <div class="form-group">
+            <label for="cad-email">E-mail</label>
+            <div class="input-wrapper">
+              <input type="email" id="cad-email" placeholder="seu@email.com" autocomplete="email">
+              <span class="input-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="4" width="20" height="16" rx="2"/>
+                  <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                </svg>
+              </span>
+            </div>
+            <div class="field-help">Este e-mail será usado para acessar o sistema.</div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="fazerCadastro()" id="btn-cadastro" type="button">
+            Criar conta grátis →
+          </button>
+        </div>
+
+        <div class="login-footer">
+          Já tem conta? <a onclick="mostrarLogin()">Entrar</a>
+        </div>
+      </div>
+
+    </section>
+  </main>
+</div>
+
+<style>@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}</style>
+<script src="js/utils.js?v=1"></script>
+<script src="js/api.js?v=17"></script>
+<script>
+  // ── Modal de planos (inline para não depender de api.js em cache) ──
+  function _exibirModalPlanosLogin() {
+    var modal = document.getElementById('modal-planos');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'modal-planos';
+      modal.className = 'modal-planos-overlay';
+      modal.style.cssText = 'display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);justify-content:center;align-items:center;padding:24px;overflow-y:auto;';
+      modal.innerHTML = '<div style="background:var(--surface,#fff);border-radius:20px;max-width:1100px;width:100%;padding:36px 32px;box-shadow:0 25px 60px rgba(0,0,0,.3);animation:slideUp .4s ease">' +
+        '<div style="text-align:center;margin-bottom:28px">' +
+          '<div style="width:52px;height:52px;margin:0 auto 12px;background:linear-gradient(135deg,#fbbf24,#f59e0b);border-radius:14px;display:flex;align-items:center;justify-content:center"><svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>' +
+          '<p style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted,#888);margin:0 0 6px">Período de teste encerrado</p>' +
+          '<h2 style="font-size:24px;font-weight:700;margin:0 0 6px;color:var(--text,#111)">Continue crescendo com o COTTE</h2>' +
+          '<p style="color:var(--muted,#666);margin:0;font-size:14px">Escolha o plano ideal e volte a aproveitar todos os recursos</p>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px">' +
+          '<div style="border:1px solid var(--border,#e5e7eb);border-radius:16px;padding:24px;text-align:center">' +
+            '<div style="font-size:20px;font-weight:700;margin-bottom:4px">Starter</div>' +
+            '<div style="font-size:28px;font-weight:800;margin-bottom:2px">R$ 89,90<span style="font-size:14px;font-weight:400;color:var(--muted,#888)">/mês</span></div>' +
+            '<div style="font-size:13px;color:var(--muted,#888);margin-bottom:16px">Para autônomos que querem enviar orçamentos rápido</div>' +
+            '<div style="text-align:left;font-size:13px;line-height:2;margin-bottom:20px"><div>Até 200 orçamentos/mês</div><div>3 usuários</div><div>Envio por WhatsApp</div><div>Lembretes automáticos</div><div>Relatórios básicos</div></div>' +
+            '<a href="https://pay.kiwify.com.br/mlUv9Ox" target="_blank" style="display:block;padding:12px;border-radius:10px;background:var(--primary,#4f46e5);color:#fff;text-decoration:none;font-weight:600;font-size:14px">Escolher Starter</a>' +
+          '</div>' +
+          '<div style="border:2px solid var(--primary,#4f46e5);border-radius:16px;padding:24px;text-align:center;position:relative;background:linear-gradient(180deg,rgba(79,70,229,.04),transparent)">' +
+            '<div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--primary,#4f46e5);color:#fff;font-size:11px;font-weight:600;padding:3px 12px;border-radius:20px">Mais escolhido</div>' +
+            '<div style="font-size:20px;font-weight:700;margin-bottom:4px;margin-top:8px">Pro</div>' +
+            '<div style="font-size:28px;font-weight:800;margin-bottom:2px">R$ 129<span style="font-size:14px;font-weight:400;color:var(--muted,#888)">/mês</span></div>' +
+            '<div style="font-size:13px;color:var(--muted,#888);margin-bottom:16px">Para quem quer escalar sem contratar mais gente</div>' +
+            '<div style="text-align:left;font-size:13px;line-height:2;margin-bottom:20px"><div>Até 1.000 orçamentos/mês</div><div>10 usuários</div><div>IA automática (Claude)</div><div>Lembretes automáticos</div><div>Relatórios avançados</div><div>WhatsApp próprio</div></div>' +
+            '<a href="https://pay.kiwify.com.br/GEEDagv" target="_blank" style="display:block;padding:12px;border-radius:10px;background:var(--primary,#4f46e5);color:#fff;text-decoration:none;font-weight:600;font-size:14px">Escolher Pro</a>' +
+          '</div>' +
+          '<div style="border:1px solid var(--border,#e5e7eb);border-radius:16px;padding:24px;text-align:center">' +
+            '<div style="font-size:20px;font-weight:700;margin-bottom:4px">Business</div>' +
+            '<div style="font-size:28px;font-weight:800;margin-bottom:2px">R$ 189<span style="font-size:14px;font-weight:400;color:var(--muted,#888)">/mês</span></div>' +
+            '<div style="font-size:13px;color:var(--muted,#888);margin-bottom:16px">Para empresas com equipe maior e alto volume</div>' +
+            '<div style="text-align:left;font-size:13px;line-height:2;margin-bottom:20px"><div>Orçamentos ilimitados</div><div>Usuários ilimitados</div><div>Tudo do Pro</div><div>Suporte prioritário</div><div>Onboarding personalizado</div></div>' +
+            '<a href="https://pay.kiwify.com.br/pA85TDN" target="_blank" style="display:block;padding:12px;border-radius:10px;background:var(--primary,#4f46e5);color:#fff;text-decoration:none;font-weight:600;font-size:14px">Escolher Business</a>' +
+          '</div>' +
+        '</div>' +
+        '<div style="text-align:center;margin-top:20px;font-size:12px;color:var(--muted,#888)">Pagamento seguro via Kiwify · Cancele quando quiser · Sem fidelidade</div>' +
+      '</div>';
+      document.body.appendChild(modal);
+    }
+    modal.style.display = 'flex';
+  }
+
+  // Redireciona se já estiver logado
+  if (getToken()) window.location.href = './';
+
+  // Foco no e-mail ao carregar (reforça autofocus, útil em mobile)
+  setTimeout(function () {
+    var el = document.getElementById('login-email');
+    if (el && document.getElementById('form-login').style.display !== 'none') el.focus();
+  }, 100);
+
+  // ── Máscara WhatsApp (padrão Brasil) ───────────────────────────
+  (function () {
+    const campo = document.getElementById('cad-telefone');
+    if (!campo) return;
+
+    function mascaraTelefone(v) {
+      v = v.replace(/\D/g, '').slice(0, 11);
+      if (v.length <= 10) {
+        // Fixo: (XX) XXXX-XXXX
+        return v
+          .replace(/^(\d{2})(\d)/, '($1) $2')
+          .replace(/(\d{4})(\d)/, '$1-$2');
+      }
+      // Celular: (XX) XXXXX-XXXX
+      return v
+        .replace(/^(\d{2})(\d)/, '($1) $2')
+        .replace(/(\d{5})(\d)/, '$1-$2');
+    }
+
+    campo.addEventListener('input', function () {
+      const pos = this.selectionStart;
+      const anterior = this.value.length;
+      this.value = mascaraTelefone(this.value);
+      // Mantém cursor na posição correta após reformatação
+      const diff = this.value.length - anterior;
+      this.setSelectionRange(pos + diff, pos + diff);
+    });
+
+    campo.addEventListener('keydown', function (e) {
+      // Permite apenas dígitos, teclas de controle e atalhos de teclado
+      const permitidas = ['Backspace','Delete','Tab','Escape','Enter','ArrowLeft','ArrowRight','Home','End'];
+      if (permitidas.includes(e.key) || (e.ctrlKey || e.metaKey)) return;
+      if (!/^\d$/.test(e.key)) e.preventDefault();
+    });
+  })();
+
+  // ── Alterna visibilidade da senha ──────────────────────────────
+  function toggleSenha(inputId, btnId) {
+    const input   = document.getElementById(inputId);
+    const btn     = document.getElementById(btnId);
+    const oculto  = input.type === 'password';
+
+    input.type = oculto ? 'text' : 'password';
+    btn.setAttribute('aria-label', oculto ? 'Ocultar senha' : 'Mostrar senha');
+
+    btn.querySelector('svg').innerHTML = oculto
+      ? '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>'
+      : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+  }
+
+  // ── Navegação entre formulários ────────────────────────────────
+  function mostrarCadastro() {
+    document.getElementById('form-login').style.display    = 'none';
+    document.getElementById('form-esqueci').style.display  = 'none';
+    document.getElementById('form-cadastro').style.display = 'block';
+    document.getElementById('alert').style.display         = 'none';
+    document.getElementById('alert-text').textContent      = '';
+    document.getElementById('alert').classList.remove('alert-success');
+    document.getElementById('alert').classList.add('alert-error');
+    limparEstadosCampos();
+  }
+
+  function mostrarLogin() {
+    document.getElementById('form-cadastro').style.display = 'none';
+    document.getElementById('form-esqueci').style.display  = 'none';
+    document.getElementById('form-login').style.display    = 'block';
+    document.getElementById('alert').style.display         = 'none';
+    document.getElementById('alert-text').textContent      = '';
+    document.getElementById('alert').classList.remove('alert-success');
+    document.getElementById('alert').classList.add('alert-error');
+    limparEstadosCampos();
+  }
+
+  function mostrarEsqueciSenha() {
+    document.getElementById('form-login').style.display    = 'none';
+    document.getElementById('form-cadastro').style.display = 'none';
+    document.getElementById('form-esqueci').style.display  = 'block';
+    document.getElementById('alert').style.display         = 'none';
+    document.getElementById('alert-text').textContent      = '';
+    document.getElementById('alert').classList.remove('alert-success');
+    document.getElementById('alert').classList.add('alert-error');
+    limparEstadosCampos();
+  }
+
+  // ── Exibir mensagem de feedback ────────────────────────────────
+  function mostrarErro(msg) {
+    const alertEl = document.getElementById('alert');
+    document.getElementById('alert-text').textContent = msg;
+    alertEl.style.display = 'flex';
+  }
+
+  // ── Gerenciar estado dos campos ────────────────────────────────
+  function limparEstadosCampos() {
+    document.querySelectorAll('input').forEach(input => {
+      input.classList.remove('input-error');
+      input.removeAttribute('aria-invalid');
+    });
+  }
+
+  function marcarErroCampo(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    input.classList.add('input-error');
+    input.setAttribute('aria-invalid', 'true');
+  }
+
+  // ── Login ──────────────────────────────────────────────────────
+  async function fazerLogin() {
+    const email = document.getElementById('login-email').value.trim();
+    const senha = document.getElementById('login-senha').value;
+    const btn   = document.getElementById('btn-login');
+
+    limparEstadosCampos();
+
+    if (!email || !senha) {
+      if (!email) marcarErroCampo('login-email');
+      if (!senha) marcarErroCampo('login-senha');
+      return mostrarErro('Preencha e-mail e senha para continuar.');
+    }
+
+    setLoading(btn, true);
+    document.getElementById('alert').style.display = 'none';
+    document.getElementById('alert-text').textContent = '';
+
+    try {
+      // Fetch direto — não depende de api.js (contorna cache Cloudflare)
+      var API_ORIGIN = window.location.origin;
+      var loginRes = await fetch(API_ORIGIN + '/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email, senha: senha })
+      });
+      var loginData = await loginRes.json().catch(function() { return null; });
+
+      if (!loginRes.ok) {
+        // Extrai mensagem de erro (formato padrão FastAPI ou customizado)
+        var errMsg = (loginData && typeof loginData.detail === 'string') ? loginData.detail
+          : (loginData && loginData.error && typeof loginData.error.message === 'string') ? loginData.error.message
+          : ('Erro ' + loginRes.status);
+
+        // Assinatura expirada ou empresa inativa — exibe modal de planos
+        if (loginRes.status === 402 || loginRes.status === 403) {
+          _exibirModalPlanosLogin();
+          setLoading(btn, false, 'Entrar');
+          return;
+        }
+
+        throw new Error(errMsg);
+      }
+
+      localStorage.setItem('cotte_token', loginData.access_token);
+
+      // Busca dados do usuário (também fetch direto)
+      var meRes = await fetch(API_ORIGIN + '/api/v1/auth/me', {
+        headers: { 'Authorization': 'Bearer ' + loginData.access_token }
+      });
+      var usuario = await meRes.json().catch(function() { return null; });
+
+      if (!meRes.ok || !usuario) {
+        throw new Error('Erro ao carregar dados do usuário');
+      }
+
+      salvarSessao(loginData.access_token, usuario);
+      window.location.href = usuario.is_superadmin ? 'admin.html' : './';
+
+    } catch (err) {
+
+      marcarErroCampo('login-email');
+      marcarErroCampo('login-senha');
+
+      let msg = 'Erro ao entrar. Tente novamente.';
+      if (err.message.includes('incorretos')) {
+        msg = 'E-mail ou senha incorretos.';
+      } else if (err.message.includes('inativo') || err.message.includes('inativa')) {
+        msg = err.message;
+      } else if (err.name === 'TypeError') { // Erro de rede (fetch falha)
+        msg = 'Erro de conexão. Verifique sua internet.';
+      }
+
+      mostrarErro(msg);
+    } finally {
+      setLoading(btn, false, 'Entrar');
+    }
+  }
+
+  // ── Cadastro ───────────────────────────────────────────────────
+  async function fazerCadastro() {
+    const nome     = document.getElementById('cad-nome').value.trim();
+    const empresa  = document.getElementById('cad-empresa').value.trim();
+    const telefone = document.getElementById('cad-telefone').value.replace(/\D/g, '');
+    const email    = document.getElementById('cad-email').value.trim();
+    const btn      = document.getElementById('btn-cadastro');
+
+    limparEstadosCampos();
+
+    if (!nome || !empresa || !telefone || !email) {
+      if (!nome)     marcarErroCampo('cad-nome');
+      if (!empresa)  marcarErroCampo('cad-empresa');
+      if (!telefone) marcarErroCampo('cad-telefone');
+      if (!email)    marcarErroCampo('cad-email');
+      return mostrarErro('Preencha todos os campos obrigatórios.');
+    }
+
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      marcarErroCampo('cad-email');
+      return mostrarErro('Informe um e-mail válido.');
+    }
+
+    if (telefone.replace(/\D/g, '').length < 10) {
+      marcarErroCampo('cad-telefone');
+      return mostrarErro('Informe um WhatsApp válido com DDD.');
+    }
+
+    setLoading(btn, true);
+    document.getElementById('alert').style.display = 'none';
+
+    try {
+      await api.post('/auth/registro-publico', {
+        nome,
+        empresa_nome: empresa,
+        email,
+        telefone,
+      });
+
+      mostrarErro('Conta criada com sucesso! Verifique seu WhatsApp para as credenciais de acesso.');
+      document.getElementById('alert').classList.remove('alert-error');
+      document.getElementById('alert').classList.add('alert-success');
+
+      document.getElementById('cad-nome').value      = '';
+      document.getElementById('cad-empresa').value   = '';
+      document.getElementById('cad-telefone').value  = '';
+      document.getElementById('cad-email').value     = '';
+
+      // Volta para login após 3 segundos
+      setTimeout(() => mostrarLogin(), 3000);
+
+    } catch (err) {
+      mostrarErro(err.message);
+    } finally {
+      setLoading(btn, false, 'Criar conta grátis →');
+    }
+  }
+
+  // ── Esqueci senha ─────────────────────────────────────────────
+  async function fazerEsqueciSenha() {
+    const email = document.getElementById('reset-email').value.trim();
+    const btn   = document.getElementById('btn-reset');
+
+    limparEstadosCampos();
+    document.getElementById('alert').classList.remove('alert-success');
+    document.getElementById('alert').classList.add('alert-error');
+
+    if (!email) {
+      marcarErroCampo('reset-email');
+      return mostrarErro('Informe o e-mail para receber o link de recuperação.');
+    }
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      marcarErroCampo('reset-email');
+      return mostrarErro('Informe um e-mail válido.');
+    }
+
+    setLoading(btn, true);
+    document.getElementById('alert').style.display = 'none';
+    try {
+      await api.post('/auth/esqueci-senha', { email });
+      document.getElementById('alert').classList.remove('alert-error');
+      document.getElementById('alert').classList.add('alert-success');
+      mostrarErro('Se o e-mail estiver cadastrado, enviaremos um link de redefinição em instantes.');
+    } catch (err) {
+      mostrarErro(err.message || 'Não foi possível enviar o link agora.');
+    } finally {
+      setLoading(btn, false, 'Enviar link de recuperação');
+    }
+  }
+
+  // Abre cadastro automaticamente quando a URL contém #cadastro
+  if (window.location.hash === '#cadastro') {
+    mostrarCadastro();
+  }
+
+  // Enter no form de cadastro
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && document.getElementById('form-cadastro').style.display !== 'none') {
+      fazerCadastro();
+    } else if (e.key === 'Enter' && document.getElementById('form-esqueci').style.display !== 'none') {
+      fazerEsqueciSenha();
+    }
+  });
+
+  // Buscar configuração pública de dias de trial
+  api.get('/auth/config-publica')
+    .then(cfg => {
+      const dias = cfg.dias_trial_padrao || 14;
+      const b = document.getElementById('trial-badge');
+      if (b) b.textContent = `🎁 ${dias} dias grátis — sem cartão de crédito`;
+    })
+    .catch(err => console.error("Erro config pública", err));
+</script>
+
+</body>
+</html>

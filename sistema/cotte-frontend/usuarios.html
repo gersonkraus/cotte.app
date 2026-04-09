@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem("cotte_tema");if(t){document.documentElement.setAttribute("data-theme",t);}else{document.documentElement.setAttribute("data-theme","light");}})()</script>
+  <title>COTTE — Equipe</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/style.css?v=3">
+  <style>
+    .status-online { margin-left: 6px; font-size: 11px; color: var(--green); font-weight: 600; display: flex; align-items: center; gap: 4px; }
+    .status-online::before { content: ''; width: 6px; height: 6px; background: var(--green); border-radius: 50%; display: inline-block; box-shadow: 0 0 8px var(--green-glow); }
+    
+    .user-avatar-cell { width: 32px; height: 32px; border-radius: 8px; background: var(--accent-dim); color: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; flex-shrink: 0; }
+    
+    .perm-group { margin-top: 12px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface2); }
+    .perm-group-header { padding: 10px 14px; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; }
+    .perm-group-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
+    .perm-group-content { padding: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; transition: all 0.3s ease; }
+    .perm-item { display: flex; flex-direction: column; gap: 4px; }
+    .perm-item label { font-size: 10px; color: var(--muted2); margin: 0; }
+    
+    .novo-usuario-card { border: 1px dashed var(--accent); background: var(--accent-dim) !important; transition: all 0.2s; }
+    .novo-usuario-card:focus-within { border-style: solid; box-shadow: var(--shadow); }
+
+    @media (max-width: 768px) {
+      .perm-group-content { grid-template-columns: 1fr; }
+      .novo-usuario-form { display: flex !important; flex-direction: column; gap: 12px !important; }
+      .novo-usuario-form .form-group { width: 100% !important; }
+      .novo-usuario-form .btn { width: 100% !important; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar"></aside>
+
+<!-- MAIN -->
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-title-wrap">
+      <div class="page-title">Equipe</div>
+      <div class="page-sub">Cadastre mais usuários (vendedores/atendentes) para acessar o sistema</div>
+    </div>
+  </div>
+
+  <!-- CARD: Adicionar usuário -->
+  <div class="card novo-usuario-card" style="margin-bottom:24px;padding:20px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+      <div style="width:36px;height:36px;border-radius:10px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px">👤</div>
+      <div>
+        <div style="font-family:'Outfit',sans-serif;font-size:15px;font-weight:700">Novo integrante da equipe</div>
+        <div style="font-size:11px;color:var(--muted)">Cadastre vendedores ou atendentes com acessos específicos.</div>
+      </div>
+    </div>
+
+    <div class="novo-usuario-form" style="display:grid;grid-template-columns:1.2fr 1fr 1fr auto;gap:12px;align-items:end">
+      <div class="form-group" style="margin:0">
+        <label>Nome Completo</label>
+        <input type="text" id="novo-nome" placeholder="Ex: Maria Silva" style="background:var(--surface)">
+      </div>
+      <div class="form-group" style="margin:0">
+        <label>E-mail (Login)</label>
+        <input type="email" id="novo-email" placeholder="maria@empresa.com" style="background:var(--surface)">
+      </div>
+      <div class="form-group" style="margin:0">
+        <label>Senha Inicial</label>
+        <input type="password" id="novo-senha" placeholder="Mín. 6 caracteres" style="background:var(--surface)">
+      </div>
+      <button class="btn btn-primary" onclick="adicionarUsuario()" id="btn-adicionar" style="height:38px">
+        <span>➕ Cadastrar</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- LISTA DE USUÁRIOS -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Usuários da empresa</div>
+      <div id="total-usuarios" style="font-size:12px;color:var(--muted)"></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>E-mail</th>
+            <th>Papel</th>
+            <th>Status</th>
+            <th>Cadastrado em</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="usuarios-tbody">
+          <tr><td colspan="6"><div class="loading"><div class="spinner"></div> Carregando...</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="mobile-cards-list" id="usuarios-cards-mobile"></div>
+  </div>
+</main>
+
+<!-- MODAL EDITAR USUÁRIO -->
+<div class="modal-overlay" id="modal-editar-usuario">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">✏️ Alterar cadastro do usuário</div>
+      <button class="modal-close" onclick="fecharModalEditarUsuario()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-usuario-id">
+      <div class="form-group">
+        <label>Nome *</label>
+        <input type="text" id="edit-nome" placeholder="Nome completo">
+      </div>
+      <div class="form-group">
+        <label>E-mail (login) *</label>
+        <input type="email" id="edit-email" placeholder="email@empresa.com">
+      </div>
+      <div class="form-group">
+        <label>Nova senha <span style="color:var(--muted);font-weight:normal">(deixe em branco para não alterar)</span></label>
+        <input type="password" id="edit-senha" placeholder="Mín. 6 caracteres">
+      </div>
+      <!-- Visível apenas para gestores, e apenas para outros usuários -->
+      <div id="edit-permissoes-section" style="display:none;margin-top:4px">
+        <div style="font-size:11px;font-weight:800;color:var(--accent);letter-spacing:.8px;text-transform:uppercase;margin:20px 0 10px">🛡️ Nível de Acesso e Permissões</div>
+
+        <!-- PAPEL RBAC -->
+        <div class="card" style="padding:14px;border-color:var(--accent-glow);background:var(--accent-dim)">
+          <label style="display:block;font-size:11px;font-weight:700;color:var(--text);margin-bottom:6px">Atribuir Perfil Pronto (Papel):</label>
+          <select id="edit-papel-id" onchange="togglePermissoesCustomizadas()" style="background:var(--surface)">
+            <option value="">— Permissões Customizadas (Personalizar abaixo) —</option>
+          </select>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4">Selecionar um papel aplicará permissões pré-definidas e bloqueará a edição manual abaixo.</div>
+        </div>
+
+        <div id="permissoes-custom-wrap">
+          <!-- GRUPO: OPERACIONAL -->
+          <div class="perm-group">
+            <div class="perm-group-header" onclick="const content = this.nextElementSibling; content.style.display = content.style.display === 'none' ? 'grid' : 'none'; this.querySelector('.arrow').style.transform = content.style.display === 'none' ? 'rotate(0deg)' : 'rotate(180deg)';">
+              <div class="perm-group-title">📋 Fluxo Operacional</div>
+              <div class="arrow" style="font-size:10px;color:var(--accent);transition:transform 0.2s">▼</div>
+            </div>
+            <div class="perm-group-content" style="display:none">
+              <div class="perm-item">
+                <label>Clientes</label>
+                <select id="edit-perm-clientes">
+                  <option value="leitura">Apenas Ver</option>
+                  <option value="meus">Meus (apenas os dele)</option>
+                  <option value="escrita" selected>Criar e Editar</option>
+                  <option value="admin">Acesso Total (Admin)</option>
+                </select>
+              </div>
+              <div class="perm-item">
+                <label>Orçamentos</label>
+                <select id="edit-perm-orcamentos">
+                  <option value="leitura">Apenas Ver</option>
+                  <option value="meus">Meus (apenas os dele)</option>
+                  <option value="escrita" selected>Criar e Editar</option>
+                  <option value="admin">Acesso Total (Admin)</option>
+                </select>
+              </div>
+              <div class="perm-item">
+                <label>Catálogo / Serviços</label>
+                <select id="edit-perm-catalogo-select">
+                  <option value="">Sem Acesso</option>
+                  <option value="leitura">Apenas Ver</option>
+                  <option value="escrita">Criar e Editar</option>
+                  <option value="admin">Acesso Total</option>
+                </select>
+              </div>
+              <div class="perm-item">
+                <label>Documentos</label>
+                <select id="edit-perm-documentos">
+                  <option value="">Sem Acesso</option>
+                  <option value="leitura">Apenas Ver</option>
+                  <option value="meus">Meus</option>
+                  <option value="escrita" selected>Criar e Editar</option>
+                  <option value="admin">Acesso Total</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- GRUPO: FINANCEIRO E VENDAS -->
+          <div class="perm-group">
+            <div class="perm-group-header" onclick="const content = this.nextElementSibling; content.style.display = content.style.display === 'none' ? 'grid' : 'none'; this.querySelector('.arrow').style.transform = content.style.display === 'none' ? 'rotate(0deg)' : 'rotate(180deg)';">
+              <div class="perm-group-title">💰 Financeiro e Comercial</div>
+              <div class="arrow" style="font-size:10px;color:var(--accent);transition:transform 0.2s">▼</div>
+            </div>
+            <div class="perm-group-content" style="display:none">
+              <div class="perm-item">
+                <label>Módulo Financeiro</label>
+                <select id="edit-perm-financeiro">
+                  <option value="">Sem Acesso</option>
+                  <option value="leitura">Apenas Ver</option>
+                  <option value="escrita">Criar e Editar</option>
+                  <option value="admin">Administrador</option>
+                </select>
+              </div>
+              <div class="perm-item">
+                <label>Comercial / Campanhas</label>
+                <select id="edit-perm-comercial">
+                  <option value="">Sem Acesso</option>
+                  <option value="leitura">Apenas Ver</option>
+                  <option value="escrita">Criar e Disparar</option>
+                  <option value="admin">Administrador</option>
+                </select>
+              </div>
+              <div class="perm-item">
+                <label>Relatórios</label>
+                <select id="edit-perm-relatorios">
+                  <option value="">Sem Acesso</option>
+                  <option value="leitura" selected>Acesso Total</option>
+                </select>
+              </div>
+              <div class="perm-item">
+                <label>Assistente IA</label>
+                <select id="edit-perm-ia">
+                  <option value="">Sem Acesso</option>
+                  <option value="leitura" selected>Acesso Total</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- GRUPO: GESTÃO -->
+          <div class="perm-group" style="border-color:var(--red-dim)">
+            <div class="perm-group-header" style="background:var(--red-dim)" onclick="const content = this.nextElementSibling; content.style.display = content.style.display === 'none' ? 'grid' : 'none'; this.querySelector('.arrow').style.transform = content.style.display === 'none' ? 'rotate(0deg)' : 'rotate(180deg)';">
+              <div class="perm-group-title" style="color:var(--red)">⚙️ Gestão e Configuração</div>
+              <div class="arrow" style="font-size:10px;color:var(--red);transition:transform 0.2s">▼</div>
+            </div>
+            <div class="perm-group-content" style="display:none">
+              <div class="perm-item">
+                <label>Gerenciar Equipe</label>
+                <select id="edit-perm-equipe">
+                  <option value="" selected>Sem Acesso</option>
+                  <option value="leitura">Apenas Ver</option>
+                  <option value="escrita">Criar e Editar</option>
+                </select>
+              </div>
+              <div class="perm-item">
+                <label>Configurações Empresa</label>
+                <select id="edit-perm-configuracoes">
+                  <option value="" selected>Sem Acesso</option>
+                  <option value="leitura">Apenas Ver</option>
+                  <option value="escrita">Alterar Dados</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="edit-status-section" style="display:none;margin-top:8px;padding:14px;border-radius:10px;background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.18)">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:0">
+          <input type="checkbox" id="edit-ativo" style="width:16px;height:16px;accent-color:var(--green)">
+          <span style="font-size:13px;font-weight:600">Usuário ativo</span>
+        </label>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px">Desmarque para inativar o acesso deste usuário ao sistema.</div>
+      </div>
+      <div class="form-group" style="margin-top:12px">
+        <label for="edit-desconto-max">Desconto máximo em orçamentos (%)</label>
+        <input type="number" id="edit-desconto-max" min="0" max="100" placeholder="Padrão da empresa" style="width:100%;max-width:120px">
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">Limite de desconto percentual para este usuário. Vazio = usa o padrão da empresa.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="fecharModalEditarUsuario()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarEdicaoUsuario()" id="btn-salvar-edicao">Salvar alterações</button>
+    </div>
+  </div>
+</div>
+
+<div class="notif" id="notif">
+  <div class="notif-icon">✅</div>
+  <div>
+    <div class="notif-title"></div>
+    <div class="notif-sub"></div>
+  </div>
+</div>
+
+  <script src="js/utils.js?v=1"></script>
+  <script src="js/api.js?v=17"></script>
+  <script src="js/layout.js?v=5"></script>
+  <script>
+    inicializarLayout('usuarios');
+
+    let usuariosCache = [];
+    let papeisCache = [];
+
+    function togglePermissoesCustomizadas() {
+      const papelId = document.getElementById('edit-papel-id').value;
+      const wrap = document.getElementById('permissoes-custom-wrap');
+      if (papelId) {
+        wrap.style.opacity = '0.5';
+        wrap.style.pointerEvents = 'none';
+      } else {
+        wrap.style.opacity = '1';
+        wrap.style.pointerEvents = 'auto';
+      }
+    }
+
+    async function carregar() {
+    const tbody = document.getElementById('usuarios-tbody');
+    try {
+      // Atualiza dados do usuário logado (is_gestor, etc.) para exibir opções corretas
+      await atualizarUsuarioLocal();
+      const [lista, papeis] = await Promise.all([
+        api.get('/empresa/usuarios'),
+        api.get('/papeis').catch(() => []),
+      ]);
+      usuariosCache = Array.isArray(lista) ? lista : [];
+      papeisCache = Array.isArray(papeis) ? papeis : [];
+      document.getElementById('total-usuarios').textContent = `${usuariosCache.length} usuário(s)`;
+      renderizar();
+    } catch (err) {
+      console.error('Erro ao carregar usuários:', err);
+      showNotif('❌', 'Erro ao carregar', err.message || 'Tente novamente.', 'error');
+      tbody.innerHTML =
+        '<tr><td colspan="6"><div class="empty-state"><div class="icon">⚠️</div><div class="title">Erro ao carregar</div><div class="desc">' + (err.message || 'Verifique o login e tente novamente.') + '</div></div></td></tr>';
+    }
+  }
+
+  function renderizar() {
+    const tbody = document.getElementById('usuarios-tbody');
+    if (!tbody) return;
+    if (!usuariosCache.length) {
+      tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="icon">👥</div><div class="title">Nenhum usuário na empresa</div><div class="desc">O primeiro usuário (quem criou a empresa) e os que você cadastrar aqui aparecerão nesta lista.</div></div></td></tr>';
+      renderizarUsuariosMobile([]);
+      return;
+    }
+    const AGORA = Date.now();
+    const ONLINE_MS = 5 * 60 * 1000;
+    function isOnline(u) {
+      if (!u.ultima_atividade_em) return false;
+      const t = new Date(u.ultima_atividade_em).getTime();
+      return (AGORA - t) < ONLINE_MS;
+    }
+    const eu = getUsuario();
+    const gestorPodeAlterarOutros = eu && eu.is_gestor;
+
+    tbody.innerHTML = usuariosCache.map(u => {
+      const online = isOnline(u);
+      const statusHtml = u.ativo
+        ? (online ? '<div style="display:flex;flex-direction:column;gap:4px"><span class="status-badge aprovado">Ativo</span> <span class="status-online" title="Usuário no sistema agora">Online</span></div>' : '<span class="status-badge aprovado">Ativo</span>')
+        : '<span class="status-badge recusado">Inativo</span>';
+      const podeAlterarStatus = gestorPodeAlterarOutros && eu.id !== u.id;
+      const btnAtivarInativar = podeAlterarStatus
+        ? `<button class="action-btn ${u.ativo ? 'recusado' : 'aprovado'}" onclick="toggleAtivoUsuario(${u.id}, ${u.ativo})" title="${u.ativo ? 'Inativar usuário' : 'Ativar usuário'}">${u.ativo ? '⏸ Inativar' : '▶ Ativar'}</button>`
+        : '';
+      const papelNome = u.papel ? `<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:var(--accent-dim);color:var(--accent);font-weight:600;border:1px solid var(--accent-glow)">${escapeHtml(u.papel.nome)}</span>` : '<span style="font-size:11px;color:var(--muted2)">Sem papel</span>';
+      
+      return `
+      <tr>
+        <td>
+          <div style="display:flex;align-items:center;gap:12px">
+            <div class="user-avatar-cell">${iniciaisDe(u.nome)}</div>
+            <div>
+              <div style="font-weight:600;color:var(--text)">${escapeHtml(u.nome || '—')}</div>
+              <div style="font-size:11px;color:var(--muted)">ID: #${u.id}</div>
+            </div>
+          </div>
+        </td>
+        <td><span style="color:var(--muted)">${escapeHtml(u.email || '—')}</span></td>
+        <td>${papelNome}</td>
+        <td>${statusHtml}</td>
+        <td style="color:var(--muted);font-size:12px">${u.criado_em ? formatarData(u.criado_em) : '—'}</td>
+        <td>
+          <div class="action-btns">
+            <button class="action-btn edit" onclick="abrirModalEditarUsuario(${u.id})" title="Configurar acessos">⚙️ Gerenciar</button>
+            ${btnAtivarInativar}
+          </div>
+        </td>
+      </tr>
+    `}).join('');
+    renderizarUsuariosMobile(usuariosCache);
+  }
+
+  function renderizarUsuariosMobile(usuarios) {
+    const container = document.getElementById('usuarios-cards-mobile');
+    if (!container) return;
+    const AGORA = Date.now();
+    const ONLINE_MS = 5 * 60 * 1000;
+    function isOnline(u) {
+      if (!u.ultima_atividade_em) return false;
+      return (AGORA - new Date(u.ultima_atividade_em).getTime()) < ONLINE_MS;
+    }
+    const eu = getUsuario();
+    const gestorPodeAlterarOutros = eu && eu.is_gestor;
+    
+    if (!usuarios.length) {
+      container.innerHTML = '';
+      return;
+    }
+
+    container.innerHTML = usuarios.map(u => {
+      const online = isOnline(u);
+      const statusHtml = u.ativo
+        ? (online ? 'Ativo <span class="status-online">🟢</span>' : 'Ativo')
+        : 'Inativo';
+      const papelNome = u.papel ? u.papel.nome : '—';
+      const podeAlterarStatus = gestorPodeAlterarOutros && eu.id !== u.id;
+      const btnAtivarInativar = podeAlterarStatus
+        ? `<button class="btn ${u.ativo ? '' : 'btn-primary'}" style="font-size:11px;padding:8px" onclick="toggleAtivoUsuario(${u.id}, ${u.ativo})">${u.ativo ? '⏸ Inativar' : '▶ Ativar'}</button>`
+        : '';
+
+      return `
+      <div class="mobile-card">
+        <div class="mobile-card-header">
+          <div class="mobile-card-client">
+            <div class="mobile-card-avatar" style="background:var(--green-dim);color:var(--green)">${iniciaisDe(u.nome)}</div>
+            <div class="mobile-card-info">
+              <div class="mobile-card-name">${escapeHtml(u.nome || '—')}</div>
+              <div class="mobile-card-numero">${escapeHtml(u.email || '—')}</div>
+            </div>
+          </div>
+        </div>
+        <div class="mobile-card-body">
+          <div style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)">
+            <div style="display:flex;justify-content:space-between">
+              <span>Papel:</span>
+              <b style="color:var(--text)">${escapeHtml(papelNome)}</b>
+            </div>
+            <div style="display:flex;justify-content:space-between">
+              <span>Status:</span>
+              <b style="color:${u.ativo ? 'var(--green)' : 'var(--red)'}">${statusHtml}</b>
+            </div>
+            <div style="display:flex;justify-content:space-between">
+              <span>Cadastrado:</span>
+              <b style="color:var(--text)">${u.criado_em ? formatarData(u.criado_em) : '—'}</b>
+            </div>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:8px">
+            <button class="btn btn-primary" style="flex:1;font-size:11px;padding:8px" onclick="abrirModalEditarUsuario(${u.id})">✏️ Editar</button>
+            ${btnAtivarInativar}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  async function toggleAtivoUsuario(id, ativoAtual) {
+    const u = usuariosCache.find(x => x.id === id);
+    if (!u) return;
+    const eu = getUsuario();
+    if (!eu || !eu.is_gestor || eu.id === id) {
+      showNotif('⚠️', 'Sem permissão', 'Apenas o gestor pode ativar ou inativar outros usuários.', 'error');
+      return;
+    }
+    try {
+      await api.patch(`/empresa/usuarios/${id}`, { ativo: !ativoAtual });
+      showNotif('✅', ativoAtual ? 'Usuário inativado' : 'Usuário ativado', ativoAtual ? 'O usuário não poderá mais acessar o sistema.' : 'O usuário pode acessar o sistema novamente.');
+      await carregar();
+    } catch (err) {
+      showNotif('❌', 'Erro', err.message || 'Não foi possível alterar o status.', 'error');
+    }
+  }
+
+  async function adicionarUsuario() {
+    const nome  = document.getElementById('novo-nome').value.trim();
+    const email = document.getElementById('novo-email').value.trim();
+    const senha = document.getElementById('novo-senha').value;
+
+    if (!nome || !email) {
+      showNotif('⚠️', 'Campos obrigatórios', 'Preencha nome e e-mail.', 'error');
+      return;
+    }
+    if (senha.length < 6) {
+      showNotif('⚠️', 'Senha curta', 'Use no mínimo 6 caracteres.', 'error');
+      return;
+    }
+
+    const btn = document.getElementById('btn-adicionar');
+    setLoading(btn, true);
+    try {
+      await api.post('/empresa/usuarios', { nome, email, senha });
+      showNotif('✅', 'Usuário cadastrado!', `${nome} já pode fazer login.`);
+      document.getElementById('novo-nome').value = '';
+      document.getElementById('novo-email').value = '';
+      document.getElementById('novo-senha').value = '';
+      await carregar();
+    } catch (err) {
+      showNotif('❌', 'Erro', err.message, 'error');
+    } finally {
+      setLoading(btn, false, 'Cadastrar usuário');
+    }
+  }
+
+  function abrirModalEditarUsuario(id) {
+    const u = usuariosCache.find(x => x.id === id);
+    if (!u) return;
+    const eu = getUsuario();
+    document.getElementById('edit-usuario-id').value = u.id;
+    document.getElementById('edit-nome').value = u.nome || '';
+    document.getElementById('edit-email').value = u.email || '';
+    document.getElementById('edit-senha').value = '';
+    const descMaxEl = document.getElementById('edit-desconto-max');
+    if (descMaxEl) descMaxEl.value = (u.desconto_max_percent != null && u.desconto_max_percent !== '') ? u.desconto_max_percent : '';
+
+    // Seções restritas: só para gestores, somente em outros usuários
+      const secaoPerms  = document.getElementById('edit-permissoes-section');
+      const secaoStatus = document.getElementById('edit-status-section');
+      if (eu && eu.is_gestor && eu.id !== u.id) {
+        // Preencher select de papéis
+        const papelSelect = document.getElementById('edit-papel-id');
+        papelSelect.innerHTML = '<option value="">— Permissões Customizadas (Personalizar abaixo) —</option>';
+        papeisCache.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.id;
+          opt.textContent = p.nome + (p.is_sistema ? ' (sistema)' : '');
+          if (u.papel_id === p.id) opt.selected = true;
+          papelSelect.appendChild(opt);
+        });
+
+        togglePermissoesCustomizadas();
+
+        const perms = u.permissoes || {};
+      
+      // Catálogo
+      const catalogoVal = perms.catalogo || '';
+      const permCatSelect = document.getElementById('edit-perm-catalogo-select');
+      if (permCatSelect) permCatSelect.value = catalogoVal;
+
+      // Financeiro
+      const financeiroVal = perms.financeiro || '';
+      const permFinSelect = document.getElementById('edit-perm-financeiro');
+      if (permFinSelect) permFinSelect.value = financeiroVal;
+
+      // Clientes
+      const clientesVal = perms.clientes || 'escrita';
+      const permCliSelect = document.getElementById('edit-perm-clientes');
+      if (permCliSelect) permCliSelect.value = clientesVal;
+
+      // Orçamentos
+      const orcamentosVal = perms.orcamentos || 'escrita';
+      const permOrcSelect = document.getElementById('edit-perm-orcamentos');
+      if (permOrcSelect) permOrcSelect.value = orcamentosVal;
+
+      // Documentos
+      const documentosVal = perms.documentos || 'escrita';
+      const permDocSelect = document.getElementById('edit-perm-documentos');
+      if (permDocSelect) permDocSelect.value = documentosVal;
+
+      // Relatórios
+      const relatoriosVal = perms.relatorios || 'leitura';
+      const permRelSelect = document.getElementById('edit-perm-relatorios');
+      if (permRelSelect) permRelSelect.value = relatoriosVal;
+
+      // IA
+      const iaVal = perms.ia || 'leitura';
+      const permIASelect = document.getElementById('edit-perm-ia');
+      if (permIASelect) permIASelect.value = iaVal;
+
+      // Equipe
+      const equipeVal = perms.equipe || '';
+      const permEquipeSelect = document.getElementById('edit-perm-equipe');
+      if (permEquipeSelect) permEquipeSelect.value = equipeVal;
+
+      // Configurações
+      const configVal = perms.configuracoes || '';
+      const permConfigSelect = document.getElementById('edit-perm-configuracoes');
+      if (permConfigSelect) permConfigSelect.value = configVal;
+
+      // Comercial
+      const comercialVal = perms.comercial || '';
+      const permComercialSelect = document.getElementById('edit-perm-comercial');
+      if (permComercialSelect) permComercialSelect.value = comercialVal;
+
+      secaoPerms.style.display = 'block';
+      document.getElementById('edit-ativo').checked = u.ativo !== false;
+      secaoStatus.style.display = 'block';
+    } else {
+      secaoPerms.style.display  = 'none';
+      secaoStatus.style.display = 'none';
+    }
+
+    document.getElementById('modal-editar-usuario').classList.add('open');
+  }
+
+  function fecharModalEditarUsuario() {
+    document.getElementById('modal-editar-usuario').classList.remove('open');
+  }
+
+  document.getElementById('modal-editar-usuario').addEventListener('click', function(e) {
+    if (e.target === this) fecharModalEditarUsuario();
+  });
+
+  async function salvarEdicaoUsuario() {
+    const id = document.getElementById('edit-usuario-id').value;
+    const nome = document.getElementById('edit-nome').value.trim();
+    const email = document.getElementById('edit-email').value.trim();
+    const senha = document.getElementById('edit-senha').value;
+
+    if (!nome || !email) {
+      showNotif('⚠️', 'Campos obrigatórios', 'Preencha nome e e-mail.', 'error');
+      return;
+    }
+    if (senha && senha.length < 6) {
+      showNotif('⚠️', 'Senha curta', 'Use no mínimo 6 caracteres para alterar a senha.', 'error');
+      return;
+    }
+
+    const btn = document.getElementById('btn-salvar-edicao');
+    setLoading(btn, true);
+    const payload = { nome, email };
+    if (senha) payload.senha = senha;
+
+    // Inclui permissões/status apenas se visíveis (gestor editando outro usuário)
+    const secaoPerms2  = document.getElementById('edit-permissoes-section');
+    const secaoStatus2 = document.getElementById('edit-status-section');
+    if (secaoPerms2.style.display !== 'none') {
+      // Papel RBAC
+      const papelIdVal = document.getElementById('edit-papel-id').value;
+      payload.papel_id = papelIdVal ? parseInt(papelIdVal) : null;
+
+      // Constrói objeto de permissões granulares
+      payload.permissoes = {};
+      
+      const catVal = document.getElementById('edit-perm-catalogo-select').value;
+      if (catVal) payload.permissoes.catalogo = catVal;
+      
+      const finVal = document.getElementById('edit-perm-financeiro').value;
+      if (finVal) payload.permissoes.financeiro = finVal;
+
+      const cliVal = document.getElementById('edit-perm-clientes').value;
+      if (cliVal) payload.permissoes.clientes = cliVal;
+
+      const orcVal = document.getElementById('edit-perm-orcamentos').value;
+      if (orcVal) payload.permissoes.orcamentos = orcVal;
+
+      const docVal = document.getElementById('edit-perm-documentos').value;
+      if (docVal) payload.permissoes.documentos = docVal;
+
+      const relVal = document.getElementById('edit-perm-relatorios').value;
+      if (relVal) payload.permissoes.relatorios = relVal;
+
+      const iaVal = document.getElementById('edit-perm-ia').value;
+      if (iaVal) payload.permissoes.ia = iaVal;
+
+      const eqVal = document.getElementById('edit-perm-equipe').value;
+      if (eqVal) payload.permissoes.equipe = eqVal;
+
+      const confVal = document.getElementById('edit-perm-configuracoes').value;
+      if (confVal) payload.permissoes.configuracoes = confVal;
+
+      const comercialVal2 = document.getElementById('edit-perm-comercial').value;
+      if (comercialVal2) payload.permissoes.comercial = comercialVal2;
+
+    }
+    if (secaoStatus2.style.display !== 'none') {
+      payload.ativo = document.getElementById('edit-ativo').checked;
+    }
+    const editDescMax = document.getElementById('edit-desconto-max');
+    if (editDescMax) {
+      const v = editDescMax.value.trim();
+      payload.desconto_max_percent = (v === '' || v === null) ? null : Math.min(100, Math.max(0, parseInt(v, 10) || 0));
+    }
+
+    try {
+      await api.patch(`/empresa/usuarios/${id}`, payload);
+      showNotif('✅', 'Cadastro atualizado!', '');
+      fecharModalEditarUsuario();
+      await carregar();
+    } catch (err) {
+      showNotif('❌', 'Erro', err.message, 'error');
+    } finally {
+      setLoading(btn, false, 'Salvar alterações');
+    }
+  }
+
+  carregar();
+  setInterval(carregar, 60000);
+</script>
+</body>
+</html>

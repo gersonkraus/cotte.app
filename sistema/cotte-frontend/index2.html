@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function () { var t = localStorage.getItem("cotte_tema"); if (t) document.documentElement.setAttribute("data-theme", t); })()</script>
+  <title>COTTE — Dashboard v2 (Modular)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/style.css?v=3">
+  <style>
+    /* Banner de desenvolvimento */
+    .dev-banner {
+      background: linear-gradient(90deg, #ff6b6b, #ff8e53);
+      color: white;
+      padding: 10px 16px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+      border-bottom: 2px solid #ff4757;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    
+    .dev-banner svg {
+      width: 16px;
+      height: 16px;
+    }
+    
+    /* Overrides específicos para v2 */
+    .dashboard-v2 {
+      --primary-color: #3b82f6;
+      --primary-hover: #2563eb;
+    }
+  </style>
+</head>
+
+<body class="dashboard-v2">
+  <!-- Banner de desenvolvimento -->
+  <div class="dev-banner">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+    </svg>
+    🧪 DASHBOARD v2 (MODULAR) - Versão de testes com arquitetura melhorada
+  </div>
+
+  <div class="layout">
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-title-wrap">
+          <h1 class="topbar-title" id="page-greeting">Carregando...</h1>
+          <div class="topbar-subtitle" id="dashboard-sub">Dashboard modularizado</div>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn btn-primary" id="btn-novo-orcamento">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          Novo orçamento
+        </button>
+        <div class="notif-badge-topbar" title="Notificações" onclick="abrirNotificacoes()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+        </div>
+        <div class="user-avatar" onclick="toggleUserMenu()">
+          <img src="https://ui-avatars.com/api/?name=Usuario&background=3b82f6&color=fff" alt="Usuário">
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+      <!-- Stats Row (Componente modular) -->
+      <div id="stats-row-container" class="stats-row" style="grid-template-columns: repeat(auto-fill, minmax(168px, 1fr))">
+        <!-- Stats serão renderizados via JavaScript -->
+      </div>
+
+      <!-- Charts Grid -->
+      <div class="charts-grid" id="charts-grid-container">
+        <!-- Gráficos serão renderizados via JavaScript -->
+      </div>
+
+      <!-- Alertas Section -->
+      <div id="alertas-section" class="alertas-banner" style="display:none">
+        <!-- Alertas serão renderizados via JavaScript -->
+      </div>
+
+      <!-- Content Grid -->
+      <div class="content-grid">
+        <!-- Tabela de Orçamentos -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="3" y1="9" x2="21" y2="9"></line>
+                <line x1="9" y1="21" x2="9" y2="9"></line>
+              </svg>
+              Orçamentos recentes
+            </div>
+            <div class="table-filters" id="table-filters-container">
+              <!-- Filtros serão renderizados via JavaScript -->
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Cliente</th>
+                  <th>Serviço</th>
+                  <th>Valor</th>
+                  <th>Status</th>
+                  <th style="text-align:right">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="orcamentos-tbody">
+                <tr>
+                  <td colspan="5" style="text-align:center;padding:40px 20px;color:var(--muted)">
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:12px">
+                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                        stroke-linecap="round" stroke-linejoin="round" style="opacity:0.5">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="3" y1="9" x2="21" y2="9"></line>
+                        <line x1="9" y1="21" x2="9" y2="9"></line>
+                      </svg>
+                      <div>Carregando orçamentos...</div>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="dashboard-carregar-mais" style="display:none;padding:16px;text-align:center">
+            <button class="btn btn-outline" onclick="carregarMaisOrcamentos()">
+              Carregar mais orçamentos
+            </button>
+          </div>
+        </div>
+
+        <!-- Right Panel -->
+        <div class="right-panel">
+          <!-- Widget WhatsApp -->
+          <div class="wpp-card" id="wpp-widget-container">
+            <!-- Widget será renderizado via JavaScript -->
+          </div>
+
+          <!-- Timeline -->
+          <div class="card timeline-card">
+            <div class="card-header">
+              <div class="card-title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                Atividade recente
+              </div>
+              <a href="javascript:void(0)" onclick="abrirTimeline()" style="font-size:12px;font-weight:600;color:var(--primary)">Ver tudo</a>
+            </div>
+            <div class="activity-list" id="timeline-dashboard-list">
+              <!-- Atividades serão renderizadas via JavaScript -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modais (serão gerenciados por componente separado) -->
+  <div id="modals-container">
+    <!-- Modais serão injetados via JavaScript -->
+  </div>
+
+  <!-- Notificação -->
+  <div class="notif" id="notif" style="display:none">
+    <div id="notif-content"></div>
+  </div>
+
+  <!-- Scripts principais -->
+  <script type="module" src="js/app.js"></script>
+  
+  <!-- Scripts de componentes (carregados dinamicamente) -->
+  <script>
+    // Feature flags para controle de funcionalidades
+    window.FeatureFlags = {
+      V2_FEATURES: {
+        realTimeUpdates: true,
+        dragDropReorder: false,
+        darkMode: true,
+        exportExcel: true,
+        cacheInteligente: true
+      },
+      
+      isEnabled(feature) {
+        return this.V2_FEATURES[feature] || false;
+      }
+    };
+    
+    // Identificador de ambiente
+    window.IS_DEV = true;
+    window.APP_VERSION = 'v2-modular';
+    
+    // Log de inicialização
+    console.log(`[${window.APP_VERSION}] Dashboard modular inicializando...`);
+  </script>
+</body>
+
+</html>

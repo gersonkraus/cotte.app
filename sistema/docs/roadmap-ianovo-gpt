@@ -1,0 +1,303 @@
+# 🚀 Roadmap Técnico Completo — Agente COTTE
+
+## 🎯 Objetivo
+
+Transformar o executor atual em um **agente confiável, escalável e seguro**, capaz de:
+
+- Interpretar comandos reais de ERP com precisão
+- Executar ações sem risco de erro operacional
+- Integrar com financeiro, orçamentos e WhatsApp
+- Operar corretamente em ambiente multi-tenant (empresa_id)
+- Servir como base do AI Hub do COTTE
+
+---
+
+# 🧱 Fase 1 — Base Estrutural (CORE)
+
+## 1.1 Refatorar Executor do Agente
+
+O executor deve evoluir de "1 tool call" para um orquestrador completo.
+
+### Requisitos:
+
+- Loop de execução de ferramentas
+- Suporte a múltiplas ferramentas
+- Limite de iterações (ex: 5)
+- Separação de responsabilidades
+
+---
+
+## 1.2 Estrutura do Executor
+
+    async def executar_agente_cotte(...):
+        messages = montar_historico()
+
+        for _ in range(5):
+            response = chamar_modelo()
+
+            if nao_tem_tool_use:
+                return resposta_final
+
+            executar_tools()
+            adicionar_tool_result()
+
+        return fallback_seguro
+
+---
+
+## 1.3 Tool Registry
+
+Substituir if/else por dispatcher:
+
+    TOOLS = {
+        "consultar_saldo_caixa": consultar_saldo_caixa,
+        "aprovar_orcamento": aprovar_orcamento,
+    }
+
+Arquivo:
+
+    app/services/tool_registry.py
+
+---
+
+## 1.4 Padronização de Retorno
+
+Todas as tools devem retornar:
+
+    {
+      "status": "success | error",
+      "data": {},
+      "message": "opcional"
+    }
+
+---
+
+## 1.5 Cliente Async
+
+Trocar cliente síncrono por async.
+
+---
+
+# 🧠 Fase 2 — Inteligência e Controle
+
+## 2.1 Classificador de Intenção
+
+Classificar mensagens em:
+
+- CONSULTA
+- AÇÃO
+- CRIAÇÃO
+- CONVERSA
+
+Arquivo:
+
+    app/services/intent_classifier.py
+
+---
+
+## 2.2 Tipos de Ferramentas
+
+READ:
+- consultas
+
+DRAFT:
+- simulações
+
+WRITE:
+- ações reais
+
+---
+
+## 2.3 Sistema de Confirmação
+
+Antes de WRITE:
+
+    requires_confirmation = True
+
+---
+
+# 💾 Fase 3 — Memória e Contexto
+
+## 3.1 Histórico com Redis
+
+Salvar:
+
+- mensagens
+- tool uses
+- respostas
+
+---
+
+## 3.2 Resumo Inteligente
+
+- resumir a cada 10 mensagens
+- manter contexto relevante
+
+Arquivo:
+
+    conversation_memory.py
+
+---
+
+## 3.3 Contexto por Empresa
+
+Sempre incluir:
+
+- empresa_id
+- dados da empresa
+
+---
+
+# ⚙️ Fase 4 — Performance
+
+## 4.1 Prompt Caching
+
+Aplicar em:
+
+- system prompt
+- tools
+- contexto fixo
+
+---
+
+## 4.2 Otimização de Banco
+
+Usar:
+
+    func.sum()
+    func.count()
+
+---
+
+## 4.3 Timeout e Fallback
+
+- fallback controlado
+- evitar travamento
+
+---
+
+# 🔐 Fase 5 — Segurança
+
+## 5.1 Validação de Entrada
+
+Validar:
+
+- tipos
+- IDs
+- limites
+
+---
+
+## 5.2 Multi-tenant
+
+Sempre usar:
+
+    empresa_id
+
+---
+
+## 5.3 Anti-Alucinação
+
+- não executar sem ID
+- não criar dados automaticamente
+- não assumir valores
+
+---
+
+# 🧩 Fase 6 — Integração
+
+## 6.1 Financeiro
+
+- consultar saldo
+- inadimplentes
+- pagamentos
+
+---
+
+## 6.2 Orçamentos
+
+- aprovar
+- recusar
+- enviar
+
+---
+
+## 6.3 WhatsApp
+
+- envio
+- follow-up
+
+---
+
+# 📊 Fase 7 — AI Hub
+
+## 7.1 Dashboard
+
+- análise financeira
+- conversão
+- previsão
+
+---
+
+## 7.2 Comandos Naturais
+
+Exemplos:
+
+- quanto tenho em caixa
+- quanto tenho pra receber
+- orçamentos aprovados
+
+---
+
+## 7.3 Automação
+
+- lembretes
+- cobranças
+- follow-up
+
+---
+
+# 🧭 Estrutura Final
+
+    app/
+    ├── services/
+    │   ├── cotte_agent_executor.py
+    │   ├── tool_registry.py
+    │   ├── intent_classifier.py
+    │   ├── conversation_memory.py
+    │   └── tools/
+    │       ├── financeiro_tools.py
+    │       ├── orcamento_tools.py
+    │       └── whatsapp_tools.py
+
+---
+
+# ⚠️ Erros Críticos
+
+- executar ação sem confirmação
+- criar dados por erro de interpretação
+- misturar saldo com faturamento
+- confiar na IA sem validação
+- ignorar empresa_id
+
+---
+
+# ✅ Resultado Esperado
+
+- agente confiável
+- sem erros operacionais
+- base escalável
+- integração total com COTTE
+
+---
+
+# 🚀 Próximo Passo
+
+Implementar:
+
+1. Executor com loop
+2. Tool registry
+3. Padronização de retorno
+4. Validação backend
+
+Isso resolve 80% dos problemas reais.

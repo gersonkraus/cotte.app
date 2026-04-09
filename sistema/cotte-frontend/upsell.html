@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem("cotte_tema");if(t){document.documentElement.setAttribute("data-theme",t);}else{document.documentElement.setAttribute("data-theme","light");}})()</script>
+  <title>COTTE — Oferta especial para você</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0 }
+    :root {
+      --green:   #00e5a0;
+      --blue:    #3b82f6;
+      --purple:  #8b5cf6;
+      --surface: #141720;
+      --surface2:#1a1d2e;
+      --border:  rgba(255,255,255,.08);
+      --text:    #f1f5f9;
+      --muted:   #64748b;
+      --bg:      #0d0f1a;
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 16px 60px;
+    }
+
+    /* ── HEADER ── */
+    .logo-wrap { display:flex; align-items:center; gap:8px; margin: 28px 0 36px; font-family:'Syne',sans-serif; font-weight:900; font-size:20px }
+    .logo-box  { background:var(--green); color:#0d0f1a; padding:5px 11px; border-radius:8px; font-size:17px }
+
+    /* ── BADGE ── */
+    .badge-urgencia {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(251,191,36,.12); color: #fbbf24;
+      border: 1px solid rgba(251,191,36,.25); border-radius: 30px;
+      padding: 7px 18px; font-size: 13px; font-weight: 600;
+      margin-bottom: 24px;
+    }
+    .badge-urgencia::before { content:'⚡'; font-size:15px }
+
+    /* ── HERO ── */
+    .hero { max-width: 680px; text-align: center; margin-bottom: 36px }
+    .hero h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(1.8rem, 5vw, 2.8rem);
+      font-weight: 900;
+      line-height: 1.15;
+      margin-bottom: 16px;
+    }
+    .hero h1 span { color: var(--green) }
+    .hero p { font-size: 1.05rem; color: #94a3b8; line-height: 1.7; max-width: 560px; margin: 0 auto }
+
+    /* ── CARD OFERTA ── */
+    .oferta-card {
+      max-width: 600px; width: 100%;
+      background: var(--surface);
+      border: 1px solid rgba(0,229,160,.25);
+      border-radius: 20px;
+      padding: 36px 32px;
+      margin-bottom: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+    .oferta-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--green), var(--blue));
+    }
+    .oferta-top {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      margin-bottom: 28px; gap: 16px; flex-wrap: wrap;
+    }
+    .plan-name { font-family:'Syne',sans-serif; font-size: 14px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px }
+    .plan-title { font-family:'Syne',sans-serif; font-size: 1.8rem; font-weight: 900 }
+    .price-block { text-align: right }
+    .price-de { font-size: 13px; color: var(--muted); text-decoration: line-through; margin-bottom: 2px }
+    .price-por { display:flex; align-items:baseline; gap:4px; justify-content:flex-end }
+    .price-por sub { font-size: 16px; color: var(--muted) }
+    .price-por strong { font-family:'Syne',sans-serif; font-size: 2.4rem; font-weight:900; color:var(--green) }
+    .price-por span { font-size: 14px; color:var(--muted) }
+
+    /* ── COMPARATIVO ── */
+    .comparativo { margin-bottom: 28px }
+    .comp-title { font-size: 12px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:var(--muted); margin-bottom:14px }
+    .comp-row {
+      display: grid; grid-template-columns: 1fr 80px 80px;
+      gap: 8px; align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .comp-row:last-child { border-bottom: none }
+    .comp-row .feature { color: #cbd5e1 }
+    .comp-row .col { text-align: center; font-weight: 600; font-size: 12px }
+    .comp-row .col.starter { color: var(--muted) }
+    .comp-row .col.pro { color: var(--green) }
+    .comp-header { font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.5px }
+    .comp-header .col.starter { color: var(--muted) }
+    .comp-header .col.pro { color: var(--green) }
+    .yes { color: var(--green) }
+    .no  { color: var(--muted) }
+
+    /* ── DESTAQUES ── */
+    .destaques {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 12px; margin-bottom: 28px;
+    }
+    .destaque-item {
+      background: var(--surface2); border-radius: 12px;
+      padding: 14px 16px; display: flex; align-items: flex-start; gap: 10px;
+    }
+    .destaque-icon { font-size: 20px; flex-shrink: 0 }
+    .destaque-text strong { font-size: 13px; display:block; margin-bottom:2px }
+    .destaque-text span { font-size: 11px; color: var(--muted); line-height: 1.4 }
+
+    /* ── CTAs ── */
+    .cta-sim {
+      display: block; width: 100%; padding: 18px;
+      background: linear-gradient(135deg, var(--green), #00b37e);
+      color: #0d0f1a; font-weight: 800; font-size: 1.1rem;
+      border: none; border-radius: 12px; cursor: pointer;
+      text-decoration: none; text-align: center;
+      font-family: 'Syne', sans-serif;
+      transition: opacity .2s, transform .1s;
+      margin-bottom: 12px;
+    }
+    .cta-sim:hover { opacity: .92; transform: translateY(-1px) }
+    .cta-nao {
+      display: block; text-align: center;
+      font-size: 13px; color: var(--muted);
+      text-decoration: none; padding: 10px;
+    }
+    .cta-nao:hover { color: var(--text) }
+    .cta-sub {
+      font-size: 11px; color: var(--muted); text-align: center;
+      margin-top: 10px; line-height: 1.5;
+    }
+
+    /* ── GARANTIA ── */
+    .garantia {
+      max-width: 600px; width: 100%;
+      display: flex; align-items: center; gap: 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 14px; padding: 18px 20px;
+      margin-bottom: 32px;
+    }
+    .garantia-icon { font-size: 36px; flex-shrink: 0 }
+    .garantia-text strong { display:block; font-size: 14px; margin-bottom: 3px }
+    .garantia-text span { font-size: 12px; color: var(--muted); line-height: 1.5 }
+
+    /* ── RODAPÉ ── */
+    .rodape { font-size: 12px; color: var(--muted); text-align: center; line-height: 1.8 }
+    .rodape a { color: var(--muted) }
+
+    @media (max-width: 540px) {
+      .oferta-card { padding: 24px 18px }
+      .destaques { grid-template-columns: 1fr }
+      .oferta-top { flex-direction: column }
+      .price-block { text-align: left }
+      .price-por { justify-content: flex-start }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Logo -->
+  <div class="logo-wrap">
+    <div class="logo-box">C</div> COTTE
+  </div>
+
+  <!-- Badge urgência -->
+  <div class="badge-urgencia">Oferta exclusiva — disponível só agora</div>
+
+  <!-- Hero -->
+  <div class="hero">
+    <h1>Parabéns pela sua compra!<br><span>Que tal turbinar ainda mais?</span></h1>
+    <p>Você acabou de dar o primeiro passo. Aproveite agora para ativar a <strong>IA automática</strong> e os <strong>lembretes automáticos</strong> — os recursos que mais convertem orçamentos em vendas.</p>
+  </div>
+
+  <!-- Card da oferta -->
+  <div class="oferta-card">
+
+    <!-- Topo: plano + preço -->
+    <div class="oferta-top">
+      <div>
+        <div class="plan-name">Upgrade para</div>
+        <div class="plan-title">Plano Pro 🚀</div>
+      </div>
+      <div class="price-block">
+        <div class="price-de">De R$ 197/mês</div>
+        <div class="price-por">
+          <sub>R$</sub><strong>147</strong><span>/mês</span>
+        </div>
+        <div style="font-size:11px;color:var(--green);font-weight:600;margin-top:2px">Economia de R$ 50/mês</div>
+      </div>
+    </div>
+
+    <!-- Comparativo -->
+    <div class="comparativo">
+      <div class="comp-title">O que muda no Pro</div>
+      <div class="comp-row comp-header">
+        <div></div>
+        <div class="col starter">Starter</div>
+        <div class="col pro">Pro</div>
+      </div>
+      <div class="comp-row">
+        <div class="feature">Orçamentos/mês</div>
+        <div class="col starter">50</div>
+        <div class="col pro">Ilimitado</div>
+      </div>
+      <div class="comp-row">
+        <div class="feature">Usuários</div>
+        <div class="col starter">1</div>
+        <div class="col pro">Até 5</div>
+      </div>
+      <div class="comp-row">
+        <div class="feature">IA automática (Claude)</div>
+        <div class="col starter no">✕</div>
+        <div class="col pro yes">✓</div>
+      </div>
+      <div class="comp-row">
+        <div class="feature">Lembretes automáticos</div>
+        <div class="col starter no">✕</div>
+        <div class="col pro yes">✓</div>
+      </div>
+      <div class="comp-row">
+        <div class="feature">Relatórios avançados</div>
+        <div class="col starter no">✕</div>
+        <div class="col pro yes">✓</div>
+      </div>
+    </div>
+
+    <!-- Destaques -->
+    <div class="destaques">
+      <div class="destaque-item">
+        <div class="destaque-icon">🤖</div>
+        <div class="destaque-text">
+          <strong>IA que cria orçamentos</strong>
+          <span>O cliente manda uma mensagem e a IA já preenche tudo automaticamente</span>
+        </div>
+      </div>
+      <div class="destaque-item">
+        <div class="destaque-icon">🔔</div>
+        <div class="destaque-text">
+          <strong>Lembretes automáticos</strong>
+          <span>Follow-up automático para orçamentos sem resposta. Menos trabalho, mais vendas</span>
+        </div>
+      </div>
+      <div class="destaque-item">
+        <div class="destaque-icon">👥</div>
+        <div class="destaque-text">
+          <strong>Até 5 usuários</strong>
+          <span>Sua equipe toda usando o sistema ao mesmo tempo</span>
+        </div>
+      </div>
+      <div class="destaque-item">
+        <div class="destaque-icon">📊</div>
+        <div class="destaque-text">
+          <strong>Relatórios avançados</strong>
+          <span>Taxa de aprovação, ticket médio e análise por período</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CTAs -->
+    <a href="https://pay.kiwify.com.br/GEEDagv" class="cta-sim" id="btn-upgrade" target="_blank">
+      ⚡ Sim! Quero o Plano Pro por R$ 147/mês
+    </a>
+    <a href="/app/" class="cta-nao" id="btn-nao">
+      Não, obrigado — continuar com o Starter
+    </a>
+    <div class="cta-sub">
+      🔒 Pagamento seguro via Kiwify · Cancele quando quiser · Sem fidelidade
+    </div>
+  </div>
+
+  <!-- Garantia -->
+  <div class="garantia">
+    <div class="garantia-icon">🛡️</div>
+    <div class="garantia-text">
+      <strong>Garantia de 7 dias</strong>
+      <span>Se em 7 dias você não estiver satisfeito com o Plano Pro, devolvemos 100% do valor pago. Sem perguntas.</span>
+    </div>
+  </div>
+
+  <!-- Rodapé -->
+  <div class="rodape">
+    COTTE — Sistema de Orçamentos por WhatsApp<br>
+    <a href="/">inicio</a> · <a href="/app/cadastro.html">cadastro</a>
+  </div>
+
+</body>
+</html>

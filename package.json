@@ -1,0 +1,29 @@
+{
+  "name": "projeto-izi",
+  "version": "1.0.0",
+  "description": "Sistema de geração de orçamentos via WhatsApp com inteligência artificial (Claude).   Backend em FastAPI, frontend em HTML/CSS/JS; deploy no Railway.",
+  "main": "index.js",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:report": "playwright show-report",
+    "guard:gitlinks": "bash scripts/check_no_gitlinks.sh"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gersonkraus/Projeto-izi.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/gersonkraus/Projeto-izi/issues"
+  },
+  "homepage": "https://github.com/gersonkraus/Projeto-izi#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
+  },
+  "dependencies": {
+    "@ai-sdk/google-vertex": "^4.0.104"
+  }
+}

@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem("cotte_tema");if(t){document.documentElement.setAttribute("data-theme",t);}else{document.documentElement.setAttribute("data-theme","light");}})()</script>
+  <title>COTTE — Relatórios</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/style.css?v=3">
+  <style>
+    .stats-row-top    { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px; }
+    .stats-row-bottom { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 24px; }
+    .stats-row-bottom .stat-card  { padding: 14px 16px; }
+    .stats-row-bottom .stat-icon  { width: 30px; height: 30px; font-size: 13px; margin-bottom: 8px; }
+    .stats-row-bottom .stat-value { font-size: 20px; }
+    .stats-row-bottom .stat-label { font-size: 11px; }
+
+    .expiry-alert {
+      background: rgba(249,115,22,0.07);
+      border: 1px solid rgba(249,115,22,0.22);
+      border-radius: 14px; padding: 14px 20px;
+      margin-bottom: 24px; display: none;
+    }
+    .expiry-alert.visible { display: block; }
+    .expiry-alert-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .expiry-alert-icon  { font-size: 16px; }
+    .expiry-alert-title { font-size: 13px; font-weight: 600; color: var(--orange); }
+    .expiry-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .expiry-chip {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(249,115,22,0.1); border: 1px solid rgba(249,115,22,0.2);
+      border-radius: 10px; padding: 6px 12px; font-size: 12px;
+      color: var(--text); cursor: pointer; text-decoration: none;
+      transition: background 0.2s;
+    }
+    .expiry-chip:hover { background: rgba(249,115,22,0.18); }
+    .expiry-chip-num  { color: var(--orange); font-weight: 700; font-size: 11px; }
+    .expiry-chip-tag  {
+      font-size: 10px; padding: 2px 7px; border-radius: 6px;
+      background: rgba(249,115,22,0.15); color: #fbbf24;
+    }
+
+    .rel-content-grid { display: grid; grid-template-columns: 280px 1fr; gap: 24px; }
+
+    .chart-container { padding: 24px; }
+    .chart-section-title {
+      font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700;
+      margin-bottom: 20px;
+    }
+    .donut-wrap {
+      position: relative; width: 160px; height: 160px; margin: 0 auto 20px;
+    }
+    .donut-center {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      pointer-events: none;
+    }
+    .donut-center-val { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 700; line-height: 1; }
+    .donut-center-lbl { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+    .chart-legend { display: flex; flex-direction: column; gap: 9px; }
+    .legend-row   { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+    .legend-dot   { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .legend-lbl   { flex: 1; color: var(--muted); }
+    .legend-num   { font-weight: 600; font-size: 13px; }
+    .legend-pct   { font-size: 10px; color: var(--muted2); min-width: 28px; text-align: right; }
+
+    .chart-divider { height: 1px; background: var(--border); margin: 20px 0; }
+    .metric-mini { display: flex; flex-direction: column; gap: 12px; }
+    .metric-mini-row {
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .metric-mini-lbl { font-size: 12px; color: var(--muted); }
+    .metric-mini-val { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; }
+
+    .rank-badge {
+      width: 22px; height: 22px; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700; flex-shrink: 0;
+    }
+    .r1 { background: rgba(251,191,36,0.2);  color: #fbbf24; }
+    .r2 { background: rgba(156,163,175,0.18); color: #9ca3af; }
+    .r3 { background: rgba(180,120,60,0.18);  color: #cd7f32; }
+    .rn { background: var(--surface2);        color: var(--muted); }
+
+    .progress-bar  { height: 3px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; margin-top: 4px; }
+    .progress-fill { height: 100%; border-radius: 4px; background: var(--green); transition: width 0.5s ease; }
+
+    .export-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 500;
+      cursor: pointer; transition: all 0.2s;
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--muted); font-family: inherit;
+    }
+    .export-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.15); }
+
+    .stat-card.red::before    { background: linear-gradient(90deg, #ef4444, transparent); }
+    .stat-card.yellow::before { background: linear-gradient(90deg, #fbbf24, transparent); }
+    .stat-icon.red    { background: rgba(239,68,68,0.12);  color: #ef4444; }
+    .stat-icon.yellow { background: rgba(251,191,36,0.12); color: #fbbf24; }
+
+    .stats-row-bottom .stat-card { transition: all 0.2s; }
+    .stats-row-bottom .stat-card:hover {
+      border-color: rgba(255,255,255,0.2);
+      transform: translateY(-3px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+
+    @media (max-width: 1280px) {
+      .rel-content-grid { grid-template-columns: 1fr; }
+      .stats-row-bottom { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 960px) {
+      .stats-row-top    { grid-template-columns: repeat(2, 1fr); }
+      .stats-row-bottom { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+<aside class="sidebar" id="sidebar"></aside>
+
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-title-wrap">
+      <div class="page-title">Relatórios</div>
+      <div class="page-sub" id="topbar-periodo-label">Faturamento e resumo por período</div>
+    </div>
+    <div class="topbar-actions">
+      <span id="topbar-notificacoes"></span>
+    </div>
+  </div>
+
+  <!-- FILTROS -->
+  <div class="card" style="margin-bottom:20px;padding:16px 24px;display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <label style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:13px;color:var(--muted)">De</span>
+        <input type="date" id="data-inicio" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:14px">
+      </label>
+      <label style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:13px;color:var(--muted)">Até</span>
+        <input type="date" id="data-fim" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:14px">
+      </label>
+      <button class="btn btn-ghost" onclick="setPeriodo('hoje')">Hoje</button>
+      <button class="btn btn-ghost" onclick="setPeriodo('semana')">7 dias</button>
+      <button class="btn btn-ghost" onclick="setPeriodo('mes')">Este mês</button>
+      <button class="btn btn-ghost" onclick="setPeriodo('ano')">Este ano</button>
+      <button class="btn btn-primary" onclick="carregarRelatorio()">Atualizar</button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:center">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em">Aprovação:</span>
+        <div class="table-filters" style="margin:0;padding:0;border:none" id="filtro-aprovacao">
+          <button type="button" class="filter-chip active" data-val="todos"         onclick="setFiltroAprovacao(this)">Todos</button>
+          <button type="button" class="filter-chip"        data-val="aprovados"     onclick="setFiltroAprovacao(this)">Aprovados</button>
+          <button type="button" class="filter-chip"        data-val="nao_aprovados" onclick="setFiltroAprovacao(this)">Não aprovados</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em">Envio:</span>
+        <div class="table-filters" style="margin:0;padding:0;border:none" id="filtro-envio">
+          <button type="button" class="filter-chip active" data-val="todos"        onclick="setFiltroEnvio(this)">Todos</button>
+          <button type="button" class="filter-chip"        data-val="enviados"     onclick="setFiltroEnvio(this)">Enviados</button>
+          <button type="button" class="filter-chip"        data-val="nao_enviados" onclick="setFiltroEnvio(this)">Não enviados</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ALERTA: PRESTES A EXPIRAR -->
+  <div class="expiry-alert" id="expiry-alert">
+    <div class="expiry-alert-header">
+      <span class="expiry-alert-icon">⚠️</span>
+      <span class="expiry-alert-title" id="expiry-alert-title">Orçamentos vencendo em breve</span>
+    </div>
+    <div class="expiry-chips" id="expiry-chips"></div>
+  </div>
+
+  <!-- MÉTRICAS PRINCIPAIS (linha 1) -->
+  <div class="stats-row-top">
+    <div class="stat-card green highlight">
+      <div class="stat-icon green">💰</div>
+      <div class="stat-value" id="stat-faturamento">—</div>
+      <div class="stat-label">Faturamento aprovado</div>
+    </div>
+    <div class="stat-card blue highlight">
+      <div class="stat-icon blue">🎯</div>
+      <div class="stat-value" id="stat-ticket">—</div>
+      <div class="stat-label">Ticket médio</div>
+    </div>
+    <div class="stat-card orange highlight">
+      <div class="stat-icon orange">📊</div>
+      <div class="stat-value" id="stat-taxa">—</div>
+      <div class="stat-label">Taxa de aprovação</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px" id="stat-tempo-label"></div>
+    </div>
+  </div>
+
+  <!-- CONTAGENS (linha 2) -->
+  <div class="stats-row-bottom">
+    <div class="stat-card blue" style="cursor:pointer" onclick="limparFiltros()">
+      <div class="stat-icon blue">📋</div>
+      <div class="stat-value" id="stat-total">—</div>
+      <div class="stat-label">Total</div>
+    </div>
+    <div class="stat-card green" style="cursor:pointer" onclick="filtrarPorStatus('aprovados')">
+      <div class="stat-icon green">✅</div>
+      <div class="stat-value" id="stat-aprovados">—</div>
+      <div class="stat-label">Aprovados</div>
+    </div>
+    <div class="stat-card" style="--card-color:#3b82f6;cursor:pointer" onclick="filtrarPorStatus('enviados')">
+      <div class="stat-icon" style="background:var(--blue-dim);color:var(--blue)">📤</div>
+      <div class="stat-value" id="stat-enviados">—</div>
+      <div class="stat-label">Enviados</div>
+    </div>
+    <div class="stat-card red" style="cursor:pointer" onclick="filtrarPorStatus('recusados')">
+      <div class="stat-icon red">❌</div>
+      <div class="stat-value" id="stat-recusados">—</div>
+      <div class="stat-label">Recusados</div>
+    </div>
+    <div class="stat-card yellow" style="cursor:pointer" onclick="filtrarPorStatus('rascunho')">
+      <div class="stat-icon yellow">📝</div>
+      <div class="stat-value" id="stat-rascunho">—</div>
+      <div class="stat-label">Rascunhos</div>
+    </div>
+  </div>
+
+  <!-- GRADE: GRÁFICO + TABELA -->
+  <div class="rel-content-grid">
+    <!-- Coluna esquerda: gráfico de distribuição + métricas extras -->
+    <div class="card">
+      <div class="chart-container">
+        <div class="chart-section-title">Distribuição de status</div>
+        <div class="donut-wrap">
+          <canvas id="donut-canvas" width="160" height="160"></canvas>
+          <div class="donut-center">
+            <div class="donut-center-val" id="donut-total">0</div>
+            <div class="donut-center-lbl">orçamentos</div>
+          </div>
+        </div>
+        <div class="chart-legend" id="chart-legend"></div>
+
+        <div class="chart-divider"></div>
+
+        <div class="metric-mini">
+          <div class="metric-mini-row">
+            <span class="metric-mini-lbl">Tempo médio de aprovação</span>
+            <span class="metric-mini-val" id="mini-tempo">—</span>
+          </div>
+          <div class="metric-mini-row">
+            <span class="metric-mini-lbl">Expirados no período</span>
+            <span class="metric-mini-val" id="mini-expirados">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Coluna direita: tabela por cliente -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title" id="tabela-titulo">Por cliente</div>
+        <button class="export-btn" onclick="exportarCSV()">↓ Exportar CSV</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:32px">#</th>
+              <th>Cliente</th>
+              <th id="th-qtd">Orçamentos</th>
+              <th id="th-aprov" style="display:none">Aprovados</th>
+              <th>Faturamento</th>
+            </tr>
+          </thead>
+          <tbody id="por-cliente-tbody">
+            <tr><td colspan="5"><div class="loading"><div class="spinner"></div> Carregando...</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="js/utils.js?v=1"></script>
+<script src="js/api.js?v=17"></script>
+<script src="js/layout.js?v=5"></script>
+<script>
+  if (!getToken()) { window.location.href = 'login.html'; }
+  inicializarLayout('relatorios');
+
+  let filtroAprovacao = 'todos';
+  let filtroEnvio     = 'todos';
+  let _dadosClientes  = [];
+
+  // ── helpers ────────────────────────────────────────────────────────────────
+  function fmtMoeda(v) {
+    if (v == null || isNaN(v)) return '—';
+    return 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function fmtPct(v) {
+    if (v == null) return '—';
+    return Number(v).toFixed(1) + '%';
+  }
+
+  // ── filtros ────────────────────────────────────────────────────────────────
+  function setFiltroAprovacao(btn) {
+    document.querySelectorAll('#filtro-aprovacao .filter-chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    filtroAprovacao = btn.dataset.val;
+    carregarRelatorio();
+  }
+  function setFiltroEnvio(btn) {
+    document.querySelectorAll('#filtro-envio .filter-chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    filtroEnvio = btn.dataset.val;
+    carregarRelatorio();
+  }
+  function limparFiltros() {
+    document.querySelectorAll('#filtro-aprovacao .filter-chip').forEach(c => c.classList.remove('active'));
+    document.querySelector('#filtro-aprovacao [data-val="todos"]').classList.add('active');
+    filtroAprovacao = 'todos';
+    document.querySelectorAll('#filtro-envio .filter-chip').forEach(c => c.classList.remove('active'));
+    document.querySelector('#filtro-envio [data-val="todos"]').classList.add('active');
+    filtroEnvio = 'todos';
+    carregarRelatorio();
+  }
+  function filtrarPorStatus(status) {
+    if (status === 'aprovados') {
+      document.querySelectorAll('#filtro-aprovacao .filter-chip').forEach(c => c.classList.remove('active'));
+      document.querySelector('#filtro-aprovacao [data-val="aprovados"]').classList.add('active');
+      filtroAprovacao = 'aprovados';
+    } else if (status === 'recusados') {
+      document.querySelectorAll('#filtro-aprovacao .filter-chip').forEach(c => c.classList.remove('active'));
+      document.querySelector('#filtro-aprovacao [data-val="nao_aprovados"]').classList.add('active');
+      filtroAprovacao = 'nao_aprovados';
+    } else if (status === 'enviados') {
+      document.querySelectorAll('#filtro-envio .filter-chip').forEach(c => c.classList.remove('active'));
+      document.querySelector('#filtro-envio [data-val="enviados"]').classList.add('active');
+      filtroEnvio = 'enviados';
+    } else if (status === 'rascunho') {
+      document.querySelectorAll('#filtro-aprovacao .filter-chip').forEach(c => c.classList.remove('active'));
+      document.querySelector('#filtro-aprovacao [data-val="nao_aprovados"]').classList.add('active');
+      filtroAprovacao = 'nao_aprovados';
+    }
+    carregarRelatorio();
+  }
+
+  // ── atalhos de período ─────────────────────────────────────────────────────
+  function setPeriodo(p) {
+    const hoje = new Date();
+    let ini, fim = hoje.toISOString().slice(0, 10);
+    if (p === 'hoje') {
+      ini = fim;
+    } else if (p === 'semana') {
+      const d = new Date(hoje); d.setDate(d.getDate() - 6);
+      ini = d.toISOString().slice(0, 10);
+    } else if (p === 'mes') {
+      ini = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0, 10);
+    } else if (p === 'ano') {
+      ini = new Date(hoje.getFullYear(), 0, 1).toISOString().slice(0, 10);
+    }
+    document.getElementById('data-inicio').value = ini;
+    document.getElementById('data-fim').value    = fim;
+    carregarRelatorio();
+  }
+
+  // ── gráfico donut (canvas vanilla) ────────────────────────────────────────
+  function desenharDonut(canvas, dados) {
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width  = 160 * dpr;
+    canvas.height = 160 * dpr;
+    canvas.style.width  = '160px';
+    canvas.style.height = '160px';
+    ctx.scale(dpr, dpr);
+    const cx = 80, cy = 80, R = 68, r = 46;
+    const total = dados.reduce((s, d) => s + d.valor, 0);
+    ctx.clearRect(0, 0, 160, 160);
+    if (total === 0) {
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.04)'; ctx.fill();
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = '#111827'; ctx.fill();
+      return;
+    }
+    let ang = -Math.PI / 2;
+    for (const d of dados) {
+      if (d.valor === 0) continue;
+      const slice = (d.valor / total) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(cx + R * Math.cos(ang), cy + R * Math.sin(ang));
+      ctx.arc(cx, cy, R, ang, ang + slice);
+      ctx.arc(cx, cy, r, ang + slice, ang, true);
+      ctx.closePath();
+      ctx.fillStyle = d.cor; ctx.fill();
+      ang += slice;
+    }
+  }
+  function atualizarLegenda(dados, total) {
+    const el = document.getElementById('chart-legend');
+    el.innerHTML = dados.map(d => {
+      const pct = total > 0 ? ((d.valor / total) * 100).toFixed(0) : 0;
+      return `<div class="legend-row">
+        <div class="legend-dot" style="background:${d.cor}"></div>
+        <span class="legend-lbl">${d.label}</span>
+        <span class="legend-num">${d.valor}</span>
+        <span class="legend-pct">${pct}%</span>
+      </div>`;
+    }).join('');
+  }
+
+  // ── exportar CSV ──────────────────────────────────────────────────────────
+  function exportarCSV() {
+    if (!_dadosClientes.length) return;
+    const linhas = [['Cliente', 'Orçamentos', 'Aprovados', 'Faturamento (R$)']];
+    for (const d of _dadosClientes) {
+      linhas.push([d.cliente, d.quantidade, d.aprovados ?? d.quantidade, d.total]);
+    }
+    const csv = linhas.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'relatorio.csv'; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Proteger UI
+  if (typeof Permissoes !== 'undefined' && !Permissoes.pode('relatorios')) {
+    document.querySelector('.main').innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;text-align:center;padding:20px">
+        <div style="font-size:48px;margin-bottom:20px">🔒</div>
+        <h2 style="margin-bottom:10px">Acesso Restrito</h2>
+        <p style="color:var(--muted);max-width:400px">Você não tem permissão para visualizar relatórios financeiros. Entre em contato com o gestor da sua empresa.</p>
+        <button class="btn btn-primary" style="margin-top:20px" onclick="window.location.href='./'">Voltar ao Dashboard</button>
+      </div>
+    `;
+  }
+
+  async function carregarRelatorio() {
+    const dataInicio = document.getElementById('data-inicio').value || null;
+    const dataFim    = document.getElementById('data-fim').value    || null;
+    const params = new URLSearchParams();
+    if (dataInicio) params.set('data_inicio', dataInicio);
+    if (dataFim)    params.set('data_fim', dataFim);
+    if (filtroAprovacao !== 'todos') params.set('filtro_aprovacao', filtroAprovacao);
+    if (filtroEnvio     !== 'todos') params.set('filtro_envio',     filtroEnvio);
+
+    // subtítulo dinâmico
+    if (dataInicio && dataFim) {
+      const fmtDate = s => s.split('-').reverse().join('/');
+      document.getElementById('topbar-periodo-label').textContent =
+        `${fmtDate(dataInicio)} até ${fmtDate(dataFim)}`;
+    }
+
+    try {
+      const res = await api.get('/relatorios/resumo?' + params.toString());
+      const q   = res.quantidades    || {};  // dados filtrados (gráfico)
+      const tp  = res.totais_periodo || q;   // totais do período (cards)
+
+      // ── métricas principais ──────────────────────────────────────────────
+      document.getElementById('stat-faturamento').textContent = fmtMoeda(res.faturamento_aprovado);
+      document.getElementById('stat-ticket').textContent      = fmtMoeda(res.ticket_medio);
+      document.getElementById('stat-taxa').textContent        = fmtPct(res.taxa_aprovacao);
+
+      const tempo = res.tempo_medio_aprovacao;
+      document.getElementById('stat-tempo-label').textContent =
+        tempo != null ? `Tempo médio: ${tempo} dia${tempo !== 1 ? 's' : ''}` : '';
+
+      // ── cards de contagem (sempre totais do período, sem filtro) ─────────
+      document.getElementById('stat-total').textContent     = tp.total     ?? '—';
+      document.getElementById('stat-aprovados').textContent = tp.aprovados ?? '—';
+      document.getElementById('stat-enviados').textContent  = tp.enviados  ?? '—';
+      document.getElementById('stat-recusados').textContent = tp.recusados ?? '—';
+      document.getElementById('stat-rascunho').textContent  = tp.rascunho  ?? '—';
+
+      // ── mini métricas ────────────────────────────────────────────────────
+      document.getElementById('mini-tempo').textContent =
+        tempo != null ? `${tempo} dias` : '—';
+      document.getElementById('mini-expirados').textContent = tp.expirados ?? '—';
+
+      // ── gráfico donut (reflete o filtro atual) ────────────────────────────
+      const dadosDonut = [
+        { label: 'Aprovados', valor: q.aprovados || 0, cor: '#00e5a0' },
+        { label: 'Enviados',  valor: q.enviados  || 0, cor: '#3b82f6' },
+        { label: 'Recusados', valor: q.recusados || 0, cor: '#ef4444' },
+        { label: 'Expirados', valor: q.expirados || 0, cor: '#f97316' },
+        { label: 'Rascunho',  valor: q.rascunho  || 0, cor: '#4a5568' },
+      ];
+      const totalDonut = q.total || 0;
+      document.getElementById('donut-total').textContent = totalDonut;
+      desenharDonut(document.getElementById('donut-canvas'), dadosDonut);
+      atualizarLegenda(dadosDonut, totalDonut);
+
+      // ── alerta: prestes a expirar ─────────────────────────────────────────
+      const prestes = res.prestes_a_expirar || [];
+      const alertEl = document.getElementById('expiry-alert');
+      if (prestes.length > 0) {
+        alertEl.classList.add('visible');
+        document.getElementById('expiry-alert-title').textContent =
+          `${prestes.length} orçamento${prestes.length > 1 ? 's' : ''} vencendo nos próximos 3 dias`;
+        document.getElementById('expiry-chips').innerHTML = prestes.map(p => `
+          <a class="expiry-chip" href="orcamentos.html?id=${p.id}">
+            <span class="expiry-chip-num">${p.numero}</span>
+            <span>${p.cliente}</span>
+            <span>${fmtMoeda(p.total)}</span>
+            <span class="expiry-chip-tag">${p.dias_restantes < 1 ? 'hoje' : p.dias_restantes.toFixed(0) + 'd'}</span>
+          </a>
+        `).join('');
+      } else {
+        alertEl.classList.remove('visible');
+      }
+
+      // ── tabela por cliente ────────────────────────────────────────────────
+      _dadosClientes = res.por_cliente || [];
+      const mostrarAprovados = filtroAprovacao === 'todos';
+      document.getElementById('th-aprov').style.display = mostrarAprovados ? '' : 'none';
+      document.getElementById('tabela-titulo').textContent =
+        filtroAprovacao === 'aprovados'     ? 'Faturamento por cliente' :
+        filtroAprovacao === 'nao_aprovados' ? 'Não aprovados por cliente' :
+                                             'Por cliente';
+
+      const maxTotal = _dadosClientes.length > 0
+        ? Math.max(..._dadosClientes.map(d => d.total || d.quantidade))
+        : 1;
+
+      const tbody = document.getElementById('por-cliente-tbody');
+      if (_dadosClientes.length === 0) {
+        const colCount = mostrarAprovados ? 5 : 4;
+        tbody.innerHTML = `<tr><td colspan="${colCount}">
+          <div class="empty-state" style="padding:40px">
+            <div class="icon">📊</div>
+            <div class="title">Nenhum resultado</div>
+            <div class="desc">Tente ajustar o período ou os filtros.</div>
+          </div>
+        </td></tr>`;
+      } else {
+        const rankClass = i => i === 0 ? 'r1' : i === 1 ? 'r2' : i === 2 ? 'r3' : 'rn';
+        tbody.innerHTML = _dadosClientes.map((p, i) => {
+          const pct = maxTotal > 0 ? Math.round((p.total || p.quantidade) / maxTotal * 100) : 0;
+          const colAprov = mostrarAprovados
+            ? `<td>${p.aprovados ?? '—'}</td>` : '';
+          return `<tr>
+            <td><div class="rank-badge ${rankClass(i)}">${i + 1}</div></td>
+            <td>
+              <div style="font-weight:500">${p.cliente}</div>
+              <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+            </td>
+            <td>${p.quantidade}</td>
+            ${colAprov}
+            <td style="font-family:'Syne',sans-serif;font-weight:600;color:${p.total > 0 ? 'var(--green)' : 'var(--muted)'}">${fmtMoeda(p.total)}</td>
+          </tr>`;
+        }).join('');
+      }
+    } catch (err) {
+      // 403: módulo/plano não disponível
+      const errMsg = (err.message || '').toLowerCase();
+      if (errMsg.includes('não está disponível') || errMsg.includes('não estão disponíveis')) {
+        document.querySelector('main.main').innerHTML = `
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:70vh;text-align:center;padding:32px">
+            <div style="font-size:56px;margin-bottom:16px">🔒</div>
+            <h2 style="font-size:20px;font-weight:700;margin:0 0 8px">Módulo não disponível</h2>
+            <p style="color:var(--muted);max-width:380px;margin:0 0 24px">O módulo <strong>Relatórios</strong> não está incluso no seu plano atual. Faça upgrade para ter acesso.</p>
+            <div style="display:flex;gap:12px">
+              <button class="btn btn-primary" onclick="window.location.href='configuracoes.html#plano'">Ver planos</button>
+              <button class="btn btn-ghost" onclick="history.back()">Voltar</button>
+            </div>
+          </div>`;
+        return;
+      }
+      // Qualquer outro erro (empresa sem dados, erro de rede, etc) → estado vazio amigável
+      console.warn('Relatório:', err.message);
+      // Zera métricas principais
+      document.getElementById('stat-faturamento').textContent = 'R$ 0,00';
+      document.getElementById('stat-ticket').textContent      = 'R$ 0,00';
+      document.getElementById('stat-taxa').textContent        = '0,0%';
+      document.getElementById('stat-total').textContent       = '0';
+      document.getElementById('stat-aprovados').textContent   = '0';
+      document.getElementById('stat-enviados').textContent    = '0';
+      document.getElementById('stat-recusados').textContent   = '0';
+      document.getElementById('stat-rascunho').textContent    = '0';
+      document.getElementById('mini-tempo').textContent       = '—';
+      document.getElementById('mini-expirados').textContent   = '0';
+      // Donut vazio
+      desenharDonut(document.getElementById('donut-canvas'), []);
+      document.getElementById('donut-total').textContent = '0';
+      atualizarLegenda([], 0);
+      // Tabela com empty state + CTA
+      _dadosClientes = [];
+      const colCount = filtroAprovacao === 'todos' ? 5 : 4;
+      document.getElementById('por-cliente-tbody').innerHTML = `
+        <tr><td colspan="${colCount}">
+          <div class="empty-state" style="padding:48px 24px">
+            <div class="icon" style="font-size:48px;margin-bottom:12px">📊</div>
+            <div class="title" style="font-size:16px;font-weight:600;margin-bottom:6px">Nenhum dado para exibir</div>
+            <div class="desc" style="font-size:13px;color:var(--muted);margin-bottom:16px;max-width:320px;margin-left:auto;margin-right:auto">Cadastre seu primeiro orçamento para começar a ver os relatórios da sua empresa.</div>
+            <a href="index.html" class="btn btn-primary" style="display:inline-flex;margin:0 auto">✨ Criar primeiro orçamento</a>
+          </div>
+        </td></tr>`;
+    }
+  }
+
+  // ── init ───────────────────────────────────────────────────────────────────
+  const hoje      = new Date().toISOString().slice(0, 10);
+  const primeiroDia = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+  document.getElementById('data-inicio').value = primeiroDia;
+  document.getElementById('data-fim').value    = hoje;
+
+  // Pré-aplica filtros vindos da URL (ex: ?filtro_aprovacao=aprovados)
+  const urlParams       = new URLSearchParams(window.location.search);
+  const paramAprovacao  = urlParams.get('filtro_aprovacao');
+  if (paramAprovacao) {
+    filtroAprovacao = paramAprovacao;
+    document.querySelectorAll('#filtro-aprovacao .filter-chip').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.val === paramAprovacao);
+    });
+  }
+
+  if (typeof Permissoes === 'undefined' || Permissoes.pode('relatorios')) {
+    carregarRelatorio();
+  }
+</script>
+</body>
+</html>

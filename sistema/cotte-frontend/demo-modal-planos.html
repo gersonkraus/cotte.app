@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Demo - Modal de Planos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      padding: 40px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+    .demo-controls {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 600px;
+      width: 100%;
+    }
+    .demo-controls h1 {
+      font-size: 1.5rem;
+      margin-bottom: 16px;
+      color: var(--text);
+    }
+    .demo-controls p {
+      color: var(--muted);
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+    .btn-demo {
+      display: inline-block;
+      padding: 12px 24px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-demo:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(6, 182, 212, 0.35);
+    }
+    .theme-toggle {
+      margin-top: 16px;
+      padding: 8px 16px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      cursor: pointer;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="demo-controls">
+  <h1>🎨 Demo - Modal de Seleção de Planos</h1>
+  <p>
+    Este é o modal que aparece automaticamente quando o trial de 14 dias expira.
+    Clique no botão abaixo para visualizar:
+  </p>
+  <button class="btn-demo" onclick="exibirModal()">
+    ⚡ Exibir Modal de Planos
+  </button>
+  <br>
+  <button class="theme-toggle" onclick="toggleTema()">
+    🌓 Alternar Tema (Claro/Escuro)
+  </button>
+</div>
+
+<!-- MODAL SELEÇÃO DE PLANOS -->
+<div id="modal-planos" class="modal-planos-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="modal-planos-titulo">
+  <div class="modal-planos-container">
+    <div class="modal-planos-header">
+      <h2 id="modal-planos-titulo">Seu período de teste acabou, escolha um plano para continuar</h2>
+      <p>Selecione o plano ideal para o seu negócio e continue aproveitando todos os recursos do COTTE</p>
+    </div>
+    
+    <div class="modal-planos-grid">
+      
+      <!-- PLANO STARTER -->
+      <div class="plano-card">
+        <div class="plano-header">
+          <div class="plano-nome">Starter</div>
+          <div class="plano-preco">
+            <span class="preco-valor">R$ 89,90</span>
+            <span class="preco-periodo">/mês</span>
+          </div>
+          <div class="plano-desc">Para autônomos que querem enviar orçamentos rápido</div>
+        </div>
+        <div class="plano-features">
+          <div class="feature-item">✓ Até 200 orçamentos/mês</div>
+          <div class="feature-item">✓ 3 usuários</div>
+          <div class="feature-item">✓ Envio por WhatsApp</div>
+          <div class="feature-item">✓ Lembretes automáticos</div>
+          <div class="feature-item">✓ Relatórios básicos</div>
+        </div>
+        <a href="https://pay.kiwify.com.br/mlUv9Ox" target="_blank" class="plano-btn">
+          Escolher Starter
+        </a>
+      </div>
+
+      <!-- PLANO PRO (RECOMENDADO) -->
+      <div class="plano-card plano-destaque">
+        <div class="plano-badge">Recomendado</div>
+        <div class="plano-header">
+          <div class="plano-nome">Pro</div>
+          <div class="plano-preco">
+            <span class="preco-valor">R$ 129</span>
+            <span class="preco-periodo">/mês</span>
+          </div>
+          <div class="plano-desc">Para quem quer escalar sem contratar mais gente</div>
+        </div>
+        <div class="plano-features">
+          <div class="feature-item">✓ Até 1.000 orçamentos/mês</div>
+          <div class="feature-item">✓ 10 usuários</div>
+          <div class="feature-item">✓ IA automática (Claude)</div>
+          <div class="feature-item">✓ Lembretes automáticos</div>
+          <div class="feature-item">✓ Relatórios avançados</div>
+          <div class="feature-item">✓ WhatsApp próprio</div>
+        </div>
+        <a href="https://pay.kiwify.com.br/GEEDagv" target="_blank" class="plano-btn plano-btn-destaque">
+          Escolher Pro
+        </a>
+      </div>
+
+      <!-- PLANO BUSINESS -->
+      <div class="plano-card">
+        <div class="plano-header">
+          <div class="plano-nome">Business</div>
+          <div class="plano-preco">
+            <span class="preco-valor">R$ 189</span>
+            <span class="preco-periodo">/mês</span>
+          </div>
+          <div class="plano-desc">Para empresas com equipe maior e alto volume</div>
+        </div>
+        <div class="plano-features">
+          <div class="feature-item">✓ Orçamentos ilimitados</div>
+          <div class="feature-item">✓ Usuários ilimitados</div>
+          <div class="feature-item">✓ Tudo do Pro</div>
+          <div class="feature-item">✓ Suporte prioritário</div>
+          <div class="feature-item">✓ Onboarding personalizado</div>
+        </div>
+        <a href="https://pay.kiwify.com.br/pA85TDN" target="_blank" class="plano-btn">
+          Escolher Business
+        </a>
+      </div>
+
+    </div>
+
+    <div class="modal-planos-footer">
+      <p>🔒 Pagamento seguro via Kiwify · Cancele quando quiser · Sem fidelidade</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  function exibirModal() {
+    const modal = document.getElementById('modal-planos');
+    if (modal) {
+      modal.style.display = 'flex';
+    }
+  }
+
+  function toggleTema() {
+    const html = document.documentElement;
+    const temaAtual = html.getAttribute('data-theme');
+    const novoTema = temaAtual === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', novoTema);
+  }
+
+  // Permitir fechar modal com ESC (apenas para demo)
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      const modal = document.getElementById('modal-planos');
+      if (modal) {
+        modal.style.display = 'none';
+      }
+    }
+  });
+</script>
+
+</body>
+</html>

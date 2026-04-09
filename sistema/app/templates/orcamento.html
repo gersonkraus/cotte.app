@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page {
+    size: A4;
+    margin: 15mm;
+    @bottom-right {
+      content: "Página " counter(page) " de " counter(pages);
+      font-family: 'DejaVu Sans', 'Helvetica', sans-serif;
+      font-size: 9px;
+      color: #999;
+    }
+  }
+
+  @font-face {
+    font-family: 'DejaVu Sans';
+    src: url('../../static/fonts/pdf/DejaVuSans.ttf');
+    font-weight: normal;
+    font-style: normal;
+  }
+  @font-face {
+    font-family: 'DejaVu Sans';
+    src: url('../../static/fonts/pdf/DejaVuSans-Bold.ttf');
+    font-weight: bold;
+    font-style: normal;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { 
+    font-family: 'DejaVu Sans', 'Helvetica', Arial, sans-serif; 
+    color: #1a1a1a; 
+    font-size: 11px; 
+    line-height: 1.5;
+    background: white;
+  }
+
+  .container { width: 100%; }
+
+  /* Header */
+  .header { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: flex-start; 
+    margin-bottom: 40px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #eee;
+  }
+  
+  .brand { flex: 1; }
+  .logo-img { max-height: 50px; margin-bottom: 10px; }
+  .empresa-nome { font-size: 18px; font-weight: 700; color: {{ empresa.cor_primaria or '#00a372' }}; margin-bottom: 4px; }
+  .empresa-info { font-size: 10px; color: #666; }
+
+  .document-info { text-align: right; }
+  .document-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: #999; font-weight: 600; margin-bottom: 2px; }
+  .document-number { font-size: 24px; font-weight: 800; color: #000; margin-bottom: 8px; }
+  .document-meta { font-size: 10px; color: #666; }
+
+  /* Info Grid */
+  .info-grid { 
+    display: flex; 
+    gap: 40px; 
+    margin-bottom: 40px;
+  }
+  
+  .info-block { flex: 1; }
+  .info-label { 
+    font-size: 9px; 
+    text-transform: uppercase; 
+    letter-spacing: 0.1em; 
+    color: #999; 
+    font-weight: 700; 
+    margin-bottom: 10px;
+    border-bottom: 1px solid #f0f0f0;
+    padding-bottom: 4px;
+  }
+  
+  .cliente-nome { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+  .cliente-detail { font-size: 10px; color: #444; }
+
+  /* Table */
+  .items-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+  .items-table th { 
+    padding: 12px 10px; 
+    text-align: left; 
+    font-size: 9px; 
+    text-transform: uppercase; 
+    letter-spacing: 0.05em; 
+    color: #666; 
+    background: #fcfcfc;
+    border-bottom: 2px solid #eee;
+  }
+  .items-table td { padding: 12px 10px; border-bottom: 1px solid #f5f5f5; vertical-align: top; }
+  .items-table .text-right { text-align: right; }
+  .items-table .text-center { text-align: center; }
+  .item-desc { font-weight: 600; color: #000; margin-bottom: 2px; }
+  .item-sub { font-size: 9px; color: #777; }
+
+  /* Totals */
+  .summary-container { display: flex; justify-content: flex-end; margin-bottom: 40px; }
+  .summary-table { width: 250px; border-collapse: collapse; }
+  .summary-table td { padding: 8px 0; font-size: 11px; }
+  .summary-table .label { color: #666; }
+  .summary-table .value { text-align: right; font-weight: 600; }
+  .summary-table .total-row td { 
+    padding-top: 15px; 
+    border-top: 1px solid #eee;
+    font-size: 16px;
+    font-weight: 800;
+    color: {{ empresa.cor_primaria or '#00a372' }};
+  }
+
+  /* Notes & Conditions */
+  .footer-blocks { margin-top: 20px; }
+  .block { margin-bottom: 25px; }
+  .block-title { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #999; letter-spacing: 0.05em; margin-bottom: 8px; }
+  .block-content { font-size: 10px; color: #444; white-space: pre-wrap; }
+
+  /* Badges */
+  .badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .badge-success { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+  
+  .footer-bottom {
+    margin-top: 50px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    font-size: 9px;
+    color: #bbb;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="brand">
+      {% if empresa.logo_url %}
+      <img src="{{ empresa.logo_url }}" class="logo-img">
+      {% else %}
+      <div class="empresa-nome">{{ empresa.nome }}</div>
+      {% endif %}
+      <div class="empresa-info">
+        {% if empresa.cnpj %}CNPJ: {{ empresa.cnpj }}<br>{% endif %}
+        {% if empresa.endereco %}{{ empresa.endereco }}<br>{% endif %}
+        {% if empresa.telefone %}Fone: {{ empresa.telefone }}{% endif %}
+        {% if empresa.email %} · {{ empresa.email }}{% endif %}
+      </div>
+    </div>
+    <div class="document-info">
+      <div class="document-label">Orçamento</div>
+      <div class="document-number">{{ orcamento.numero }}</div>
+      <div class="document-meta">
+        Emitido em: <strong>{{ data_emissao }}</strong><br>
+        Válido até: <strong>{{ validade }}</strong>
+      </div>
+    </div>
+  </header>
+
+  <!-- INFO GRID -->
+  <div class="info-grid">
+    <div class="info-block">
+      <div class="info-label">Cliente</div>
+      <div class="cliente-nome">{{ orcamento.cliente.nome }}</div>
+      <div class="cliente-detail">
+        {% if orcamento.cliente.documento %}CPF/CNPJ: {{ orcamento.cliente.documento }}<br>{% endif %}
+        {% if orcamento.cliente.telefone %}Telefone: {{ orcamento.cliente.telefone }}<br>{% endif %}
+        {% if orcamento.cliente.email %}Email: {{ orcamento.cliente.email }}{% endif %}
+      </div>
+    </div>
+    <div class="info-block">
+      <div class="info-label">Pagamento & Termos</div>
+      <div class="cliente-detail">
+        Forma: <strong>{{ orcamento.forma_pagamento }}</strong><br>
+        Status: <span class="badge {% if orcamento.status == 'aprovado' %}badge-success{% endif %}">{{ orcamento.status }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ITEMS TABLE -->
+  <table class="items-table">
+    <thead>
+      <tr>
+        <th>Descrição do Serviço / Produto</th>
+        <th class="text-center" style="width: 10%;">Qtd</th>
+        <th class="text-right" style="width: 15%;">Unitário</th>
+        <th class="text-right" style="width: 15%;">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in orcamento.itens %}
+      <tr>
+        <td>
+          <div class="item-desc">{{ item.descricao }}</div>
+          {% if item.observacoes %}<div class="item-sub">{{ item.observacoes }}</div>{% endif %}
+        </td>
+        <td class="text-center">{{ item.quantidade }}</td>
+        <td class="text-right">R$ {{ "%.2f"|format(item.valor_unit) }}</td>
+        <td class="text-right"><strong>R$ {{ "%.2f"|format(item.total) }}</strong></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- SUMMARY -->
+  <div class="summary-container">
+    <table class="summary-table">
+      {% if orcamento.desconto and orcamento.desconto > 0 %}
+      <tr>
+        <td class="label">Subtotal</td>
+        <td class="value">R$ {{ "%.2f"|format(orcamento.subtotal or orcamento.total + orcamento.desconto_valor) }}</td>
+      </tr>
+      <tr>
+        <td class="label">Desconto</td>
+        <td class="value" style="color: #dc2626;">- R$ {{ "%.2f"|format(orcamento.desconto_valor or 0) }}</td>
+      </tr>
+      {% endif %}
+      <tr class="total-row">
+        <td class="label">Total</td>
+        <td class="value">R$ {{ "%.2f"|format(orcamento.total) }}</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- FOOTER BLOCKS -->
+  <div class="footer-blocks">
+    {% if orcamento.observacoes %}
+    <div class="block">
+      <div class="block-title">Observações</div>
+      <div class="block-content">{{ orcamento.observacoes }}</div>
+    </div>
+    {% endif %}
+    
+    <div class="block">
+      <div class="block-title">Aceite Digital</div>
+      <div class="block-content" style="font-size: 9px; color: #777;">
+        {% if orcamento.aceite_nome %}
+        Documento aceito digitalmente por <strong>{{ orcamento.aceite_nome }}</strong> em {{ orcamento.aceite_em }}.
+        IP: {{ orcamento.aceite_ip or 'N/A' }}
+        {% else %}
+        Este orçamento aguarda aceite formal. A confirmação pode ser feita via WhatsApp ou link público.
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer-bottom">
+    <div>Gerado automaticamente pelo sistema COTTE</div>
+    <div>{{ empresa.nome }}</div>
+  </footer>
+
+</div>
+</body>
+</html>

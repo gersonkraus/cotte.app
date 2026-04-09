@@ -1,0 +1,47 @@
+# Ambiente e segredos
+.env
+.env.local
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+*.egg-info/
+.eggs/
+
+# Testes / cobertura
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Artefatos locais
+*.db
+*.sqlite
+*.sqlite3
+
+# Artefatos gerados
+*.pdf
+*.zip
+openapi.json
+static/pdfs/
+static/logos/
+server.log
+debug_output.txt
+test_result.txt
+nul
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

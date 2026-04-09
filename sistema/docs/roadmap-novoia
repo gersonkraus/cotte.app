@@ -1,0 +1,154 @@
+# 🗺️ Plano de Transição: Assistente IA para Agente Autônomo (COTTE)
+**Data de Emissão:** 23 de Março de 2026
+**Infraestrutura Alvo:** Railway (Python/FastAPI + Redis)
+**Modelo Principal:** Claude 3.5 Sonnet (com Otimização de Custo)
+
+---
+
+## 1. Visão Geral da Mudança
+A estrutura atual é **Reativa** (o usuário pergunta, o sistema busca dados e responde). 
+A nova estrutura será **Proativa/Agente** (o usuário dá um objetivo, a IA planeja, executa funções no sistema e reporta o resultado).
+
+### Pilares da Fase 2:
+1. **Tool Use (Function Calling):** A IA decide quais funções do seu backend chamar.
+2. **Memória em Redis:** Persistência real de sessão entre múltiplos workers na Railway.
+3. **Prompt Caching:** Redução de até 90% no custo de tokens de entrada.
+
+---
+
+## 2. Etapas de Implementação
+
+### Etapa 1: Infraestrutura (Railway)
+* [ ] **Ativar Redis:** No dashboard da Railway, adicione o Plugin Redis.
+* [ ] **Variáveis de Ambiente:** Certifique-se de que a `REDIS_URL` esteja disponível para o serviço do Backend.
+* [ ] **Requirements.txt:** Adicionar `redis>=5.0.0` e atualizar `anthropic>=0.26.0`.
+
+### Etapa 2: Persistência de Sessão (Memória de Longo Prazo)
+Alterar `app/services/cotte_context_builder.py` para usar Redis em vez de `dict` global.
+
+```python
+# Exemplo de lógica para Redis
+import redis
+import json
+
+r = redis.from_url(os.getenv("REDIS_URL"))
+
+def save_session(sessao_id, data):
+    # Expira em 2 horas (7200s)
+    r.setex(f"cotte_sess:{sessao_id}", 7200, json.dumps(data))
+
+def get_session(sessao_id):
+    data = r.get(f"cotte_sess:{sessao_id}")
+    return json.loads(data) if data else {"messages": []}
+
+    # app/services/ai_tools_definition.py
+
+def get_tools_definition():
+    """
+    Retorna a lista de ferramentas (JSON Schema) para o Claude 3.5 Sonnet.
+    Cada ferramenta aqui deve ter uma função correspondente no backend.
+    """
+    return [
+        {
+            "name": "consultar_saldo_caixa",
+            "description": "Obtém o saldo atualizado das contas bancárias e caixa da empresa.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "incluir_detalhes": {
+                        "type": "boolean", 
+                        "description": "Se verdadeiro, traz o saldo por conta individualmente."
+                    }
+                }
+            }
+        },
+        {
+            "name": "gerar_rascunho_orcamento",
+            "description": "Cria um rascunho de orçamento no sistema para um cliente específico.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "cliente_nome": {"type": "string", "description": "Nome do cliente"},
+                    "valor_total": {"type": "number", "description": "Valor total do serviço"},
+                    "descricao": {"type": "string", "description": "Detalhes dos itens ou serviços"}
+                },
+                "required": ["cliente_nome", "valor_total"]
+            }
+        },
+        {
+            "name": "buscar_historico_cliente",
+            "description": "Recupera os últimos orçamentos e interações de um cliente específico.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "cliente_id": {"type": "integer"},
+                    "limite": {"type": "integer", "default": 5}
+                },
+                "required": ["cliente_id"]
+            }
+        }
+    ]
+# app/services/cotte_agent_executor.py
+import anthropic
+from app.core.config import settings
+from .ai_tools_definition import get_tools_definition
+
+client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+
+async def executar_agente_cotte(mensagem_usuario, sessao_id, empresa_id):
+    # 1. Busca histórico no Redis (Etapa 2 anterior)
+    # messages = r.get_history(sessao_id)
+    
+    system_prompt = "Você é o Agente COTTE, assistente autônomo do ERP. Use as ferramentas para agir."
+    
+    # 2. Chamada com Prompt Caching (Economia de 90% no input repetido)
+    response = client.messages.create(
+        model="claude-3-5-sonnet-20240620",
+        max_tokens=1024,
+        system=[
+            {
+                "type": "text", 
+                "text": system_prompt,
+                "cache_control": {"type": "ephemeral"} # Ativa o Cache aqui
+            }
+        ],
+        tools=get_tools_definition(),
+        messages=[{"role": "user", "content": mensagem_usuario}]
+    )
+
+    # 3. O Loop de Tool Use (Raciocínio)
+    if response.stop_reason == "tool_use":
+        tool_use = next(block for block in response.content if block.type == "tool_use")
+        tool_name = tool_use.name
+        tool_input = tool_use.input
+
+        # --- EXECUÇÃO DAS FERRAMENTAS ---
+        # Aqui você conecta com seus services atuais do COTTE
+        resultado_acao = f"Executando {tool_name} com os dados {tool_input}..."
+        
+        if tool_name == "consultar_saldo_caixa":
+            # resultado_acao = financeiro_service.get_saldo(empresa_id)
+            pass
+
+        # 4. Devolve o resultado para a IA finalizar a resposta
+        final_response = client.messages.create(
+            model="claude-3-5-sonnet-20240620",
+            max_tokens=512,
+            messages=[
+                {"role": "user", "content": mensagem_usuario},
+                {"role": "assistant", "content": response.content},
+                {
+                    "role": "user", 
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": tool_use.id,
+                            "content": str(resultado_acao),
+                        }
+                    ],
+                },
+            ],
+        )
+        return final_response.content[0].text
+
+    return response.content[0].text
