@@ -155,6 +155,22 @@
       to { opacity: 1; transform: translateY(0); }
     }
   </style>
+
+  <!-- PWA & Mobile Settings -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(reg => console.log('COTTE: App pronto (Service Worker registrado)'))
+          .catch(err => console.log('COTTE: Erro ao registrar SW', err));
+      });
+    }
+  </script>
 </head>
 
 <body>

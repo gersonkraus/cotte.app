@@ -17,7 +17,10 @@ _BASE_DIR = Path(__file__).parent.parent
 from app.core.logging_config import setup_logging
 from app.core.logging_middleware import LoggingMiddleware
 from app.core.security_middleware import SecurityMiddleware
-from app.core.static_cache_middleware import StaticCacheControlMiddleware, VersioningMiddleware
+from app.core.static_cache_middleware import (
+    StaticCacheControlMiddleware,
+    VersioningMiddleware,
+)
 from app.core.exceptions import register_exception_handlers
 
 # Configura logging estruturado
@@ -217,10 +220,12 @@ os.makedirs("static/config", exist_ok=True)
 os.makedirs("uploads/empresas", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+
 # Servir página pública de propostas
 @app.get("/p/{slug}")
 async def proposta_publica(slug: str):
     return FileResponse("app/p/proposta.html", media_type="text/html")
+
 
 # ── FRONTEND (pasta cotte-frontend) ────────────────────────────────────────
 # Redireciona /app/index.html → /app/ antes que o StaticFiles intercepte
@@ -436,6 +441,38 @@ def favicon_ico():
     from fastapi.responses import RedirectResponse
 
     return RedirectResponse("/favicon.svg", status_code=301)
+
+
+@app.get("/manifest.json", include_in_schema=False)
+def manifest():
+    return FileResponse(
+        str(_BASE_DIR / "cotte-frontend" / "manifest.json"),
+        media_type="application/json",
+    )
+
+
+@app.get("/sw.js", include_in_schema=False)
+def service_worker():
+    return FileResponse(
+        str(_BASE_DIR / "cotte-frontend" / "sw.js"), media_type="application/javascript"
+    )
+
+
+@app.get("/.well-known/assetlinks.json", include_in_schema=False)
+async def get_assetlinks():
+    # Este JSON deve ser atualizado com o seu SHA-256 gerado pelo Bubblewrap
+    return [
+        {
+            "relation": ["delegate_permission/common.handle_all_urls"],
+            "target": {
+                "namespace": "android_app",
+                "package_name": "app.cotte.twa",  # Substitua pelo seu package name
+                "sha256_cert_fingerprints": [
+                    "00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00"  # Você pegará este código ao rodar o 'bubblewrap build'
+                ],
+            },
+        }
+    ]
 
 
 @app.get("/sitemap.xml", include_in_schema=False)
