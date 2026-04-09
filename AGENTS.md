@@ -1,20 +1,6 @@
----
-title: Agents
-tags:
-  - documentacao
-prioridade: alta
-status: documentado
----
----
-title: Agents
-tags:
-  - documentacao
-prioridade: alta
-status: documentado
----
 # COTTE Agent Guidelines (AGENTS.md)
 
-Este guia destina-ce a agentes de IA que operam no repositório **Projeto iZi / COTTE**.
+Este guia destina-se a agentes de IA que operam no repositório **Projeto iZi / COTTE**.
 
 ## 🛠 Comandos de Desenvolvimento
 
@@ -26,10 +12,16 @@ O backend está em `sistema/` e o frontend em `sistema/cotte-frontend/`.
 - **Rodar todos os testes:** `cd sistema && pytest`
 - **Rodar um único arquivo de teste:** `cd sistema && pytest tests/test_helpers.py`
 - **Rodar um teste específico:** `cd sistema && pytest tests/test_helpers.py::TestCalcularTotal::test_sem_desconto`
-- **Migrations (Alembic):** Atualmente as tabelas são criadas pelo SQLAlchemy no `main.py`.
+- **Migrations (Alembic):** As tabelas são criadas pelo SQLAlchemy no `main.py` durante testes. Em produção, use Alembic se configurado.
+
+### Testes (Backend)
+- Os testes usam SQLite em memória por padrão.
+- Fixtures comuns estão em `tests/conftest.py`.
+- Serviços externos (WhatsApp, IA, PDF) são mockados automaticamente.
+- Para rodar testes async, use `pytest-asyncio`.
 
 ### Frontend & E2E
-- **Testes Playwright:** `npm test`
+- **Testes Playwright:** `npm test` (na raiz do frontend)
 - **Playwright UI:** `npm run test:ui`
 
 ### Ferramentas de Análise (qmd)
@@ -57,10 +49,22 @@ O `qmd` está instalado no venv do sistema para busca semântica e localização
 - **Services:** Toda a lógica de negócio, cálculos e integrações (IA, WhatsApp, PDF).
 - **Models:** Definições SQLAlchemy em `app/models/models.py`.
 - **Schemas:** Validação Pydantic em `app/schemas/`. Separe schemas de entrada (`Create`, `Update`) e resposta (`Response`).
+- **Repositories:** Acesso a dados isolado quando necessário (ex: `ClienteRepository`).
 
 ### Banco de Dados (SQLAlchemy)
-- Sempre use `AsyncSession` para operações assíncronas.
+- Use `AsyncSession` para operações assíncronas.
 - Prefira `select(Model).where(...)` (estilo 2.0).
+- Use `joinedload` ou `selectinload` para evitar N+1 queries.
+- Transações são gerenciadas automaticamente pelo FastAPI/SQLAlchemy.
+
+### Autenticação e Segurança
+- Use `get_usuario_atual` e `exigir_permissao` nos routers.
+- Senhas são hasheadas com `bcrypt` via `passlib`.
+- Tokens JWT são gerados com `python-jose`.
+
+### Tratamento de Erros
+- Use `HTTPException` do FastAPI para erros de negócio.
+- Retorne códigos HTTP apropriados (400, 404, 409, 500).
 
 ---
 
@@ -71,6 +75,15 @@ O `qmd` está instalado no venv do sistema para busca semântica e localização
 - **CSS Moderno:** Use Flexbox, Grid e Custom Properties (`--cor-primaria`).
 - **HTML Semântico:** Use `<header>`, `<main>`, `<section>`, etc.
 - **Eventos:** Use `addEventListener`, nunca `onclick` no HTML.
+
+### Estrutura
+- JavaScript fica em `cotte-frontend/js/`.
+- CSS fica em `cotte-frontend/css/`.
+- HTML fica na raiz de `cotte-frontend/`.
+
+### API Calls
+- Use a função `apiFetch()` definida em `js/api.js` para chamadas à API.
+- Tokens JWT são armazenados em `localStorage`.
 
 ---
 

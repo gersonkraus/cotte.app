@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 
 # ── Configuração dos Modelos ───────────────────────────────────────────────
 
+
 class _LazyAnthropicClient:
     """Wrapper lazy: instancia o client Anthropic só no primeiro uso real.
 
@@ -56,7 +57,10 @@ class _LazyAnthropicClient:
 
     def _build(self):
         import os
-        key = os.getenv("ANTHROPIC_API_KEY") or getattr(settings, "ANTHROPIC_API_KEY", None)
+
+        key = os.getenv("ANTHROPIC_API_KEY") or getattr(
+            settings, "ANTHROPIC_API_KEY", None
+        )
         if not key:
             raise RuntimeError(
                 "ANTHROPIC_API_KEY não configurada — esta rota legada ainda usa "
@@ -746,7 +750,9 @@ class FallbackManual:
 
         # Extrair ID do orçamento — prioriza padrão explícito (O-N, ORC-N, "orçamento N")
         # antes de cair no primeiro número da frase (evita capturar "5" de "5%")
-        match = re.search(r"(?:O-|ORC-|orçamento\s*|orc\s*)(\d+)", mensagem, re.IGNORECASE)
+        match = re.search(
+            r"(?:O-|ORC-|orçamento\s*|orc\s*)(\d+)", mensagem, re.IGNORECASE
+        )
         if match:
             resultado["orcamento_id"] = int(match.group(1))
         else:
@@ -1055,6 +1061,10 @@ async def criar_orcamento_ia(
     e retorna uma prévia para confirmação do usuário.
     """
     from app.models.models import Cliente
+    from app.services.ai_tools.orcamento_tools import (
+        _resolver_cliente,
+        CriarOrcamentoInput,
+    )
 
     # 1. Extrair dados via módulo "orcamentos"
     resultado = await ai_hub.processar("orcamentos", mensagem)
@@ -1070,54 +1080,50 @@ async def criar_orcamento_ia(
     dados = resultado.dados
     cliente_nome = (dados.get("cliente_nome") or "").strip()
 
-    # 2. Buscar cliente no banco
+    # 2. Resolver cliente usando a lógica centralizada
     cliente_match = None
     clientes_sugeridos = []
     _cliente_auto_criado = False
+    erro_ambiguo = None
 
     if cliente_nome and cliente_nome.lower() != "a definir":
-        # 1) Busca exata (ilike)
-        cliente_match = (
-            db.query(Cliente)
-            .filter(
-                Cliente.empresa_id == empresa_id,
-                Cliente.nome.ilike(cliente_nome),
-            )
-            .first()
-        )
-        # 2) Busca ampla (contém)
-        if not cliente_match:
-            cliente_match = (
-                db.query(Cliente)
-                .filter(
-                    Cliente.empresa_id == empresa_id,
-                    Cliente.nome.ilike(f"%{cliente_nome}%"),
-                )
-                .first()
-            )
-        # 3) Não encontrou nenhum — cadastrar automaticamente
-        if not cliente_match:
-            from app.schemas.schemas import ClienteCreate
-            from app.services.cliente_service import ClienteService
-            from app.models.models import Usuario as _Usuario
 
-            _usuario_fake = db.query(_Usuario).filter(_Usuario.empresa_id == empresa_id).first()
-            if _usuario_fake:
-                novo_cliente = ClienteService(db).criar_cliente(
-                    ClienteCreate(nome=cliente_nome.strip()), _usuario_fake
-                )
-                db.flush()
-                cliente_match = novo_cliente
-                _cliente_auto_criado = True
+        class _FakeInput:
+            cliente_id = None
+            cliente_nome = cliente_nome
 
+        try:
+            c, auto_criado, err = _resolver_cliente(
+                _FakeInput(), db, type("U", (), {"empresa_id": empresa_id})()
+            )
+            if err:
+                if err.get("code") == "ambiguous_cliente":
+                    erro_ambiguo = err
+                    clientes_sugeridos = err.get("candidatos", [])
+                else:
+                    return AIResponse(
+                        sucesso=False,
+                        resposta=err.get("error", "Erro ao resolver cliente"),
+                        tipo_resposta="erro",
+                        confianca=0.0,
+                        modulo_origem="criar_orcamento",
+                    )
+            else:
+                cliente_match = c
+                _cliente_auto_criado = auto_criado
+        except Exception as e:
+            logger.warning(f"Erro ao resolver cliente em criar_orcamento_ia: {e}")
 
     # 3. Montar preview
     preview = {
-        "cliente_nome": cliente_match.nome if cliente_match else (cliente_nome or "A definir"),
+        "cliente_nome": cliente_match.nome
+        if cliente_match
+        else (cliente_nome or "A definir"),
         "cliente_id": cliente_match.id if cliente_match else None,
-        "cliente_encontrado": cliente_match is not None,
+        "cliente_encontrado": cliente_match is not None and not erro_ambiguo,
         "cliente_auto_criado": _cliente_auto_criado,
-        "clientes_sugeridos": [],
+        "clientes_sugeridos": clientes_sugeridos,
+        "cliente_ambiguo": erro_ambiguo is not None,
         "servico": dados.get("servico") or "",
         "valor": float(dados.get("valor") or 0),
         "desconto": float(dados.get("desconto") or 0),
@@ -1128,7 +1134,9 @@ async def criar_orcamento_ia(
         "usuario_id": usuario_id,
     }
 
-    if cliente_match and _cliente_auto_criado:
+    if erro_ambiguo:
+        resposta = f"Encontrei vários clientes com o nome '{cliente_nome}'. Selecione um abaixo:"
+    elif cliente_match and _cliente_auto_criado:
         resposta = f"Cliente '{cliente_match.nome}' cadastrado automaticamente. Revise o orçamento abaixo e confirme."
     elif cliente_match:
         resposta = f"Encontrei o cliente {cliente_match.nome}. Revise o orçamento abaixo e confirme."
@@ -1281,6 +1289,7 @@ async def executar_comando_operador_ia(
         old_status = orc.status
         orc.status = StatusOrcamento.APROVADO
         from app.utils.orcamento_utils import renomear_numero_aprovado
+
         renomear_numero_aprovado(orc)
         db.add(
             HistoricoEdicao(
@@ -1362,12 +1371,15 @@ async def executar_comando_operador_ia(
             )
         try:
             from app.services.whatsapp_service import enviar_orcamento_completo
-            from app.utils.pdf_utils import get_orcamento_dict_for_pdf, get_empresa_dict_for_pdf
+            from app.utils.pdf_utils import (
+                get_orcamento_dict_for_pdf,
+                get_empresa_dict_for_pdf,
+            )
             from app.services.pdf_service import gerar_pdf_orcamento
 
             orc_dict = get_orcamento_dict_for_pdf(orc, db)
             empresa_dict = get_empresa_dict_for_pdf(orc.empresa)
-            
+
             # Campos legados/específicos esperados pela mensagem de WA
             orc_dict["cliente_nome"] = orc.cliente.nome
             orc_dict["empresa_nome"] = orc.empresa.nome
@@ -1528,8 +1540,14 @@ async def executar_comando_operador_ia(
 
 
 _INTENCOES_FINANCEIRAS = {
-    "SALDO_RAPIDO", "FATURAMENTO", "CONTAS_RECEBER", "CONTAS_PAGAR",
-    "DASHBOARD", "PREVISAO", "INADIMPLENCIA", "ANALISE",
+    "SALDO_RAPIDO",
+    "FATURAMENTO",
+    "CONTAS_RECEBER",
+    "CONTAS_PAGAR",
+    "DASHBOARD",
+    "PREVISAO",
+    "INADIMPLENCIA",
+    "ANALISE",
 }
 
 
@@ -1727,6 +1745,7 @@ async def assistente_v2_stream_core(
     from app.services.cotte_context_builder import SessionStore
     from app.services.ia_service import ia_service
     from app.services.tool_executor import execute as tool_execute
+
     try:
         from app.services.tool_executor import execute_pending
     except ImportError:
@@ -1756,7 +1775,10 @@ async def assistente_v2_stream_core(
         if status == "ok" and orc_data.get("numero"):
             final_text = "✅ Ação concluída com sucesso."
             tipo_resp = "orcamento_criado"
-            sugs = [f"Ver {orc_data['numero']}", f"Enviar {orc_data['numero']} por WhatsApp"]
+            sugs = [
+                f"Ver {orc_data['numero']}",
+                f"Enviar {orc_data['numero']} por WhatsApp",
+            ]
             resp_dados = orc_data
         elif status == "forbidden":
             final_text = "❌ Sem permissão para esta ação."
@@ -1764,7 +1786,9 @@ async def assistente_v2_stream_core(
             sugs = []
             resp_dados = {}
         else:
-            final_text = f"❌ Não foi possível concluir: {getattr(result, 'error', status)}"
+            final_text = (
+                f"❌ Não foi possível concluir: {getattr(result, 'error', status)}"
+            )
             tipo_resp = None
             sugs = []
             resp_dados = {}
@@ -1773,10 +1797,18 @@ async def assistente_v2_stream_core(
         for word in final_text.split(" "):
             yield _enc({"chunk": word + " "})
         SessionStore.append_db(sessao_id, "assistant", final_text, db)
-        yield _enc({"is_final": True, "metadata": {
-            "tipo": tipo_resp, "dados": resp_dados,
-            "tool_trace": tool_trace_fpath, "sugestoes": sugs, "pending_action": None,
-        }})
+        yield _enc(
+            {
+                "is_final": True,
+                "metadata": {
+                    "tipo": tipo_resp,
+                    "dados": resp_dados,
+                    "tool_trace": tool_trace_fpath,
+                    "sugestoes": sugs,
+                    "pending_action": None,
+                },
+            }
+        )
         return
 
     # ── Fluxo normal: loop Tool Use v2 ────────────────────────────────────
@@ -1801,11 +1833,16 @@ async def assistente_v2_stream_core(
     SessionStore.append_db(sessao_id, "user", mensagem, db)
 
     messages: list[dict] = [
-        {"role": "system", "content": f"{_V2_SYSTEM_PROMPT}\n\nData/hora atual: {agora}."},
+        {
+            "role": "system",
+            "content": f"{_V2_SYSTEM_PROMPT}\n\nData/hora atual: {agora}.",
+        },
     ]
     for h in (history or [])[-12:]:
         role = h.get("role") if isinstance(h, dict) else getattr(h, "role", None)
-        content = h.get("content") if isinstance(h, dict) else getattr(h, "content", None)
+        content = (
+            h.get("content") if isinstance(h, dict) else getattr(h, "content", None)
+        )
         if role in ("user", "assistant") and content:
             messages.append({"role": role, "content": content})
     messages.append({"role": "user", "content": mensagem})
@@ -1827,16 +1864,26 @@ async def assistente_v2_stream_core(
                 max_tokens=1024,
             )
         except Exception as exc:
-            logger.exception("[stream_v2] Falha na chamada ia_service.chat iter=%s", _iter)
+            logger.exception(
+                "[stream_v2] Falha na chamada ia_service.chat iter=%s", _iter
+            )
             yield _enc({"error": f"Erro ao consultar assistente: {exc}"})
             return
 
         # Normalizar resposta (dict ou objeto LiteLLM)
-        choices = resp.get("choices") if isinstance(resp, dict) else getattr(resp, "choices", None)
+        choices = (
+            resp.get("choices")
+            if isinstance(resp, dict)
+            else getattr(resp, "choices", None)
+        )
         if not choices:
             break
         choice = choices[0]
-        msg_obj = choice.get("message") if isinstance(choice, dict) else getattr(choice, "message", None)
+        msg_obj = (
+            choice.get("message")
+            if isinstance(choice, dict)
+            else getattr(choice, "message", None)
+        )
         if msg_obj is None:
             break
 
@@ -1854,20 +1901,29 @@ async def assistente_v2_stream_core(
 
         if tool_calls:
             # Adicionar turno do assistente com tool_calls ao histórico de messages
-            assistant_turn: dict = {"role": "assistant", "content": _get(msg_obj, "content") or ""}
+            assistant_turn: dict = {
+                "role": "assistant",
+                "content": _get(msg_obj, "content") or "",
+            }
             tc_serialized = []
             for tc in tool_calls:
                 fn = _get(tc, "function")
-                tc_serialized.append({
-                    "id": _get(tc, "id"),
-                    "type": "function",
-                    "function": {
-                        "name": _get(fn, "name") if isinstance(fn, dict) else getattr(fn, "name", None),
-                        "arguments": (
-                            _get(fn, "arguments") if isinstance(fn, dict) else getattr(fn, "arguments", None)
-                        ),
-                    },
-                })
+                tc_serialized.append(
+                    {
+                        "id": _get(tc, "id"),
+                        "type": "function",
+                        "function": {
+                            "name": _get(fn, "name")
+                            if isinstance(fn, dict)
+                            else getattr(fn, "name", None),
+                            "arguments": (
+                                _get(fn, "arguments")
+                                if isinstance(fn, dict)
+                                else getattr(fn, "arguments", None)
+                            ),
+                        },
+                    }
+                )
             assistant_turn["tool_calls"] = tc_serialized
             messages.append(assistant_turn)
 
@@ -1884,19 +1940,31 @@ async def assistente_v2_stream_core(
                 )
                 t_status = result.status if hasattr(result, "status") else "ok"
                 t_latencia = result.latencia_ms if hasattr(result, "latencia_ms") else 0
-                tool_trace.append({"tool": tool_name, "status": t_status, "latencia_ms": t_latencia})
+                tool_trace.append(
+                    {"tool": tool_name, "status": t_status, "latencia_ms": t_latencia}
+                )
 
                 if t_status == "pending":
-                    pending_action = result.pending_action if hasattr(result, "pending_action") else None
+                    pending_action = (
+                        result.pending_action
+                        if hasattr(result, "pending_action")
+                        else None
+                    )
                     if pending_action and hasattr(result, "data") and result.data:
                         resp_dados = result.data
 
-                payload = result.to_llm_payload() if hasattr(result, "to_llm_payload") else {"error": "executor sem payload"}
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tc.get("id"),
-                    "content": json.dumps(payload, ensure_ascii=False, default=str),
-                })
+                payload = (
+                    result.to_llm_payload()
+                    if hasattr(result, "to_llm_payload")
+                    else {"error": "executor sem payload"}
+                )
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tc.get("id"),
+                        "content": json.dumps(payload, ensure_ascii=False, default=str),
+                    }
+                )
 
             if pending_action:
                 final_text = "Para concluir esta ação, confirme os dados abaixo."
@@ -1935,22 +2003,46 @@ async def assistente_v2_stream_core(
         if any(t in tools_ok for t in ("criar_orcamento", "duplicar_orcamento")):
             tipo_resp = "orcamento_criado"
             if not sugs:
-                sugs = ["Ver o orçamento criado", "Enviar por WhatsApp", "Aprovar agora"]
-        elif any(t in tools_ok for t in ("aprovar_orcamento", "recusar_orcamento", "enviar_orcamento_whatsapp", "enviar_orcamento_email")):
+                sugs = [
+                    "Ver o orçamento criado",
+                    "Enviar por WhatsApp",
+                    "Aprovar agora",
+                ]
+        elif any(
+            t in tools_ok
+            for t in (
+                "aprovar_orcamento",
+                "recusar_orcamento",
+                "enviar_orcamento_whatsapp",
+                "enviar_orcamento_email",
+            )
+        ):
             tipo_resp = "operador_resultado"
-        elif any(t in tools_ok for t in ("obter_saldo_caixa", "listar_movimentacoes_financeiras", "listar_despesas")):
+        elif any(
+            t in tools_ok
+            for t in (
+                "obter_saldo_caixa",
+                "listar_movimentacoes_financeiras",
+                "listar_despesas",
+            )
+        ):
             tipo_resp = "financeiro"
 
     if final_text:
         SessionStore.append_db(sessao_id, "assistant", final_text, db)
 
-    yield _enc({"is_final": True, "metadata": {
-        "tipo": tipo_resp,
-        "dados": resp_dados,
-        "pending_action": pending_action,
-        "tool_trace": tool_trace or None,
-        "sugestoes": sugs or None,
-    }})
+    yield _enc(
+        {
+            "is_final": True,
+            "metadata": {
+                "tipo": tipo_resp,
+                "dados": resp_dados,
+                "pending_action": pending_action,
+                "tool_trace": tool_trace or None,
+                "sugestoes": sugs or None,
+            },
+        }
+    )
 
 
 async def assistente_unificado_stream(
@@ -1967,6 +2059,7 @@ async def assistente_unificado_stream(
     `current_user` (objeto User completo) e os tokens de confirmação.
     """
     import asyncio
+
     try:
         async for event in assistente_v2_stream_core(
             mensagem=mensagem,
@@ -1982,6 +2075,7 @@ async def assistente_unificado_stream(
     except Exception as exc:
         logger.exception("[assistente_unificado_stream] Erro inesperado")
         yield f"data: {json.dumps({'error': str(exc)})}\n\n"
+
 
 # ── Funções de Compatibilidade (manter backward compatibility) ────────────────
 
@@ -2667,7 +2761,7 @@ _V2_SYSTEM_PROMPT = (
     "## Regras críticas:  \n"
     "1. **Criar/excluir**: chame a tool DIRETAMENTE — o sistema mostrará um card de confirmação. "
     "NÃO pergunte 'deseja prosseguir?' previamente. \n"
-    "2. **IDs por conta própria**: para excluir/editar por NOME, chame `listar_clientes(busca=\"nome\")` "
+    '2. **IDs por conta própria**: para excluir/editar por NOME, chame `listar_clientes(busca="nome")` '
     "primeiro para obter o ID real. NUNCA chute IDs ou use posições de listas anteriores. \n"
     "3. **Sem tool correspondente**: diga claramente que não há ferramenta para isso — "
     "NÃO chame outra tool no lugar. \n"
@@ -2736,26 +2830,33 @@ async def assistente_unificado_v2(
                 acao_sug = None
                 resp_dados = {"input_tokens": 0, "output_tokens": 0}
             else:
-                final_text = f"❌ Não consegui concluir a ação: {result.error or result.status}"
+                final_text = (
+                    f"❌ Não consegui concluir a ação: {result.error or result.status}"
+                )
                 tipo_resp = None
                 acao_sug = None
                 resp_dados = {"input_tokens": 0, "output_tokens": 0}
-            tool_trace_out = [{
-                "tool": "(confirmação)",
-                "status": result.status,
-                "latencia_ms": result.latencia_ms,
-                "data": result.data,
-                "error": result.error,
-            }]
+            tool_trace_out = [
+                {
+                    "tool": "(confirmação)",
+                    "status": result.status,
+                    "latencia_ms": result.latencia_ms,
+                    "data": result.data,
+                    "error": result.error,
+                }
+            ]
         except Exception as e:
             import logging as _lg
+
             _lg.getLogger(__name__).exception("Falha no fast-path de confirmação")
             try:
                 db.rollback()
             except Exception:
                 pass
             final_text = f"❌ Erro ao processar a confirmação: {e}"
-            tool_trace_out = [{"tool": "(confirmação)", "status": "erro", "error": str(e)}]
+            tool_trace_out = [
+                {"tool": "(confirmação)", "status": "erro", "error": str(e)}
+            ]
             tipo_resp = None
             acao_sug = None
             resp_dados = {"input_tokens": 0, "output_tokens": 0}
@@ -2790,7 +2891,10 @@ async def assistente_unificado_v2(
     )
 
     messages: list[dict] = [
-        {"role": "system", "content": f"{_V2_SYSTEM_PROMPT}\n\nData/hora atual: {now}."},
+        {
+            "role": "system",
+            "content": f"{_V2_SYSTEM_PROMPT}\n\nData/hora atual: {now}.",
+        },
     ]
     # SessionStore historiza apenas role+content (sem tool_calls). Mantemos como hint.
     for h in history[-12:]:
@@ -2826,44 +2930,85 @@ async def assistente_unificado_v2(
                 erros=[str(e)],
             )
 
-        usage = resp.get("usage", {}) if isinstance(resp, dict) else getattr(resp, "usage", {}) or {}
+        usage = (
+            resp.get("usage", {})
+            if isinstance(resp, dict)
+            else getattr(resp, "usage", {}) or {}
+        )
         try:
             total_in += int(usage.get("prompt_tokens", 0) or 0)
             total_out += int(usage.get("completion_tokens", 0) or 0)
         except Exception:
             pass
 
-        choices = resp.get("choices") if isinstance(resp, dict) else getattr(resp, "choices", None)
+        choices = (
+            resp.get("choices")
+            if isinstance(resp, dict)
+            else getattr(resp, "choices", None)
+        )
         if not choices:
             break
         choice = choices[0]
-        msg = choice.get("message") if isinstance(choice, dict) else getattr(choice, "message", None)
-        finish = choice.get("finish_reason") if isinstance(choice, dict) else getattr(choice, "finish_reason", None)
+        msg = (
+            choice.get("message")
+            if isinstance(choice, dict)
+            else getattr(choice, "message", None)
+        )
+        finish = (
+            choice.get("finish_reason")
+            if isinstance(choice, dict)
+            else getattr(choice, "finish_reason", None)
+        )
 
         # Extrair tool_calls
         tool_calls = None
         if msg is not None:
             tool_calls = (
-                msg.get("tool_calls") if isinstance(msg, dict) else getattr(msg, "tool_calls", None)
+                msg.get("tool_calls")
+                if isinstance(msg, dict)
+                else getattr(msg, "tool_calls", None)
             )
 
         if tool_calls:
             # Anexa o assistant turn com tool_calls (preservando ids)
             assistant_msg = {
                 "role": "assistant",
-                "content": (msg.get("content") if isinstance(msg, dict) else getattr(msg, "content", None)) or "",
+                "content": (
+                    msg.get("content")
+                    if isinstance(msg, dict)
+                    else getattr(msg, "content", None)
+                )
+                or "",
                 "tool_calls": [
                     {
-                        "id": (tc.get("id") if isinstance(tc, dict) else getattr(tc, "id", None)),
+                        "id": (
+                            tc.get("id")
+                            if isinstance(tc, dict)
+                            else getattr(tc, "id", None)
+                        ),
                         "type": "function",
                         "function": {
                             "name": (
-                                (tc.get("function", {}) if isinstance(tc, dict) else getattr(tc, "function", None)).get("name")
-                                if isinstance(tc, dict) else getattr(getattr(tc, "function", None), "name", None)
+                                (
+                                    tc.get("function", {})
+                                    if isinstance(tc, dict)
+                                    else getattr(tc, "function", None)
+                                ).get("name")
+                                if isinstance(tc, dict)
+                                else getattr(
+                                    getattr(tc, "function", None), "name", None
+                                )
                             ),
                             "arguments": (
-                                (tc.get("function", {}) if isinstance(tc, dict) else getattr(tc, "function", None)).get("arguments")
-                                if isinstance(tc, dict) else getattr(getattr(tc, "function", None), "arguments", None)
+                                (
+                                    tc.get("function", {})
+                                    if isinstance(tc, dict)
+                                    else getattr(tc, "function", None)
+                                ).get("arguments")
+                                if isinstance(tc, dict)
+                                else getattr(
+                                    getattr(tc, "function", None), "arguments", None
+                                )
                             ),
                         },
                     }
@@ -2873,13 +3018,21 @@ async def assistente_unificado_v2(
             messages.append(assistant_msg)
 
             for tc in tool_calls:
-                tc_dict = tc if isinstance(tc, dict) else {
-                    "id": getattr(tc, "id", None),
-                    "function": {
-                        "name": getattr(getattr(tc, "function", None), "name", None),
-                        "arguments": getattr(getattr(tc, "function", None), "arguments", None),
-                    },
-                }
+                tc_dict = (
+                    tc
+                    if isinstance(tc, dict)
+                    else {
+                        "id": getattr(tc, "id", None),
+                        "function": {
+                            "name": getattr(
+                                getattr(tc, "function", None), "name", None
+                            ),
+                            "arguments": getattr(
+                                getattr(tc, "function", None), "arguments", None
+                            ),
+                        },
+                    }
+                )
                 result = await tool_execute(
                     tc_dict,
                     db=db,
@@ -2887,17 +3040,21 @@ async def assistente_unificado_v2(
                     sessao_id=sessao_id,
                     confirmation_token=confirmation_token,
                 )
-                tool_trace.append({
-                    "tool": (tc_dict.get("function") or {}).get("name"),
-                    "status": result.status,
-                    "latencia_ms": result.latencia_ms,
-                })
+                tool_trace.append(
+                    {
+                        "tool": (tc_dict.get("function") or {}).get("name"),
+                        "status": result.status,
+                        "latencia_ms": result.latencia_ms,
+                    }
+                )
                 payload = result.to_llm_payload()
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tc_dict.get("id"),
-                    "content": json.dumps(payload, ensure_ascii=False, default=str),
-                })
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tc_dict.get("id"),
+                        "content": json.dumps(payload, ensure_ascii=False, default=str),
+                    }
+                )
                 if result.status == "pending":
                     pending_action = result.pending_action
 
@@ -2911,7 +3068,11 @@ async def assistente_unificado_v2(
             continue
 
         # Sem tool_calls → resposta final
-        final_text = (msg.get("content") if isinstance(msg, dict) else getattr(msg, "content", None)) or ""
+        final_text = (
+            msg.get("content")
+            if isinstance(msg, dict)
+            else getattr(msg, "content", None)
+        ) or ""
         if finish and finish != "stop" and finish != "tool_calls":
             logger.info("v2 finish_reason inesperado: %s", finish)
         break
@@ -2931,4 +3092,3 @@ async def assistente_unificado_v2(
         tool_trace=tool_trace or None,
         dados={"input_tokens": total_in, "output_tokens": total_out},
     )
-

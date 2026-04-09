@@ -1191,16 +1191,16 @@ function formatAIResponse(data, isStreamed = false) {
         const valorFmt = formatValue(dados.valor || 0);
 
         let clienteHtml = '';
-        if (dados.cliente_encontrado) {
-            clienteHtml = `<div class="orc-field"><span class="orc-label">Cliente</span><span class="orc-value orc-ok">✓ ${escapeHtml(dados.cliente_nome)}</span></div>`;
-        } else if (dados.clientes_sugeridos && dados.clientes_sugeridos.length > 0) {
+        if (dados.cliente_ambiguo && dados.clientes_sugeridos && dados.clientes_sugeridos.length > 0) {
             const opts = dados.clientes_sugeridos.map(c =>
                 `<option value="${escapeHtmlAttr(String(c.id))}">${escapeHtml(c.nome)}</option>`
             ).join('');
             clienteHtml = `<div class="orc-field orc-field-col"><span class="orc-label">Cliente</span>
                 <select class="orc-select" id="orc-cliente-select">
-                    <option value="">-- Selecionar --</option>${opts}
+                    <option value="">-- Selecionar Cliente --</option>${opts}
                 </select></div>`;
+        } else if (dados.cliente_encontrado) {
+            clienteHtml = `<div class="orc-field"><span class="orc-label">Cliente</span><span class="orc-value orc-ok">✓ ${escapeHtml(dados.cliente_nome)}</span></div>`;
         } else {
             clienteHtml = `<div class="orc-field"><span class="orc-label">Cliente</span><span class="orc-value orc-warn">${escapeHtml(dados.cliente_nome || 'A definir')}</span></div>`;
         }
