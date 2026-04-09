@@ -1531,10 +1531,144 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
     }
 }
 
+// ── Delegação de cliques no chat ────────────────────────────────────────────
+function initAssistenteChatDelegation() {
+    const box = document.getElementById('chatMessages');
+    if (!box) return;
+
+    box.addEventListener('click', (e) => {
+        const t = e.target;
+
+        const shortcut = t.closest('.shortcut[data-quick-message]');
+        if (shortcut) {
+            e.preventDefault();
+            sendQuickMessage(shortcut.getAttribute('data-quick-message') || '');
+            return;
+        }
+
+        const chip = t.closest('.sugestao-chip[data-suggestion]');
+        if (chip) {
+            e.preventDefault();
+            let text = '';
+            try { text = decodeURIComponent(chip.getAttribute('data-suggestion') || ''); } catch (_) { text = chip.getAttribute('data-suggestion') || ''; }
+            chip.classList.add('dismissed');
+            sendQuickMessage(text);
+            return;
+        }
+
+        const copyBtn = t.closest('.message-copy-btn');
+        if (copyBtn) {
+            e.preventDefault();
+            const bubble = copyBtn.closest('.message-bubble');
+            if (!bubble) return;
+            const txt = bubble.innerText.replace(/\s+$/m, '').trim();
+            navigator.clipboard.writeText(txt).then(() => {
+                const prev = copyBtn.textContent;
+                copyBtn.textContent = '✓';
+                setTimeout(() => { copyBtn.textContent = prev || '📋'; }, 2000);
+            }).catch(() => {});
+            return;
+        }
+
+        const fb = t.closest('.feedback-btn[data-feedback-id]');
+        if (fb) {
+            e.preventDefault();
+            const id = fb.getAttribute('data-feedback-id');
+            const val = fb.getAttribute('data-feedback-val');
+            if (id && val) enviarFeedback(id, val, fb);
+            return;
+        }
+
+        const cia = t.closest('[data-confirm-ia]');
+        if (cia && t.closest('.pending-action-card')) {
+            e.preventDefault();
+            const token = cia.getAttribute('data-confirm-ia');
+            if (token) confirmarAcaoIA(token, cia);
+            return;
+        }
+
+        const canc = t.closest('[data-cancel-ia]');
+        if (canc && t.closest('.pending-action-card')) {
+            e.preventDefault();
+            cancelarAcaoIA(canc);
+            return;
+        }
+
+        const orcGo = t.closest('[data-orc-confirm]');
+        if (orcGo) {
+            e.preventDefault();
+            confirmarOrcamento(orcGo);
+            return;
+        }
+
+        const orcDismiss = t.closest('[data-orc-dismiss]');
+        if (orcDismiss) {
+            e.preventDefault();
+            const card = orcDismiss.closest('.orc-preview-card');
+            if (card) card.remove();
+            return;
+        }
+
+        const wa = t.closest('[data-enviar-wa]');
+        if (wa) {
+            e.preventDefault();
+            const id = parseInt(wa.getAttribute('data-enviar-wa'), 10);
+            let num = '';
+            try { num = decodeURIComponent(wa.getAttribute('data-orc-numero') || ''); } catch (_) { num = wa.getAttribute('data-orc-numero') || ''; }
+            enviarPorWhatsapp(id, num, wa);
+            return;
+        }
+
+        const em = t.closest('[data-enviar-email]');
+        if (em) {
+            e.preventDefault();
+            const id = parseInt(em.getAttribute('data-enviar-email'), 10);
+            let num = '';
+            try { num = decodeURIComponent(em.getAttribute('data-orc-numero') || ''); } catch (_) { num = em.getAttribute('data-orc-numero') || ''; }
+            enviarPorEmail(id, num, em);
+            return;
+        }
+
+        const qs = t.closest('[data-quick-send]');
+        if (qs) {
+            e.preventDefault();
+            let text = '';
+            try { text = decodeURIComponent(qs.getAttribute('data-quick-send') || ''); } catch (_) { text = qs.getAttribute('data-quick-send') || ''; }
+            sendQuickMessage(text);
+            return;
+        }
+
+        const cp = t.closest('[data-copy-public-token]');
+        if (cp) {
+            e.preventDefault();
+            const tok = cp.getAttribute('data-copy-public-token');
+            if (tok) {
+                const url = window.location.origin + '/app/orcamento-publico.html?token=' + encodeURIComponent(tok);
+                navigator.clipboard.writeText(url).then(() => { cp.textContent = '✓ Copiado'; }).catch(() => {});
+            }
+        }
+    });
+
+    // Foca no botão de confirmar quando card de pending_action é adicionado
+    const obs = new MutationObserver((mutations) => {
+        for (const m of mutations) {
+            for (const node of m.addedNodes) {
+                if (node.nodeType !== 1) continue;
+                const root = node.matches?.('.message') ? node : node.querySelector?.('.message');
+                const scope = root || node;
+                const btn = scope.querySelector?.('.pending-action-card [data-confirm-ia]');
+                if (btn) { setTimeout(() => btn.focus(), 50); return; }
+            }
+        }
+    });
+    obs.observe(box, { childList: true, subtree: true });
+}
+
 // Exporta funções globais
 
-// Inicialização da virtualização no DOMContentLoaded
+// Inicialização no DOMContentLoaded
 document.addEventListener('DOMContentLoaded', () => {
+    initAssistenteChatDelegation();
     setTimeout(() => {
         initVirtualizationIfNeeded();
     }, 1000);
