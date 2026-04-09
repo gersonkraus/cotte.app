@@ -151,6 +151,9 @@ def test_loop_pending_action_interrompe(db, monkeypatch):
         assert out.pending_action is not None
         assert out.pending_action.get("tool") == "mock_destr"
         assert out.pending_action.get("confirmation_token")
+        assert out.dados is not None
+        assert out.dados.get("x") == "a"
+        assert "input_tokens" in out.dados and "output_tokens" in out.dados
     finally:
         REGISTRY.pop("mock_destr", None)
 

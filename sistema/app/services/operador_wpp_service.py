@@ -8,6 +8,8 @@ Orquestra o fluxo completo do operador via WhatsApp:
 import logging
 from sqlalchemy.orm import Session
 
+from app.utils.orcamento_utils import brl_fmt
+
 logger = logging.getLogger(__name__)
 
 # ── Palavras-chave para detecção de resposta de poll ────────────────────────
@@ -49,6 +51,124 @@ def _limpar_pending_wpp(sessao_id: str):
             _sessions[sessao_id].pop("wpp_pending", None)
     except Exception:
         pass
+
+
+def _titulo_confirmacao_tool(tool: str) -> str:
+    """Título curto para enquete de confirmação (WhatsApp)."""
+    m = {
+        "criar_orcamento": "Novo orçamento",
+        "editar_orcamento": "Editar orçamento",
+        "editar_item_orcamento": "Editar item do orçamento",
+        "aprovar_orcamento": "Aprovar orçamento",
+        "recusar_orcamento": "Recusar orçamento",
+        "enviar_orcamento_whatsapp": "Enviar orçamento (WhatsApp)",
+        "enviar_orcamento_email": "Enviar orçamento (e-mail)",
+        "duplicar_orcamento": "Duplicar orçamento",
+        "anexar_documento_orcamento": "Anexar documento ao orçamento",
+        "criar_cliente": "Cadastrar cliente",
+        "editar_cliente": "Editar cliente",
+        "excluir_cliente": "Excluir cliente",
+        "criar_movimentacao_financeira": "Lançamento no caixa",
+        "criar_despesa": "Nova despesa",
+        "marcar_despesa_paga": "Quitar despesa",
+        "registrar_pagamento_recebivel": "Registrar recebimento",
+        "criar_parcelamento": "Criar parcelamento",
+        "criar_agendamento": "Novo agendamento",
+        "cancelar_agendamento": "Cancelar agendamento",
+        "remarcar_agendamento": "Remarcar agendamento",
+        "cadastrar_material": "Cadastrar material/serviço",
+    }
+    if tool in m:
+        return m[tool]
+    return (tool or "ação").replace("_", " ").strip().title()
+
+
+def _mensagem_confirmacao_whatsapp(
+    tool: str, dados: dict, resposta_ia: str | None
+) -> str:
+    """Monta texto da enquete com contexto operacional (cliente, orçamento, alterações)."""
+    linhas: list[str] = []
+    titulo = _titulo_confirmacao_tool(tool)
+    linhas.append(f"⚠️ *{titulo} — confirma?*")
+
+    if dados.get("conta_descricao"):
+        linhas.append(f"📝 Conta: {dados['conta_descricao']}")
+        if dados.get("conta_saldo_aberto") is not None:
+            linhas.append(
+                f"💳 Saldo em aberto: {brl_fmt(float(dados['conta_saldo_aberto']))}"
+            )
+    if dados.get("despesa_favorecido"):
+        linhas.append(f"🏢 Favorecido: {dados['despesa_favorecido']}")
+
+    if dados.get("agendamento_numero"):
+        linhas.append(f"📅 Agendamento: {dados['agendamento_numero']}")
+    if dados.get("agendamento_data_atual"):
+        linhas.append(f"🕐 Data/hora atual: {dados['agendamento_data_atual']}")
+
+    if dados.get("orcamento_numero"):
+        linhas.append(f"📄 Orçamento: {dados['orcamento_numero']}")
+
+    cn = (
+        dados.get("cliente_nome")
+        or dados.get("cliente_nome_resolvido")
+        or dados.get("cliente_nome_registro")
+    )
+    if cn:
+        tag = " (novo cliente)" if dados.get("cliente_auto_criar") else ""
+        linhas.append(f"👤 Cliente: {cn}{tag}")
+
+    if dados.get("total_atual") is not None:
+        linhas.append(f"💰 Total atual: {brl_fmt(float(dados['total_atual']))}")
+    if dados.get("status_orcamento"):
+        linhas.append(f"📌 Status: {dados['status_orcamento']}")
+
+    mud = dados.get("mudancas")
+    if isinstance(mud, list) and mud:
+        linhas.append("")
+        linhas.append("*Alterações:*")
+        for m in mud[:14]:
+            if m:
+                linhas.append(f"• {m}")
+
+    # Campos dos args quando extras não cobriram (ex.: movimentação)
+    if tool == "criar_movimentacao_financeira":
+        if dados.get("tipo"):
+            linhas.append(f"↕️ Tipo: {dados['tipo']}")
+        if dados.get("descricao"):
+            linhas.append(f"📋 Descrição: {dados['descricao']}")
+        v = dados.get("valor")
+        if v is not None:
+            linhas.append(f"💵 Valor: {brl_fmt(float(v))}")
+    elif tool == "criar_despesa":
+        if dados.get("descricao"):
+            linhas.append(f"📋 {dados['descricao']}")
+        if dados.get("valor") is not None:
+            linhas.append(f"💵 Valor: {brl_fmt(float(dados['valor']))}")
+        if dados.get("data_vencimento"):
+            linhas.append(f"📆 Vencimento: {dados['data_vencimento']}")
+    elif tool == "criar_parcelamento":
+        if dados.get("tipo"):
+            linhas.append(f"↕️ Tipo: {dados['tipo']}")
+        if dados.get("descricao"):
+            linhas.append(f"📋 {dados['descricao']}")
+        if dados.get("valor_total") is not None:
+            linhas.append(f"💵 Total: {brl_fmt(float(dados['valor_total']))}")
+        if dados.get("parcelas"):
+            linhas.append(f"🔢 Parcelas: {dados['parcelas']}")
+        if dados.get("primeira_data"):
+            linhas.append(f"📆 1ª parcela: {dados['primeira_data']}")
+
+    corpo = [x for x in linhas[1:] if x]
+    if len(corpo) < 1:
+        tail = (resposta_ia or "").strip()
+        if tail:
+            linhas.append("")
+            linhas.append(tail[:450])
+        else:
+            linhas.append("")
+            linhas.append("Confira no painel e responda *Confirmar* ou *Cancelar*.")
+
+    return "\n".join(linhas)
 
 
 def _detectar_resposta_poll(mensagem: str) -> str | None:
@@ -220,7 +340,6 @@ async def _enviar_resposta(
         texto_opcoes_numeradas,
         sanitizar_para_whatsapp,
     )
-    from app.utils.orcamento_utils import brl_fmt
 
     # Caso 1: ação pendente do V2 (confirmation_token) — envia Poll de confirmação
     if ai_resp.pending_action:
@@ -234,13 +353,15 @@ async def _enviar_resposta(
 
         dados = ai_resp.dados or {}
         tool = ai_resp.pending_action.get("tool", "")
-        total = dados.get("total", 0)
-        total_fmt = brl_fmt(total)
 
         if tool == "criar_orcamento":
-            cliente = dados.get("cliente_nome", "")
+            cliente = (
+                dados.get("cliente_nome")
+                or dados.get("cliente_nome_resolvido")
+                or ""
+            )
             itens = dados.get("itens") or []
-            # extrai descrição e total dos itens (formato CriarOrcamentoInput)
+            total = dados.get("total", 0)
             if itens:
                 servico = itens[0].get("descricao", "")
                 if len(itens) > 1:
@@ -253,24 +374,19 @@ async def _enviar_resposta(
                 servico = dados.get("servico", "")
                 total_calc = float(total or 0)
             total_fmt = brl_fmt(total_calc)
-            linhas = ["📋 *Novo orçamento — confirmar?*", ""]
-            if cliente:
-                linhas.append(f"👤 Cliente: {cliente}")
-            if servico:
-                linhas.append(f"🛍 Item: {servico}")
-            if total_calc:
-                linhas.append(f"💰 Total: {total_fmt}")
-            pergunta = "\n".join(linhas)
-        elif tool == "editar_orcamento":
-            numero = dados.get("numero", "")
-            linhas = ["✏️ *Editar orçamento — confirmar?*", ""]
-            if numero:
-                linhas.append(f"📄 Orçamento: {numero}")
-            if total:
-                linhas.append(f"💰 Novo total: {total_fmt}")
+            tag_cli = " (novo cliente)" if dados.get("cliente_auto_criar") else ""
+            linhas = [
+                f"⚠️ *{_titulo_confirmacao_tool('criar_orcamento')} — confirma?*",
+                "",
+                f"👤 Cliente: {cliente or '—'}{tag_cli}",
+                f"🛍 Item: {servico or '—'}",
+                f"💰 Total: {total_fmt}",
+            ]
             pergunta = "\n".join(linhas)
         else:
-            pergunta = f"⚙️ *Confirmar ação?*\n\n{(ai_resp.resposta or 'Confirmar?')[:120]}"
+            pergunta = _mensagem_confirmacao_whatsapp(
+                tool, dados, ai_resp.resposta
+            )
 
         ok = await enviar_poll_confirmacao(
             telefone, pergunta, ["Confirmar", "Cancelar"]

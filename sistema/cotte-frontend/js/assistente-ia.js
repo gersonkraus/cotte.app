@@ -1898,12 +1898,14 @@ function formatPendingArgs(tool, args, extras) {
             if (a.email) lines.push(row('E-mail', a.email));
             break;
         case 'editar_cliente':
+            if (ex.cliente_nome_registro) lines.push(row('👤 Cliente', ex.cliente_nome_registro));
             lines.push(row('Cliente ID', a.cliente_id));
             Object.entries(a).forEach(([k, v]) => {
                 if (k !== 'cliente_id' && v != null) lines.push(row(k, v));
             });
             break;
         case 'excluir_cliente':
+            if (ex.cliente_nome_registro) lines.push(row('👤 Cliente a excluir', ex.cliente_nome_registro));
             lines.push(row('Cliente ID', a.cliente_id));
             break;
         case 'criar_orcamento': {
@@ -1936,11 +1938,28 @@ function formatPendingArgs(tool, args, extras) {
         case 'enviar_orcamento_whatsapp':
         case 'enviar_orcamento_email':
         case 'anexar_documento_orcamento':
-            if (a.orcamento_id) lines.push(row('Orçamento ID', a.orcamento_id));
+        case 'editar_item_orcamento':
+            if (ex.orcamento_numero) lines.push(row('📄 Orçamento', ex.orcamento_numero));
+            else if (a.orcamento_id) lines.push(row('Orçamento (ref.)', a.orcamento_id));
+            if (ex.cliente_nome) lines.push(row('👤 Cliente', ex.cliente_nome));
+            if (ex.total_atual != null && ex.total_atual !== '') lines.push(row('Total atual', _brl(ex.total_atual)));
+            if (ex.status_orcamento) lines.push(row('Status', ex.status_orcamento));
+            if (Array.isArray(ex.mudancas) && ex.mudancas.length) {
+                ex.mudancas.forEach((m) => {
+                    lines.push(`<div class="pa-row"><span class="pa-value">• ${escape(String(m))}</span></div>`);
+                });
+            }
+            if (a.num_item != null) lines.push(row('Item nº', a.num_item));
             if (a.motivo) lines.push(row('Motivo', a.motivo));
             if (a.documento_id) lines.push(row('Documento ID', a.documento_id));
             if (a.observacoes) lines.push(row('Obs', a.observacoes));
             if (a.desconto != null) lines.push(row('Desconto', a.desconto));
+            if (a.desconto_tipo) lines.push(row('Tipo desconto', a.desconto_tipo));
+            if (a.valor_total != null) lines.push(row('Novo total', _brl(a.valor_total)));
+            if (a.validade_dias != null) lines.push(row('Validade (dias)', a.validade_dias));
+            if (a.descricao) lines.push(row('Nova descrição (item)', a.descricao));
+            if (a.valor_unit != null) lines.push(row('Valor unitário', _brl(a.valor_unit)));
+            if (a.quantidade != null) lines.push(row('Quantidade', a.quantidade));
             break;
         case 'criar_movimentacao_financeira':
             lines.push(row('Tipo', a.tipo));
@@ -1955,30 +1974,66 @@ function formatPendingArgs(tool, args, extras) {
             if (a.favorecido) lines.push(row('Favorecido', a.favorecido));
             break;
         case 'marcar_despesa_paga':
-        case 'registrar_pagamento_recebivel':
+            if (ex.conta_descricao) lines.push(row('Despesa', ex.conta_descricao));
+            if (ex.despesa_favorecido) lines.push(row('Favorecido', ex.despesa_favorecido));
+            if (ex.conta_saldo_aberto != null && ex.conta_saldo_aberto !== '') {
+                lines.push(row('Saldo em aberto', _brl(ex.conta_saldo_aberto)));
+            }
             lines.push(row('Conta ID', a.conta_id));
-            lines.push(row('Valor', a.valor != null ? _brl(a.valor) : 'saldo integral'));
+            lines.push(row('Valor a pagar', a.valor != null ? _brl(a.valor) : 'saldo integral'));
+            break;
+        case 'registrar_pagamento_recebivel':
+            if (ex.conta_descricao) lines.push(row('Conta a receber', ex.conta_descricao));
+            if (ex.orcamento_numero) lines.push(row('📄 Orçamento', ex.orcamento_numero));
+            if (ex.cliente_nome) lines.push(row('👤 Cliente', ex.cliente_nome));
+            if (ex.conta_saldo_aberto != null && ex.conta_saldo_aberto !== '') {
+                lines.push(row('Saldo em aberto', _brl(ex.conta_saldo_aberto)));
+            }
+            lines.push(row('Conta ID', a.conta_id));
+            lines.push(row('Valor do recebimento', a.valor != null ? _brl(a.valor) : 'saldo integral'));
             break;
         case 'criar_parcelamento':
+            if (ex.cliente_nome && (a.tipo || '').toLowerCase() === 'receber') {
+                lines.push(row('👤 Cliente', ex.cliente_nome));
+            }
             lines.push(row('Tipo', a.tipo));
             lines.push(row('Descrição', a.descricao));
             lines.push(row('Valor total', _brl(a.valor_total)));
             lines.push(row('Parcelas', a.parcelas));
             lines.push(row('1ª parcela', a.primeira_data));
+            if (a.favorecido) lines.push(row('Favorecido', a.favorecido));
             break;
         case 'criar_agendamento':
+            if (ex.cliente_nome) lines.push(row('👤 Cliente', ex.cliente_nome));
             lines.push(row('Cliente ID', a.cliente_id));
             lines.push(row('Data', a.data_agendada));
             if (a.duracao_estimada_min) lines.push(row('Duração', `${a.duracao_estimada_min} min`));
             if (a.endereco) lines.push(row('Endereço', a.endereco));
             break;
         case 'cancelar_agendamento':
+            if (ex.agendamento_numero) lines.push(row('📅 Agendamento', ex.agendamento_numero));
+            if (ex.cliente_nome) lines.push(row('👤 Cliente', ex.cliente_nome));
+            if (ex.agendamento_data_atual) lines.push(row('Data/hora atual', ex.agendamento_data_atual));
             lines.push(row('Agendamento ID', a.agendamento_id));
             if (a.motivo) lines.push(row('Motivo', a.motivo));
+            if (Array.isArray(ex.mudancas) && ex.mudancas.length) {
+                ex.mudancas.forEach((m) => {
+                    lines.push(`<div class="pa-row"><span class="pa-value">• ${escape(String(m))}</span></div>`);
+                });
+            }
             break;
         case 'remarcar_agendamento':
+            if (ex.agendamento_numero) lines.push(row('📅 Agendamento', ex.agendamento_numero));
+            if (ex.cliente_nome) lines.push(row('👤 Cliente', ex.cliente_nome));
+            if (ex.agendamento_data_atual) lines.push(row('Data/hora atual', ex.agendamento_data_atual));
             lines.push(row('Agendamento ID', a.agendamento_id));
             lines.push(row('Nova data', a.nova_data));
+            if (a.motivo) lines.push(row('Motivo', a.motivo));
+            if (Array.isArray(ex.mudancas) && ex.mudancas.length) {
+                ex.mudancas.forEach((m) => {
+                    lines.push(`<div class="pa-row"><span class="pa-value">• ${escape(String(m))}</span></div>`);
+                });
+            }
             break;
         case 'cadastrar_material':
             lines.push(row('Nome', a.nome));

@@ -3096,6 +3096,16 @@ async def assistente_unificado_v2(
         # Persiste resposta do assistente no banco
         SessionStore.append_db(sessao_id, "assistant", final_text, db)
 
+    if pending_action:
+        dados_out = {
+            **(pending_action.get("args") or {}),
+            **(pending_action.get("extras") or {}),
+            "input_tokens": total_in,
+            "output_tokens": total_out,
+        }
+    else:
+        dados_out = {"input_tokens": total_in, "output_tokens": total_out}
+
     return AIResponse(
         sucesso=True,
         resposta=final_text or "",
@@ -3103,5 +3113,5 @@ async def assistente_unificado_v2(
         modulo_origem="assistente_v2",
         pending_action=pending_action,
         tool_trace=tool_trace or None,
-        dados={"input_tokens": total_in, "output_tokens": total_out},
+        dados=dados_out,
     )

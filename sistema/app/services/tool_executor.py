@@ -425,14 +425,20 @@ async def execute(
         ):
             token = _issue_token(name, args_dict, empresa_id=current_user.empresa_id)
 
-            # Preview para criar_orcamento: resolve cliente/itens sem gravar
             extras: dict = {}
-            if name == "criar_orcamento":
-                try:
-                    from app.services.ai_tools.orcamento_tools import preview_criar_orcamento
-                    extras = await preview_criar_orcamento(args_dict, db=db, current_user=current_user)
-                except Exception:
-                    pass
+            try:
+                from app.services.ai_tools.destructive_preview import (
+                    build_destructive_extras,
+                )
+
+                extras = await build_destructive_extras(
+                    name, args_dict, db=db, current_user=current_user
+                )
+            except Exception:
+                logger.debug(
+                    "Falha ao montar preview de confirmação para tool=%s", name,
+                    exc_info=True,
+                )
 
             result = ToolResult(
                 status="pending",
