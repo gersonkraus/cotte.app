@@ -1955,8 +1955,11 @@ async def assistente_v2_stream_core(
                         if hasattr(result, "pending_action")
                         else None
                     )
-                    if pending_action and hasattr(result, "data") and result.data:
-                        resp_dados = result.data
+                    if pending_action:
+                        extras = pending_action.get("extras") or {}
+                        args = pending_action.get("args") or {}
+                        # Mescla: args tem cliente_nome/itens (campos que operador_wpp_service lê)
+                        resp_dados = {**args, **extras}
 
                 payload = (
                     result.to_llm_payload()
