@@ -402,7 +402,7 @@ function initAssistenteChatDelegation() {
             e.preventDefault();
             const tok = cp.getAttribute('data-copy-public-token');
             if (tok) {
-                const url = window.location.origin + '/orcamento-publico.html?token=' + encodeURIComponent(tok);
+                const url = window.location.origin + '/app/orcamento-publico.html?token=' + encodeURIComponent(tok);
                 navigator.clipboard.writeText(url).then(() => {
                     cp.textContent = '✓ Copiado';
                 }).catch(() => {});
