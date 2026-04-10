@@ -32,13 +32,13 @@ class Settings(BaseSettings):
     # Segurança
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 43200  # 30 dias
 
     # Presença (get_usuario_atual): evita UPDATE+COMMIT em toda requisição autenticada
     ULTIMA_ATIVIDADE_COMMIT_INTERVAL_SECONDS: int = 120
 
     # Anthropic (Claude AI)
-    #ANTHROPIC_API_KEY: str
+    # ANTHROPIC_API_KEY: str
 
     # === IA - LiteLLM + GPT-4o-mini ===
     AI_PROVIDER: str = "openai"
@@ -73,7 +73,7 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
     SMTP_PASS: str = ""
-    SMTP_FROM: str = ""   # ex: "COTTE <noreply@seudominio.com>"
+    SMTP_FROM: str = ""  # ex: "COTTE <noreply@seudominio.com>"
     REDIS_URL: str = ""
 
     # Rate limit para recuperação de senha
@@ -81,7 +81,7 @@ class Settings(BaseSettings):
     RESET_RATE_LIMIT_MAX_PER_IP: int = 10
     RESET_RATE_LIMIT_MAX_PER_EMAIL: int = 5
     RESET_RATE_LIMIT_BLOCK_SECONDS: int = 1800
-    
+
     # Rate limit de segurança (SecurityMiddleware): só conta rotas fora de /app e /static
     SECURITY_RATE_LIMIT_MAX: int = 200
     SECURITY_RATE_LIMIT_WINDOW_SECONDS: int = 60
