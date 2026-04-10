@@ -1,0 +1,744 @@
+{
+  "$schema": "https://stacklit.dev/schema/v1.json",
+  "version": "1",
+  "generated_at": "2026-04-10T18:52:30Z",
+  "stacklit_version": "dev",
+  "merkle_hash": "1f086b4d26c4c7825bf92319eacc1102ac127d8a232451232008dc78fc9b570e",
+  "project": {
+    "name": "Projeto-izi",
+    "root": ".",
+    "type": "single"
+  },
+  "tech": {
+    "primary_language": "python",
+    "languages": {
+      "javascript": {
+        "files": 44,
+        "lines": 24121
+      },
+      "python": {
+        "files": 286,
+        "lines": 63705
+      },
+      "shell": {
+        "files": 6,
+        "lines": 277
+      }
+    },
+    "frameworks": [
+      "FastAPI",
+      "Playwright",
+      "Redis"
+    ]
+  },
+  "structure": {
+    "entrypoints": [
+      "sistema/scripts/verificar_urls_r2.py"
+    ],
+    "total_files": 336,
+    "total_lines": 88103
+  },
+  "modules": {
+    "root": {
+      "purpose": "Root package",
+      "language": "javascript",
+      "files": 1,
+      "lines": 22,
+      "file_list": [
+        "playwright.config.js"
+      ],
+      "activity": "low"
+    },
+    "scripts": {
+      "purpose": "Scripts",
+      "language": "shell",
+      "files": 7,
+      "lines": 793,
+      "file_list": [
+        "auto_tagging_base.py",
+        "check_no_gitlinks.sh",
+        "explain_performance_orcamentos_sidebar_catalogo.py",
+        "memory-update.sh",
+        "notion-reference.sh",
+        "notion-sync.sh",
+        "notion-tasks.sh"
+      ],
+      "exports": [
+        "detect_category(file_path: Path) -\u003e str",
+        "detect_priority(file_path: Path, category: str) -\u003e str",
+        "detect_status(file_path: Path, category: str) -\u003e str",
+        "extract_frontmatter(content: str) -\u003e Optional[Dict]",
+        "run_block(title: str, sql_body: str) -\u003e None"
+      ],
+      "activity": "low"
+    },
+    "sistema": {
+      "purpose": "Sistema",
+      "language": "python",
+      "files": 2,
+      "lines": 42,
+      "file_list": [
+        "query.py",
+        "release.sh"
+      ],
+      "activity": "high"
+    },
+    "sistema/alembic": {
+      "purpose": "Alembic",
+      "language": "python",
+      "files": 1,
+      "lines": 58,
+      "file_list": [
+        "env.py"
+      ],
+      "exports": [
+        "run_migrations_offline() -\u003e None",
+        "run_migrations_online() -\u003e None"
+      ],
+      "activity": "low"
+    },
+    "sistema/alembic/versions": {
+      "purpose": "Versions",
+      "language": "python",
+      "files": 101,
+      "lines": 5970,
+      "file_list": [
+        "001_initial_schema.py",
+        "002_add_comercial_tables.py",
+        "003_add_comercial_extended_tables.py",
+        "00b953ce3024_backfill_notif_whats_visualizacao_.py",
+        "1548e7057e6c_refactor_monetary_to_numeric_and_sync.py",
+        "1913bf78d9a7_feat_adicionar_campos_de_otp_para_.py",
+        "20260323_add_categoria_id_servicos.py",
+        "20260323_add_doc_tracking.py",
+        "20260323_add_preco_custo_servicos.py",
+        "20260323_merge_heads.py",
+        "2420bef5d6a4_add_status_aguardando_escolha.py",
+        "25a618cb66f6_add_cupom_kiwify_to_empresa.py",
+        "2dc96d88fe32_feat_adicionar_pix_aos_orcamentos.py",
+        "3344d22be19b_add_assistente_instrucoes_to_empresa.py",
+        "407429405c03_add_agendamentos_module.py",
+        "5f2d3c4b1a9e_merge_commercial_and_empresas_heads.py",
+        "60754c29faf4_add_performance_indices_orcamentos_.py",
+        "823ca6b022cd_adicionar_models_propostapublica_.py",
+        "8b8efeace516_feat_adicionar_pix_padrao_a_empresa.py",
+        "8f19ab3f4b99_feat_adiciona_pix_payload_ao_orcamento_.py"
+      ],
+      "exports": [
+        "column_exists(table_name, column_name)",
+        "downgrade()",
+        "downgrade() -\u003e None",
+        "upgrade()",
+        "upgrade() -\u003e None"
+      ],
+      "activity": "low"
+    },
+    "sistema/app": {
+      "purpose": "App",
+      "language": "python",
+      "files": 2,
+      "lines": 554,
+      "file_list": [
+        "__init__.py",
+        "main.py"
+      ],
+      "exports": [
+        "include_routers(app: FastAPI)"
+      ],
+      "activity": "high"
+    },
+    "sistema/app/api": {
+      "purpose": "API endpoints and handlers",
+      "language": "python",
+      "files": 2,
+      "lines": 40,
+      "file_list": [
+        "__init__.py",
+        "deps.py"
+      ],
+      "exports": [
+        "get_cliente_repository() -\u003e ClienteRepository",
+        "get_cliente_service(db: Session = Depends(get_db)) -\u003e ClienteService",
+        "get_db() -\u003e Generator[Session, None, None]"
+      ],
+      "activity": "low"
+    },
+    "sistema/app/core": {
+      "purpose": "Core",
+      "language": "python",
+      "files": 11,
+      "lines": 2246,
+      "file_list": [
+        "__init__.py",
+        "auth.py",
+        "cache.py",
+        "config.py",
+        "database.py",
+        "exceptions.py",
+        "logging_config.py",
+        "logging_middleware.py",
+        "openapi_docs.py",
+        "security_middleware.py",
+        "static_cache_middleware.py"
+      ],
+      "exports": [
+        "add_error_responses(openapi_schema: Dict[str, Any])",
+        "add_examples_to_schemas(openapi_schema: Dict[str, Any])",
+        "class AppException",
+        "class LogContext",
+        "class LoggingMiddleware",
+        "class NotFoundException",
+        "class SecurityMiddleware",
+        "class Settings",
+        "class StaticCacheControlMiddleware",
+        "class StructuredLogger"
+      ],
+      "type_defs": {
+        "NotFoundException": "handle_app_exception",
+        "SecurityMiddleware": "dispatch, cleanup_old_data",
+        "StaticCacheControlMiddleware": "dispatch",
+        "StructuredLogger": "info_structured, warning_structured, error_structured, debug_structured, critical_structured"
+      },
+      "activity": "low"
+    },
+    "sistema/app/models": {
+      "purpose": "Data models and types",
+      "language": "python",
+      "files": 2,
+      "lines": 2111,
+      "file_list": [
+        "__init__.py",
+        "models.py"
+      ],
+      "exports": [
+        "class AIChatMensagem",
+        "class AIChatSessao",
+        "class Agendamento",
+        "class AgendamentoOpcao",
+        "class AssistentePreferenciaUsuario",
+        "class AuditLog",
+        "class BancoPIXEmpresa",
+        "class Broadcast",
+        "class Campaign",
+        "class CampaignLead"
+      ],
+      "activity": "high"
+    },
+    "sistema/app/repositories": {
+      "purpose": "Repositories",
+      "language": "python",
+      "files": 8,
+      "lines": 1392,
+      "file_list": [
+        "__init__.py",
+        "base.py",
+        "categoria_financeira_repository.py",
+        "cliente_repository.py",
+        "empresa_repository.py",
+        "orcamento_repository.py",
+        "servico_repository.py",
+        "usuario_repository.py"
+      ],
+      "exports": [
+        "class CategoriaFinanceiraRepository",
+        "class ClienteRepository",
+        "class EmpresaRepository",
+        "class OrcamentoRepository",
+        "class RepositoryBase",
+        "class ServicoRepository",
+        "class UsuarioRepository"
+      ],
+      "type_defs": {
+        "CategoriaFinanceiraRepository": "criar_categoria, get_by_id, listar_categorias, verificar_duplicidade, atualizar_categoria, soft_delete_categoria"
+      },
+      "activity": "low"
+    },
+    "sistema/app/routers": {
+      "purpose": "Routers",
+      "language": "python",
+      "files": 31,
+      "lines": 14716,
+      "file_list": [
+        "__init__.py",
+        "admin.py",
+        "admin_planos.py",
+        "agendamentos.py",
+        "ai_hub.py",
+        "auth_clientes.py",
+        "catalogo.py",
+        "clientes.py",
+        "comercial.py",
+        "comercial_campaigns.py",
+        "comercial_config.py",
+        "comercial_helpers.py",
+        "comercial_import.py",
+        "comercial_interacoes.py",
+        "comercial_leads.py",
+        "comercial_pipeline.py",
+        "comercial_propostas.py",
+        "comercial_templates.py",
+        "config.py",
+        "docs.py"
+      ],
+      "exports": [
+        "atualizar_empresa( dados: EmpresaUpdate, usuario: Usuario = Depends(exigir_permissao(\"configuracoes\", \"escrita\")), db...",
+        "atualizar_status( agendamento_id: int, dados: AgendamentoStatusUpdate, request: Request, db: Session = Depends(get_db...",
+        "buscar_cliente_por_telefone( telefone: str, db: Session = Depends(get_db), usuario: Usuario = Depends(exigir_permissa...",
+        "check_rate_limit(request: Request, limit: int = 60, window: int = 60) -\u003e bool",
+        "class AIAssistenteRequest",
+        "class AIConfirmarOrcamentoRequest",
+        "class AIConversarRequest",
+        "class AIMensagemRequest",
+        "class AIProcessRequest",
+        "class AIStatusResponse"
+      ],
+      "activity": "high"
+    },
+    "sistema/app/schemas": {
+      "purpose": "Schemas",
+      "language": "python",
+      "files": 6,
+      "lines": 2995,
+      "file_list": [
+        "__init__.py",
+        "agendamento.py",
+        "financeiro.py",
+        "notifications.py",
+        "plano.py",
+        "schemas.py"
+      ],
+      "exports": [
+        "class AgendamentoCalendario",
+        "class AgendamentoComOpcoes",
+        "class AgendamentoCreate",
+        "class AgendamentoCreateComOpcoes",
+        "class AgendamentoDashboard",
+        "class AgendamentoOpcaoCreate",
+        "class AgendamentoOpcaoOut",
+        "class AgendamentoOut",
+        "class AgendamentoReagendar",
+        "class AgendamentoStatusUpdate"
+      ],
+      "activity": "high"
+    },
+    "sistema/app/services": {
+      "purpose": "Business logic services",
+      "language": "python",
+      "files": 44,
+      "lines": 22322,
+      "file_list": [
+        "__init__.py",
+        "admin_config.py",
+        "agendamento_auto_service.py",
+        "agendamento_service.py",
+        "ai_intention_classifier.py",
+        "ai_json_extractor.py",
+        "ai_prompt_loader.py",
+        "assistant_preferences_service.py",
+        "audio_transcription_service.py",
+        "audit_service.py",
+        "campaign_service.py",
+        "catalogo_service.py",
+        "cliente_service.py",
+        "cotte_ai_hub.py",
+        "cotte_context_builder.py",
+        "documentos_html_service.py",
+        "documentos_service.py",
+        "email_service.py",
+        "financeiro_service.py",
+        "ia_service.py"
+      ],
+      "exports": [
+        "admin_atualizar_template(slug: str, dados: Dict) -\u003e Dict",
+        "admin_criar_template(slug: str, dados: Dict) -\u003e Dict",
+        "admin_deletar_template(slug: str) -\u003e None",
+        "admin_listar_templates() -\u003e List[Dict]",
+        "analyze_schema_drift(engine: Engine, metadata: DeclarativeMeta) -\u003e dict[str, Any]",
+        "atualizar_agendamento( db: Session, empresa_id: int, agendamento_id: int, usuario_id: int, cliente_id: Optional[int] ...",
+        "brevo_api_habilitado() -\u003e bool",
+        "calcular_saldo_caixa_kpi(empresa_id: int, db: Session) -\u003e Decimal",
+        "class AIJSONExtractor",
+        "class AIPromptLoader"
+      ],
+      "type_defs": {
+        "CampaignService": "create_campaign, update_campaign",
+        "EvolutionProvider": "enviar_lista, enviar_pdf, notificar_operador_recusa, enviar_lembrete_cliente",
+        "IAService": "chat",
+        "LeadImportService": "parse_text_to_leads, check_duplicate, check_duplicate_dict",
+        "SimpleCache": "get",
+        "SubscriptionService": "checar_limite_orcamentos",
+        "ZAPIProvider": "notificar_operador_recusa, enviar_lembrete_cliente"
+      },
+      "activity": "high"
+    },
+    "sistema/app/services/ai_tools": {
+      "purpose": "Ai Tools",
+      "language": "python",
+      "files": 9,
+      "lines": 2637,
+      "file_list": [
+        "__init__.py",
+        "_base.py",
+        "agendamento_tools.py",
+        "catalogo_tools.py",
+        "cliente_tools.py",
+        "destructive_preview.py",
+        "financeiro_tools.py",
+        "log_tools.py",
+        "orcamento_tools.py"
+      ],
+      "exports": [
+        "class AnalisarToolLogsInput",
+        "class CadastrarMaterialInput",
+        "class CancelarAgendamentoInput",
+        "class CriarAgendamentoInput",
+        "class CriarClienteInput",
+        "class CriarMovimentacaoInput",
+        "class EditarClienteInput",
+        "class ExcluirClienteInput",
+        "class ListarAgendamentosInput",
+        "class ListarClientesInput"
+      ],
+      "activity": "low"
+    },
+    "sistema/app/utils": {
+      "purpose": "Utility functions",
+      "language": "python",
+      "files": 9,
+      "lines": 469,
+      "file_list": [
+        "__init__.py",
+        "csv_parser.py",
+        "csv_utils.py",
+        "desconto.py",
+        "orcamento_status.py",
+        "orcamento_utils.py",
+        "pdf_utils.py",
+        "phone.py",
+        "whatsapp_sanitizer.py"
+      ],
+      "exports": [
+        "aplicar_desconto(subtotal: Decimal, desconto: Decimal, tipo: str) -\u003e Decimal",
+        "formatar_numero_orcamento(empresa, sequencial: int, aprovado: bool = False) -\u003e str",
+        "get_empresa_dict_for_pdf(empresa: Empresa) -\u003e dict",
+        "get_orcamento_dict_for_pdf(orc: Orcamento, db: Session) -\u003e dict",
+        "listar_itens_txt(itens) -\u003e str",
+        "normalize_phone_number(phone: str | None) -\u003e str | None",
+        "resolver_max_percent_desconto(usuario=None, empresa=None) -\u003e int",
+        "sanitizar_mensagem(raw: str | None) -\u003e str | None",
+        "sanitizar_telefone(raw: str | None) -\u003e str | None",
+        "transicao_permitida(de: StatusOrcamento, para: StatusOrcamento) -\u003e bool"
+      ],
+      "activity": "low"
+    },
+    "sistema/cotte-frontend": {
+      "purpose": "Cotte-frontend",
+      "language": "javascript",
+      "files": 2,
+      "lines": 39,
+      "file_list": [
+        "generate_icon.py",
+        "sw.js"
+      ],
+      "depended_by": [
+        "sistema/cotte-frontend/js/dashboard"
+      ],
+      "activity": "high"
+    },
+    "sistema/cotte-frontend/css": {
+      "purpose": "Css",
+      "language": "javascript",
+      "files": 1,
+      "lines": 83,
+      "file_list": [
+        "tailwind.cdn.js"
+      ],
+      "activity": "low"
+    },
+    "sistema/cotte-frontend/js": {
+      "purpose": "Js",
+      "language": "javascript",
+      "files": 29,
+      "lines": 20198,
+      "file_list": [
+        "agendamentos.js",
+        "api-financeiro.js",
+        "api.js",
+        "assistente-ia.js",
+        "chat-tooltips.js",
+        "chat-virtualization.js",
+        "clientes.js",
+        "comercial-cadastros.js",
+        "comercial-campanhas.js",
+        "comercial-core.js",
+        "comercial-dashboard.js",
+        "comercial-import.js",
+        "comercial-leads.js",
+        "comercial-lembretes.js",
+        "comercial-mensagens.js",
+        "comercial-pipeline.js",
+        "comercial-propostas-publicas.js",
+        "comercial-templates.js",
+        "comercial.js",
+        "configuracoes.js"
+      ],
+      "activity": "high"
+    },
+    "sistema/cotte-frontend/js/components": {
+      "purpose": "UI components",
+      "language": "javascript",
+      "files": 1,
+      "lines": 164,
+      "file_list": [
+        "modal-orcamento.js"
+      ],
+      "activity": "low"
+    },
+    "sistema/cotte-frontend/js/dashboard": {
+      "purpose": "Dashboard",
+      "language": "javascript",
+      "files": 5,
+      "lines": 2223,
+      "file_list": [
+        "ChartsGrid.js",
+        "Modals.js",
+        "OrcamentosTable.js",
+        "RightPanel.js",
+        "StatsRow.js"
+      ],
+      "exports": [
+        "ChartsGrid",
+        "OrcamentosTable",
+        "RightPanel",
+        "StatsRow"
+      ],
+      "type_defs": {
+        "ChartsGrid": "constructor, load, render, initCharts, loadChartJS, initFaturamentoChart, initStatusChart, updateCharts, updateFaturamentoChart, updateStatusChart, generateMonthLabels, showEmptyStates, hideEmptyStates, updatePeriod, exportChart, update, destroy",
+        "OrcamentosTable": "constructor, load, ordenarOrcamentos, render, renderEmpty, renderTableRows, renderTableRow, aplicarFiltro, updateCarregarMaisButton, setupEventListeners, handleRowClick, handleRowHover, handleRowLeave, setupFilterListeners, aplicarFiltroStatus, carregarMais, getClienteNome, abrirDetalhes, editarOrcamento, enviarWhatsapp, update, escapeHtml, truncarTexto, destroy",
+        "RightPanel": "constructor, init, render, setupEvents, loadInitialData, loadTimeline, updateTimeline, getTimelineIcon, showTimelineError, formatTimeAgo, loadWhatsAppHistory, updateWhatsAppChat, sendWhatsAppMessage, sendQuickMessage, handleWhatsAppKeyPress, update, destroy",
+        "StatsRow": "constructor, load, calcularStats, render, renderLoading, renderStats, setupEventListeners, handleCardHover, handleCardLeave, handleCardClick, setupDynamicTooltips, update, updateStat, updateCard, destroy"
+      },
+      "depends_on": [
+        "sistema/cotte-frontend"
+      ],
+      "activity": "low"
+    },
+    "sistema/cotte-frontend/js/services": {
+      "purpose": "Business logic services",
+      "language": "javascript",
+      "files": 2,
+      "lines": 460,
+      "file_list": [
+        "ApiService.js",
+        "CacheService.js"
+      ],
+      "activity": "low"
+    },
+    "sistema/cotte-frontend/js/utils": {
+      "purpose": "Utility functions",
+      "language": "javascript",
+      "files": 1,
+      "lines": 389,
+      "file_list": [
+        "formatters.js"
+      ],
+      "exports": [
+        "capitalizar(text)",
+        "formatarBytes(bytes, decimals = 2)",
+        "formatarData(date, includeTime = false)",
+        "formatarDataRelativa(date)",
+        "formatarDocumento(documento)",
+        "formatarDuracao(minutes)",
+        "formatarMoeda(value, withSymbol = true)",
+        "formatarMoedaCompacta(value)",
+        "formatarNumero(value, decimals = 0)",
+        "formatarPorcentagem(value, isDecimal = false)"
+      ],
+      "activity": "low"
+    },
+    "sistema/scripts": {
+      "purpose": "Scripts",
+      "language": "python",
+      "files": 5,
+      "lines": 469,
+      "file_list": [
+        "migrar_urls_r2.py",
+        "migrate_clientes.py",
+        "parry_hook.py",
+        "test_render_pdf.py",
+        "verificar_urls_r2.py"
+      ],
+      "exports": [
+        "log_alert(tool: str, pattern_desc: str, snippet: str)",
+        "migrar()",
+        "migrar_urls()",
+        "test_render()",
+        "verificar_urls()"
+      ],
+      "activity": "low"
+    }
+  },
+  "dependencies": {
+    "edges": [
+      [
+        "sistema/cotte-frontend/js/dashboard",
+        "sistema/cotte-frontend"
+      ]
+    ],
+    "entrypoints": [
+      "sistema/scripts/verificar_urls_r2.py"
+    ],
+    "most_depended": [
+      "sistema/cotte-frontend",
+      "root",
+      "scripts",
+      "sistema",
+      "sistema/alembic",
+      "sistema/alembic/versions",
+      "sistema/app",
+      "sistema/app/api",
+      "sistema/app/core",
+      "sistema/app/models"
+    ],
+    "isolated": [
+      "root",
+      "scripts",
+      "sistema",
+      "sistema/alembic",
+      "sistema/alembic/versions",
+      "sistema/app",
+      "sistema/app/api",
+      "sistema/app/core",
+      "sistema/app/models",
+      "sistema/app/repositories",
+      "sistema/app/routers",
+      "sistema/app/schemas",
+      "sistema/app/services",
+      "sistema/app/services/ai_tools",
+      "sistema/app/utils",
+      "sistema/cotte-frontend/css",
+      "sistema/cotte-frontend/js",
+      "sistema/cotte-frontend/js/components",
+      "sistema/cotte-frontend/js/services",
+      "sistema/cotte-frontend/js/utils",
+      "sistema/scripts"
+    ]
+  },
+  "git": {
+    "hot_files": [
+      {
+        "path": "sistema/app/models/models.py",
+        "commits_90d": 99
+      },
+      {
+        "path": "sistema/app/schemas/schemas.py",
+        "commits_90d": 88
+      },
+      {
+        "path": "sistema/app/routers/orcamentos.py",
+        "commits_90d": 86
+      },
+      {
+        "path": "sistema/cotte-frontend/index.html",
+        "commits_90d": 86
+      },
+      {
+        "path": "sistema/cotte-frontend/orcamentos.html",
+        "commits_90d": 85
+      },
+      {
+        "path": "sistema/cotte-frontend/comercial.html",
+        "commits_90d": 72
+      },
+      {
+        "path": "sistema/cotte-frontend/configuracoes.html",
+        "commits_90d": 72
+      },
+      {
+        "path": "sistema/cotte-frontend/assistente-ia.html",
+        "commits_90d": 69
+      },
+      {
+        "path": "sistema/cotte-frontend/admin.html",
+        "commits_90d": 58
+      },
+      {
+        "path": "sistema/cotte-frontend/orcamento-publico.html",
+        "commits_90d": 57
+      },
+      {
+        "path": "sistema/app/routers/publico.py",
+        "commits_90d": 49
+      },
+      {
+        "path": "sistema/app/services/cotte_ai_hub.py",
+        "commits_90d": 48
+      },
+      {
+        "path": "sistema/cotte-frontend/js/assistente-ia.js",
+        "commits_90d": 47
+      },
+      {
+        "path": "sistema/cotte-frontend/financeiro.html",
+        "commits_90d": 45
+      },
+      {
+        "path": "sistema/cotte-frontend/js/api.js",
+        "commits_90d": 45
+      },
+      {
+        "path": "sistema/main.py",
+        "commits_90d": 41
+      },
+      {
+        "path": "sistema/app/routers/whatsapp.py",
+        "commits_90d": 39
+      },
+      {
+        "path": "sistema/cotte-frontend/catalogo.html",
+        "commits_90d": 39
+      },
+      {
+        "path": "sistema/app/services/financeiro_service.py",
+        "commits_90d": 38
+      },
+      {
+        "path": "memory/.last-session",
+        "commits_90d": 37
+      }
+    ],
+    "recent": [
+      "sistema/cotte-frontend/assistente-ia.html",
+      "sistema/cotte-frontend/css/assistente-ia.css",
+      "sistema/cotte-frontend/js/assistente-ia.js",
+      "sistema/app/routers/orcamentos.py",
+      "sistema/app/utils/orcamento_status.py",
+      "sistema/tests/test_orcamento_status.py",
+      "sistema/app/services/prompts/knowledge_base.md",
+      "sistema/cotte-frontend/admin-config.html"
+    ],
+    "stable": [
+      "Dockerfile",
+      "auditoria-tecnica.md",
+      "conductor/archive/fluxo_orcamento_whatsapp_20260403/metadata.json",
+      "conductor/tracks/audit-cotte-system/index.md",
+      "conductor/tracks/audit-cotte-system/plan.md",
+      "conductor/tracks/audit-cotte-system/report.md",
+      "conductor/tracks/audit-cotte-system/spec.md",
+      "correcao-agendamento.md",
+      "docs/plano-assistente-v2.md",
+      "docs/plano_whatsapp_operador.html"
+    ]
+  },
+  "hints": {
+    "add_feature": "Add handler in sistema/app/api, register in sistema/scripts/verificar_urls_r2.py",
+    "test_command": "npm test",
+    "env_vars": [
+      "ANTHROPIC_API_KEY",
+      "TEST_EMAIL",
+      "TEST_PASSWORD",
+      "USERPROFILE"
+    ]
+  },
+  "architecture": {}
+}
