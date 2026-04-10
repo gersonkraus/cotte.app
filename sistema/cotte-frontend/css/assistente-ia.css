@@ -1773,8 +1773,12 @@ body.embed-mode .sidebar,
 body.embed-mode .topbar,
 body.embed-mode .ai-hero { display: none !important; }
 body.embed-mode {
+    height: 100%;
     min-height: 100%;
     overflow: hidden;
+}
+html:has(body.embed-mode) {
+    height: 100%;
 }
 body.embed-mode .main,
 body.embed-mode .main--chat {
@@ -1782,6 +1786,7 @@ body.embed-mode .main--chat {
     padding: 0 !important;
     min-height: 100%;
     height: 100%;
+    overflow: hidden;
 }
 body.embed-mode .ai-assistant-container {
     padding: 0 !important;
@@ -1789,12 +1794,22 @@ body.embed-mode .ai-assistant-container {
     gap: 0 !important;
     height: 100%;
     min-height: 100%;
+    overflow: hidden;
+}
+body.embed-mode #aiAssistantMainSlot {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
 }
 body.embed-mode .chat-container {
     border-radius: 0 0 20px 20px !important;
-    height: 100% !important;
+    height: auto !important;
+    flex: 1 1 auto;
     min-height: 0 !important;
     box-shadow: none !important;
+    overflow: hidden;
 }
 
 /* Header de card compacto */
@@ -1992,7 +2007,14 @@ body.embed-mode .suggestions-section { gap: 6px !important; }
 body.embed-mode .suggestion-group { gap: 6px !important; }
 
 /* Mensagens e input compactos */
-body.embed-mode .chat-messages { padding: 8px 10px !important; gap: 5px !important; }
+body.embed-mode .chat-messages {
+    padding: 8px 10px !important;
+    gap: 5px !important;
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
 body.embed-mode .message { margin-bottom: 0 !important; }
 body.embed-mode .message.ai .message-bubble {
     padding: 5px 9px 3px 12px !important;
@@ -2033,7 +2055,10 @@ body.embed-mode .welcome-msg { max-width: 100% !important; }
 body.embed-mode .welcome-msg .wpp-title { font-size: 11px !important; margin-bottom: 3px !important; }
 body.embed-mode .tool-trace { font-size: 8px !important; gap: 3px !important; margin-top: 2px !important; }
 body.embed-mode .tool-trace-item { font-size: 8px !important; padding: 0px 4px !important; opacity: 0.6 !important; }
-body.embed-mode .chat-input { padding: 9px 12px !important; }
+body.embed-mode .chat-input {
+    padding: 9px 12px !important;
+    flex-shrink: 0;
+}
 body.embed-mode .input-group { padding: 3px 5px 3px 13px !important; align-items: center !important; }
 body.embed-mode .input-group input,
 body.embed-mode .input-group textarea { padding: 7px 0 !important; font-size: 0.85rem !important; }
