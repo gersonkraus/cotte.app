@@ -39,6 +39,19 @@ function hasHttpClient() {
     return !!httpClient && typeof httpClient.get === 'function' && typeof httpClient.post === 'function';
 }
 
+/** Ancora backdrop e card de preferências no body (idempotente). Evita perda do DOM quando o container do assistente é reescrito por scripts inline. */
+function mountAssistentePreferenciasLayersToBody() {
+    const backdrop = document.getElementById('prefBackdrop');
+    const card = document.getElementById('assistentePreferenciasCard');
+    if (!backdrop || !card) return;
+    if (backdrop.parentElement !== document.body) {
+        document.body.appendChild(backdrop);
+    }
+    if (card.parentElement !== document.body) {
+        document.body.appendChild(card);
+    }
+}
+
 function showAssistentePrefNotice(msg, isError = false) {
     const el = document.getElementById('assistenteInstrucoesPermissaoHint');
     if (!el) return;
@@ -854,6 +867,8 @@ function applySlashCommand(command) {
  * Inicialização ao carregar a página
  */
 document.addEventListener('DOMContentLoaded', function() {
+    mountAssistentePreferenciasLayersToBody();
+
     const welcomeEl = document.getElementById('welcomeState');
     if (welcomeEl) {
         _assistenteWelcomeHTML = welcomeEl.outerHTML;

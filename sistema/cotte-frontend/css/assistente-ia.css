@@ -1603,6 +1603,14 @@ body.embed-mode .embed-expand-btn {
 }
 body.embed-mode .embed-expand-btn:hover { color: #fff; }
 
+/* Preferências no body: z-index alto no iframe do dashboard (empilhamento sobre o chat). */
+body.embed-mode .pref-backdrop.is-open {
+    z-index: 99998;
+}
+body.embed-mode .assistente-preferencias-card {
+    z-index: 99999;
+}
+
 /* Card welcome compacto */
 body.embed-mode .welcome-msg { padding: 12px !important; border-radius: 14px !important; }
 body.embed-mode .welcome-msg .wpp-title { font-size: 0.82rem !important; margin-bottom: 4px !important; }
