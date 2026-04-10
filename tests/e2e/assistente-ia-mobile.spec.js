@@ -1,236 +1,9 @@
 // @ts-check
 const { test, expect } = require('@playwright/test');
-
-const USER = {
-  id: 1,
-  nome: 'Teste Mobile',
-  email: 'teste@playwright.com',
-  is_gestor: true,
-  is_superadmin: false,
-  empresa_id: 1,
-};
-
-function sse(events) {
-  return events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join('');
-}
-
-async function prepararPagina(page) {
-  await page.addInitScript(({ user }) => {
-    localStorage.setItem('cotte_token', 'token-playwright');
-    localStorage.setItem('cotte_usuario', JSON.stringify(user));
-    localStorage.removeItem('ai_chat_history');
-    localStorage.removeItem('ai_sessao_id');
-    localStorage.removeItem('onboarding_pending');
-  }, { user: USER });
-
-  await page.route('**/api/v1/**', async (route) => {
-    const request = route.request();
-    const url = new URL(request.url());
-    const path = url.pathname;
-
-    if (path.endsWith('/auth/me')) {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(USER),
-      });
-      return;
-    }
-
-    if (path.endsWith('/empresa/')) {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          id: 1,
-          nome: 'Empresa Teste',
-          plano_nome: 'Premium',
-          logo_url: null,
-        }),
-      });
-      return;
-    }
-
-    if (path.endsWith('/empresa/resumo-sidebar')) {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          empresa_nome: 'Empresa Teste',
-          plano_nome: 'Premium',
-        }),
-      });
-      return;
-    }
-
-    if (path.endsWith('/empresa/uso')) {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          orcamentos: { atual: 2, limite: 100 },
-          usuarios: { atual: 1, limite: 10 },
-          validade: null,
-        }),
-      });
-      return;
-    }
-
-    if (path.includes('/notificacoes/contagem-nao-lidas')) {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ total: 0, quantidade: 0, nao_lidas: 0 }),
-      });
-      return;
-    }
-
-    if (path.includes('/notificacoes/')) {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([]),
-      });
-      return;
-    }
-
-    if (path.endsWith('/ai/status')) {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          status: 'operacional',
-          modulos_disponiveis: ['financeiro', 'orcamentos', 'conversacao'],
-          cache_stats: { ttl_segundos: 300 },
-          versoes_modelos: { principal: 'gpt-4o-mini' },
-        }),
-      });
-      return;
-    }
-
-    if (path.endsWith('/ai/assistente/preferencias')) {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          preferencia_visualizacao: { formato_preferido: 'auto' },
-          playbook_setor: { setor: 'geral' },
-          instrucoes_empresa: '',
-          pode_editar_instrucoes: true,
-        }),
-      });
-      return;
-    }
-
-    if (path.endsWith('/ai/feedback')) {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ sucesso: true }),
-      });
-      return;
-    }
-
-    if (path.endsWith('/ai/assistente/stream')) {
-      const body = request.postDataJSON();
-      if (body.confirmation_token) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'text/event-stream',
-          body: sse([
-            { phase: 'thinking' },
-            { chunk: 'Ação confirmada com sucesso.' },
-            {
-              is_final: true,
-              final_text: 'Ação confirmada com sucesso.',
-              metadata: {
-                final_text: 'Ação confirmada com sucesso.',
-                tipo: 'operador_resultado',
-                dados: { acao: 'APROVADO', resposta: 'Ação confirmada com sucesso.' },
-                sugestoes: ['Ver orçamento atualizado'],
-              },
-            },
-          ]),
-        });
-        return;
-      }
-
-      if ((body.mensagem || '').toLowerCase().includes('confirmar')) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'text/event-stream',
-          body: sse([
-            { phase: 'thinking' },
-            {
-              is_final: true,
-              final_text: 'Para concluir, confirme os dados abaixo.',
-              metadata: {
-                final_text: 'Para concluir, confirme os dados abaixo.',
-                tipo: 'geral',
-                dados: {},
-                pending_action: {
-                  tool: 'criar_orcamento',
-                  confirmation_token: 'tok-mobile-1',
-                  args: {
-                    cliente_nome: 'Maria',
-                    itens: [{ descricao: 'Instalação elétrica', quantidade: 1, valor_unit: 350 }],
-                  },
-                  extras: {
-                    cliente_nome_resolvido: 'Maria',
-                  },
-                },
-              },
-            },
-          ]),
-        });
-        return;
-      }
-
-      await route.fulfill({
-        status: 200,
-        contentType: 'text/event-stream',
-        body: sse([
-          { phase: 'thinking' },
-          { phase: 'tool_running', tool: 'listar_movimentacoes_financeiras' },
-          { chunk: 'Resumo executivo do caixa.' },
-          {
-            is_final: true,
-            final_text: 'Resumo executivo do caixa.',
-            metadata: {
-              final_text: 'Resumo executivo do caixa.',
-              tipo: 'financeiro',
-              dados: {
-                visualizacao_recomendada: { formato_preferido: 'resumo' },
-              },
-              sugestoes: [
-                'Ver contas vencidas',
-                'Cobrar clientes em atraso',
-                'Projetar caixa dos próximos 7 dias',
-              ],
-              tool_trace: [
-                { tool: 'listar_movimentacoes_financeiras', status: 'ok' },
-              ],
-            },
-          },
-        ]),
-      });
-      return;
-    }
-
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({}),
-    });
-  });
-
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/assistente-ia.html');
-  await page.waitForLoadState('networkidle');
-}
+const { prepararPaginaAssistente } = require('./assistente-ia-fixture');
 
 test.beforeEach(async ({ page }) => {
-  await prepararPagina(page);
+  await prepararPaginaAssistente(page, { viewport: { width: 390, height: 844 } });
 });
 
 test.describe('Assistente IA mobile', () => {
@@ -264,10 +37,91 @@ test.describe('Assistente IA mobile', () => {
     await expect(page.locator('.message.ai').last()).toContainText('Ação confirmada com sucesso.');
   });
 
+  test('permite cancelar a ação pendente sem chamar confirmação', async ({ page }) => {
+    await page.locator('#messageInput').fill('Confirmar orçamento');
+    await page.locator('#sendButton').click();
+
+    const card = page.locator('.pending-action-card');
+    await expect(card).toBeVisible();
+    await card.locator('[data-cancel-ia]').click();
+    await expect(card).toContainText('Ação cancelada');
+  });
+
   test('abre e fecha preferências pelo header mobile', async ({ page }) => {
     await page.locator('#btnPreferenciasGear').click();
     await expect(page.locator('#assistentePreferenciasCard')).toHaveClass(/is-open/);
     await page.locator('#btnFecharPreferenciasAssistente').click();
     await expect(page.locator('#assistentePreferenciasCard')).not.toHaveClass(/is-open/);
+  });
+
+  test('confirma a prévia de orçamento e exibe card de sucesso', async ({ page }) => {
+    await page.locator('#messageInput').fill('Prévia orçamento');
+    await page.locator('#sendButton').click();
+
+    const preview = page.locator('.orc-preview-card');
+    await expect(preview).toBeVisible();
+    await preview.locator('[data-orc-confirm]').click();
+
+    await expect(page.locator('.orc-success-card')).toContainText('ORC-321-26');
+    await expect(page.locator('.orc-success-card')).toContainText('Instalação elétrica');
+  });
+
+  test('abre modal de reenvio e envia por WhatsApp e e-mail', async ({ page }) => {
+    await page.locator('#messageInput').fill('Ver orçamento 321');
+    await page.locator('#sendButton').click();
+
+    const card = page.locator('.opr-card');
+    await expect(card).toBeVisible();
+
+    await card.locator('[data-enviar-wa]').click();
+    await expect(page.locator('#modal-reenvio-orcamento')).toHaveClass(/open/);
+    await page.locator('#reenvio-orc-btn-confirmar').click();
+    await expect(page.locator('.message.ai').last()).toContainText('enviado por WhatsApp com sucesso');
+
+    await card.locator('[data-enviar-email]').click();
+    await expect(page.locator('#modal-reenvio-orcamento')).toHaveClass(/open/);
+    await page.locator('#reenvio-orc-btn-confirmar').click();
+    await expect(page.locator('.message.ai').last()).toContainText('enviado por e-mail com sucesso');
+  });
+
+  test('envia feedback positivo e negativo', async ({ page }) => {
+    await page.locator('#messageInput').fill('Como está meu caixa hoje?');
+    await page.locator('#sendButton').click();
+
+    const feedbackBar = page.locator('.feedback-bar').last();
+    await feedbackBar.locator('[data-feedback-val="positivo"]').click();
+    await expect(feedbackBar).toContainText('Obrigado');
+
+    await page.locator('#messageInput').fill('Como está meu caixa hoje?');
+    await page.locator('#sendButton').click();
+
+    const feedbackNegativo = page.locator('.feedback-bar').last();
+    await feedbackNegativo.locator('[data-feedback-val="negativo"]').click();
+    await page.locator('.feedback-textarea').fill('Faltou detalhar os vencidos');
+    await page.locator('.feedback-send-btn').click();
+    await expect(feedbackNegativo).toContainText('Obrigado pelo retorno');
+  });
+
+  test('nova conversa limpa o estado visual e restaura o welcome', async ({ page }) => {
+    await page.locator('#messageInput').fill('Como está meu caixa hoje?');
+    await page.locator('#sendButton').click();
+    await expect(page.locator('.message.ai').last()).toContainText('Resumo executivo do caixa.');
+
+    await page.locator('#btnNovaConversaMobile').click();
+    await expect(page.locator('#welcomeState')).toBeVisible();
+    await expect(page.locator('.message.ai')).toHaveCount(1);
+  });
+
+  test('restaura histórico salvo após recarregar a página', async ({ page }) => {
+    await page.locator('#messageInput').fill('Como está meu caixa hoje?');
+    await page.locator('#sendButton').click();
+    await expect(page.locator('.message.ai').last()).toContainText('Resumo executivo do caixa.');
+    await expect.poll(async () => {
+      return await page.evaluate(() => localStorage.getItem('ai_chat_history') || '');
+    }).toContain('Resumo executivo do caixa.');
+
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('.message.ai').last()).toContainText('Resumo executivo do caixa.');
   });
 });
