@@ -1,0 +1,29 @@
+@media (max-width: 768px) {
+    .chat-messages {
+        scroll-padding-bottom: 96px;
+    }
+
+    .chat-input {
+        position: sticky;
+        bottom: 0;
+        z-index: 4;
+        box-shadow: 0 -10px 24px rgba(15, 23, 42, 0.08);
+    }
+
+    .quick-reply-area {
+        position: sticky;
+        bottom: calc(66px + env(safe-area-inset-bottom, 0px));
+        z-index: 3;
+    }
+
+    .orc-preview-card,
+    .orc-success-card,
+    .opr-card,
+    .saldo-rapido-resposta,
+    .confirmation-card,
+    .pending-action-card,
+    .sugestoes-container {
+        max-width: none;
+        width: 100%;
+    }
+}

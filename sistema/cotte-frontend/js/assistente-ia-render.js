@@ -1,498 +1,9 @@
 /**
- * assistente-ia.js - Lógica do Assistente COTTE
+ * assistente-ia-render.js
  *
- * HTTP: usa ApiService com fallback para cliente legado `api`.
+ * Renderização rica das respostas, cards de ação e confirmações.
  */
 
-let isLoading = false;
-let sessaoId = null; // UUID de sessão para histórico de conversa
-let _ultimaPergunta = ''; // Última mensagem enviada, para associar ao feedback
-let _assistenteWelcomeHTML = ''; // HTML do card inicial (para Nova conversa)
-const httpClient = window.ApiService || window.api;
-let currentAbortController = null; // Para o botão de parar geração
-let speechRecognition = null; // Para entrada por voz
-let isRecording = false;
-let slashCommandIndex = -1; // Índice atual da lista de slash commands
-let _assistentePrefsCache = null;
-
-const SLASH_COMMANDS = [
-    { cmd: '/caixa', desc: 'Ver saldo atual disponível', icon: '💰' },
-    { cmd: '/faturamento', desc: 'Total faturado em orçamentos', icon: '📈' },
-    { cmd: '/receber', desc: 'Valores em aberto a receber', icon: '📥' },
-    { cmd: '/pagar', desc: 'Valores em aberto a pagar', icon: '📤' },
-    { cmd: '/resumo', desc: 'Visão geral (Dashboard)', icon: '📊' },
-    { cmd: '/devendo', desc: 'Lista de clientes em atraso', icon: '🚨' },
-    { cmd: '/previsao', desc: 'Projeção de caixa futuro', icon: '🔮' },
-    { cmd: '/orcamento', desc: 'Criar um novo orçamento', icon: '📝' },
-    { cmd: '/agendar', desc: 'Fazer novo agendamento', icon: '📅' },
-    { cmd: '/agenda', desc: 'Ver agendamentos do dia', icon: '📆' },
-    { cmd: '/ajuda', desc: 'Dúvidas sobre como usar o sistema', icon: '❓' }
-];
-
-const MOBILE_BREAKPOINT = 768;
-const INPUT_MIN_HEIGHT_MOBILE = 40;
-const INPUT_MIN_HEIGHT_DESKTOP = 44;
-const DEFAULT_MESSAGE_PLACEHOLDER = 'Pergunte algo ou dê um comando...';
-const MOBILE_MESSAGE_PLACEHOLDER = 'Digite sua mensagem...';
-
-function hasHttpClient() {
-    return !!httpClient && typeof httpClient.get === 'function' && typeof httpClient.post === 'function';
-}
-
-/** Ancora backdrop e card de preferências no body (idempotente). Evita perda do DOM quando o container do assistente é reescrito por scripts inline. */
-function mountAssistentePreferenciasLayersToBody() {
-    const backdrop = document.getElementById('prefBackdrop');
-    const card = document.getElementById('assistentePreferenciasCard');
-    if (!backdrop || !card) return;
-    if (backdrop.parentElement !== document.body) {
-        document.body.appendChild(backdrop);
-    }
-    if (card.parentElement !== document.body) {
-        document.body.appendChild(card);
-    }
-}
-
-function showAssistentePrefNotice(msg, isError = false) {
-    const el = document.getElementById('assistenteInstrucoesPermissaoHint');
-    if (!el) return;
-    el.textContent = msg || '';
-    el.style.color = isError ? '#ef4444' : '';
-}
-
-/** Atualiza o ponto verde nas engrenagens quando há preferências personalizadas salvas no servidor. */
-function syncAssistenteGearSavedBadge(prefData) {
-    const pref = prefData?.preferencia_visualizacao || {};
-    const formato = pref?.formato_preferido || 'auto';
-    const instr = String(prefData?.instrucoes_empresa ?? '').trim();
-    const showPersonalizado = formato !== 'auto' || instr.length > 0;
-
-    const desktopBadge = document.getElementById('assistenteGearSavedBadgeDesktop');
-    const mobileBadge = document.getElementById('assistenteGearSavedBadgeMobile');
-    [desktopBadge, mobileBadge].forEach((el) => {
-        if (el) el.classList.toggle('is-visible', showPersonalizado);
-    });
-
-    const baseLabel = 'Abrir preferências';
-    const label = showPersonalizado
-        ? `${baseLabel}. Há preferências personalizadas salvas.`
-        : baseLabel;
-    const desktopBtn = document.getElementById('btnPreferenciasGearDesktop');
-    const mobileBtn = document.getElementById('btnPreferenciasGear');
-    if (desktopBtn) desktopBtn.setAttribute('aria-label', label);
-    if (mobileBtn) mobileBtn.setAttribute('aria-label', label);
-}
-
-function renderAssistentePreferencesCard(prefData) {
-    const resumo = document.getElementById('assistentePreferenciasResumo');
-    const setorTag = document.getElementById('assistenteSetorTag');
-    const select = document.getElementById('assistenteFormatoSelect');
-    const txt = document.getElementById('assistenteInstrucoesInput');
-    const btn = document.getElementById('btnSalvarPreferenciasAssistente');
-    if (!resumo || !setorTag || !select || !txt || !btn) return;
-
-    const pref = prefData?.preferencia_visualizacao || {};
-    const playbook = prefData?.playbook_setor || {};
-    const podeEditar = !!prefData?.pode_editar_instrucoes;
-    const setor = playbook?.setor || 'geral';
-    const formato = pref?.formato_preferido || 'auto';
-
-    _assistentePrefsCache = prefData || null;
-    setorTag.textContent = `Setor: ${setor}`;
-    resumo.textContent = `Formato atual: ${formato}. Playbook ativo com janelas 7/30/90 dias.`;
-
-    select.value = ['auto', 'resumo', 'tabela'].includes(formato) ? formato : 'auto';
-    txt.value = prefData?.instrucoes_empresa || '';
-    txt.disabled = !podeEditar;
-    btn.disabled = false;
-    showAssistentePrefNotice(
-        podeEditar
-            ? 'Você pode editar as instruções da empresa.'
-            : 'Somente gestor/admin pode editar instruções da empresa.'
-    );
-    syncAssistenteGearSavedBadge(prefData || {});
-}
-
-async function loadAssistentePreferences() {
-    if (!hasHttpClient() || typeof httpClient.get !== 'function') return;
-    try {
-        const data = await httpClient.get('/ai/assistente/preferencias');
-        renderAssistentePreferencesCard(data || {});
-    } catch (e) {
-        showAssistentePrefNotice('Não foi possível carregar preferências agora.', true);
-    }
-}
-
-async function saveAssistentePreferences() {
-    if (!hasHttpClient() || typeof httpClient.patch !== 'function') return;
-    const select = document.getElementById('assistenteFormatoSelect');
-    const txt = document.getElementById('assistenteInstrucoesInput');
-    const btn = document.getElementById('btnSalvarPreferenciasAssistente');
-    if (!select || !txt || !btn) return;
-    const podeEditar = !!(_assistentePrefsCache && _assistentePrefsCache.pode_editar_instrucoes);
-    const payload = {
-        formato_preferido: select.value || 'auto',
-        dominio: 'geral',
-    };
-    if (podeEditar) {
-        payload.instrucoes_empresa = txt.value || '';
-    }
-    btn.disabled = true;
-    showAssistentePrefNotice('Salvando preferências...');
-    try {
-        const out = await httpClient.patch('/ai/assistente/preferencias', payload);
-        renderAssistentePreferencesCard(out || {});
-        showAssistentePrefNotice('Preferências salvas com sucesso.');
-    } catch (e) {
-        showAssistentePrefNotice('Falha ao salvar preferências.', true);
-    } finally {
-        btn.disabled = false;
-    }
-}
-
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-/** Escapa texto para inserção segura em HTML (mitiga XSS). */
-function escapeHtml(s) {
-    return String(s ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
-
-/** Escapa valor de atributo HTML. */
-function escapeHtmlAttr(s) {
-    return String(s ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;')
-        .replace(/</g, '&lt;');
-}
-
-/** Texto plano: escape + quebras (erros, conteúdo sem Markdown). */
-function textToHtmlPlain(text) {
-    return escapeHtml(String(text ?? '')).replace(/\n/g, '<br>');
-}
-
-const _mdPh = (kind, i) => `\uE000${kind}${i}\uE001`;
-
-/**
- * Subconjunto seguro de Markdown para respostas da IA: `código`, **negrito**,
- * links [rótulo](https://...). Apenas URLs http/https. Sem HTML bruto.
- */
-function textToHtmlRich(raw) {
-    const codes = [];
-    const links = [];
-    let s = String(raw ?? '');
-    s = s.replace(/`([^`]+)`/g, (_, inner) => {
-        const i = codes.length;
-        codes.push(inner);
-        return _mdPh('C', i);
-    });
-    s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (_, label, url) => {
-        const i = links.length;
-        links.push({ label, url: url.trim() });
-        return _mdPh('L', i);
-    });
-    s = escapeHtml(s);
-    codes.forEach((inner, i) => {
-        s = s.replace(_mdPh('C', i), '<code class="assistente-md-code">' + escapeHtml(inner) + '</code>');
-    });
-    links.forEach((L, i) => {
-        const u = L.url.trim();
-        if (!/^https?:\/\//i.test(u)) {
-            s = s.replace(_mdPh('L', i), escapeHtml(`[${L.label}](${L.url})`));
-            return;
-        }
-        s = s.replace(
-            _mdPh('L', i),
-            '<a href="' + escapeHtmlAttr(u) + '" class="assistente-md-link" target="_blank" rel="noopener noreferrer">' +
-            escapeHtml(L.label) +
-            '</a>'
-        );
-    });
-    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    return s.replace(/\n/g, '<br>');
-}
-
-function isRetryableAssistenteError(err) {
-    const m = (err && err.message) ? err.message : '';
-    if (/Erro (502|503|504)\b/.test(m)) return true;
-    if (m.includes('conexão') || m.includes('internet')) return true;
-    if (m.includes('servidor')) return true;
-    if (m.includes('Failed to fetch')) return true;
-    return false;
-}
-
-/**
- * Obtém hora atual formatada
- */
-function getCurrentTime() {
-    const now = new Date();
-    return now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-}
-
-const SUGGESTION_ICONS = {
-    'cliente': '👤', 'clientes': '👥', 'novo': '🆕', 'venda': '💰',
-    'orcamento': '📋', 'orçamento': '📋', 'faturamento': '📊',
-    'receita': '📈', 'despesa': '💸', 'caixa': '🏦', 'saldo': '💵',
-    'negócio': '🚀', 'negocio': '🚀', 'vendas': '📈', 'meta': '🎯',
-    'lead': '🎣', 'leads': '🎣', 'prospec': '🔍', 'contrato': '✍️',
-    'pagamento': '💳', 'receber': '📬', 'pagar': '📤',
-    'ticket': '🎟️', 'médio': '📏', 'conversão': '🔄', 'conversao': '🔄',
-    'índice': '📐', 'indice': '📐', 'análise': '🔬', 'analise': '🔬',
-    'inadimpl': '⚠️', 'devendo': '🚨', 'bloqueado': '🔒',
-    'sazonal': '📅', 'feriado': '🎉', 'campanha': '📢',
-    'promo': '🔥', 'desconto': '🏷️', 'bonus': '🎁',
-    'default': '💡'
-};
-
-// Shell do chat extraído para assistente-ia-shell.js.
-
-// Entrada, bootstrap mobile e atalhos extraídos para assistente-ia-input.js.
-
-/**
- * Envia mensagem para o assistente
- */
-async function sendMessage() {
-    if (!hasHttpClient()) {
-        addMessage('Serviço de API indisponível. Recarregue a página e tente novamente.', false, true);
-        return;
-    }
-
-    if (isLoading) return;
-
-    const token = localStorage.getItem('cotte_token');
-    if (!token) {
-        addMessage('Você precisa estar logado para usar o assistente. Redirecionando...', false, true);
-        setTimeout(() => {
-            window.location.href = 'login.html';
-        }, 2000);
-        return;
-    }
-
-    const input = document.getElementById('messageInput');
-    const message = (input && input.value) ? input.value.trim() : '';
-
-    if (!message) return;
-
-    dismissWelcome();
-    input.value = '';
-    resizeMessageInput();
-    _updateVoiceSendToggle(input);
-    _hideQuickReplyChips();
-    _ultimaPergunta = message;
-
-    addMessage(escapeHtml(message).replace(/\n/g, '<br>'), true);
-
-    const loadingMessage = addMessage('', false, false, true);
-    isLoading = true;
-
-    const sendButton = document.getElementById('sendButton');
-    if (sendButton) {
-        sendButton.classList.add('is-loading');
-        sendButton.title = 'Parar Geração';
-    }
-    setAiStatus('loading');
-
-    let lastError = null;
-    currentAbortController = new AbortController();
-
-    try {
-        if (!sessaoId) {
-            sessaoId = (typeof crypto !== 'undefined' && crypto.randomUUID)
-                ? crypto.randomUUID()
-                : Math.random().toString(36).substring(2) + Date.now().toString(36);
-        }
-
-        const requestBody = { mensagem: message, sessao_id: sessaoId };
-        if (window._pendingConfirmationToken) {
-            requestBody.confirmation_token = window._pendingConfirmationToken;
-            window._pendingConfirmationToken = null;
-        }
-        if (window._pendingOverrideArgs) {
-            requestBody.override_args = window._pendingOverrideArgs;
-            window._pendingOverrideArgs = null;
-        }
-
-        const baseUrl = typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : (window.location.origin + '/api/v1');
-        const fetchUrl = baseUrl + '/ai/assistente/stream';
-        
-        const response = await fetch(fetchUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + token
-            },
-            body: JSON.stringify(requestBody),
-            signal: currentAbortController.signal
-        });
-
-        if (!response.ok) {
-            let errText = await response.text();
-            throw new Error(`Falha no servidor: ${response.status} ${errText}`);
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder('utf-8');
-        let done = false;
-        let responseText = '';
-        let metadata = null;
-        let bubbleNode = null;
-        let toolBadge = null;   // Badge temporário de "executando tool"
-        let _bubbleReady = false; // true após limpar dots e preparar bubble p/ conteúdo
-
-        // Guarda referência mas NÃO limpa ainda — dots ficam visíveis até 1º conteúdo
-        if (loadingMessage) {
-            bubbleNode = loadingMessage.querySelector('.message-bubble');
-        }
-
-        function _prepareBubble() {
-            if (_bubbleReady) return;
-            _bubbleReady = true;
-            if (loadingMessage) loadingMessage.classList.remove('loading');
-            if (bubbleNode) bubbleNode.innerHTML = '';
-        }
-
-        while (!done) {
-            const { value, done: readerDone } = await reader.read();
-            if (value) {
-                const chunkStr = decoder.decode(value, { stream: true });
-                const lines = chunkStr.split('\n');
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        const dataStr = line.substring(6).trim();
-                        if (!dataStr) continue;
-                        try {
-                            const dataObj = JSON.parse(dataStr);
-                            if (dataObj.error) throw new Error(dataObj.error);
-
-                            // ── Evento de fase (thinking / tool_running) ──────
-                            if (dataObj.phase === 'tool_running' && dataObj.tool) {
-                                _prepareBubble(); // limpa dots ao primeiro evento real
-                                // Criar/atualizar badge animado no bubble
-                                if (bubbleNode) {
-                                    if (!toolBadge) {
-                                        toolBadge = document.createElement('div');
-                                        toolBadge.className = 'tool-running-badge';
-                                        bubbleNode.appendChild(toolBadge);
-                                    }
-                                    const toolLabel = dataObj.tool.replace(/_/g, ' ');
-                                    toolBadge.innerHTML = `<span class="tool-running-spinner">⚙️</span> Executando: <em>${escapeHtml(toolLabel)}</em>`;
-                                }
-                            }
-
-                            // ── Chunk de texto ────────────────────────────────
-                            if (dataObj.chunk) {
-                                _prepareBubble(); // limpa dots ao primeiro chunk de texto
-                                // Remover badge de tool quando começa o texto
-                                if (toolBadge) { toolBadge.remove(); toolBadge = null; }
-                                responseText += dataObj.chunk;
-                                if (bubbleNode && window.marked) {
-                                    bubbleNode.innerHTML = marked.parse(responseText);
-                                    const tables = bubbleNode.querySelectorAll('table');
-                                    tables.forEach(t => {
-                                        if(!t.parentElement.classList.contains('ai-table-wrapper')){
-                                            t.classList.add('ai-table');
-                                            const wrap = document.createElement('div');
-                                            wrap.className = 'ai-table-wrapper';
-                                            t.parentNode.insertBefore(wrap, t);
-                                            wrap.appendChild(t);
-                                        }
-                                    });
-                                } else if (bubbleNode) {
-                                    bubbleNode.textContent = responseText;
-                                }
-                                scrollChatToBottom();
-                            }
-
-                            // ── Evento final ──────────────────────────────────
-                            if (dataObj.is_final) {
-                                _prepareBubble(); // garante que dots são removidos
-                                if (toolBadge) { toolBadge.remove(); toolBadge = null; }
-                                metadata = dataObj.metadata || {};
-                            }
-                        } catch (e) {
-                            if (e.message && e.message.includes('JSON')) {} else { throw e; }
-                        }
-                    }
-                }
-            }
-            done = readerDone;
-        }
-
-        setAiStatus('ready');
-
-        const finalData = {
-           sucesso: true,
-           resposta: responseText
-                || (metadata && typeof metadata.final_text === 'string' ? metadata.final_text : '')
-                || (metadata && typeof metadata.resposta === 'string' ? metadata.resposta : '')
-                || (metadata && metadata.dados && typeof metadata.dados.resposta === 'string' ? metadata.dados.resposta : ''),
-           stream_has_chunks: !!(responseText && responseText.trim()),
-           tipo_resposta: (metadata && metadata.tipo) ? metadata.tipo : 'geral',
-           dados: metadata ? (metadata.dados || null) : null,
-           grafico: metadata ? (metadata.grafico || null) : null,
-           sugestoes: metadata ? (metadata.sugestoes || null) : null,
-           pending_action: metadata ? (metadata.pending_action || null) : null,
-           tool_trace: metadata ? (metadata.tool_trace || null) : null,
-        };
-
-        processAIResponse(finalData, loadingMessage, true);
-
-    } catch (error) {
-        console.error('Error:', error);
-        
-        if (error.name === 'AbortError') {
-            console.log('Geração de resposta interrompida pelo usuário.');
-            if (loadingMessage && loadingMessage.querySelector('.loading-dots')) {
-                loadingMessage.remove(); // Remove apenas se não gerou nada ainda
-            } else if (loadingMessage) {
-                loadingMessage.classList.remove('loading');
-                const bubble = loadingMessage.querySelector('.message-bubble');
-                if (bubble && !bubble.textContent.trim() && !bubble.innerHTML.includes('<br>')) {
-                    loadingMessage.remove();
-                } else if (bubble) {
-                    bubble.innerHTML += '<br><br><em><small>[Geração interrompida]</small></em>';
-                }
-            }
-            setAiStatus('ready');
-            return;
-        }
-
-        if (loadingMessage && loadingMessage.remove) {
-            loadingMessage.remove();
-        }
-
-        let errorMessage = 'Não foi possível processar sua solicitação.';
-        if (error.message && error.message.includes('Sessão expirada')) {
-            errorMessage = 'Sessão expirada. Redirecionando...';
-            setTimeout(() => { window.location.href = 'login.html'; }, 2000);
-        } else if (error.message && (error.message.includes('Failed to fetch') || error.message.includes('conexão'))) {
-            errorMessage = 'Erro de conexão. Verifique sua internet.';
-            setAiStatus('offline');
-        } else {
-            setAiStatus('error');
-        }
-
-        addMessage(errorMessage, false, true);
-        setTimeout(() => setAiStatus('ready'), 4500);
-    } finally {
-        isLoading = false;
-        currentAbortController = null;
-        if (sendButton) {
-            sendButton.classList.remove('is-loading');
-            sendButton.title = 'Enviar';
-        }
-    }
-}
-
-/**
- * Processa resposta da IA
- * Passa dados completos incluindo tipo_resposta e resposta
- */
 function processAIResponse(data, loadingMessage, isStreamed = false) {
     if (!isStreamed && loadingMessage && loadingMessage.remove) {
         loadingMessage.remove();
@@ -508,7 +19,6 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
             responseContent += `<div class="tool-trace">🧭 Formato aplicado: <strong>${escapeHtml(String(visPref.formato_preferido))}</strong></div>`;
         }
 
-        // Tool Use v2: indicador de ferramentas executadas
         if (Array.isArray(data.tool_trace) && data.tool_trace.length > 0) {
             const items = data.tool_trace.map(t => {
                 const ico = t.status === 'ok' ? '✅' : (t.status === 'pending' ? '⏳' : '⚠️');
@@ -517,13 +27,12 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
             responseContent += `<div class="tool-trace">🛠️ ${items}</div>`;
         }
 
-        // Compact Confirmation Card for new records (e.g., orçamento ID)
         if (data.tipo_resposta === 'registro_criado' && data.dados) {
             const dados = data.dados;
             const registroTipo = dados.tipo_registro || 'Registro';
             const registroId = dados.id || '';
             const registroNumero = dados.numero || '';
-            
+
             responseContent += `
                 <div class="confirmation-card">
                     <div class="confirmation-card-header">
@@ -544,7 +53,6 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
                 </div>`;
         }
 
-        // Tool Use v2: card de confirmação para ação destrutiva pendente
         if (data.pending_action && data.pending_action.confirmation_token) {
             const pa = data.pending_action;
             const token = pa.confirmation_token;
@@ -569,13 +77,15 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
                 </div>`;
         }
 
-        // Renderizar sugestões de follow-up se disponíveis
         let sugestoes = [];
         try {
             if (data.acao_sugerida) {
                 sugestoes = JSON.parse(data.acao_sugerida);
             }
         } catch (e) { /* ignorar parse error */ }
+        if ((!Array.isArray(sugestoes) || sugestoes.length === 0) && Array.isArray(data.sugestoes)) {
+            sugestoes = data.sugestoes;
+        }
 
         const tipoResp = data.tipo_resposta || (data.dados && data.dados.tipo) || '';
         if (tipoResp === 'orcamento_criado' || tipoResp === 'orcamento_atualizado') {
@@ -602,7 +112,6 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
             responseContent = `<div class="resposta-direta">Não consegui montar a resposta completa agora. Tente novamente em alguns segundos.</div>`;
         }
 
-        // Botões de feedback (👍/👎) — não exibir para onboarding ou erros
         const tipoSemFeedback = ['onboarding', 'orcamento_preview', 'orcamento_criado', 'orcamento_atualizado', 'operador_resultado', 'registro_criado'];
         if (!tipoSemFeedback.includes(data.tipo_resposta) && responseHasText) {
             const fbId = 'fb_' + Date.now();
@@ -612,7 +121,6 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
                     <button type="button" class="feedback-btn" data-feedback-id="${fbId}" data-feedback-val="positivo" title="Sim, ajudou">👍</button>
                     <button type="button" class="feedback-btn" data-feedback-id="${fbId}" data-feedback-val="negativo" title="Não ajudou">👎</button>
                 </div>`;
-            // Guardar dados da resposta no elemento para envio do feedback
             window._feedbackData = window._feedbackData || {};
             window._feedbackData[fbId] = {
                 pergunta: _ultimaPergunta,
@@ -635,10 +143,8 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
             }
         }
 
-        // Guardar última pergunta enviada para associar ao feedback
         if (msgEl) msgEl.dataset.pergunta = '';
-        
-        // Stagger chips após DOM inserido para garantir transição CSS
+
         setTimeout(() => {
             const chips = msgEl?.querySelectorAll('.sugestao-chip');
             chips?.forEach((chip, i) => {
@@ -646,7 +152,6 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
             });
         }, 150);
 
-        // Inovação 3 — Quick Reply Chips no mobile (acima do input)
         if (window.innerWidth <= 768 && Array.isArray(sugestoes) && sugestoes.length > 0) {
             _showQuickReplyChips(sugestoes.slice(0, 3));
         }
@@ -657,7 +162,7 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
 
     } else {
         let errorMessage = 'Não foi possível processar sua solicitação.';
-        if (data.resposta) errorMessage = data.resposta;  // campo principal do COTTE
+        if (data.resposta) errorMessage = data.resposta;
         if (data.message)  errorMessage = data.message;
         if (data.detail) {
             errorMessage = typeof data.detail === 'string'
@@ -668,20 +173,11 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
     }
 }
 
-
-/**
- * Formata a resposta da IA
- * Renderização diferenciada baseada no tipo de resposta
- */
 function formatAIResponse(data, isStreamed = false) {
     let content = '';
-    
-    // Extrair dados da resposta (pode ser resposta completa ou apenas dados)
     const dados = data.dados || data;
-    
     const tipoResposta = data.tipo_resposta || dados.tipo;
 
-    // ─── PRÉVIA DE ORÇAMENTO ───────────────────────────────────────────
     if (tipoResposta === 'orcamento_preview' && dados) {
         const valorFmt = formatValue(dados.valor || 0);
 
@@ -720,21 +216,20 @@ function formatAIResponse(data, isStreamed = false) {
         </div>`;
     }
 
-    // ─── ORÇAMENTO CRIADO ─────────────────────────────────────────────
     if (tipoResposta === 'orcamento_criado' && dados) {
         const orcId   = dados.id || '';
         const orcNum  = dados.numero || '';
         const numSeq  = orcNum.replace(/^ORC-/, '').split('-')[0] || orcNum;
         const clienteNome = dados.cliente_nome || 'Cliente não informado';
         const servicoDesc = dados.servico || dados.descricao || 'Serviços gerais';
-        
+
         const copiarBtn = dados.link_publico
             ? `<button type="button" class="orc-action-btn btn-link" data-copy-public-token="${escapeHtmlAttr(dados.link_publico)}">🔗 Copiar link público</button>`
             : '';
         const numEnc = encodeURIComponent(orcNum);
         const aprovarEnc = encodeURIComponent('aprovar ' + numSeq);
         const totalFmt = formatValue(dados.total);
-        
+
         let metaTags = `<span class="orc-success-meta-item">👤 ${escapeHtml(clienteNome)}</span>`;
         if (dados.desconto && dados.desconto > 0) {
             metaTags += `<span class="orc-success-meta-item highlight-meta">🏷️ Desconto: ${formatValue(dados.desconto)}</span>`;
@@ -765,7 +260,6 @@ function formatAIResponse(data, isStreamed = false) {
         </div>`;
     }
 
-    // ─── ORÇAMENTO ATUALIZADO ─────────────────────────────────────────
     if (tipoResposta === 'orcamento_atualizado' && dados) {
         const orcNum  = dados.numero || '';
         const numSeq  = orcNum.replace(/^ORC-/, '').split('-')[0] || orcNum;
@@ -792,7 +286,6 @@ function formatAIResponse(data, isStreamed = false) {
         </div>`;
     }
 
-    // ─── RESULTADO DE COMANDO OPERADOR ────────────────────────────────
     if (tipoResposta === 'operador_resultado') {
         const acaoIcones = { 'VER': '🔍', 'APROVADO': '✅', 'RECUSADO': '❌', 'ENVIADO': '📤', 'DESCONTO': '💰', 'ADICIONADO': '➕', 'REMOVIDO': '➖' };
         const acao = dados && dados.acao ? dados.acao : '';
@@ -804,13 +297,11 @@ function formatAIResponse(data, isStreamed = false) {
                 `<div class="opr-field"><span>${i + 1}. ${escapeHtml(it.descricao)}</span><span>R$ ${Number(it.total).toFixed(2)}</span></div>`
             ).join('');
 
-            // Badge de status colorido
             const statusMap = { rascunho:'badge-rascunho', enviado:'badge-enviado', aprovado:'badge-aprovado', em_execucao:'badge-em-execucao', aguardando_pagamento:'badge-aguardando-pagamento', recusado:'badge-recusado', expirado:'badge-expirado' };
             const statusKey = (dados.status || '').toLowerCase();
             const badgeClass = statusMap[statusKey] || 'badge-rascunho';
             const statusBadge = `<span class="opr-status-badge ${badgeClass}">${escapeHtml(dados.status || '')}</span>`;
 
-            // Campos extras opcionais
             const pagFmt = { a_vista:'À vista', pix:'PIX', '2x':'2×', '3x':'3×', '4x':'4×' };
             const formaHtml = dados.forma_pagamento
                 ? `<div class="opr-field"><span>Pagamento</span><span>${escapeHtml(pagFmt[dados.forma_pagamento] || String(dados.forma_pagamento))}</span></div>` : '';
@@ -821,7 +312,6 @@ function formatAIResponse(data, isStreamed = false) {
             const linkPublicoHtml = dados.link_publico
                 ? `<div class="opr-field"><span>Link público</span><button type="button" class="orc-action-btn" style="flex:unset;padding:3px 8px;font-size:0.74em;" data-copy-public-token="${escapeHtmlAttr(dados.link_publico)}">📋 Copiar link</button></div>` : '';
 
-            // Botões de ação contextuais por status
             const orcId  = dados.id || '';
             const orcNum = dados.numero || '';
             const numSeq = orcNum.replace(/^ORC-/, '').split('-')[0] || orcNum;
@@ -863,11 +353,10 @@ function formatAIResponse(data, isStreamed = false) {
         </div>`;
     }
 
-    // ─── SALDO RÁPIDO ─────────────────────────────────────────────────
     if (tipoResposta === 'saldo_caixa' || dados.tipo === 'saldo_caixa') {
         const saldoAtual = dados.saldo_atual || dados.valor || 0;
         const saldoFormatado = formatValue(saldoAtual);
-        
+
         return `
             <div class="saldo-rapido-resposta">
                 <div class="saldo-label">Saldo em Caixa</div>
@@ -876,8 +365,7 @@ function formatAIResponse(data, isStreamed = false) {
             </div>
         `;
     }
-    
-    // ─── ONBOARDING GUIADO ────────────────────────────────────────────
+
     if (tipoResposta === 'onboarding' && dados) {
         const progresso = dados.progresso_pct || 0;
         const checklist = dados.checklist || [];
@@ -915,7 +403,6 @@ function formatAIResponse(data, isStreamed = false) {
         </div>`;
     }
 
-    // ─── LISTAS DE DADOS GENÉRICAS (TABELA RICA) ──────────────────────
     let listaObjetos = Array.isArray(dados) ? dados : null;
     if (!listaObjetos && dados && typeof dados === 'object') {
         const skipKeys = ['insights', 'checklist'];
@@ -935,7 +422,7 @@ function formatAIResponse(data, isStreamed = false) {
         const headers = Array.from(headersSet)
             .filter(k => !k.toLowerCase().includes('id') && typeof listaObjetos[0][k] !== 'object')
             .slice(0, 6);
-            
+
         const ths = headers.map(h => `<th>${escapeHtml(String(h).replace(/_/g, ' ').replace(/^[a-z]/, l => l.toUpperCase()))}</th>`).join('');
 
         const trs = listaObjetos.map(obj => {
@@ -969,15 +456,14 @@ function formatAIResponse(data, isStreamed = false) {
                     </table>
                 </div>`;
         }
-            
+
         if (dados.kpi_principal) {
             content += `<br>🎯 <strong>${escapeHtml(dados.kpi_principal.nome)}:</strong> ${formatValue(dados.kpi_principal.valor)}<br>`;
         }
-            
+
         return content;
     }
 
-    // ─── RESPOSTA COM TEXTO PRONTO (resposta direta da IA) ────────────
     if (data.resposta || dados.resposta) {
         const rawTxt = data.resposta || dados.resposta;
         if (isStreamed && data.stream_has_chunks) {
@@ -986,8 +472,6 @@ function formatAIResponse(data, isStreamed = false) {
         return `<div class="resposta-direta">${textToHtmlRich(rawTxt)}</div>`;
     }
 
-    // ─── DASHBOARD E ANÁLISES DETALHADAS ──────────────────────────────
-    // Todas as propriedades devem ser lidas de 'dados'
     if (dados.resumo) {
         content += textToHtmlRich(dados.resumo) + '<br><br>';
     }
@@ -1039,9 +523,6 @@ function formatAIResponse(data, isStreamed = false) {
     return content || (isStreamed ? '' : 'Resposta recebida.');
 }
 
-/**
- * Formata valores monetários
- */
 function formatValue(value) {
     if (typeof value === 'number') {
         return new Intl.NumberFormat('pt-BR', {
@@ -1052,10 +533,6 @@ function formatValue(value) {
     return value;
 }
 
-/**
- * Confirma e cria o orçamento a partir da prévia exibida no chat.
- * Lê os dados do elemento <script type="application/json"> dentro do card.
- */
 async function confirmarOrcamento(btn) {
     if (!hasHttpClient()) return;
 
@@ -1079,7 +556,6 @@ async function confirmarOrcamento(btn) {
         observacoes: dados.observacoes || null
     };
 
-    // Desabilitar botão para evitar duplo clique
     btn.disabled = true;
     btn.textContent = 'Criando...';
 
@@ -1087,7 +563,7 @@ async function confirmarOrcamento(btn) {
     try {
         const data = await httpClient.post('/ai/orcamento/confirmar', body, { bypassAutoLogout: true });
         if (loadingMsg) loadingMsg.remove();
-        if (card) card.remove(); // Remove card de prévia após criação
+        if (card) card.remove();
         processAIResponse(data, null);
     } catch (e) {
         if (loadingMsg) loadingMsg.remove();
@@ -1097,29 +573,26 @@ async function confirmarOrcamento(btn) {
     }
 }
 
-/**
- * Resposta simulada para modo demonstração
- */
 function mockAIResponse(endpoint, body) {
     return new Promise(resolve => {
         setTimeout(() => {
             let response;
             const message = body?.mensagem || '';
-            
+
             if (endpoint.includes('/financeiro/') || message.toLowerCase().includes('finança')) {
                 response = {
                     sucesso: true,
                     dados: {
-                        resumo: "💰 Análise Financeira (Demonstração)",
+                        resumo: '💰 Análise Financeira (Demonstração)',
                         kpi_principal: {
-                            nome: "Saldo Disponível",
+                            nome: 'Saldo Disponível',
                             valor: 12500.75,
-                            comparacao: "↑ 12% este mês"
+                            comparacao: '↑ 12% este mês'
                         },
                         insights: [
-                            "Maior receita no período da tarde",
-                            "Cliente João Silva é o mais lucrativo",
-                            "Aumento de 15% em manutenção"
+                            'Maior receita no período da tarde',
+                            'Cliente João Silva é o mais lucrativo',
+                            'Aumento de 15% em manutenção'
                         ]
                     }
                 };
@@ -1127,16 +600,16 @@ function mockAIResponse(endpoint, body) {
                 response = {
                     sucesso: true,
                     dados: {
-                        resumo: "📊 Análise de Conversão (Demonstração)",
+                        resumo: '📊 Análise de Conversão (Demonstração)',
                         taxa_conversao: 0.72,
                         orcamentos_enviados: 38,
                         orcamentos_aprovados: 27,
                         ticket_medio: 920.00,
-                        servico_mais_vendido: "Instalação Elétrica",
+                        servico_mais_vendido: 'Instalação Elétrica',
                         insights: [
-                            "Taxa de conversão acima da média",
-                            "WhatsApp é o canal mais eficiente",
-                            "Orçamentos com fotos têm 40% mais aprovação"
+                            'Taxa de conversão acima da média',
+                            'WhatsApp é o canal mais eficiente',
+                            'Orçamentos com fotos têm 40% mais aprovação'
                         ]
                     }
                 };
@@ -1144,13 +617,13 @@ function mockAIResponse(endpoint, body) {
                 response = {
                     sucesso: true,
                     dados: {
-                        resumo: "💡 Sugestões de Negócio (Demonstração)",
-                        sugestao: "Aumente seu ticket médio oferecendo pacotes de serviços",
-                        impacto_estimado: "Aumento de R$ 2.500/mês em receita",
-                        acao_imediata: "Crie 3 pacotes de serviços",
+                        resumo: '💡 Sugestões de Negócio (Demonstração)',
+                        sugestao: 'Aumente seu ticket médio oferecendo pacotes de serviços',
+                        impacto_estimado: 'Aumento de R$ 2.500/mês em receita',
+                        acao_imediata: 'Crie 3 pacotes de serviços',
                         insights: [
-                            "Pacote 'Manutenção Completa' tem maior aceitação",
-                            "Clientes empresariais preferem contratos mensais"
+                            'Pacote "Manutenção Completa" tem maior aceitação',
+                            'Clientes empresariais preferem contratos mensais'
                         ]
                     }
                 };
@@ -1158,10 +631,10 @@ function mockAIResponse(endpoint, body) {
                 response = {
                     sucesso: true,
                     dados: {
-                        resumo: "🤖 Assistente COTTE (Demonstração)",
+                        resumo: '🤖 Assistente COTTE (Demonstração)',
                         insights: [
-                            "Modo demonstração ativo",
-                            "Dados apresentados são simulados"
+                            'Modo demonstração ativo',
+                            'Dados apresentados são simulados'
                         ]
                     }
                 };
@@ -1171,16 +644,12 @@ function mockAIResponse(endpoint, body) {
     });
 }
 
-/**
- * Envia feedback 👍/👎 de uma resposta do assistente
- */
-async function enviarFeedback(fbId, avaliacao, btnClicado) {
+async function enviarFeedback(fbId, avaliacao) {
     const barEl = document.getElementById(fbId);
     if (!barEl) return;
 
     const fbData = (window._feedbackData || {})[fbId] || {};
 
-    // Se negativo, mostrar campo de comentário opcional antes de enviar
     if (avaliacao === 'negativo') {
         barEl.innerHTML = `
             <div class="feedback-negativo">
@@ -1197,7 +666,6 @@ async function enviarFeedback(fbId, avaliacao, btnClicado) {
         return;
     }
 
-    // Positivo: enviar diretamente
     await _enviarFeedbackApi(fbData.pergunta, fbData.resposta, avaliacao, null, fbData.modulo_origem);
     barEl.innerHTML = '<span class="feedback-enviado">✓ Obrigado!</span>';
     delete (window._feedbackData || {})[fbId];
@@ -1212,12 +680,8 @@ async function _confirmarFeedbackNegativo(fbId, pular = false) {
     delete (window._feedbackData || {})[fbId];
 }
 
-/**
- * Envia orçamento por WhatsApp diretamente via endpoint de orcamentos
- */
 async function enviarPorWhatsapp(id, numero, btnEl) {
     if (!hasHttpClient()) return;
-
     if (!id) return;
     let orcInfo = null;
     try {
@@ -1257,12 +721,8 @@ async function enviarPorWhatsapp(id, numero, btnEl) {
     }
 }
 
-/**
- * Envia orçamento por e-mail diretamente via endpoint de orcamentos
- */
 async function enviarPorEmail(id, numero, btnEl) {
     if (!hasHttpClient()) return;
-
     if (!id) return;
     let orcInfo = null;
     try {
@@ -1302,15 +762,13 @@ async function _enviarFeedbackApi(pergunta, resposta, avaliacao, comentario, mod
             modulo_origem: modulo_origem || null,
         }, { bypassAutoLogout: true });
     } catch (e) {
-        // Silencioso — falha no feedback não deve incomodar o usuário
+        // Silencioso.
     }
 }
 
-// ── Tool Use v2: confirmação de ações destrutivas ─────────────────────────
 window._pendingConfirmationToken = null;
 window._pendingOverrideArgs = null;
 
-// Torna o nome técnico da tool legível (ex: criar_orcamento → "Criar orçamento")
 function humanizeToolName(tool) {
     if (!tool) return 'Ação';
     return tool
@@ -1321,14 +779,12 @@ function humanizeToolName(tool) {
         .replace(/Recebivel/g, 'Recebível');
 }
 
-// Formata preço em BRL
 function _brl(v) {
     const n = Number(v);
     if (isNaN(n)) return String(v);
     return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-// Resumo legível dos argumentos, por tool
 function formatPendingArgs(tool, args, extras) {
     const escape = (s) => String(s ?? '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const row = (label, value) => `<div class="pa-row"><span class="pa-label">${label}:</span> <span class="pa-value">${escape(value)}</span></div>`;
@@ -1500,7 +956,6 @@ function formatPendingArgs(tool, args, extras) {
             if (a.unidade) lines.push(row('Unidade', a.unidade));
             break;
         default:
-            // fallback: lista chave/valor genérica
             Object.entries(a).forEach(([k, v]) => {
                 if (shouldShowFallbackKey(k, v)) lines.push(row(humanizeKey(k), v));
             });
@@ -1524,7 +979,6 @@ function confirmarAcaoIA(token, btnEl) {
         status.textContent = '⏳ Executando ferramenta…';
         card.appendChild(status);
     }
-    // Reenvia a última pergunta com o token; o backend reconhece e executa.
     const input = document.getElementById('messageInput');
     if (input && _ultimaPergunta) {
         input.value = _ultimaPergunta;
@@ -1540,38 +994,9 @@ function cancelarAcaoIA(btnEl) {
     if (card) {
         card.innerHTML = '<div class="pending-action-cancelled" role="status">❌ Ação cancelada.</div>';
     }
-    // Foca o input — usuário decide o próximo passo sem acionar o backend
     const input = document.getElementById('messageInput');
     if (input) input.focus();
 }
-
-window.sendMessage = sendMessage;
-window.confirmarOrcamento = confirmarOrcamento;
-window.enviarPorWhatsapp = enviarPorWhatsapp;
-window.enviarPorEmail = enviarPorEmail;
-window.confirmarAcaoIA = confirmarAcaoIA;
-window.cancelarAcaoIA = cancelarAcaoIA;
-
-// ── Health Check — detecta funções críticas ausentes ─────────────────────────
-(function _assistenteHealthCheck() {
-    const CRITICAL = [
-        'sendMessage', 'sendQuickMessage', 'processAIResponse', 'addMessage',
-        'confirmarAcaoIA', 'cancelarAcaoIA', 'confirmarOrcamento',
-        'enviarPorWhatsapp', 'enviarPorEmail', 'enviarFeedback',
-        'formatPendingArgs', 'humanizeToolName', 'escapeHtml',
-        'initAssistenteChatDelegation', 'setAiStatus', 'resizeMessageInput',
-    ];
-    const missing = CRITICAL.filter(fn => typeof window[fn] !== 'function' && typeof eval('typeof ' + fn) === 'undefined');
-    // Verifica no escopo local via tentativa
-    const reallyMissing = CRITICAL.filter(fn => {
-        try { return typeof eval(fn) !== 'function'; } catch (_) { return true; }
-    });
-    if (reallyMissing.length > 0) {
-        console.warn('[Assistente HealthCheck] Funções críticas ausentes:', reallyMissing.join(', '));
-    } else {
-        console.debug('[Assistente HealthCheck] OK — todas as funções críticas presentes.');
-    }
-})();
 
 function renderChart(containerOrMsgEl, grafico) {
     if (!grafico || !grafico.dados || !containerOrMsgEl) return;
@@ -1604,4 +1029,33 @@ function renderChart(containerOrMsgEl, grafico) {
         }
     }, 200);
 }
+
+(function assistenteHealthCheck() {
+    const CRITICAL = [
+        'sendMessage', 'sendQuickMessage', 'processAIResponse', 'addMessage',
+        'confirmarAcaoIA', 'cancelarAcaoIA', 'confirmarOrcamento',
+        'enviarPorWhatsapp', 'enviarPorEmail', 'enviarFeedback',
+        'formatPendingArgs', 'humanizeToolName', 'escapeHtml',
+        'initAssistenteChatDelegation', 'setAiStatus', 'resizeMessageInput',
+    ];
+    const reallyMissing = CRITICAL.filter(fn => {
+        try { return typeof eval(fn) !== 'function'; } catch (_) { return true; }
+    });
+    if (reallyMissing.length > 0) {
+        console.warn('[Assistente HealthCheck] Funções críticas ausentes:', reallyMissing.join(', '));
+    } else {
+        console.debug('[Assistente HealthCheck] OK — todas as funções críticas presentes.');
+    }
+})();
+
+window.processAIResponse = processAIResponse;
+window.formatAIResponse = formatAIResponse;
+window.confirmarOrcamento = confirmarOrcamento;
+window.enviarPorWhatsapp = enviarPorWhatsapp;
+window.enviarPorEmail = enviarPorEmail;
+window.enviarFeedback = enviarFeedback;
+window.humanizeToolName = humanizeToolName;
+window.formatPendingArgs = formatPendingArgs;
+window.confirmarAcaoIA = confirmarAcaoIA;
+window.cancelarAcaoIA = cancelarAcaoIA;
 window.renderChart = renderChart;
