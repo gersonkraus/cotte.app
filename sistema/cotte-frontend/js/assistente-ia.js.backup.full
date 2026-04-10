@@ -1,0 +1,774 @@
+// Adicionar no início do arquivo, após as variáveis globais
+let chatVirtualizer = null;
+let responseStartTime = null;
+
+// Substituir a função addMessage por versão com lazy loading e virtualização
+const _originalAddMessage = addMessage;
+
+/**
+ * Nova versão de addMessage com suporte a virtualização
+ */
+function addMessage(content, isUser = false, isError = false, isLoadingState = false) {
+    const messagesContainer = document.getElementById('chatMessages');
+    if (!messagesContainer) return null;
+
+    const time = getCurrentTime();
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message ' + (isUser ? 'user' : 'ai') + (isError ? ' error' : '') + (isLoadingState ? ' loading' : '');
+
+    if (isLoadingState) {
+        responseStartTime = Date.now();
+        messageDiv.innerHTML = `
+            <div class="message-bubble" data-time="${time}">
+                <div class="loading-dots">
+                    <span></span><span></span><span></span>
+                </div>
+                <div class="typing-indicator-text">Digitando...</div>
+            </div>
+        `;
+    } else {
+        const copyBtn = (!isUser && !isError)
+            ? '<button type="button" class="message-copy-btn" aria-label="Copiar resposta" title="Copiar" data-tooltip="Copiar esta mensagem">📋</button>'
+            : '';
+        
+        // Adiciona latency indicator se disponível
+        let latencyHtml = '';
+        if (responseStartTime && !isUser && !isError) {
+            const latency = Date.now() - responseStartTime;
+            const latencyClass = latency < 1000 ? '' : (latency < 3000 ? 'slow' : 'very-slow');
+            const latencyText = latency < 1000 ? `${latency}ms` : `${(latency/1000).toFixed(1)}s`;
+            latencyHtml = `<div class="latency-indicator"><span class="latency-dot ${latencyClass}"></span>${escapeHtml(latencyText)}</div>`;
+        }
+        
+        messageDiv.innerHTML = `<div class="message-bubble" data-time="${time}">${copyBtn}${content}${latencyHtml}</div>`;
+        responseStartTime = null;
+    }
+
+    messagesContainer.appendChild(messageDiv);
+    
+    // Adiciona à virtualização se estiver ativa
+    if (chatVirtualizer && chatVirtualizer.isEnabled) {
+        chatVirtualizer.addMessage(messageDiv);
+    } else {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        updateScrollBottomButtonVisibility();
+    }
+
+    if (!isLoadingState) {
+        setTimeout(saveChatHistory, 500);
+    }
+
+    return messageDiv;
+}
+
+/**
+ * Inicializa virtualização se houver muitas mensagens
+ */
+function initVirtualizationIfNeeded() {
+    const messagesContainer = document.getElementById('chatMessages');
+    if (!messagesContainer || chatVirtualizer) return;
+    
+    const messageCount = messagesContainer.querySelectorAll('.message').length;
+    if (messageCount >= 20) {
+        chatVirtualizer = new ChatVirtualizer('chatMessages', { bufferSize: 5 });
+    }
+}
+
+/**
+ * Renderização lazy de gráficos com IntersectionObserver
+ */
+function setupLazyChartRendering(container, graficoData) {
+    if (!container || !graficoData) return;
+    
+    // Cria placeholder clicável
+    const placeholder = document.createElement('div');
+    placeholder.className = 'chart-placeholder';
+    placeholder.innerHTML = `
+        <div class="chart-placeholder-icon">📊</div>
+        <div class="chart-placeholder-text">
+            <strong>Clique para visualizar o gráfico</strong><br>
+            <small>Toque para carregar</small>
+        </div>
+    `;
+    
+    container.appendChild(placeholder);
+    
+    let chartRendered = false;
+    
+    const renderChart = () => {
+        if (chartRendered) return;
+        chartRendered = true;
+        
+        placeholder.remove();
+        
+        const canvasId = 'chart_' + Date.now() + Math.floor(Math.random() * 1000);
+        const canvasHtml = `<div class="chart-container"><canvas id="${canvasId}"></canvas></div>`;
+        container.insertAdjacentHTML('beforeend', canvasHtml);
+        
+        setTimeout(() => {
+            const canvasEl = document.getElementById(canvasId);
+            if (canvasEl && window.Chart) {
+                Chart.defaults.color = '#94a3b8';
+                Chart.defaults.font.family = "'Outfit', sans-serif";
+                new Chart(canvasEl.getContext('2d'), {
+                    type: graficoData.tipo || 'bar',
+                    data: graficoData.dados,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { 
+                                position: 'bottom', 
+                                labels: { 
+                                    color: '#e2e8f0', 
+                                    usePointStyle: true, 
+                                    boxWidth: 8 
+                                } 
+                            }
+                        },
+                        scales: {
+                            x: { 
+                                grid: { color: 'rgba(255,255,255,0.05)' }, 
+                                ticks: { color: '#94a3b8' } 
+                            },
+                            y: { 
+                                grid: { color: 'rgba(255,255,255,0.05)' }, 
+                                ticks: { color: '#94a3b8' } 
+                            }
+                        }
+                    }
+                });
+                setTimeout(scrollChatToBottom, 100);
+            }
+        }, 100);
+    };
+    
+    // IntersectionObserver para lazy loading
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                renderChart();
+                observer.disconnect();
+            }
+        });
+    }, { root: null, rootMargin: '200px', threshold: 0.1 });
+    
+    observer.observe(placeholder);
+    
+    // Também renderiza no clique
+    placeholder.addEventListener('click', renderChart);
+}
+
+/**
+ * Gerador de mensagens de erro humanizadas
+ */
+function getHumanErrorMessage(error, statusCode) {
+    const errorMap = {
+        401: {
+            icon: '🔐',
+            title: 'Sessão expirada',
+            message: 'Sua sessão de login expirou. Faça login novamente para continuar.',
+            suggestion: 'Você será redirecionado para a tela de login em 3 segundos.',
+            action: () => {
+                setTimeout(() => { window.location.href = 'login.html'; }, 3000);
+            },
+            showRetry: false,
+            customClass: 'error-session-expired'
+        },
+        403: {
+            icon: '🚫',
+            title: 'Acesso negado',
+            message: 'Você não tem permissão para realizar esta ação.',
+            suggestion: 'Entre em contato com o administrador do sistema para solicitar acesso.',
+            showRetry: false
+        },
+        404: {
+            icon: '🔍',
+            title: 'Recurso não encontrado',
+            message: 'O recurso solicitado não foi encontrado.',
+            suggestion: 'Verifique se a URL está correta ou tente uma ação diferente.',
+            showRetry: false
+        },
+        429: {
+            icon: '⏱️',
+            title: 'Muitas solicitações',
+            message: 'Você está fazendo muitas solicitações simultâneas.',
+            suggestion: 'Aguarde alguns segundos antes de tentar novamente.',
+            showRetry: true,
+            retryDelay: 5000,
+            customClass: 'error-rate-limit'
+        },
+        500: {
+            icon: '⚙️',
+            title: 'Erro interno do servidor',
+            message: 'Ocorreu um problema técnico em nossos servidores.',
+            suggestion: 'Tente novamente em alguns instantes. Se o problema persistir, entre em contato com o suporte.',
+            showRetry: true,
+            customClass: 'error-network'
+        },
+        502: {
+            icon: '🔌',
+            title: 'Problema de conexão',
+            message: 'Não foi possível conectar ao servidor.',
+            suggestion: 'Verifique sua conexão com a internet e tente novamente.',
+            showRetry: true,
+            customClass: 'error-network'
+        },
+        503: {
+            icon: '🔧',
+            title: 'Serviço temporariamente indisponível',
+            message: 'O serviço está em manutenção ou sobrecarregado.',
+            suggestion: 'Tente novamente em alguns minutos.',
+            showRetry: true,
+            retryDelay: 10000
+        },
+        504: {
+            icon: '⏰',
+            title: 'Tempo limite excedido',
+            message: 'O servidor demorou muito para responder.',
+            suggestion: 'Tente novamente ou simplifique sua solicitação.',
+            showRetry: true,
+            customClass: 'error-network'
+        }
+    };
+    
+    // Detecta erros de rede
+    if (!statusCode && (error.message?.includes('Failed to fetch') || error.message?.includes('conexão') || error.message?.includes('internet'))) {
+        return {
+            icon: '🌐',
+            title: 'Sem conexão com a internet',
+            message: 'Verifique sua conexão com a internet.',
+            suggestion: 'Conecte-se a uma rede Wi-Fi ou dados móveis e tente novamente.',
+            showRetry: true,
+            customClass: 'error-network'
+        };
+    }
+    
+    // Retorna erro mapeado ou padrão
+    return errorMap[statusCode] || {
+        icon: '❌',
+        title: 'Erro inesperado',
+        message: error.message || 'Não foi possível processar sua solicitação.',
+        suggestion: 'Tente novamente ou entre em contato com o suporte se o problema persistir.',
+        showRetry: true
+    };
+}
+
+/**
+ * Cria card de erro humanizado
+ */
+function createErrorCard(errorData, originalError, retryCallback) {
+    const retryId = 'retry_' + Date.now();
+    const detailsId = 'details_' + Date.now();
+    
+    let html = `
+        <div class="error-card ${errorData.customClass || ''}">
+            <div class="error-card-header">
+                <span class="error-card-icon">${errorData.icon}</span>
+                <span>${escapeHtml(errorData.title)}</span>
+            </div>
+            <div class="error-card-body">${escapeHtml(errorData.message)}</div>
+    `;
+    
+    if (errorData.suggestion) {
+        html += `
+            <div class="error-card-suggestion">
+                <div class="error-card-suggestion-title">💡 Sugestão</div>
+                ${escapeHtml(errorData.suggestion)}
+            </div>
+        `;
+    }
+    
+    if (errorData.showRetry && retryCallback) {
+        html += `
+            <button type="button" class="error-retry-btn" id="${retryId}" data-tooltip="Tentar novamente">
+                🔄 Tentar Novamente
+            </button>
+        `;
+    }
+    
+    // Detalhes técnicos expansíveis
+    if (originalError && originalError.message) {
+        html += `
+            <span class="error-details-toggle" data-target="${detailsId}">Ver detalhes técnicos</span>
+            <div class="error-technical-details" id="${detailsId}">${escapeHtml(originalError.message)}</div>
+        `;
+    }
+    
+    html += `</div>`;
+    
+    // Cria elemento
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = html;
+    const errorEl = wrapper.firstElementChild;
+    
+    // Adiciona event listeners
+    if (errorData.showRetry && retryCallback) {
+        const retryBtn = errorEl.querySelector(`#${retryId}`);
+        if (retryBtn) {
+            retryBtn.addEventListener('click', async () => {
+                retryBtn.disabled = true;
+                retryBtn.textContent = '⏳ Tentando...';
+                
+                try {
+                    await retryCallback();
+                    errorEl.remove();
+                } catch (e) {
+                    retryBtn.disabled = false;
+                    retryBtn.textContent = '🔄 Tentar Novamente';
+                    
+                    const newErrorData = getHumanErrorMessage(e, null);
+                    const newErrorEl = createErrorCard(newErrorData, e, retryCallback);
+                    errorEl.parentNode.replaceChild(newErrorEl, errorEl);
+                }
+            });
+        }
+    }
+    
+    // Toggle detalhes técnicos
+    const detailsToggle = errorEl.querySelector('.error-details-toggle');
+    if (detailsToggle) {
+        detailsToggle.addEventListener('click', () => {
+            const detailsEl = errorEl.querySelector(`#${detailsId}`);
+            if (detailsEl) {
+                detailsEl.classList.toggle('show');
+                detailsToggle.textContent = detailsEl.classList.contains('show') 
+                    ? 'Ocultar detalhes técnicos' 
+                    : 'Ver detalhes técnicos';
+            }
+        });
+    }
+    
+    return errorEl;
+}
+
+/**
+ * Atualiza sendMessage para usar erros humanizados
+ */
+const _originalSendMessage = sendMessage;
+
+async function sendMessage() {
+    if (!hasHttpClient()) {
+        const errorData = getHumanErrorMessage(new Error('API indisponível'), null);
+        const errorCard = createErrorCard(errorData, null, null);
+        addMessage('', false, true);
+        const messagesContainer = document.getElementById('chatMessages');
+        if (messagesContainer) {
+            const lastMsg = messagesContainer.lastElementChild;
+            if (lastMsg) {
+                lastMsg.querySelector('.message-bubble').innerHTML = '';
+                lastMsg.querySelector('.message-bubble').appendChild(errorCard);
+            }
+        }
+        return;
+    }
+
+    if (isLoading) return;
+
+    const token = localStorage.getItem('cotte_token');
+    if (!token) {
+        addMessage('Você precisa estar logado para usar o assistente. Redirecionando...', false, true);
+        setTimeout(() => {
+            window.location.href = 'login.html';
+        }, 2000);
+        return;
+    }
+
+    const input = document.getElementById('messageInput');
+    const message = (input && input.value) ? input.value.trim() : '';
+
+    if (!message) return;
+
+    dismissWelcome();
+    input.value = '';
+    resizeMessageInput();
+    _ultimaPergunta = message;
+
+    addMessage(escapeHtml(message).replace(/\n/g, '<br>'), true);
+
+    const loadingMessage = addMessage('', false, false, true);
+    isLoading = true;
+
+    const sendButton = document.getElementById('sendButton');
+    if (sendButton) {
+        sendButton.classList.add('is-loading');
+        sendButton.setAttribute('data-tooltip', 'Parar Geração');
+    }
+    setAiStatus('loading');
+
+    let lastError = null;
+    currentAbortController = new AbortController();
+
+    try {
+        if (!sessaoId) {
+            sessaoId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+                ? crypto.randomUUID()
+                : Math.random().toString(36).substring(2) + Date.now().toString(36);
+        }
+
+        const requestBody = { mensagem: message, sessao_id: sessaoId };
+        if (window._pendingConfirmationToken) {
+            requestBody.confirmation_token = window._pendingConfirmationToken;
+            window._pendingConfirmationToken = null;
+        }
+        if (window._pendingOverrideArgs) {
+            requestBody.override_args = window._pendingOverrideArgs;
+            window._pendingOverrideArgs = null;
+        }
+
+        const baseUrl = typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : (window.location.origin + '/api/v1');
+        const fetchUrl = baseUrl + '/ai/assistente/stream';
+        
+        const response = await fetch(fetchUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify(requestBody),
+            signal: currentAbortController.signal
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`Falha no servidor: ${response.status} ${errText}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let done = false;
+        let responseText = '';
+        let metadata = null;
+        let bubbleNode = null;
+        let toolBadge = null;
+
+        if (loadingMessage) {
+            loadingMessage.classList.remove('loading');
+            bubbleNode = loadingMessage.querySelector('.message-bubble');
+            if (bubbleNode) bubbleNode.innerHTML = '';
+        }
+
+        while (!done) {
+            const { value, done: readerDone } = await reader.read();
+            if (value) {
+                const chunkStr = decoder.decode(value, { stream: true });
+                const lines = chunkStr.split('\n');
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const dataStr = line.substring(6).trim();
+                        if (!dataStr) continue;
+                        try {
+                            const dataObj = JSON.parse(dataStr);
+                            if (dataObj.error) throw new Error(dataObj.error);
+
+                            if (dataObj.phase === 'tool_running' && dataObj.tool) {
+                                if (bubbleNode) {
+                                    if (!toolBadge) {
+                                        toolBadge = document.createElement('div');
+                                        toolBadge.className = 'tool-running-badge';
+                                        bubbleNode.appendChild(toolBadge);
+                                    }
+                                    const toolLabel = dataObj.tool.replace(/_/g, ' ');
+                                    toolBadge.innerHTML = `<span class="tool-running-spinner">⚙️</span> Executando: <em>${escapeHtml(toolLabel)}</em>`;
+                                }
+                            }
+
+                            if (dataObj.chunk) {
+                                if (toolBadge) { toolBadge.remove(); toolBadge = null; }
+                                responseText += dataObj.chunk;
+                                if (bubbleNode && window.marked) {
+                                    bubbleNode.innerHTML = marked.parse(responseText);
+                                    const tables = bubbleNode.querySelectorAll('table');
+                                    tables.forEach(t => {
+                                        if(!t.parentElement.classList.contains('ai-table-wrapper')){
+                                            t.classList.add('ai-table');
+                                            const wrap = document.createElement('div');
+                                            wrap.className = 'ai-table-wrapper';
+                                            t.parentNode.insertBefore(wrap, t);
+                                            wrap.appendChild(t);
+                                        }
+                                    });
+                                } else if (bubbleNode) {
+                                    bubbleNode.textContent = responseText;
+                                }
+                                scrollChatToBottom();
+                            }
+
+                            if (dataObj.is_final) {
+                                if (toolBadge) { toolBadge.remove(); toolBadge = null; }
+                                metadata = dataObj.metadata || {};
+                            }
+                        } catch (e) {
+                            if (e.message && e.message.includes('JSON')) {} else { throw e; }
+                        }
+                    }
+                }
+            }
+            done = readerDone;
+        }
+
+        setAiStatus('ready');
+
+        const finalData = {
+           sucesso: true,
+           resposta: responseText,
+           tipo_resposta: (metadata && metadata.tipo) ? metadata.tipo : 'geral',
+           dados: metadata ? (metadata.dados || null) : null,
+           grafico: metadata ? (metadata.grafico || null) : null,
+           sugestoes: metadata ? (metadata.sugestoes || null) : null,
+           pending_action: metadata ? (metadata.pending_action || null) : null,
+           tool_trace: metadata ? (metadata.tool_trace || null) : null,
+        };
+
+        processAIResponse(finalData, loadingMessage, true);
+
+    } catch (error) {
+        console.error('Error:', error);
+        
+        if (error.name === 'AbortError') {
+            console.log('Geração de resposta interrompida pelo usuário.');
+            if (loadingMessage && loadingMessage.querySelector('.loading-dots')) {
+                loadingMessage.remove();
+            } else if (loadingMessage) {
+                loadingMessage.classList.remove('loading');
+                const bubble = loadingMessage.querySelector('.message-bubble');
+                if (bubble && !bubble.textContent.trim() && !bubble.innerHTML.includes('<br>')) {
+                    loadingMessage.remove();
+                } else if (bubble) {
+                    bubble.innerHTML += '<br><br><em><small>[Geração interrompida]</small></em>';
+                }
+            }
+            setAiStatus('ready');
+            return;
+        }
+
+        if (loadingMessage) {
+            loadingMessage.remove();
+        }
+
+        // Determina status code do erro
+        let statusCode = null;
+        const match = error.message?.match(/Falha no servidor: (\d+)/);
+        if (match) {
+            statusCode = parseInt(match[1]);
+        }
+
+        const errorData = getHumanErrorMessage(error, statusCode);
+        const errorCard = createErrorCard(errorData, error, async () => {
+            // Retry callback
+            input.value = _ultimaPergunta;
+            await sendMessage();
+        });
+        
+        addMessage('', false, true);
+        const messagesContainer = document.getElementById('chatMessages');
+        if (messagesContainer) {
+            const lastMsg = messagesContainer.lastElementChild;
+            if (lastMsg) {
+                const bubble = lastMsg.querySelector('.message-bubble');
+                if (bubble) {
+                    bubble.innerHTML = '';
+                    bubble.appendChild(errorCard);
+                }
+            }
+        }
+        
+        if (statusCode === 401) {
+            setTimeout(() => { window.location.href = 'login.html'; }, 3000);
+        }
+        
+        setTimeout(() => setAiStatus('ready'), 4500);
+    } finally {
+        isLoading = false;
+        currentAbortController = null;
+        if (sendButton) {
+            sendButton.classList.remove('is-loading');
+            sendButton.setAttribute('data-tooltip', 'Enviar');
+        }
+    }
+}
+
+/**
+ * Atualiza processAIResponse para lazy loading de gráficos
+ */
+const _originalProcessAIResponse = processAIResponse;
+
+function processAIResponse(data, loadingMessage, isStreamed = false) {
+    if (!isStreamed && loadingMessage && loadingMessage.remove) {
+        loadingMessage.remove();
+    }
+
+    const isSuccess = data.sucesso === true || data.success === true ||
+                      (data.dados && Object.keys(data.dados).length > 0);
+
+    if (isSuccess) {
+        let responseContent = formatAIResponse(data, isStreamed);
+
+        // Tool Use v2: indicador de ferramentas executadas
+        if (Array.isArray(data.tool_trace) && data.tool_trace.length > 0) {
+            const items = data.tool_trace.map(t => {
+                const ico = t.status === 'ok' ? '✅' : (t.status === 'pending' ? '⏳' : '⚠️');
+                return `<span class="tool-trace-item">${ico} ${escapeHtml(String(t.tool))}</span>`;
+            }).join(' ');
+            responseContent += `<div class="tool-trace">🛠️ ${items}</div>`;
+        }
+
+        // Compact Confirmation Card for new records
+        if (data.tipo_resposta === 'registro_criado' && data.dados) {
+            const dados = data.dados;
+            const registroTipo = dados.tipo_registro || 'Registro';
+            const registroId = dados.id || '';
+            const registroNumero = dados.numero || '';
+            
+            responseContent += `
+                <div class="confirmation-card">
+                    <div class="confirmation-card-header">
+                        <div class="confirmation-card-icon">✓</div>
+                        <span>${escapeHtml(registroTipo)} Criado</span>
+                    </div>
+                    <div class="confirmation-card-body">
+                        <div class="confirmation-card-field">
+                            <span class="confirmation-card-label">ID</span>
+                            <span class="confirmation-card-value">${escapeHtml(String(registroId))}</span>
+                        </div>
+                        ${registroNumero ? `
+                        <div class="confirmation-card-field">
+                            <span class="confirmation-card-label">Número</span>
+                            <span class="confirmation-card-value">${escapeHtml(registroNumero)}</span>
+                        </div>` : ''}
+                    </div>
+                </div>`;
+        }
+
+        // Tool Use v2: card de confirmação para ação destrutiva pendente
+        if (data.pending_action && data.pending_action.confirmation_token) {
+            const pa = data.pending_action;
+            const token = pa.confirmation_token;
+            const extras = pa.extras || {};
+            const resumo = formatPendingArgs(pa.tool, pa.args || {}, extras);
+            const temMateriaisNovos = Array.isArray(extras.materiais_novos) && extras.materiais_novos.length > 0;
+            const tokAttr = escapeHtmlAttr(token);
+            const btnCadastrar = temMateriaisNovos
+                ? `<button type="button" class="btn btn-confirm-alt" data-confirm-ia="${tokAttr}" data-cadastrar="1">Confirmar e cadastrar produto</button>`
+                : '';
+            responseContent += `
+                <div class="pending-action-card" role="dialog" aria-labelledby="pa-title-${token.slice(0,8)}" data-token="${tokAttr}">
+                    <div class="pending-action-header" id="pa-title-${token.slice(0,8)}">⚠️ Confirmação necessária</div>
+                    <div class="pending-action-tool"><strong>${humanizeToolName(pa.tool)}</strong></div>
+                    <div class="pending-action-summary">${resumo}</div>
+                    <div class="pending-action-guidance">Revise os dados abaixo antes de confirmar.</div>
+                    <div class="pending-action-buttons">
+                        <button type="button" class="btn btn-primary" data-confirm-ia="${tokAttr}">Confirmar</button>
+                        ${btnCadastrar}
+                        <button type="button" class="btn btn-secondary" data-cancel-ia="1">Cancelar</button>
+                    </div>
+                </div>`;
+        }
+
+        // Renderizar sugestões de follow-up
+        let sugestoes = [];
+        try {
+            if (data.acao_sugerida) {
+                sugestoes = JSON.parse(data.acao_sugerida);
+            }
+        } catch (e) { /* ignorar parse error */ }
+
+        const tipoResp = data.tipo_resposta || (data.dados && data.dados.tipo) || '';
+        if (tipoResp === 'orcamento_criado') {
+            sugestoes = getOrcamentoFollowupSuggestions(data, sugestoes);
+        }
+
+        if (Array.isArray(sugestoes) && sugestoes.length > 0) {
+            const chips = sugestoes
+                .map((s, i) => {
+                    const icon = getSuggestionIcon(s);
+                    const enc = encodeURIComponent(s);
+                    return `<button type="button" class="sugestao-chip" data-suggestion="${enc}" data-index="${i}" title="Clique para explorar" data-tooltip="${escapeHtml(s)}">${icon}<span>${escapeHtml(s)}</span></button>`;
+                })
+                .join('');
+            responseContent += `<div class="sugestoes-container"><div class="sugestoes-header"><span class="sug-icon">✨</span> Próximos passos sugeridos</div>${chips}</div>`;
+        }
+
+        // Botões de feedback
+        const tipoSemFeedback = ['onboarding', 'orcamento_preview', 'orcamento_criado', 'operador_resultado', 'registro_criado'];
+        if (!tipoSemFeedback.includes(data.tipo_resposta)) {
+            const fbId = 'fb_' + Date.now();
+            responseContent += `
+                <div class="feedback-bar" id="${fbId}">
+                    <span class="feedback-label">Útil?</span>
+                    <button type="button" class="feedback-btn" data-feedback-id="${fbId}" data-feedback-val="positivo" title="Sim, ajudou" data-tooltip="Esta resposta foi útil">👍</button>
+                    <button type="button" class="feedback-btn" data-feedback-id="${fbId}" data-feedback-val="negativo" title="Não ajudou" data-tooltip="Esta resposta não foi útil">👎</button>
+                </div>`;
+            window._feedbackData = window._feedbackData || {};
+            window._feedbackData[fbId] = {
+                pergunta: _ultimaPergunta,
+                resposta: data.resposta || '',
+                modulo_origem: data.modulo_origem || data.tipo_resposta || 'geral',
+            };
+        }
+
+        let msgEl;
+        if (!isStreamed) {
+            msgEl = addMessage(responseContent, false);
+        } else {
+            msgEl = loadingMessage;
+            if (responseContent) {
+                const bubble = loadingMessage.querySelector('.message-bubble');
+                if (bubble) bubble.insertAdjacentHTML('beforeend', responseContent);
+            }
+            
+            // Lazy loading para gráficos
+            if (data.grafico) {
+                const bubble = msgEl?.querySelector('.message-bubble') || loadingMessage;
+                if (bubble) {
+                    setupLazyChartRendering(bubble, data.grafico);
+                }
+            }
+        }
+
+        if (msgEl) msgEl.dataset.pergunta = '';
+        
+        setTimeout(() => {
+            const chips = msgEl?.querySelectorAll('.sugestao-chip');
+            chips?.forEach((chip, i) => {
+                setTimeout(() => chip.classList.add('visible'), i * 100);
+            });
+        }, 150);
+        
+        if (isStreamed) {
+             setTimeout(saveChatHistory, 500);
+        }
+
+    } else {
+        let errorMessage = 'Não foi possível processar sua solicitação.';
+        if (data.resposta) errorMessage = data.resposta;
+        if (data.message)  errorMessage = data.message;
+        if (data.detail) {
+            errorMessage = typeof data.detail === 'string'
+                ? data.detail
+                : (Array.isArray(data.detail) ? data.detail.map(d => (d && d.msg) || d).join(', ') : errorMessage);
+        }
+        
+        const errorData = getHumanErrorMessage(new Error(errorMessage), null);
+        const errorCard = createErrorCard(errorData, null, null);
+        addMessage('', false, true);
+        
+        const messagesContainer = document.getElementById('chatMessages');
+        if (messagesContainer) {
+            const lastMsg = messagesContainer.lastElementChild;
+            if (lastMsg) {
+                const bubble = lastMsg.querySelector('.message-bubble');
+                if (bubble) {
+                    bubble.innerHTML = '';
+                    bubble.appendChild(errorCard);
+                }
+            }
+        }
+    }
+}
+
+// Exporta funções globais
+window.sendMessage = sendMessage;
+window.processAIResponse = processAIResponse;
+window.addMessage = addMessage;
+window.initVirtualizationIfNeeded = initVirtualizationIfNeeded;

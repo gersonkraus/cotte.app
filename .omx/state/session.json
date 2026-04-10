@@ -1,0 +1,9 @@
+{
+  "session_id": "omx-1775862083067-uzpuxn",
+  "started_at": "2026-04-10T23:01:23.092Z",
+  "cwd": "/home/gk/Projeto-izi",
+  "pid": 911479,
+  "platform": "linux",
+  "pid_start_ticks": 12002150,
+  "pid_cmdline": "node /home/gk/.npm-global/bin/omx --madmax --high"
+}

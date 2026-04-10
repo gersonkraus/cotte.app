@@ -284,8 +284,14 @@ async function sendMessage() {
     _updateVoiceSendToggle(input);
     _hideQuickReplyChips();
     _ultimaPergunta = message;
+    if (typeof trackAssistenteUserIntent === 'function') {
+        trackAssistenteUserIntent(message);
+    }
+    if (typeof setChatAutoFollow === 'function') {
+        setChatAutoFollow(true, { scroll: false });
+    }
 
-    addMessage(escapeHtml(message).replace(/\n/g, '<br>'), true);
+    addMessage(escapeHtml(message).replace(/\n/g, '<br>'), true, false, false, { forceScroll: true });
 
     const loadingMessage = addMessage('', false, false, true);
     isLoading = true;

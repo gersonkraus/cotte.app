@@ -250,7 +250,7 @@ function sendQuickMessage(message) {
     sendMessage();
 }
 
-function addMessage(content, isUser = false, isError = false, isLoadingState = false) {
+function addMessage(content, isUser = false, isError = false, isLoadingState = false, options = {}) {
     const messagesContainer = document.getElementById('chatMessages');
     if (!messagesContainer) return null;
 
@@ -277,8 +277,19 @@ function addMessage(content, isUser = false, isError = false, isLoadingState = f
     }
 
     messagesContainer.appendChild(messageDiv);
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    updateScrollBottomButtonVisibility();
+    if (typeof updateAssistenteMessageDensity === 'function') {
+        updateAssistenteMessageDensity();
+    }
+    if (options.forceScroll || isUser) {
+        scrollChatToBottom({
+            force: true,
+            behavior: options.scrollBehavior || 'auto',
+        });
+    } else if (typeof shouldAutoFollowChat !== 'function' || shouldAutoFollowChat()) {
+        scrollChatToBottom({ behavior: options.scrollBehavior || 'auto' });
+    } else {
+        updateScrollBottomButtonVisibility();
+    }
 
     if (!isLoadingState) {
         setTimeout(saveChatHistory, 500);
@@ -303,8 +314,18 @@ document.addEventListener('DOMContentLoaded', function() {
             sessaoId = localStorage.getItem('ai_sessao_id') || sessaoId;
             box.querySelectorAll('.sugestao-chip').forEach(c => c.classList.add('visible'));
             box.querySelectorAll('.loading').forEach(b => b.remove());
-            setTimeout(() => scrollChatToBottom(), 100);
+            if (typeof restoreAssistenteChatMeta === 'function') {
+                restoreAssistenteChatMeta();
+            }
+            if (typeof updateAssistenteMessageDensity === 'function') {
+                updateAssistenteMessageDensity();
+            }
+            setTimeout(() => scrollChatToBottom({ force: true }), 100);
         }
+    } else if (typeof restoreAssistenteChatMeta === 'function') {
+        restoreAssistenteChatMeta();
+    } else if (typeof renderAssistenteContextBar === 'function') {
+        renderAssistenteContextBar();
     }
 
     const input = document.getElementById('messageInput');
@@ -515,18 +536,27 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const scrollBtn = document.getElementById('chatScrollBottomBtn');
     if (scrollBtn) {
-        scrollBtn.addEventListener('click', () => scrollChatToBottom());
+        scrollBtn.addEventListener('click', () => scrollChatToBottom({ force: true, behavior: 'smooth' }));
     }
 
     const chatBox = document.getElementById('chatMessages');
     if (chatBox) {
-        chatBox.addEventListener('scroll', () => updateScrollBottomButtonVisibility(), { passive: true });
+        chatBox.addEventListener('scroll', () => {
+            if (typeof handleAssistenteChatScroll === 'function') {
+                handleAssistenteChatScroll();
+            } else {
+                updateScrollBottomButtonVisibility();
+            }
+        }, { passive: true });
         chatBox.addEventListener('click', () => {
             hideSlashCommands();
         });
     }
 
     initAssistenteChatDelegation();
+    if (typeof updateAssistenteMessageDensity === 'function') {
+        updateAssistenteMessageDensity();
+    }
     updateScrollBottomButtonVisibility();
 
     if (localStorage.getItem('onboarding_pending') === '1') {

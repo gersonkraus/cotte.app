@@ -15,6 +15,7 @@ function sse(events) {
 
 async function prepararPaginaAssistente(page, options = {}) {
   const viewport = options.viewport || { width: 390, height: 844 };
+  const path = options.path || '/app/assistente-ia.html';
 
   await page.addInitScript(({ user }) => {
     localStorage.setItem('cotte_token', 'token-playwright');
@@ -373,7 +374,7 @@ async function prepararPaginaAssistente(page, options = {}) {
   });
 
   await page.setViewportSize(viewport);
-  await page.goto('/assistente-ia.html');
+  await page.goto(path);
   await page.waitForLoadState('networkidle');
 }
 

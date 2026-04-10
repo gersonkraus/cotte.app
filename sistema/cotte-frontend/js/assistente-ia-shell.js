@@ -74,6 +74,278 @@ function getAdaptiveMessagePlaceholder() {
         : DEFAULT_MESSAGE_PLACEHOLDER;
 }
 
+const ASSISTENTE_CHAT_META_KEY = 'ai_chat_meta';
+const ASSISTENTE_COMPACT_THRESHOLD = 8;
+const ASSISTENTE_COMPACT_RECENT_COUNT = 4;
+const ASSISTENTE_SCROLL_FOLLOW_THRESHOLD = 96;
+const _assistenteChatUiState = {
+    autoFollow: true,
+    userDetached: false,
+    context: { command: '', entity: '', summary: '', secondary: '' },
+    pendingUserContext: null,
+    programmaticScroll: false,
+};
+
+function isAssistenteEmbedMode() {
+    return document.body.classList.contains('embed-mode');
+}
+
+function _normalizeContextText(value) {
+    return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function _buildAssistenteContext(command = '', entity = '') {
+    const normalizedCommand = _normalizeContextText(command);
+    const normalizedEntity = _normalizeContextText(entity);
+    return {
+        command: normalizedCommand,
+        entity: normalizedEntity,
+        summary: normalizedCommand || normalizedEntity,
+        secondary: normalizedCommand && normalizedEntity ? normalizedEntity : '',
+    };
+}
+
+function _extractAssistenteCommand(text) {
+    const source = _normalizeContextText(text).toLowerCase();
+    if (!source) return '';
+
+    const slashMatch = source.match(/(?:^|\s)(\/[^\s]+)/);
+    if (slashMatch) {
+        return slashMatch[1];
+    }
+
+    const intentMatchers = [
+        { label: 'Caixa', pattern: /\bcaixa\b|\bsaldo\b/ },
+        { label: 'Resumo financeiro', pattern: /\bresumo financeiro\b|\bfaturamento\b/ },
+        { label: 'Contas a receber', pattern: /\breceber\b|\bem aberto\b/ },
+        { label: 'Contas a pagar', pattern: /\bpagar\b/ },
+        { label: 'Clientes em atraso', pattern: /\bdevendo\b|\batraso\b|\binadimpl/i },
+        { label: 'Previsão de caixa', pattern: /\bprevis[aã]o\b/ },
+        { label: 'Novo orçamento', pattern: /\bgerar\b.*\bor[çc]amento\b|\bcriar\b.*\bor[çc]amento\b/ },
+        { label: 'Consultar orçamento', pattern: /\bver\b.*\bor[çc]amento\b|\bdetalhes?\b.*\bor[çc]amento\b/ },
+        { label: 'Orçamentos pendentes', pattern: /\bor[çc]amentos?\b.*\bpendentes?\b/ },
+        { label: 'Agendamentos', pattern: /\bagenda(r|mentos?)\b/ },
+        { label: 'Ajuda', pattern: /\bajuda\b|\bcomo usar\b/ },
+    ];
+
+    const match = intentMatchers.find((item) => item.pattern.test(source));
+    return match ? match.label : '';
+}
+
+function _extractAssistenteEntityFromText(text) {
+    const source = _normalizeContextText(text);
+    if (!source) return '';
+
+    const orcNumero = source.match(/\bORC[-\s]?\d[\w-]*/i);
+    if (orcNumero) {
+        return `Orçamento ${orcNumero[0].toUpperCase().replace(/\s+/g, '-')}`;
+    }
+
+    const orcId = source.match(/\bor[çc]amento\s+#?(\d{1,6}(?:-\d{2})?)/i);
+    if (orcId) {
+        return `Orçamento ${orcId[1]}`;
+    }
+
+    const cliente = source.match(/\bcliente\s+([A-ZÀ-ÿ][\wÀ-ÿ'-]*(?:\s+[A-ZÀ-ÿ][\wÀ-ÿ'-]*){0,2})/);
+    if (cliente) {
+        return `Cliente ${cliente[1]}`;
+    }
+
+    return '';
+}
+
+function _extractAssistenteEntityFromResponse(data) {
+    const pending = data?.pending_action || {};
+    const extras = pending?.extras || {};
+    const args = pending?.args || {};
+    const dados = data?.dados || data || {};
+
+    const numero = _normalizeContextText(dados.numero || dados.orcamento_numero || extras.orcamento_numero);
+    if (numero) return `Orçamento ${numero}`;
+
+    const clienteNome = _normalizeContextText(
+        dados.cliente_nome
+        || dados.cliente
+        || extras.cliente_nome_resolvido
+        || args.cliente_nome
+    );
+    if (clienteNome) return `Cliente ${clienteNome}`;
+
+    const servico = _normalizeContextText(dados.servico || dados.titulo || args.servico);
+    if (servico) return `Serviço ${servico}`;
+
+    const genericId = _normalizeContextText(dados.id);
+    if (genericId && /orcamento/i.test(String(data?.tipo_resposta || data?.tipo || ''))) {
+        return `Orçamento #${genericId}`;
+    }
+
+    return '';
+}
+
+function _persistAssistenteChatMeta() {
+    try {
+        localStorage.setItem(ASSISTENTE_CHAT_META_KEY, JSON.stringify({
+            context: _assistenteChatUiState.context,
+        }));
+    } catch (_) {
+        /* noop */
+    }
+}
+
+function renderAssistenteContextBar() {
+    const bar = document.getElementById('embedContextBar');
+    const primary = document.getElementById('embedContextBarPrimary');
+    const secondary = document.getElementById('embedContextBarSecondary');
+    if (!bar || !primary || !secondary) return;
+
+    const context = _assistenteChatUiState.context || {};
+    const hasSummary = !!_normalizeContextText(context.summary);
+    if (!hasSummary) {
+        bar.hidden = true;
+        primary.textContent = '';
+        secondary.textContent = '';
+        return;
+    }
+
+    const primaryText = context.command
+        ? `Último comando: ${context.command}`
+        : `Última entidade: ${context.entity}`;
+    primary.textContent = primaryText;
+    secondary.textContent = context.secondary || '';
+    bar.hidden = false;
+}
+
+function setAssistenteContext(command = '', entity = '', options = {}) {
+    _assistenteChatUiState.context = _buildAssistenteContext(command, entity);
+    renderAssistenteContextBar();
+    if (options.persist !== false) {
+        _persistAssistenteChatMeta();
+    }
+}
+
+function trackAssistenteUserIntent(message) {
+    const nextContext = _buildAssistenteContext(
+        _extractAssistenteCommand(message),
+        _extractAssistenteEntityFromText(message)
+    );
+    _assistenteChatUiState.pendingUserContext = nextContext;
+    setAssistenteContext(nextContext.command, nextContext.entity);
+}
+
+function captureAssistenteResponseContext(data) {
+    const pending = _assistenteChatUiState.pendingUserContext || {};
+    const responseEntity = _extractAssistenteEntityFromResponse(data);
+    const nextContext = _buildAssistenteContext(
+        pending.command || '',
+        responseEntity || pending.entity || ''
+    );
+    _assistenteChatUiState.pendingUserContext = null;
+    setAssistenteContext(nextContext.command, nextContext.entity);
+}
+
+function restoreAssistenteChatMeta() {
+    let restored = null;
+    try {
+        restored = JSON.parse(localStorage.getItem(ASSISTENTE_CHAT_META_KEY) || 'null');
+    } catch (_) {
+        restored = null;
+    }
+
+    const savedContext = restored?.context || null;
+    if (savedContext && (savedContext.command || savedContext.entity || savedContext.summary)) {
+        _assistenteChatUiState.context = _buildAssistenteContext(savedContext.command, savedContext.entity);
+        renderAssistenteContextBar();
+        return;
+    }
+
+    const box = document.getElementById('chatMessages');
+    if (!box) return;
+    const userMessages = Array.from(box.children)
+        .filter((node) => node.classList && node.classList.contains('message') && node.classList.contains('user'));
+    const lastUserBubble = userMessages.length
+        ? userMessages[userMessages.length - 1].querySelector('.message-bubble')
+        : null;
+    const fallbackText = _normalizeContextText(lastUserBubble?.innerText || '');
+    if (!fallbackText) return;
+    setAssistenteContext(_extractAssistenteCommand(fallbackText), _extractAssistenteEntityFromText(fallbackText));
+}
+
+function _isAssistenteMessageProtectedFromCompact(messageEl) {
+    if (!messageEl || messageEl.id === 'welcomeState' || messageEl.classList.contains('loading')) {
+        return true;
+    }
+    return !!messageEl.querySelector('.pending-action-card, .orc-preview-card, .orc-success-card, .opr-card, .chart-container, table');
+}
+
+function updateAssistenteMessageDensity() {
+    const box = document.getElementById('chatMessages');
+    if (!box) return;
+
+    const messages = Array.from(box.children)
+        .filter((node) => node.classList && node.classList.contains('message'));
+
+    messages.forEach((messageEl) => messageEl.classList.remove('message--compact'));
+    box.classList.remove('chat-messages--dense');
+
+    if (!isAssistenteEmbedMode()) return;
+
+    const meaningfulMessages = messages.filter((messageEl) => messageEl.id !== 'welcomeState');
+    if (meaningfulMessages.length <= ASSISTENTE_COMPACT_THRESHOLD) return;
+
+    const preservedMessages = new Set(meaningfulMessages.slice(-ASSISTENTE_COMPACT_RECENT_COUNT));
+    let compactedCount = 0;
+
+    meaningfulMessages.forEach((messageEl) => {
+        if (preservedMessages.has(messageEl) || _isAssistenteMessageProtectedFromCompact(messageEl)) {
+            return;
+        }
+        messageEl.classList.add('message--compact');
+        compactedCount += 1;
+    });
+
+    if (compactedCount > 0) {
+        box.classList.add('chat-messages--dense');
+    }
+}
+
+function _isChatNearBottom(threshold = ASSISTENTE_SCROLL_FOLLOW_THRESHOLD) {
+    const box = document.getElementById('chatMessages');
+    if (!box) return true;
+    return (box.scrollHeight - box.scrollTop - box.clientHeight) < threshold;
+}
+
+function shouldAutoFollowChat(force = false) {
+    return force || !isAssistenteEmbedMode() || _assistenteChatUiState.autoFollow;
+}
+
+function handleAssistenteChatScroll() {
+    const box = document.getElementById('chatMessages');
+    if (!box) return;
+
+    if (_assistenteChatUiState.programmaticScroll) {
+        updateScrollBottomButtonVisibility();
+        return;
+    }
+
+    const nearBottom = _isChatNearBottom();
+    _assistenteChatUiState.autoFollow = nearBottom;
+    _assistenteChatUiState.userDetached = !nearBottom;
+    updateScrollBottomButtonVisibility();
+}
+
+function setChatAutoFollow(enabled, options = {}) {
+    _assistenteChatUiState.autoFollow = !!enabled;
+    _assistenteChatUiState.userDetached = !enabled;
+    if (enabled && options.scroll !== false) {
+        scrollChatToBottom({
+            force: true,
+            behavior: options.behavior || 'auto',
+        });
+        return;
+    }
+    updateScrollBottomButtonVisibility();
+}
+
 function _showQuickReplyChips(sugestoes) {
     const area = document.getElementById('quickReplyArea');
     if (!area) return;
@@ -160,9 +432,31 @@ function setAiStatus(mode) {
     }
 }
 
-function scrollChatToBottom() {
+function scrollChatToBottom(options = {}) {
     const el = document.getElementById('chatMessages');
-    if (el) el.scrollTop = el.scrollHeight;
+    if (!el) return;
+
+    const force = !!options.force;
+    if (force) {
+        _assistenteChatUiState.autoFollow = true;
+        _assistenteChatUiState.userDetached = false;
+    }
+    if (!shouldAutoFollowChat(force)) {
+        updateScrollBottomButtonVisibility();
+        return;
+    }
+
+    _assistenteChatUiState.programmaticScroll = true;
+    const nextTop = el.scrollHeight;
+    if (typeof el.scrollTo === 'function') {
+        el.scrollTo({ top: nextTop, behavior: options.behavior || 'auto' });
+    } else {
+        el.scrollTop = nextTop;
+    }
+    window.setTimeout(() => {
+        _assistenteChatUiState.programmaticScroll = false;
+        updateScrollBottomButtonVisibility();
+    }, options.behavior === 'smooth' ? 220 : 32);
     updateScrollBottomButtonVisibility();
 }
 
@@ -172,7 +466,11 @@ function updateScrollBottomButtonVisibility() {
     if (!box || !btn) return;
     const threshold = 120;
     const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < threshold;
-    btn.classList.toggle('is-visible', !nearBottom && box.scrollHeight > box.clientHeight + 40);
+    const paused = isAssistenteEmbedMode() && !_assistenteChatUiState.autoFollow;
+    btn.classList.toggle('is-visible', (!nearBottom || paused) && box.scrollHeight > box.clientHeight + 40);
+    btn.classList.toggle('is-paused', paused);
+    btn.title = paused ? 'Retomar acompanhamento da resposta' : 'Últimas mensagens';
+    btn.setAttribute('aria-label', paused ? 'Retomar acompanhamento da resposta' : 'Ir para a mensagem mais recente');
 }
 
 function novaConversaAssistente() {
@@ -182,10 +480,15 @@ function novaConversaAssistente() {
     sessaoId = null;
     localStorage.removeItem('ai_sessao_id');
     localStorage.removeItem('ai_chat_history');
+    localStorage.removeItem(ASSISTENTE_CHAT_META_KEY);
     window._pendingConfirmationToken = null;
     window._pendingOverrideArgs = null;
     window._feedbackData = {};
     box.innerHTML = _assistenteWelcomeHTML || '';
+    _assistenteChatUiState.pendingUserContext = null;
+    setAssistenteContext('', '', { persist: false });
+    setChatAutoFollow(true, { scroll: false });
+    updateAssistenteMessageDensity();
     setAiStatus('ready');
     const ta = document.getElementById('messageInput');
     if (ta) {
@@ -194,6 +497,7 @@ function novaConversaAssistente() {
         _updateVoiceSendToggle(ta);
         ta.focus();
     }
+    _persistAssistenteChatMeta();
     updateScrollBottomButtonVisibility();
 }
 
@@ -355,8 +659,11 @@ function saveChatHistory() {
     if (!box || isLoading) return;
     const clone = box.cloneNode(true);
     clone.querySelectorAll('.loading').forEach(el => el.remove());
+    clone.classList.remove('chat-messages--dense');
+    clone.querySelectorAll('.message--compact').forEach((el) => el.classList.remove('message--compact'));
     localStorage.setItem('ai_chat_history', clone.innerHTML);
     if (sessaoId) localStorage.setItem('ai_sessao_id', sessaoId);
+    _persistAssistenteChatMeta();
 }
 
 window.getSuggestionIcon = getSuggestionIcon;
@@ -368,6 +675,15 @@ window._hideQuickReplyChips = _hideQuickReplyChips;
 window._updateVoiceSendToggle = _updateVoiceSendToggle;
 window.applyAdaptiveMessagePlaceholder = applyAdaptiveMessagePlaceholder;
 window.setAiStatus = setAiStatus;
+window.isAssistenteEmbedMode = isAssistenteEmbedMode;
+window.trackAssistenteUserIntent = trackAssistenteUserIntent;
+window.captureAssistenteResponseContext = captureAssistenteResponseContext;
+window.restoreAssistenteChatMeta = restoreAssistenteChatMeta;
+window.renderAssistenteContextBar = renderAssistenteContextBar;
+window.updateAssistenteMessageDensity = updateAssistenteMessageDensity;
+window.shouldAutoFollowChat = shouldAutoFollowChat;
+window.handleAssistenteChatScroll = handleAssistenteChatScroll;
+window.setChatAutoFollow = setChatAutoFollow;
 window.scrollChatToBottom = scrollChatToBottom;
 window.updateScrollBottomButtonVisibility = updateScrollBottomButtonVisibility;
 window.novaConversaAssistente = novaConversaAssistente;

@@ -11,8 +11,10 @@ Política:
 - /static/logos|pdfs|images: conteúdo frequentemente dinâmico → cache curto
 - demais /static: cache moderado (config e similares)
 """
+
 from __future__ import annotations
 
+import os
 import re
 
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -43,10 +45,12 @@ _APP_ASSET_SUFFIXES: tuple[str, ...] = (
 
 def _policy_for_path(path: str) -> str | None:
     """Retorna valor de Cache-Control ou None se a rota não for estática montada."""
+    # Se estiver em desenvolvimento, desativa cache para ver mudanças imediatas
+    if os.getenv("ENVIRONMENT") == "development":
+        return "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"
+
     if path.startswith("/static/"):
-        if path.startswith(
-            ("/static/logos/", "/static/pdfs/", "/static/images/")
-        ):
+        if path.startswith(("/static/logos/", "/static/pdfs/", "/static/images/")):
             return "private, max-age=300, stale-while-revalidate=3600"
         return "public, max-age=3600, stale-while-revalidate=86400"
 
@@ -104,6 +108,7 @@ class VersioningMiddleware(BaseHTTPMiddleware):
         if self._version is not None:
             return self._version
         from app.core.config import settings  # import lazy — evita circular no load
+
         return settings.APP_VERSION
 
     async def dispatch(self, request: Request, call_next) -> Response:

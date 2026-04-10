@@ -168,6 +168,13 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
         _showQuickReplyChips(sugestoes.slice(0, 3));
     }
 
+    if (typeof captureAssistenteResponseContext === 'function') {
+        captureAssistenteResponseContext(data);
+    }
+    if (typeof updateAssistenteMessageDensity === 'function') {
+        updateAssistenteMessageDensity();
+    }
+
     if (isStreamed) {
         setTimeout(saveChatHistory, 500);
     }

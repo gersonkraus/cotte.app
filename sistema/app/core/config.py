@@ -3,9 +3,18 @@ from typing import Optional
 import subprocess
 
 
+import time
+
+
 def _compute_version() -> str:
     """Usa o hash curto do último commit git como versão. Fallback: 'dev'."""
     try:
+        # Se estiver em desenvolvimento, usa timestamp para forçar cache bust a cada reinício
+        import os
+
+        if os.getenv("ENVIRONMENT") == "development":
+            return str(int(time.time()))
+
         return subprocess.check_output(
             ["git", "rev-parse", "--short", "HEAD"],
             stderr=subprocess.DEVNULL,
