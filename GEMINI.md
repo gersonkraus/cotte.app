@@ -30,8 +30,12 @@ Toda sessão inicia com:
 python scripts/auto_tagging_base.py --apply
 Ver detalhes em scripts/README_TAGGING.md.
 
-🧠 MEMÓRIA PERSISTENTE (OBRIGATÓRIO)
+🧠 MEMÓRIA PERSISTENTE E MCP (OBRIGATÓRIO)
 Ao iniciar cada sessão
+### MCP e Inicialização (OBRIGATÓRIO)
+- **Sempre comece lendo o arquivo stacklit.json via MCP antes de qualquer coisa.**
+- **Use as ferramentas stacklit para navegar no codebase.**
+
 Ler obrigatoriamente os 4 arquivos de memória.
 Ao encerrar cada sessão
 Atualizar apenas informações duráveis (decisões técnicas, padrões, arquitetura, preferências).

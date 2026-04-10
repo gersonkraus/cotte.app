@@ -7,138 +7,75 @@ status: documentado
 ---
 # COTTE Agent Guidelines (AGENTS.md)
 
-Este guia destina-se a agentes de IA que operam no repositório **Projeto iZi / COTTE**.
+Este guia destina-se a agentes de IA (como OpenCode, Claude Code) operando no repositório **Projeto iZi / COTTE**. Leia-o para evitar erros comuns de contexto.
 
-## 🛠 Comandos de Desenvolvimento
+## 🛠 Topologia e Comandos
+### MCP e Inicialização
+- **Sempre comece lendo o arquivo stacklit.json via MCP antes de qualquer coisa.**
+- **Use as ferramentas stacklit para navegar no codebase.**
 
-O backend está em `sistema/` e o frontend em `sistema/cotte-frontend/`.
 
-### Backend (FastAPI)
-- **Instalar dependências:** `cd sistema && pip install -r requirements.txt`
-- **Rodar localmente:** `cd sistema && uvicorn main:app --reload`
-- **Rodar todos os testes:** `cd sistema && pytest`
-- **Rodar um único arquivo de teste:** `cd sistema && pytest tests/test_helpers.py`
-- **Rodar um teste específico:** `cd sistema && pytest tests/test_helpers.py::TestCalcularTotal::test_sem_desconto`
-- **Migrations (Alembic):** As tabelas são criadas pelo SQLAlchemy no `main.py` durante testes. Em produção, use Alembic se configurado.
+- **Raiz do Workspace:** `/home/gk/Projeto-izi` (Onde rodam Playwright e scripts de CI)
+- **Backend:** `sistema/` (FastAPI)
+- **Frontend Estático:** `sistema/cotte-frontend/` (Servido diretamente pelo FastAPI em `/app`)
 
-### Testes (Backend)
-- Os testes usam SQLite em memória por padrão.
-- Fixtures comuns estão em `tests/conftest.py`.
-- Serviços externos (WhatsApp, IA, PDF) são mockados automaticamente.
-- Para rodar testes async, use `pytest-asyncio`.
+### Comandos Backend (Executar dentro de `sistema/`)
+- **Instalar:** `pip install -r requirements.txt`
+- **Rodar Local:** `uvicorn app.main:app --reload` *(Atenção: o entrypoint está em `app/main.py`, não `main.py`)*
+- **Migrations:** `python3 -m alembic upgrade heads` (Executado em prod via `release.sh`)
+- **Testes (Pytest):** `pytest` ou `pytest tests/test_helpers.py` (O diretório de testes backend é `sistema/tests/`)
 
-### Frontend & E2E
-- **Testes Playwright:** `npm test` (na raiz do frontend)
-- **Playwright UI:** `npm run test:ui`
+### Comandos Frontend / E2E (Executar na Raiz do Workspace)
+- O Playwright está configurado na raiz (`/home/gk/Projeto-izi/playwright.config.js`). 
+- **Rodar CLI:** `npm test`
+- **Rodar UI:** `npm run test:ui`
+- *Nota: O backend deve estar rodando localmente (porta 8000) para os testes E2E funcionarem.*
 
-### Ferramentas de Análise (qmd)
-O `qmd` está instalado no venv do sistema para busca semântica e localização de código.
-- **Busca na documentação:** `source sistema/venv/bin/activate && qmd search cotte "termo"`
-- **Busca no código Python:** `source sistema/venv/bin/activate && qmd search cotte-py "termo"`
-- **Atualizar índice:** `source sistema/venv/bin/activate && qmd update cotte && qmd update cotte-py`
+### qmd (Ferramenta de Busca Semântica)
+- `source sistema/venv/bin/activate && qmd search cotte "termo"`
 
 ---
 
-## 🐍 Diretrizes de Código: Backend (Python/FastAPI)
+## 🐍 Diretrizes de Backend (FastAPI / SQLAlchemy)
 
-### Estilo e Formatação
-- **Linguagem:** Código (variáveis, funções, classes) em **inglês**. Comentários e Docstrings em **português**.
-- **Naming:** `snake_case` para funções/variáveis, `PascalCase` para classes/modelos.
-- **Tipagem:** Use **Type Hints** em todas as assinaturas de função.
-- **Imports:**
-  1. Standard library
-  2. Third-party (FastAPI, SQLAlchemy, Pydantic)
-  3. Local imports (app.models, app.services, etc.)
-  - Use caminhos absolutos baseados na raiz do backend: `from app.models.models import Orcamento`.
-
-### Arquitetura (Camadas)
-- **Routers:** Apenas entrada/saída HTTP e chamadas de dependência (`Depends(get_db)`).
-- **Services:** Toda a lógica de negócio, cálculos e integrações (IA, WhatsApp, PDF).
-- **Models:** Definições SQLAlchemy em `app/models/models.py`.
-- **Schemas:** Validação Pydantic em `app/schemas/`. Separe schemas de entrada (`Create`, `Update`) e resposta (`Response`).
-- **Repositories:** Acesso a dados isolado quando necessário (ex: `ClienteRepository`).
-
-### Banco de Dados (SQLAlchemy)
-- Use `AsyncSession` para operações assíncronas.
-- Prefira `select(Model).where(...)` (estilo 2.0).
-- Use `joinedload` ou `selectinload` para evitar N+1 queries.
-- Transações são gerenciadas automaticamente pelo FastAPI/SQLAlchemy.
-
-### Autenticação e Segurança
-- Use `get_usuario_atual` e `exigir_permissao` nos routers.
-- Senhas são hasheadas com `bcrypt` via `passlib`.
-- Tokens JWT são gerados com `python-jose`.
-
-### Tratamento de Erros
-- Use `HTTPException` do FastAPI para erros de negócio.
-- Retorne códigos HTTP apropriados (400, 404, 409, 500).
+- **Linguagem:** Código (variáveis, métodos, classes) em **inglês**. Comentários e Docstrings em **português brasileiro**.
+- **Tipagem:** Use Type Hints rigorosamente em todas as assinaturas.
+- **Camadas Arquiteturais:**
+  - `app/routers/`: Apenas I/O HTTP, chamadas para services e dependências (`Depends(get_db)`). Nunca coloque regra de negócio aqui.
+  - `app/services/`: Centraliza regras de negócio, integrações (Claude, WhatsApp/Evolution, PDF).
+  - `app/repositories/`: Queries do SQLAlchemy isoladas (ex: `ClienteRepository`).
+- **Banco de Dados:** PostgreSQL com `AsyncSession`. Prevenção de N+1 queries é mandatória: use `selectinload` ou `joinedload`. Transações são automáticas pelo dependêncy injection.
+- **Idempotência e Segurança:** Operações críticas (aprovação, faturamento, envio de WhatsApp) precisam tratar concorrência e falhas de retry. Sempre use o wrapper `quote_notification_service.py` ao invés de chamar disparos no WhatsApp de forma avulsa.
 
 ---
 
-## 🎨 Diretrizes de Código: Frontend (Vanilla JS)
+## 🎨 Diretrizes de Frontend (Vanilla JS)
 
-### Regras de Ouro
-- **NUNCA** use frameworks (React, Vue, etc.). Use **Vanilla JavaScript**.
-- **CSS Moderno:** Use Flexbox, Grid e Custom Properties (`--cor-primaria`).
-- **HTML Semântico:** Use `<header>`, `<main>`, `<section>`, etc.
-- **Eventos:** Use `addEventListener`, nunca `onclick` no HTML.
-
-### Estrutura
-- JavaScript fica em `cotte-frontend/js/`.
-- CSS fica em `cotte-frontend/css/`.
-- HTML fica na raiz de `cotte-frontend/`.
-
-### API Calls
-- Use a função `apiFetch()` definida em `js/api.js` para chamadas à API.
-- Tokens JWT são armazenados em `localStorage`.
+- **Frameworks Proibidos:** O sistema usa **Vanilla JavaScript** puro, HTML5 Semântico e CSS (Tailwind CDN + CSS Custom com variáveis). Não introduza React, Vue, ou bibliotecas de SPA.
+- **Comunicação de API:** Use as classes baseadas no `cotte-frontend/js/services/ApiService.js` e `CacheService.js`. Abandone o antigo `apiFetch` cru.
+- **Experiência do Usuário (UX):** Todo botão de ação ou formulário deve ter estado de *loading* explícito (desabilitar + spinner) e tratar cenários de erro via UI, evitando silent failures.
 
 ---
 
 ## 🧠 Skills Especializadas (Fluxos de Trabalho)
 
-O agente possui skills específicas que devem ser invocadas conforme o contexto da tarefa:
-
-### 🏗️ Arquiteto (`cotte-arquiteto`)
-Use para planejar funcionalidades novas, refatorações controladas ou fluxos complexos.
-**Regra de Ouro:** Não comece editando. Entenda o objetivo, localize com `qmd`, mapeie o fluxo e proponha uma abordagem em etapas.
-
-### 🐍 Backend (`cotte-backend`)
-Use para alterações em rotas, services, models e schemas.
-**Regra de Ouro:** Preserve contratos de API e compatibilidade. Nunca altere migrations antigas.
-
-### 🐛 Debug (`cotte-debug`)
-Use para diagnosticar erros no backend, frontend ou integrações.
-**Regra de Ouro:** Identifique a causa raiz antes de propor mudanças amplas. Use logs de forma seletiva.
-
-### 💰 Financeiro (`cotte-financeiro`)
-Use para módulos de orçamento, contas a pagar/receber e fluxo de caixa.
-**Regra de Ouro:** Garanta consistência de cálculos e rastreabilidade de valores.
-
-### 🎨 Frontend (`cotte-frontend`)
-Use para ajustes em telas HTML/CSS/JS.
-**Regra de Ouro:** Mantenha o padrão Vanilla JS e reaproveite estilos existentes.
-
-### 💬 WhatsApp (`cotte-whatsapp`)
-Use para fluxos de mensagens, webhooks e automação comercial.
-**Regra de Ouro:** Garanta idempotência e trate inputs como não confiáveis.
+Invoque a skill local correspondente **antes** de começar a alterar o código nessas áreas:
+- `cotte-arquiteto`: Planejamento de funcionalidades novas, refatorações amplas ou fluxos complexos.
+- `cotte-backend`: Rotas, services, banco de dados ou integração LLM.
+- `cotte-frontend`: Telas HTML, estilização ou refatoração de JS Vanilla.
+- `cotte-financeiro`: Relatórios financeiros, orçamentos, faturas.
+- `cotte-whatsapp`: Fluxos do bot, webhooks, mensagens automáticas.
+- `cotte-debug`: Depuração e resolução de problemas difíceis ou que cruzam fronteiras (frontend <-> backend).
 
 ---
 
-## 🤖 Instruções Finais para o Agente
-- **Proatividade:** Se criar uma nova rota, sugira ou crie o teste unitário correspondente.
-- **Contexto:** Sempre verifique `CLAUDE.md` para a stack tecnológica atualizada.
-- **Segurança:** Nunca exponha ou salve chaves `.env` no código.
-- **Português:** Comunique-se com o usuário e documente o código em português brasileiro.
+## 🤖 Learned Preferences & Workspace Facts
 
----
-
-## Learned User Preferences
-
-- Quando o pedido vier de um plano anexo no Cursor, não modificar o arquivo do plano em `~/.cursor/plans/`; executar a partir dos to-dos já existentes sem recriar a lista (marcar `in_progress` em ordem até concluir).
-- Após cada implementação, melhoria ou correção concluída, o agente deve sugerir **três** ideias novas de melhorias inovadoras (concretas, aplicáveis à stack atual), além do resumo do que foi feito.
-
-## Learned Workspace Facts
-
-- E-mails HTML transacionais devem seguir práticas de cliente de e-mail: tabelas para layout, estilos inline e sem dependências externas (Tailwind CDN, Google Fonts ou scripts).
-- No assistente IA/WhatsApp, confirmações de ações pendentes devem exibir resumo operacional (não descrição técnica bruta da tool) e sempre mostrar claramente o que será confirmado: cliente, orçamento/entidade, valores e alterações relevantes.
-- Instruções persistentes de produto ou backlog para o agente no Cursor: preferir Project Rules e/ou `.cursor/rules/` e documentação durável (por exemplo `memory/decisions.md`); o par [SUGESTÃO]/[INOVAÇÃO] do `CLAUDE.md` padroniza o fechamento das respostas, não substitui especificação de features.
+- **Atualização de Planos:** Se atuando sob um checklist/plano em `~/.cursor/plans/` (ou equivalente), modifique os checkboxes marcando progresso em ordem (`[x]` ou `in_progress`), sem destruir a formatação original do arquivo.
+- **Inovações Obrigatórias:** Ao final de TODA tarefa concluída (bugfix ou feature), resuma o que foi feito e forneça exatamente **três sugestões inovadoras** (`[INOVAÇÃO]`) aplicáveis de verdade à stack atual (FastAPI/Vanilla JS), focando em negócio/UX/IA. Opcionalmente, até duas `[SUGESTÃO]` de refatoração para as áreas tocadas.
+- **E-mails Transacionais:** Devem usar *Tabelas HTML* antiquadas e *CSS inline*. Proibido usar links externos para fontes e Tailwind CDN para estilizar o e-mail em si (os clientes bloqueiam).
+- **Tratamento de Confirmações (WhatsApp/IA):** Ao solicitar uma confirmação de ação para o usuário via IA, exiba um resumo operacional legível e amigável (por ex: Nome do Cliente, Valor, O que será alterado), e NUNCA apresente dumps cruéis de JSON ou argumentos brutos da chamada de ferramenta.
+- **Documentação de uso e base do Assistente IA:** Manuais de uso em `docs/guia-do-usuario.md` e `docs/tecnico/`; conhecimento principal do Assistente em `sistema/app/services/prompts/knowledge_base.md`. Ao mudar regras de produto, manter coerência com `docs/funcionalidades.md` quando aplicável.
+- **Assistente IA — streaming no frontend:** Em `cotte-frontend/js/assistente-ia.js`, respostas via stream podem deixar `formatAIResponse` vazio de propósito (texto já veio nos chunks). Não tratar isso como falha nem anexar mensagem de fallback genérica quando já houver conteúdo renderizado.
+- **Assistente IA — bloqueios de UI (embed/produção):** Evitar substituir o `innerHTML` de `.ai-assistant-container` inteiro em fluxos de permissão ou plano; isso remove o header (engrenagem) e invalida listeners. Preferir trocar só um slot interno (ex.: `#aiAssistantMainSlot`) e preservar elementos globais (ex.: painel de preferências no `body`). Falhas ou indisponibilidade de `/ai/status` tendem a ser mais frequentes em produção que em dev local.
+- **Orçamentos — transição de status:** A API permite **Rascunho → Aprovado** (máquina de estados em `app/utils/orcamento_status.py`, alinhada ao painel). Fluxos de cliente público ou WhatsApp podem continuar exigindo **Enviado** onde já estiver explícito no código; não assumir o mesmo conjunto de transições em todos os canais.

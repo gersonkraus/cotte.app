@@ -15,6 +15,12 @@
         "UPSTASH_REDIS_REST_URL": "",
         "UPSTASH_REDIS_REST_TOKEN": ""
       }
+    },
+    "stacklit": {
+      "command": "stacklit",
+      "args": [
+        "serve"
+      ]
     }
   }
 }
