@@ -1273,7 +1273,7 @@ async def atualizar_status(
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(exigir_permissao("orcamentos", "escrita")),
 ):
-    """Atualiza o status do orçamento (ex: Rascunho → Enviado, Enviado → Aprovado)."""
+    """Atualiza o status do orçamento (ex.: Rascunho → Enviado ou Aprovado; Enviado → Aprovado)."""
     orc = (
         db.query(Orcamento)
         .filter(

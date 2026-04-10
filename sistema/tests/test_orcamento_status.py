@@ -12,8 +12,8 @@ def test_transicao_enviado_para_aprovado():
     assert transicao_permitida(StatusOrcamento.ENVIADO, StatusOrcamento.APROVADO)
 
 
-def test_transicao_rascunho_para_aprovado_negada():
-    assert not transicao_permitida(StatusOrcamento.RASCUNHO, StatusOrcamento.APROVADO)
+def test_transicao_rascunho_para_aprovado():
+    assert transicao_permitida(StatusOrcamento.RASCUNHO, StatusOrcamento.APROVADO)
 
 
 def test_idempotente_mesmo_status():
