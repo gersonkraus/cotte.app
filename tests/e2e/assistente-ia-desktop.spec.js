@@ -31,6 +31,31 @@ test.describe('Assistente IA desktop', () => {
     await expect(card.locator('[data-quick-send]')).toBeVisible();
   });
 
+  test('mantém o card de orçamento criado com ações completas e grid compacto no desktop', async ({ page }) => {
+    await page.locator('#messageInput').fill('Prévia orçamento');
+    await page.locator('#sendButton').click();
+    await page.locator('.orc-preview-card [data-orc-confirm]').click();
+
+    const successCard = page.locator('.orc-success-card');
+    await expect(successCard).toBeVisible();
+    const actionButtons = successCard.locator('.orc-action-btn');
+    await expect(actionButtons).toHaveCount(4);
+
+    const layout = await successCard.evaluate((card) => {
+      const actions = card.querySelector('.orc-action-btns--success');
+      const styles = actions ? window.getComputedStyle(actions) : null;
+      return {
+        columnCount: styles ? styles.gridTemplateColumns.split(' ').filter(Boolean).length : 0,
+        hasOverflow: card.scrollWidth > card.clientWidth,
+      };
+    });
+
+    expect(layout.columnCount).toBe(2);
+    expect(layout.hasOverflow).toBeFalsy();
+    await expect(actionButtons.nth(0)).toContainText('Enviar WhatsApp');
+    await expect(actionButtons.nth(1)).toContainText('Copiar link');
+  });
+
   test('renderiza gráfico financeiro no desktop', async ({ page }) => {
     await page.locator('#messageInput').fill('Mostrar gráfico financeiro');
     await page.locator('#sendButton').click();

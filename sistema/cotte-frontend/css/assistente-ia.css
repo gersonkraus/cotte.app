@@ -1327,7 +1327,8 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    white-space: nowrap;
+    white-space: normal;
+    min-width: 0;
 }
 
 .orc-action-btn:hover {
@@ -1375,6 +1376,12 @@
     gap: 12px;
     margin-bottom: 16px;
 }
+.orc-success-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
 .orc-success-icon {
     width: 32px;
     height: 32px;
@@ -1394,12 +1401,18 @@
     font-weight: 800;
     color: var(--ai-green);
 }
+.orc-success-subtitle {
+    font-size: 0.84rem;
+    color: var(--ai-muted);
+    line-height: 1.35;
+}
 .orc-success-num {
     font-size: 1.4rem;
     font-weight: 800;
     letter-spacing: -0.02em;
     color: var(--ai-text);
     margin-bottom: 4px;
+    overflow-wrap: anywhere;
 }
 .orc-success-meta {
     display: flex;
@@ -1432,12 +1445,69 @@
     font-size: 0.85rem;
     color: var(--ai-muted);
 }
+.orc-success-actions-label {
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ai-muted);
+    margin-bottom: 10px;
+}
 .orc-action-btns--success {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 8px;
 }
-.orc-action-btns--success .btn-link { grid-column: 1 / -1; }
+.orc-action-btns--success .orc-action-btn {
+    width: 100%;
+    min-height: 74px;
+    justify-content: flex-start;
+    align-items: flex-start;
+    text-align: left;
+    padding: 14px 16px;
+    gap: 10px;
+}
+.orc-action-btn__icon {
+    flex-shrink: 0;
+    font-size: 1.05rem;
+    line-height: 1;
+    margin-top: 2px;
+}
+.orc-action-btn__content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    min-width: 0;
+}
+.orc-action-btn__label {
+    font-size: 0.86rem;
+    font-weight: 800;
+    line-height: 1.25;
+}
+.orc-action-btn__hint {
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--ai-muted);
+}
+.orc-action-btns--success .orc-action-btn--primary {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--ai-accent) 16%, #fff 84%) 0%, color-mix(in srgb, var(--ai-accent) 24%, #fff 76%) 100%);
+    border-color: color-mix(in srgb, var(--ai-accent) 38%, transparent);
+    box-shadow: 0 10px 24px -18px var(--ai-accent-glow);
+}
+.orc-action-btns--success .orc-action-btn--primary .orc-action-btn__label {
+    color: var(--ai-accent-dark);
+}
+.orc-action-btns--success .orc-action-btn--secondary {
+    background: color-mix(in srgb, var(--ai-card) 72%, var(--ai-bg) 28%);
+}
+.orc-action-btns--success .orc-action-btn--utility {
+    background: color-mix(in srgb, var(--ai-bg) 86%, #fff 14%);
+}
+.orc-action-btns--success .btn-link {
+    grid-column: auto;
+}
 
 .btn-aprovar { background: #dcfce7 !important; color: #15803d !important; }
 .btn-link    { background: #f1f5f9 !important; color: #334155 !important; }

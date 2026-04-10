@@ -50,7 +50,13 @@ function renderOrcamentoCriado(dados) {
     const servicoDesc = dados.servico || dados.descricao || 'Serviços gerais';
 
     const copiarBtn = dados.link_publico
-        ? `<button type="button" class="orc-action-btn btn-link" data-copy-public-token="${escapeHtmlAttr(dados.link_publico)}">🔗 Copiar link público</button>`
+        ? `<button type="button" class="orc-action-btn orc-action-btn--utility btn-link" data-copy-public-token="${escapeHtmlAttr(dados.link_publico)}">
+                <span class="orc-action-btn__icon" aria-hidden="true">🔗</span>
+                <span class="orc-action-btn__content">
+                    <span class="orc-action-btn__label">Copiar link</span>
+                    <span class="orc-action-btn__hint">Compartilhar manualmente</span>
+                </span>
+            </button>`
         : '';
     const numEnc = encodeURIComponent(orcNum);
     const aprovarEnc = encodeURIComponent('aprovar ' + numSeq);
@@ -64,10 +70,13 @@ function renderOrcamentoCriado(dados) {
         metaTags += `<span class="orc-success-meta-item">⏱️ Validade: ${dados.validade_dias} dias</span>`;
     }
 
-    return `<div class="orc-success-card">
+    return `<div class="orc-success-card orc-success-card--created">
         <div class="orc-success-topline">
             <span class="orc-success-icon" aria-hidden="true">✓</span>
-            <span class="orc-success-kicker">Orçamento Gerado com Sucesso</span>
+            <div class="orc-success-heading">
+                <span class="orc-success-kicker">Orçamento Gerado com Sucesso</span>
+                <span class="orc-success-subtitle">Escolha como deseja seguir com o envio</span>
+            </div>
         </div>
         <div class="orc-success-num">${escapeHtml(orcNum || 'Orçamento')}</div>
         <div class="orc-success-details">
@@ -77,11 +86,30 @@ function renderOrcamentoCriado(dados) {
         <div class="orc-success-meta">
             ${metaTags}
         </div>
+        <div class="orc-success-actions-label">Próximos passos</div>
         <div class="orc-action-btns orc-action-btns--success">
-            <button type="button" class="orc-action-btn btn-whats" data-enviar-wa="${orcId}" data-orc-numero="${numEnc}">📱 Enviar WhatsApp</button>
-            <button type="button" class="orc-action-btn btn-email" data-enviar-email="${orcId}" data-orc-numero="${numEnc}">📧 Enviar E-mail</button>
-            <button type="button" class="orc-action-btn btn-aprovar" data-quick-send="${aprovarEnc}">✅ Aprovar Agora</button>
+            <button type="button" class="orc-action-btn orc-action-btn--primary btn-whats" data-enviar-wa="${orcId}" data-orc-numero="${numEnc}">
+                <span class="orc-action-btn__icon" aria-hidden="true">📱</span>
+                <span class="orc-action-btn__content">
+                    <span class="orc-action-btn__label">Enviar WhatsApp</span>
+                    <span class="orc-action-btn__hint">Canal principal para envio</span>
+                </span>
+            </button>
             ${copiarBtn}
+            <button type="button" class="orc-action-btn orc-action-btn--secondary btn-email" data-enviar-email="${orcId}" data-orc-numero="${numEnc}">
+                <span class="orc-action-btn__icon" aria-hidden="true">📧</span>
+                <span class="orc-action-btn__content">
+                    <span class="orc-action-btn__label">Enviar E-mail</span>
+                    <span class="orc-action-btn__hint">Enviar por correio eletrônico</span>
+                </span>
+            </button>
+            <button type="button" class="orc-action-btn orc-action-btn--secondary btn-aprovar" data-quick-send="${aprovarEnc}">
+                <span class="orc-action-btn__icon" aria-hidden="true">✅</span>
+                <span class="orc-action-btn__content">
+                    <span class="orc-action-btn__label">Aprovar agora</span>
+                    <span class="orc-action-btn__hint">Avançar o status imediatamente</span>
+                </span>
+            </button>
         </div>
     </div>`;
 }

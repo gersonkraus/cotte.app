@@ -62,8 +62,37 @@ test.describe('Assistente IA mobile', () => {
     await expect(preview).toBeVisible();
     await preview.locator('[data-orc-confirm]').click();
 
-    await expect(page.locator('.orc-success-card')).toContainText('ORC-321-26');
-    await expect(page.locator('.orc-success-card')).toContainText('Instalação elétrica');
+    const successCard = page.locator('.orc-success-card');
+    await expect(successCard).toContainText('ORC-321-26');
+    await expect(successCard).toContainText('Instalação elétrica');
+    await expect(successCard.locator('.orc-success-actions-label')).toContainText('Próximos passos');
+
+    const actionButtons = successCard.locator('.orc-action-btn');
+    await expect(actionButtons).toHaveCount(4);
+    await expect(actionButtons.nth(0)).toContainText('Enviar WhatsApp');
+    await expect(actionButtons.nth(1)).toContainText('Copiar link');
+    await expect(actionButtons.nth(2)).toContainText('Enviar E-mail');
+    await expect(actionButtons.nth(3)).toContainText('Aprovar agora');
+
+    const layout = await successCard.evaluate((card) => {
+      const actions = card.querySelector('.orc-action-btns--success');
+      const buttons = Array.from(card.querySelectorAll('.orc-action-btn')).map((btn) => {
+        const rect = btn.getBoundingClientRect();
+        return { top: rect.top, left: rect.left, width: rect.width };
+      });
+      return {
+        cardClientWidth: card.clientWidth,
+        cardScrollWidth: card.scrollWidth,
+        actionsClientWidth: actions ? actions.clientWidth : 0,
+        actionsScrollWidth: actions ? actions.scrollWidth : 0,
+        buttons,
+      };
+    });
+
+    expect(layout.cardScrollWidth).toBeLessThanOrEqual(layout.cardClientWidth + 1);
+    expect(layout.actionsScrollWidth).toBeLessThanOrEqual(layout.actionsClientWidth + 1);
+    expect(layout.buttons[1].top).toBeGreaterThan(layout.buttons[0].top + 8);
+    expect(Math.abs(layout.buttons[1].left - layout.buttons[0].left)).toBeLessThan(2);
   });
 
   test('abre modal de reenvio e envia por WhatsApp e e-mail', async ({ page }) => {
