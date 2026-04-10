@@ -41,14 +41,16 @@
                 <button type="button" class="chat-header-hamburger" id="btnSidebarMobile" aria-label="Abrir menu">
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
                 </button>
-                <div class="chat-header-avatar">
-                   <svg viewBox="0 0 24 24" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path></svg>
-                </div>
-                <div class="chat-header-info">
-                    <div class="chat-header-name">Assistente COTTE</div>
-                    <div class="chat-header-status" id="aiStatusBadgeMobile" aria-live="polite">
-                        <div class="chat-header-status-dot" id="aiStatusDotMobile"></div>
-                        <span id="aiStatusLabelMobile">Ativo agora</span>
+                <div class="chat-header-brand">
+                    <div class="chat-header-avatar">
+                       <svg viewBox="0 0 24 24" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path></svg>
+                    </div>
+                    <div class="chat-header-info">
+                        <div class="chat-header-name">Assistente COTTE</div>
+                        <div class="chat-header-status" id="aiStatusBadgeMobile" aria-live="polite">
+                            <div class="chat-header-status-dot" id="aiStatusDotMobile"></div>
+                            <span id="aiStatusLabelMobile">Ativo agora</span>
+                        </div>
                     </div>
                 </div>
                 <div class="chat-header-actions">
@@ -60,8 +62,17 @@
                         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                     </button>
                     <button type="button" class="chat-header-new-btn" id="btnNovaConversaMobile" title="Nova conversa">Nova</button>
-                    <a class="embed-expand-btn" href="assistente-ia.html" target="_blank" title="Abrir em tela cheia">⤢</a>
                 </div>
+            </div>
+            <div class="embed-assistant-toolbar" aria-label="Ações rápidas do assistente no dashboard">
+                <button type="button" class="embed-assistant-toolbar-btn" id="btnNovaConversaEmbed" title="Limpar histórico e começar de novo">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+                    <span>Nova conversa</span>
+                </button>
+                <a class="embed-assistant-toolbar-link" href="assistente-ia.html" target="_blank" rel="noopener noreferrer" title="Abrir o assistente em tela cheia">
+                    <span>Tela cheia</span>
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"></path><path d="M9 21H3v-6"></path><path d="M21 3l-7 7"></path><path d="M3 21l7-7"></path></svg>
+                </a>
             </div>
 
             <div id="aiAssistantMainSlot">
@@ -241,11 +252,13 @@
       if (typeof Permissoes !== 'undefined' && !Permissoes.pode('ia')) {
         var alvo = _assistenteAlvoBloqueio();
         if (alvo) alvo.innerHTML = `
-          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;text-align:center;padding:20px;background:var(--ai-card);border-radius:var(--ai-radius);border:1px solid var(--ai-border)">
-            <div style="font-size:48px;margin-bottom:20px">🔒</div>
-            <h2 style="margin-bottom:10px">Assistente IA Restrito</h2>
-            <p style="color:var(--ai-muted);max-width:400px">Você não tem permissão para usar o Assistente Inteligente. Solicite acesso ao gestor da sua empresa.</p>
-            <button class="btn btn-primary" style="margin-top:20px" onclick="window.location.href='./'">Voltar ao Dashboard</button>
+          <div class="assistente-blocked-state assistente-blocked-state--permission">
+            <div class="assistente-blocked-state__icon" aria-hidden="true">🔒</div>
+            <h2 class="assistente-blocked-state__title">Assistente IA Restrito</h2>
+            <p class="assistente-blocked-state__text">Você não tem permissão para usar o Assistente Inteligente. Solicite acesso ao gestor da sua empresa.</p>
+            <div class="assistente-blocked-state__actions">
+              <button class="btn btn-primary" onclick="window.location.href='./'">Voltar ao Dashboard</button>
+            </div>
           </div>
         `;
       }
@@ -255,11 +268,11 @@
         if (e.message && e.message.includes('não está disponível')) {
           var alvoPlano = _assistenteAlvoBloqueio();
           if (alvoPlano) alvoPlano.innerHTML = `
-            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;text-align:center;padding:32px">
-              <div style="font-size:56px;margin-bottom:16px">🔒</div>
-              <h2 style="font-size:20px;font-weight:700;margin:0 0 8px">Módulo não disponível</h2>
-              <p style="color:var(--muted);max-width:380px;margin:0 0 24px">O módulo <strong>IA Hub</strong> não está incluso no seu plano atual. Faça upgrade para ter acesso.</p>
-              <div style="display:flex;gap:12px">
+            <div class="assistente-blocked-state assistente-blocked-state--plan">
+              <div class="assistente-blocked-state__icon" aria-hidden="true">🔒</div>
+              <h2 class="assistente-blocked-state__title">Módulo não disponível</h2>
+              <p class="assistente-blocked-state__text">O módulo <strong>IA Hub</strong> não está incluso no seu plano atual. Faça upgrade para ter acesso.</p>
+              <div class="assistente-blocked-state__actions">
                 <button class="btn btn-primary" onclick="window.location.href='configuracoes.html#plano'">Ver planos</button>
                 <button class="btn btn-ghost" onclick="history.back()">Voltar</button>
               </div>

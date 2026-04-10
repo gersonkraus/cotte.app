@@ -361,6 +361,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const mobNew = document.getElementById('btnNovaConversaMobile');
     if (mobNew) mobNew.addEventListener('click', () => novaConversaAssistente());
 
+    const embedNew = document.getElementById('btnNovaConversaEmbed');
+    if (embedNew) embedNew.addEventListener('click', () => novaConversaAssistente());
+
     let prefLastFocused = null;
 
     function _getAssistentePrefCard() {
