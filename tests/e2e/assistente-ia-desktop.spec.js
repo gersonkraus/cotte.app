@@ -30,4 +30,12 @@ test.describe('Assistente IA desktop', () => {
     await expect(card.locator('[data-enviar-email]')).toBeVisible();
     await expect(card.locator('[data-quick-send]')).toBeVisible();
   });
+
+  test('renderiza gráfico financeiro no desktop', async ({ page }) => {
+    await page.locator('#messageInput').fill('Mostrar gráfico financeiro');
+    await page.locator('#sendButton').click();
+
+    await expect(page.locator('.message.ai').last()).toContainText('Segue o gráfico financeiro.');
+    await expect(page.locator('.chart-container canvas')).toHaveCount(1);
+  });
 });

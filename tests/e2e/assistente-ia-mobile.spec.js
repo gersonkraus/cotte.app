@@ -84,6 +84,17 @@ test.describe('Assistente IA mobile', () => {
     await expect(page.locator('.message.ai').last()).toContainText('enviado por e-mail com sucesso');
   });
 
+  test('copia o link público no card de orçamento criado', async ({ page }) => {
+    await page.locator('#messageInput').fill('Prévia orçamento');
+    await page.locator('#sendButton').click();
+    await page.locator('.orc-preview-card [data-orc-confirm]').click();
+
+    const copyBtn = page.locator('[data-copy-public-token]');
+    await expect(copyBtn).toBeVisible();
+    await copyBtn.click();
+    await expect(copyBtn).toContainText('Copiado');
+  });
+
   test('envia feedback positivo e negativo', async ({ page }) => {
     await page.locator('#messageInput').fill('Como está meu caixa hoje?');
     await page.locator('#sendButton').click();

@@ -19,6 +19,14 @@ async function prepararPaginaAssistente(page, options = {}) {
   await page.addInitScript(({ user }) => {
     localStorage.setItem('cotte_token', 'token-playwright');
     localStorage.setItem('cotte_usuario', JSON.stringify(user));
+    let clipboardValue = '';
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: async (text) => { clipboardValue = String(text); },
+        readText: async () => clipboardValue,
+      },
+    });
   }, { user: USER });
 
   await page.route('**/api/v1/**', async (route) => {
@@ -284,6 +292,40 @@ async function prepararPaginaAssistente(page, options = {}) {
                   itens: [
                     { descricao: 'Instalação elétrica', total: 350 },
                   ],
+                },
+              },
+            },
+          ]),
+        });
+        return;
+      }
+
+      if (mensagem.includes('grafico') || mensagem.includes('gráfico')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'text/event-stream',
+          body: sse([
+            { phase: 'thinking' },
+            { chunk: 'Segue o gráfico financeiro.' },
+            {
+              is_final: true,
+              final_text: 'Segue o gráfico financeiro.',
+              metadata: {
+                final_text: 'Segue o gráfico financeiro.',
+                tipo: 'financeiro',
+                dados: {},
+                grafico: {
+                  tipo: 'bar',
+                  dados: {
+                    labels: ['Seg', 'Ter', 'Qua'],
+                    datasets: [
+                      {
+                        label: 'Entradas',
+                        data: [120, 90, 150],
+                        backgroundColor: ['#0891b2', '#0891b2', '#0891b2'],
+                      },
+                    ],
+                  },
                 },
               },
             },
