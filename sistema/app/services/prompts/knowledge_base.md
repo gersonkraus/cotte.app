@@ -9,6 +9,16 @@ status: documentado
 # Operador + Gestor (admin/superadmin fora do escopo)
 # Estrutura: ## Módulo:NOME → ### Funcionalidade → Como: / Sinônimos: / Permissão:
 
+## Template padrão por funcionalidade (usar sempre que aplicável)
+- Como:
+- Sinônimos:
+- Permissão:
+- Requisito:
+- Validação:
+- Erros comuns:
+- Impacto financeiro:
+- Estados/Transições:
+
 ## Módulo:ORCAMENTOS
 
 ### Criar orçamento manualmente
@@ -37,6 +47,8 @@ Requisito: cliente deve ter e-mail cadastrado.
 Como: Abra os detalhes do orçamento → clique em "Aprovar". Ao aprovar, uma conta a receber é criada automaticamente no módulo Financeiro.
 Sinônimos: aceitar orçamento, marcar aprovado, confirmar proposta, fechar orçamento
 Permissão: operador, gestor
+Validação: para aprovação pública do cliente, pode existir validação de segurança por OTP com limite de tentativas.
+Estados/Transições: a mudança de status deve respeitar transições permitidas no backend.
 
 ### Recusar orçamento
 Como: Abra os detalhes do orçamento → clique em "Recusar" → informe o motivo (opcional).
@@ -74,6 +86,8 @@ Como: Na lista → clique no ícone de editar. Só é possível editar orçament
 Sinônimos: alterar orçamento, modificar proposta, editar itens, mudar valor
 Permissão: operador, gestor
 Observação: Orçamentos Enviados ou Aprovados não podem ser editados diretamente — duplique e recrie.
+Erros comuns: tentar editar orçamento bloqueado por status.
+Estados/Transições: status bloqueados devem retornar erro e orientar "duplicar e recriar".
 
 ### Aplicar desconto no orçamento
 Como: Ao criar ou editar o orçamento, existe o campo "Desconto" onde você informa o valor ou percentual de desconto. O total é recalculado automaticamente.
@@ -177,6 +191,24 @@ Como: No módulo Financeiro → conta a receber → clique em "Cobrar via WhatsA
 Sinônimos: cobrar cliente, lembrete pagamento, cobrança whatsapp, avisar vencimento
 Permissão: operador, gestor
 Requisito: WhatsApp conectado e cliente com telefone cadastrado.
+Erros comuns: WhatsApp desconectado, cliente sem telefone, envio recusado pelo provider.
+
+### Estornar pagamento
+Como: No financeiro, localize o pagamento já registrado e execute a ação de estorno conforme regra da conta.
+Sinônimos: estorno, desfazer pagamento, reverter recebimento, cancelar baixa
+Permissão: operador, gestor
+Requisito: conta com pagamento já registrado.
+Validação: registrar motivo e preservar trilha de auditoria.
+Impacto financeiro: reabre saldo devedor e, quando vinculado a orçamento, pode reverter status comercial para pendente.
+Estados/Transições: pagamento confirmado -> estornado (com atualização consistente de conta e orçamento).
+
+### Sweep de contas vencidas (rotina)
+Como: rotina de background varre contas pendentes e atualiza para vencidas quando ultrapassam a data limite.
+Sinônimos: sweep, rotina vencimento, atualizar inadimplência, varredura de vencidas
+Permissão: gestor
+Requisito: job/trigger ativo no ambiente.
+Impacto financeiro: alimenta widgets de inadimplência e fluxo de cobrança.
+Estados/Transições: pendente -> vencida quando regra de vencimento for atendida.
 
 ---
 
@@ -246,6 +278,15 @@ Como: Menu Comercial → aba Campanhas → + Nova Campanha → selecione os lead
 Sinônimos: campanha, mensagem em massa, envio em lote, broadcast leads, disparar mensagens, bulk
 Permissão: gestor
 Observação: Esta funcionalidade é para leads no módulo Comercial. Broadcast global para usuários do sistema (superadmin) é diferente.
+Validação: segmentação e template devem ser revisados antes do envio.
+Erros comuns: tentar usar campanha para base de clientes finais fora do CRM de leads.
+
+### Campanha WhatsApp com pausas anti-bloqueio
+Como: ao disparar mensagens em lote no WhatsApp, o sistema aplica pausas automáticas para reduzir risco de bloqueio.
+Sinônimos: pausa campanha, anti-bloqueio whatsapp, throttle campanha, intervalo de envio
+Permissão: gestor
+Requisito: WhatsApp conectado e campanha de leads configurada.
+Validação: respeitar limites operacionais da instância WhatsApp.
 
 ### Dashboard comercial
 Como: Menu Comercial → aba Dashboard. Mostra total de leads por estágio, taxa de conversão e últimas interações.
@@ -279,6 +320,13 @@ Permissão: gestor
 O bot recebe mensagens dos clientes no WhatsApp conectado, interpreta com IA, cria orçamentos automaticamente e envia o PDF. O cliente pode responder ACEITO para aprovar ou RECUSO para recusar.
 Sinônimos: bot whatsapp, automação whatsapp, resposta automática, whatsapp automático, orçamento automático
 Permissão: (automático, sem ação do operador)
+Observação: ações críticas devem passar por confirmação humana quando aplicável.
+
+### Pausar bot quando humano assume atendimento
+Como: quando um atendente humano assume a conversa, o bot pode ser pausado temporariamente para não interferir.
+Sinônimos: pausar bot, handoff humano, assumir conversa, silenciar IA no whatsapp
+Permissão: operador, gestor
+Estados/Transições: bot ativo -> bot pausado ate timestamp configurado -> bot ativo novamente.
 
 ### Configurar respostas automáticas / boas-vindas
 Como: Menu Configurações → seção Comunicação → campo "Boas-vindas" → edite a mensagem → Salvar.
@@ -416,6 +464,28 @@ Exemplos: "Quanto tenho em caixa?", "Quais orçamentos estão pendentes?", "Cria
 Sinônimos: comandos assistente, o que o assistente faz, perguntas para IA
 Permissão: operador, gestor
 
+### Regras de desambiguação e exceção do assistente
+Como: quando houver dados faltantes, conflito de estado, falta de permissão ou ação sensível, o assistente deve pedir confirmação/perguntas antes de executar.
+Sinônimos: confirmar ação, validar antes de executar, pedir dados faltantes, ação sensível
+Permissão: operador, gestor
+Validação: exigir identificadores mínimos (ex.: id/número do orçamento, cliente, valor, data) para executar ações operacionais.
+Erros comuns: pedido vago ("aprova ai"), orçamento em status incompatível, usuário sem permissão, integração indisponível.
+Estados/Transições: nunca forçar transição inválida; em caso de dúvida, responder com próximo passo seguro.
+
+### Matriz de ações sensíveis (confirmação obrigatória)
+- Aprovar/recusar orçamento quando houver impacto financeiro imediato.
+- Registrar pagamento, estornar pagamento, cancelar conta, baixar despesa.
+- Alterar status de orçamento/agendamento fora do fluxo padrão.
+- Enviar cobrança ou campanha em lote via WhatsApp/e-mail.
+- Qualquer operação destrutiva ou reversível com impacto de caixa.
+
+### Checklist de execução segura (assistente)
+- Confirmar permissão do usuário para a ação.
+- Confirmar pré-condições (integração conectada, dados obrigatórios e status atual).
+- Exibir resumo operacional antes de confirmar (cliente, entidade, valores e alterações).
+- Executar e retornar resultado estruturado (sucesso/erro com causa objetiva).
+- Em falha, sugerir correção acionável (ex.: conectar WhatsApp, informar dado faltante, ajustar status).
+
 ---
 
 ## Módulo:FUNCIONALIDADES_INEXISTENTES
@@ -430,3 +500,15 @@ Permissão: operador, gestor
 - Broadcast global para clientes finais: não disponível. Campanhas são para leads no CRM, não para clientes com orçamentos.
 - Importação de leads via CSV: não disponível (importação existe apenas no catálogo).
 Sinônimos: nota fiscal, nfs-e, erp, múltiplas empresas, assinatura digital, pix, app mobile, importar leads csv
+
+---
+
+## Governança de atualização desta base
+- Fonte primária para cobertura funcional: `docs/funcionalidades.md`.
+- Frequência mínima de revisão: a cada release relevante de backend/frontend.
+- Processo recomendado:
+  1) identificar funcionalidades novas/alteradas em `docs/funcionalidades.md`;
+  2) atualizar módulos e sinônimos correspondentes nesta base;
+  3) revisar ações sensíveis e checklist de execução segura;
+  4) validar exemplos de prompts/comandos no Assistente IA.
+- Critério de qualidade: toda funcionalidade crítica deve ter pelo menos `Como`, `Sinônimos`, `Permissão` e, quando aplicável, `Requisito`, `Validação`, `Erros comuns`, `Impacto financeiro`, `Estados/Transições`.

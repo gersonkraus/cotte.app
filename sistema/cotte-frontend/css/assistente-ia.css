@@ -112,11 +112,68 @@
 }
 
 .assistente-preferencias-card {
-    margin-top: -8px;
+    display: none;
+    position: absolute;
+    top: 104px;
+    right: 20px;
+    margin-top: 0;
     background: var(--ai-card);
     border: 1px solid var(--ai-border);
     border-radius: 14px;
     padding: 14px;
+    width: min(640px, calc(100% - 40px));
+    z-index: 220;
+    box-shadow: var(--ai-shadow-lg);
+}
+
+.assistente-preferencias-card.is-open {
+    display: block;
+}
+
+.topbar-gear-btn {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text);
+    flex-shrink: 0;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+/* Indicador discreto: há preferências personalizadas salvas (formato ≠ auto ou instruções) */
+.assistente-gear-saved-badge {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--ai-green);
+    box-shadow: 0 0 0 2px var(--surface);
+    opacity: 0;
+    transform: scale(0.6);
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.assistente-gear-saved-badge.is-visible {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.assistente-gear-saved-badge--on-header {
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.92);
+}
+
+.topbar-gear-btn:hover {
+    background: var(--surface2);
+    border-color: var(--accent);
 }
 
 .assistente-preferencias-header {
@@ -978,6 +1035,7 @@
         bottom: 0;
         left: 0;
         right: 0;
+        top: auto;
         margin: 0;
         border-radius: 20px 20px 0 0;
         border-bottom: none;
@@ -986,6 +1044,7 @@
         overflow-y: auto;
         padding: 20px 16px calc(20px + env(safe-area-inset-bottom, 0px));
         box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.25);
+        width: auto;
     }
 
     .assistente-preferencias-card.is-open {
@@ -1016,6 +1075,10 @@
 
     .chat-header-gear-btn:active {
         background: rgba(255, 255, 255, 0.3);
+    }
+
+    .topbar-gear-btn {
+        display: none;
     }
 
     /* ── Mic/Enviar toggle (estilo WhatsApp/Telegram) ── */
@@ -1457,6 +1520,10 @@
         transition: none;
     }
 
+    .assistente-gear-saved-badge {
+        transition: none;
+    }
+
     .loading-dots span {
         animation: none;
     }
@@ -1712,6 +1779,10 @@ button.sugestao-chip {
     align-items: center;
     gap: 6px;
     margin-left: auto;
+}
+
+.chat-header-gear-btn {
+    position: relative;
 }
 
 .chat-header-new-btn {

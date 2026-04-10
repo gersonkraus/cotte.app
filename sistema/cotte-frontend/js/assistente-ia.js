@@ -46,6 +46,29 @@ function showAssistentePrefNotice(msg, isError = false) {
     el.style.color = isError ? '#ef4444' : '';
 }
 
+/** Atualiza o ponto verde nas engrenagens quando há preferências personalizadas salvas no servidor. */
+function syncAssistenteGearSavedBadge(prefData) {
+    const pref = prefData?.preferencia_visualizacao || {};
+    const formato = pref?.formato_preferido || 'auto';
+    const instr = String(prefData?.instrucoes_empresa ?? '').trim();
+    const showPersonalizado = formato !== 'auto' || instr.length > 0;
+
+    const desktopBadge = document.getElementById('assistenteGearSavedBadgeDesktop');
+    const mobileBadge = document.getElementById('assistenteGearSavedBadgeMobile');
+    [desktopBadge, mobileBadge].forEach((el) => {
+        if (el) el.classList.toggle('is-visible', showPersonalizado);
+    });
+
+    const baseLabel = 'Abrir preferências';
+    const label = showPersonalizado
+        ? `${baseLabel}. Há preferências personalizadas salvas.`
+        : baseLabel;
+    const desktopBtn = document.getElementById('btnPreferenciasGearDesktop');
+    const mobileBtn = document.getElementById('btnPreferenciasGear');
+    if (desktopBtn) desktopBtn.setAttribute('aria-label', label);
+    if (mobileBtn) mobileBtn.setAttribute('aria-label', label);
+}
+
 function renderAssistentePreferencesCard(prefData) {
     const resumo = document.getElementById('assistentePreferenciasResumo');
     const setorTag = document.getElementById('assistenteSetorTag');
@@ -73,6 +96,7 @@ function renderAssistentePreferencesCard(prefData) {
             ? 'Você pode editar as instruções da empresa.'
             : 'Somente gestor/admin pode editar instruções da empresa.'
     );
+    syncAssistenteGearSavedBadge(prefData || {});
 }
 
 async function loadAssistentePreferences() {
@@ -904,18 +928,21 @@ document.addEventListener('DOMContentLoaded', function() {
     if (mobNew) mobNew.addEventListener('click', () => novaConversaAssistente());
 
     // Gear: abre/fecha preferências como bottom sheet no mobile
-    const gearBtn = document.getElementById('btnPreferenciasGear');
+    const gearBtns = [
+        document.getElementById('btnPreferenciasGear'),
+        document.getElementById('btnPreferenciasGearDesktop')
+    ].filter(Boolean);
     const prefCard = document.getElementById('assistentePreferenciasCard');
     const prefBackdrop = document.getElementById('prefBackdrop');
     function _closePrefSheet() {
         if (prefCard) prefCard.classList.remove('is-open');
         if (prefBackdrop) prefBackdrop.classList.remove('is-open');
     }
-    if (gearBtn && prefCard) {
-        gearBtn.addEventListener('click', () => {
+    if (gearBtns.length && prefCard) {
+        gearBtns.forEach((gearBtn) => gearBtn.addEventListener('click', () => {
             const open = prefCard.classList.toggle('is-open');
             if (prefBackdrop) prefBackdrop.classList.toggle('is-open', open);
-        });
+        }));
     }
     if (prefBackdrop) {
         prefBackdrop.addEventListener('click', _closePrefSheet);
