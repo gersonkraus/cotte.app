@@ -468,7 +468,7 @@ async def get_assetlinks():
                 "namespace": "android_app",
                 "package_name": "app.cotte.twa",  # Substitua pelo seu package name
                 "sha256_cert_fingerprints": [
-                    "00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00"  # Você pegará este código ao rodar o 'bubblewrap build'
+                    "B5:26:B4:1B:DC:68:85:65:D5:DC:F0:AC:5C:EA:94:7D:DF:FD:31:AC:07:55:E5:98:BE:BA:2B:72:4E:02:92:84"
                 ],
             },
         }
