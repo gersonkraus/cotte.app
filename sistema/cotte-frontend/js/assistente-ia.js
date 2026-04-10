@@ -1021,11 +1021,13 @@ function addMessage(content, isUser = false, isError = false, isLoadingState = f
 
     if (isLoadingState) {
         messageDiv.innerHTML = `
-            <div class="message-bubble" data-time="${time}">
-                <div class="loading-dots">
-                    <span></span><span></span><span></span>
+            <div class="message-bubble ai-loading-bubble" data-time="${time}">
+                <div class="ai-loading-row">
+                    <div class="loading-dots">
+                        <span></span><span></span><span></span>
+                    </div>
+                    <span class="typing-indicator-text">Processando...</span>
                 </div>
-                <div class="typing-indicator-text">Digitando...</div>
             </div>
         `;
     } else {

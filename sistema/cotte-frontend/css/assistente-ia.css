@@ -483,10 +483,32 @@
 .loading-dots span:nth-child(3) { animation-delay: 0.32s; }
 
 .typing-indicator-text {
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     color: var(--ai-muted);
-    margin-top: 4px;
     font-style: italic;
+    line-height: 1;
+}
+
+/* Layout horizontal: dots + texto lado a lado */
+.ai-loading-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 0 4px;
+}
+
+/* Bubble de loading com tamanho mínimo e pulso suave */
+.ai-loading-bubble {
+    min-width: 130px;
+}
+
+.message.loading .ai-loading-bubble {
+    animation: loading-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes loading-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.65; }
 }
 
 @keyframes dot-bounce {
