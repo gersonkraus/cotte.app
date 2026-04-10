@@ -809,6 +809,214 @@
     .input-hint {
         display: none;
     }
+
+    /* ── Fix: main não scrollável — chat-header substitui topbar no mobile ── */
+    .main--chat {
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        height: 100dvh;
+        height: 100vh; /* fallback */
+    }
+
+    /* Topbar oculta no mobile — chat-header tem hamburger + voltar + gear */
+    .main--chat .topbar {
+        display: none;
+    }
+
+    .main--chat .ai-assistant-container {
+        flex: 1;
+        min-height: 0;
+        height: auto; /* sobrescreve 100dvh */
+    }
+
+    /* ── Hamburger no chat-header ── */
+    .chat-header-hamburger {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: white;
+        flex-shrink: 0;
+        transition: background 0.2s;
+    }
+
+    .chat-header-hamburger:active {
+        background: rgba(255, 255, 255, 0.3);
+    }
+
+    /* ── Voltar no chat-header ── */
+    .chat-header-back-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.12);
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: white;
+        flex-shrink: 0;
+        transition: background 0.2s;
+    }
+
+    .chat-header-back-btn:active {
+        background: rgba(255, 255, 255, 0.28);
+    }
+
+    /* ── Modo compacto quando teclado virtual abre ── */
+    .chat-header {
+        transition: padding 0.2s ease;
+    }
+
+    .chat-header--compact {
+        padding: 8px 16px !important;
+    }
+
+    .chat-header--compact .chat-header-avatar {
+        display: none;
+    }
+
+    .chat-header--compact .chat-header-name {
+        font-size: 0.875rem;
+    }
+
+    .chat-header--compact .chat-header-status {
+        display: none;
+    }
+
+    /* ── Quick Reply Chips ── */
+    .quick-reply-area {
+        padding: 8px 16px 4px;
+        background: var(--ai-bg);
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        flex-shrink: 0;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+
+    .quick-reply-area::-webkit-scrollbar {
+        display: none;
+    }
+
+    .quick-reply-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 6px 12px;
+        background: var(--ai-card);
+        border: 1px solid var(--ai-accent);
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--ai-accent);
+        white-space: nowrap;
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: all 0.15s ease;
+        font-family: inherit;
+    }
+
+    .quick-reply-chip:active {
+        background: var(--ai-accent);
+        color: white;
+        transform: scale(0.96);
+    }
+
+    /* ── Preferências: bottom sheet no mobile ── */
+    .pref-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.45);
+        z-index: 299;
+        animation: fadeIn 0.2s ease;
+    }
+
+    .pref-backdrop.is-open {
+        display: block;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    .assistente-preferencias-card {
+        display: none;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        margin: 0;
+        border-radius: 20px 20px 0 0;
+        border-bottom: none;
+        z-index: 300;
+        max-height: 85vh;
+        overflow-y: auto;
+        padding: 20px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+        box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.25);
+    }
+
+    .assistente-preferencias-card.is-open {
+        display: block;
+        animation: slideUpSheet 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @keyframes slideUpSheet {
+        from { transform: translateY(100%); opacity: 0.5; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+
+    /* ── Gear button no chat-header ── */
+    .chat-header-gear-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: white;
+        flex-shrink: 0;
+        transition: background 0.2s;
+    }
+
+    .chat-header-gear-btn:active {
+        background: rgba(255, 255, 255, 0.3);
+    }
+
+    /* ── Mic/Enviar toggle (estilo WhatsApp/Telegram) ── */
+    .btn-send {
+        display: none;
+    }
+
+    .btn-voice {
+        display: flex;
+    }
+
+    .input-group.has-content .btn-send {
+        display: flex;
+    }
+
+    .input-group.has-content .btn-voice {
+        display: none;
+    }
+
+    /* Stop button (is-loading) sempre visível */
+    .btn-send.is-loading {
+        display: flex !important;
+    }
 }
 
 /* ── Compact Confirmation Cards for AI Responses ──────────────── */

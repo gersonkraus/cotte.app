@@ -288,6 +288,51 @@ function getAdaptiveMessagePlaceholder() {
         : DEFAULT_MESSAGE_PLACEHOLDER;
 }
 
+/** Exibe quick-reply chips acima do input no mobile */
+function _showQuickReplyChips(sugestoes) {
+    const area = document.getElementById('quickReplyArea');
+    if (!area) return;
+    area.innerHTML = sugestoes.map(s => {
+        const icon = (typeof getSuggestionIcon === 'function') ? getSuggestionIcon(s) : '💬';
+        return `<button type="button" class="quick-reply-chip" data-qr="${encodeURIComponent(s)}">${icon} ${escapeHtml(s)}</button>`;
+    }).join('');
+    area.style.display = 'flex';
+    area.querySelectorAll('.quick-reply-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const msg = decodeURIComponent(btn.dataset.qr);
+            const ta = document.getElementById('messageInput');
+            if (ta) {
+                ta.value = msg;
+                resizeMessageInput();
+                _updateVoiceSendToggle(ta);
+            }
+            _hideQuickReplyChips();
+            sendMessage();
+        });
+    });
+}
+
+/** Esconde a área de quick-reply chips */
+function _hideQuickReplyChips() {
+    const area = document.getElementById('quickReplyArea');
+    if (area) area.style.display = 'none';
+}
+
+/**
+ * Alterna visibilidade mic ↔ enviar no mobile (estilo WhatsApp/Telegram).
+ * Chamado a cada evento input no textarea.
+ */
+function _updateVoiceSendToggle(ta) {
+    if (window.innerWidth > 768) return;
+    const group = ta ? ta.closest('.input-group') : document.querySelector('.input-group');
+    if (!group) return;
+    if (ta && ta.value.trim().length > 0) {
+        group.classList.add('has-content');
+    } else {
+        group.classList.remove('has-content');
+    }
+}
+
 function applyAdaptiveMessagePlaceholder(force = false) {
     const ta = document.getElementById('messageInput');
     if (!ta) return;
@@ -370,6 +415,7 @@ function novaConversaAssistente() {
     if (ta) {
         ta.value = '';
         resizeMessageInput();
+        _updateVoiceSendToggle(ta);
         ta.focus();
     }
     updateScrollBottomButtonVisibility();
@@ -590,8 +636,9 @@ function initSpeechRecognition() {
                 ta.value = currentVal + transcript;
             }
             resizeMessageInput();
+            _updateVoiceSendToggle(ta);
             ta.focus();
-            
+
             // Envia automaticamente após receber o áudio transcrito final
             if (isFinal) {
                 // Pequeno delay para garantir que a UI atualizou o textarea e transição
@@ -805,7 +852,11 @@ document.addEventListener('DOMContentLoaded', function() {
     if (input) {
         input.focus();
         input.addEventListener('keydown', handleMessageKeydown);
-        input.addEventListener('input', resizeMessageInput);
+        input.addEventListener('input', () => {
+            resizeMessageInput();
+            _updateVoiceSendToggle(input);
+            if (input.value.trim().length > 0) _hideQuickReplyChips();
+        });
         applyAdaptiveMessagePlaceholder();
         resizeMessageInput();
     }
@@ -851,6 +902,58 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const mobNew = document.getElementById('btnNovaConversaMobile');
     if (mobNew) mobNew.addEventListener('click', () => novaConversaAssistente());
+
+    // Gear: abre/fecha preferências como bottom sheet no mobile
+    const gearBtn = document.getElementById('btnPreferenciasGear');
+    const prefCard = document.getElementById('assistentePreferenciasCard');
+    const prefBackdrop = document.getElementById('prefBackdrop');
+    function _closePrefSheet() {
+        if (prefCard) prefCard.classList.remove('is-open');
+        if (prefBackdrop) prefBackdrop.classList.remove('is-open');
+    }
+    if (gearBtn && prefCard) {
+        gearBtn.addEventListener('click', () => {
+            const open = prefCard.classList.toggle('is-open');
+            if (prefBackdrop) prefBackdrop.classList.toggle('is-open', open);
+        });
+    }
+    if (prefBackdrop) {
+        prefBackdrop.addEventListener('click', _closePrefSheet);
+    }
+
+    // Inovação 1 — Swipe down para fechar bottom sheet de preferências
+    if (prefCard) {
+        let _swipeStartY = 0;
+        prefCard.addEventListener('touchstart', (e) => {
+            _swipeStartY = e.touches[0].clientY;
+        }, { passive: true });
+        prefCard.addEventListener('touchmove', (e) => {
+            if (e.touches[0].clientY - _swipeStartY > 60) {
+                _closePrefSheet();
+            }
+        }, { passive: true });
+    }
+
+    // Inovação 2 — Header compacto quando teclado virtual abre
+    if (window.visualViewport) {
+        const _chatHeader = document.querySelector('.chat-header');
+        window.visualViewport.addEventListener('resize', () => {
+            if (!_chatHeader) return;
+            const isKeyboard = window.visualViewport.height < window.screen.height * 0.72;
+            _chatHeader.classList.toggle('chat-header--compact', isKeyboard);
+        }, { passive: true });
+    }
+
+    // Sidebar mobile: hamburguer no chat-header usa o mesmo toggle de api.js
+    const sidebarHamburger = document.getElementById('btnSidebarMobile');
+    if (sidebarHamburger) {
+        sidebarHamburger.addEventListener('click', () => {
+            const sidebar = document.querySelector('.sidebar');
+            const overlay = document.querySelector('.sidebar-overlay');
+            if (sidebar) sidebar.classList.toggle('open');
+            if (overlay) overlay.classList.toggle('open');
+        });
+    }
 
     const savePrefsBtn = document.getElementById('btnSalvarPreferenciasAssistente');
     if (savePrefsBtn) {
@@ -971,6 +1074,8 @@ async function sendMessage() {
     dismissWelcome();
     input.value = '';
     resizeMessageInput();
+    _updateVoiceSendToggle(input);
+    _hideQuickReplyChips();
     _ultimaPergunta = message;
 
     addMessage(escapeHtml(message).replace(/\n/g, '<br>'), true);
@@ -1323,7 +1428,12 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
                 setTimeout(() => chip.classList.add('visible'), i * 100);
             });
         }, 150);
-        
+
+        // Inovação 3 — Quick Reply Chips no mobile (acima do input)
+        if (window.innerWidth <= 768 && Array.isArray(sugestoes) && sugestoes.length > 0) {
+            _showQuickReplyChips(sugestoes.slice(0, 3));
+        }
+
         if (isStreamed) {
              setTimeout(saveChatHistory, 500);
         }
