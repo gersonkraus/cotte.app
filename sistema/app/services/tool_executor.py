@@ -16,8 +16,10 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import secrets
 import time
+import unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
@@ -40,6 +42,44 @@ logger = logging.getLogger(__name__)
 # a mesma ação proposta — sem reinvocar o LLM (que poderia chutar args novos).
 _PENDING_TOKENS: dict[str, dict[str, Any]] = {}
 _TOKEN_TTL_MINUTES = 5
+
+
+def _semantic_key(value: Any) -> str:
+    """Normaliza valor textual para comparação semântica estável."""
+    if value is None:
+        return ""
+    txt = str(value).strip()
+    if not txt:
+        return ""
+    txt = unicodedata.normalize("NFKD", txt)
+    txt = "".join(ch for ch in txt if not unicodedata.combining(ch))
+    txt = txt.upper()
+    txt = re.sub(r"[^A-Z0-9]+", "_", txt).strip("_")
+    return txt
+
+
+def _normalize_tool_args(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
+    """Camada central de normalização semântica de filtros antes das tools."""
+    if not isinstance(args, dict):
+        return {}
+    normalized = dict(args)
+
+    if tool_name == "listar_orcamentos":
+        status_raw = normalized.get("status")
+        if isinstance(status_raw, str) and status_raw.strip():
+            aliases = {
+                "PENDENTE": "ENVIADO",
+                "PENDENTES": "ENVIADO",
+                "EM_ABERTO": "ENVIADO",
+                "ABERTO": "ENVIADO",
+                "ABERTOS": "ENVIADO",
+                "A_RECEBER": "APROVADO",
+                "RECEBER": "APROVADO",
+            }
+            status_key = _semantic_key(status_raw)
+            normalized["status"] = aliases.get(status_key, status_key)
+
+    return normalized
 
 
 def _args_hash(args: dict[str, Any]) -> str:
@@ -351,6 +391,8 @@ async def execute(
         )
         return result
 
+    args_dict = _normalize_tool_args(name, args_dict)
+
     try:
         validated = spec.input_model(**args_dict)
     except ValidationError as e:
@@ -613,6 +655,7 @@ async def execute_pending(
         for k, v in override_args.items():
             if k in allowed:
                 args_dict[k] = v
+    args_dict = _normalize_tool_args(name, args_dict)
 
     spec = REGISTRY.get(name)
     if spec is None:

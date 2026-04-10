@@ -37,6 +37,7 @@ from .financeiro_tools import (
     obter_saldo_caixa,
     registrar_pagamento_recebivel,
 )
+from .log_tools import analisar_tool_logs
 from .orcamento_tools import (
     anexar_documento_orcamento,
     aprovar_orcamento,
@@ -54,6 +55,7 @@ from .orcamento_tools import (
 # Ordem importa apenas para introspecção/debug.
 _ALL_TOOLS: list[ToolSpec] = [
     # leitura
+    analisar_tool_logs,
     obter_saldo_caixa,
     listar_movimentacoes_financeiras,
     listar_orcamentos,

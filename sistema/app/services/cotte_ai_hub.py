@@ -13,6 +13,7 @@ import json
 import re
 import hashlib
 import logging
+import os
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from typing import Optional, Any, Literal
@@ -1737,12 +1738,13 @@ async def assistente_v2_stream_core(
     - {"phase": "thinking"}                      — antes do 1º LLM
     - {"phase": "tool_running", "tool": "X"}     — ao executar tool X
     - {"chunk": "texto..."}                      — token a token
-    - {"is_final": true, "metadata": {...}}      — fim da resposta
+    - {"is_final": true, "final_text": "...", "metadata": {...}}  — fim da resposta
     - {"error": "msg"}                           — erro grave
     """
     import asyncio
     from app.services.ai_tools import openai_tools_payload
-    from app.services.cotte_context_builder import SessionStore
+    from app.services.assistant_preferences_service import AssistantPreferencesService
+    from app.services.cotte_context_builder import SessionStore, SemanticMemoryStore
     from app.services.ia_service import ia_service
     from app.services.tool_executor import execute as tool_execute
 
@@ -1753,6 +1755,102 @@ async def assistente_v2_stream_core(
 
     def _enc(d):
         return f"data: {json.dumps(d, ensure_ascii=False, default=str)}\n\n"
+
+    if _v2_is_excel_chart_request(mensagem):
+        final_text = (
+            "Hoje eu não gero arquivo Excel diretamente pelo chat. "
+            "Consigo te entregar os dados e o gráfico financeiro aqui no assistente, "
+            "e você exporta para planilha com segurança."
+        )
+        SessionStore.append_db(sessao_id, "assistant", final_text, db)
+        yield _enc({"phase": "thinking"})
+        yield _enc({"chunk": final_text})
+        yield _enc(
+            {
+                "is_final": True,
+                "final_text": final_text,
+                "metadata": {
+                    "final_text": final_text,
+                    "dados": {"capability": "excel_nao_suportado"},
+                    "tipo": "geral",
+                },
+            }
+        )
+        return
+
+    if _v2_is_financial_chart_request(mensagem):
+        from app.services.tool_executor import execute as _tool_exec
+
+        dias = _v2_extract_days_window(mensagem)
+        yield _enc({"phase": "thinking"})
+        yield _enc({"phase": "tool_running", "tool": "listar_movimentacoes_financeiras"})
+        tc_mov = {
+            "id": "chart_movs",
+            "type": "function",
+            "function": {
+                "name": "listar_movimentacoes_financeiras",
+                "arguments": json.dumps({"dias": dias, "limit": 100}, ensure_ascii=False),
+            },
+        }
+        res_mov = await _tool_exec(
+            tc_mov,
+            db=db,
+            current_user=current_user,
+            sessao_id=sessao_id,
+            confirmation_token=None,
+        )
+        yield _enc({"phase": "tool_running", "tool": "obter_saldo_caixa"})
+        tc_saldo = {
+            "id": "chart_saldo",
+            "type": "function",
+            "function": {"name": "obter_saldo_caixa", "arguments": "{}"},
+        }
+        res_saldo = await _tool_exec(
+            tc_saldo,
+            db=db,
+            current_user=current_user,
+            sessao_id=sessao_id,
+            confirmation_token=None,
+        )
+
+        movs = (res_mov.data or {}).get("movimentacoes", []) if res_mov.status == "ok" else []
+        grafico = _v2_build_financial_chart_payload(movs)
+        saldo_atual = (res_saldo.data or {}).get("saldo_atual") if res_saldo.status == "ok" else None
+        qtd = len(movs)
+        if grafico:
+            final_text = (
+                f"Aqui está o gráfico financeiro dos últimos {dias} dias "
+                f"(com {qtd} movimentações)."
+            )
+            if saldo_atual is not None:
+                final_text += f" Saldo atual: R$ {float(saldo_atual):,.2f}."
+        else:
+            final_text = (
+                f"Não encontrei movimentações suficientes para montar o gráfico dos últimos {dias} dias."
+            )
+        SessionStore.append_db(sessao_id, "assistant", final_text, db)
+        yield _enc({"chunk": final_text})
+        yield _enc(
+            {
+                "is_final": True,
+                "final_text": final_text,
+                "metadata": {
+                    "final_text": final_text,
+                    "tipo": "financeiro",
+                    "dados": {
+                        "dias": dias,
+                        "movimentacoes_total": qtd,
+                        "saldo_atual": saldo_atual,
+                    },
+                    "grafico": grafico,
+                    "tool_trace": [
+                        {"tool": "listar_movimentacoes_financeiras", "status": res_mov.status, "latencia_ms": res_mov.latencia_ms},
+                        {"tool": "obter_saldo_caixa", "status": res_saldo.status, "latencia_ms": res_saldo.latencia_ms},
+                    ],
+                },
+            }
+        )
+        return
 
     # ── Fast-path: confirmação de ação pendente ────────────────────────────
     if confirmation_token and execute_pending:
@@ -1805,7 +1903,9 @@ async def assistente_v2_stream_core(
         yield _enc(
             {
                 "is_final": True,
+                "final_text": final_text,
                 "metadata": {
+                    "final_text": final_text,
                     "tipo": tipo_resp,
                     "dados": resp_dados,
                     "tool_trace": tool_trace_fpath,
@@ -1837,12 +1937,57 @@ async def assistente_v2_stream_core(
     )
     SessionStore.append_db(sessao_id, "user", mensagem, db)
 
+    kb_snippet = _v2_load_kb_snippet()
+    system_prompt = f"{_V2_SYSTEM_PROMPT}\n\nData/hora atual: {agora}."
+    if kb_snippet:
+        system_prompt += (
+            "\n\n## Manual funcional do sistema (fonte de verdade para 'como fazer')\n"
+            f"{kb_snippet}"
+        )
+
+    semantic_ctx = SemanticMemoryStore.build_context(
+        db=db,
+        empresa_id=getattr(current_user, "empresa_id", 0),
+        mensagem=mensagem,
+        usuario_id=getattr(current_user, "id", 0),
+    )
+    adaptive_ctx = AssistantPreferencesService.get_context_for_prompt(
+        db=db,
+        empresa_id=empresa_id,
+        usuario_id=usuario_id,
+        mensagem=mensagem,
+    )
+    adaptive_meta = {
+        "visualizacao_recomendada": adaptive_ctx.get("preferencia_visualizacao_usuario") or {},
+        "playbook_setor": adaptive_ctx.get("playbook_setor") or {},
+    }
+
     messages: list[dict] = [
         {
             "role": "system",
-            "content": f"{_V2_SYSTEM_PROMPT}\n\nData/hora atual: {agora}.",
+            "content": system_prompt,
         },
     ]
+    if semantic_ctx:
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    "## Memória semântica da empresa (use para reduzir repetição e aumentar precisão)\n"
+                    + json.dumps(semantic_ctx, ensure_ascii=False, default=str)
+                ),
+            }
+        )
+    if adaptive_ctx:
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    "## Preferências adaptativas da empresa/usuário (aplicar por contexto)\n"
+                    + json.dumps(adaptive_ctx, ensure_ascii=False, default=str)
+                ),
+            }
+        )
     for h in (history or [])[-12:]:
         role = h.get("role") if isinstance(h, dict) else getattr(h, "role", None)
         content = (
@@ -1855,7 +2000,8 @@ async def assistente_v2_stream_core(
     tools_payload = openai_tools_payload()
     tool_trace: list[dict] = []
     pending_action: dict | None = None
-    resp_dados: dict = {}
+    grafico_data: dict | None = None
+    resp_dados: dict = {**adaptive_meta}
     tipo_resp: str | None = None
     sugs: list = []
     final_text: str = ""
@@ -1946,7 +2092,12 @@ async def assistente_v2_stream_core(
                 t_status = result.status if hasattr(result, "status") else "ok"
                 t_latencia = result.latencia_ms if hasattr(result, "latencia_ms") else 0
                 tool_trace.append(
-                    {"tool": tool_name, "status": t_status, "latencia_ms": t_latencia}
+                    {
+                        "tool": tool_name,
+                        "status": t_status,
+                        "latencia_ms": t_latencia,
+                        "data": result.data if hasattr(result, "data") else None,
+                    }
                 )
 
                 if t_status == "pending":
@@ -2035,16 +2186,25 @@ async def assistente_v2_stream_core(
             )
         ):
             tipo_resp = "financeiro"
+            mov_tool = next((t for t in tool_trace if t.get("tool") == "listar_movimentacoes_financeiras"), None)
+            if mov_tool and isinstance(mov_tool.get("data"), dict):
+                movs = mov_tool["data"].get("movimentacoes", [])
+                grafico_data = _v2_build_financial_chart_payload(movs)
 
-    if final_text:
-        SessionStore.append_db(sessao_id, "assistant", final_text, db)
+    if not isinstance(final_text, str) or not final_text.strip():
+        final_text = "Não consegui montar a resposta completa agora. Tente novamente em alguns segundos."
+
+    SessionStore.append_db(sessao_id, "assistant", final_text, db)
 
     yield _enc(
         {
             "is_final": True,
+            "final_text": final_text,
             "metadata": {
+                "final_text": final_text,
                 "tipo": tipo_resp,
-                "dados": resp_dados,
+                "dados": {**adaptive_meta, **resp_dados},
+                "grafico": grafico_data,
                 "pending_action": pending_action,
                 "tool_trace": tool_trace or None,
                 "sugestoes": sugs or None,
@@ -2346,7 +2506,10 @@ async def _buscar_dados_financeiros(
 
 
 async def analisar_conversao_ia(
-    mensagem: str, dados_orcamentos: Optional[dict] = None, db: Optional[Session] = None
+    mensagem: str,
+    dados_orcamentos: Optional[dict] = None,
+    db: Optional[Session] = None,
+    empresa_id: Optional[int] = None,
 ) -> AIResponse:
     """
     Analisa taxas de conversão de orçamentos
@@ -2355,10 +2518,47 @@ async def analisar_conversao_ia(
         mensagem: Pergunta ou comando do usuário
         dados_orcamentos: Dados de orçamentos para análise
         db: Sessão do banco para buscar dados se não fornecidos
+        empresa_id: ID da empresa para filtrar dados
     """
     # Se não tiver dados, buscar do banco
-    if not dados_orcamentos and db:
-        # TODO: Implementar busca de dados de orçamentos do banco
+    if not dados_orcamentos and db and empresa_id:
+        from app.models.models import Orcamento, StatusOrcamento
+
+        inicio = datetime.now(ZoneInfo("America/Sao_Paulo")) - timedelta(days=30)
+        total = (
+            db.query(func.count(Orcamento.id))
+            .filter(Orcamento.empresa_id == empresa_id, Orcamento.criado_em >= inicio)
+            .scalar()
+            or 0
+        )
+        aprovados = (
+            db.query(func.count(Orcamento.id))
+            .filter(
+                Orcamento.empresa_id == empresa_id,
+                Orcamento.status == StatusOrcamento.APROVADO,
+                Orcamento.criado_em >= inicio,
+            )
+            .scalar()
+            or 0
+        )
+        recusados = (
+            db.query(func.count(Orcamento.id))
+            .filter(
+                Orcamento.empresa_id == empresa_id,
+                Orcamento.status == StatusOrcamento.RECUSADO,
+                Orcamento.criado_em >= inicio,
+            )
+            .scalar()
+            or 0
+        )
+        dados_orcamentos = {
+            "enviados": total,
+            "aprovados": aprovados,
+            "recusados": recusados,
+            "servicos": [],
+            "periodo": "ultimo_mes",
+        }
+    elif not dados_orcamentos:
         dados_orcamentos = {
             "enviados": 0,
             "aprovados": 0,
@@ -2375,7 +2575,10 @@ async def analisar_conversao_ia(
 
 
 async def gerar_sugestoes_negocio_ia(
-    mensagem: str, dados_empresa: Optional[dict] = None, db: Optional[Session] = None
+    mensagem: str,
+    dados_empresa: Optional[dict] = None,
+    db: Optional[Session] = None,
+    empresa_id: Optional[int] = None,
 ) -> AIResponse:
     """
     Gera sugestões estratégicas para o negócio
@@ -2384,10 +2587,35 @@ async def gerar_sugestoes_negocio_ia(
         mensagem: Pergunta ou área de interesse
         dados_empresa: Dados da empresa para análise
         db: Sessão do banco para buscar dados se não fornecidos
+        empresa_id: ID da empresa para filtrar dados
     """
     # Se não tiver dados, buscar do banco
-    if not dados_empresa and db:
-        # TODO: Implementar busca de dados da empresa do banco
+    if not dados_empresa and db and empresa_id:
+        from app.models.models import Orcamento, StatusOrcamento, Cliente
+
+        inicio = datetime.now(ZoneInfo("America/Sao_Paulo")) - timedelta(days=30)
+        orcs = (
+            db.query(Orcamento.id, Orcamento.numero, Orcamento.total, Orcamento.status)
+            .filter(Orcamento.empresa_id == empresa_id, Orcamento.criado_em >= inicio)
+            .limit(20)
+            .all()
+        )
+        clientes = (
+            db.query(Cliente.id, Cliente.nome)
+            .filter(Cliente.empresa_id == empresa_id)
+            .limit(20)
+            .all()
+        )
+        dados_empresa = {
+            "orcamentos": [
+                {"id": o.id, "numero": o.numero, "total": float(o.total or 0), "status": str(o.status)}
+                for o in orcs
+            ],
+            "clientes": [{"id": c.id, "nome": c.nome} for c in clientes],
+            "servicos": [],
+            "financeiro": {},
+        }
+    elif not dados_empresa:
         dados_empresa = {
             "orcamentos": [],
             "clientes": [],
@@ -2447,7 +2675,7 @@ async def ticket_medio_ia(
     - "Ticket médio de vendas"
     """
     mensagem = "Calcular ticket médio de orçamentos aprovados e analisar tendências"
-    return await analisar_conversao_ia(mensagem, db=db)
+    return await analisar_conversao_ia(mensagem, db=db, empresa_id=empresa_id)
 
 
 async def servico_mais_vendido_ia(
@@ -2462,7 +2690,7 @@ async def servico_mais_vendido_ia(
     - "Ranking de serviços"
     """
     mensagem = "Identificar serviço mais vendido e analisar sua performance"
-    return await analisar_conversao_ia(mensagem, db=db)
+    return await analisar_conversao_ia(mensagem, db=db, empresa_id=empresa_id)
 
 
 async def previsao_caixa_ia(
@@ -2494,7 +2722,7 @@ async def cliente_mais_lucrativo_ia(
     - "Top clientes"
     """
     mensagem = "Identificar cliente mais lucrativo e analisar seu histórico"
-    return await gerar_sugestoes_negocio_ia(mensagem, db=db)
+    return await gerar_sugestoes_negocio_ia(mensagem, db=db, empresa_id=empresa_id)
 
 
 async def faturamento_ia(
@@ -2785,6 +3013,128 @@ _V2_SYSTEM_PROMPT = (
 )
 
 _V2_MAX_ITER = 5
+_V2_KB_SNIPPET_CACHE: Optional[str] = None
+
+
+def _v2_load_kb_snippet(max_chars: int = 7000) -> str:
+    """Carrega um trecho compacto da KB funcional para orientar o v2."""
+    global _V2_KB_SNIPPET_CACHE
+    if _V2_KB_SNIPPET_CACHE is not None:
+        return _V2_KB_SNIPPET_CACHE
+
+    kb_path = os.path.join(
+        os.path.dirname(__file__),
+        "prompts",
+        "knowledge_base.md",
+    )
+    try:
+        with open(kb_path, "r", encoding="utf-8") as f:
+            raw = f.read()
+        # Remove frontmatter e compacta quebras excessivas
+        raw = re.sub(r"^---[\s\S]*?---\s*", "", raw, count=1)
+        raw = re.sub(r"\n{3,}", "\n\n", raw).strip()
+        if len(raw) > max_chars:
+            raw = raw[:max_chars].rsplit("\n", 1)[0].strip() + "\n\n[KB truncada]"
+        _V2_KB_SNIPPET_CACHE = raw
+    except Exception as e:
+        logger.warning("[assistente_v2] Falha ao carregar knowledge_base.md: %s", e)
+        _V2_KB_SNIPPET_CACHE = ""
+    return _V2_KB_SNIPPET_CACHE
+
+
+def _v2_is_excel_chart_request(mensagem: str) -> bool:
+    msg = (mensagem or "").lower()
+    if not msg:
+        return False
+    has_excel = any(
+        k in msg
+        for k in ("excel", "planilha", "xlsx", "arquivo xls", "arquivo excel")
+    )
+    has_chart = any(k in msg for k in ("gráfico", "grafico", "chart"))
+    has_financial_scope = any(
+        k in msg
+        for k in ("financeiro", "finanças", "financas", "caixa", "receita", "despesa")
+    )
+    return has_excel and has_chart and has_financial_scope
+
+
+def _v2_is_financial_chart_request(mensagem: str) -> bool:
+    msg = (mensagem or "").lower()
+    if not msg:
+        return False
+    has_chart = any(k in msg for k in ("gráfico", "grafico", "chart"))
+    has_financial_scope = any(
+        k in msg
+        for k in (
+            "financeiro",
+            "finanças",
+            "financas",
+            "caixa",
+            "receita",
+            "despesa",
+            "movimenta",
+            "fluxo",
+        )
+    )
+    return has_chart and has_financial_scope
+
+
+def _v2_extract_days_window(mensagem: str, default_days: int = 30) -> int:
+    m = re.search(r"(\d{1,3})\s*dias?", (mensagem or "").lower())
+    if not m:
+        return default_days
+    dias = int(m.group(1))
+    return max(1, min(dias, 365))
+
+
+def _v2_build_financial_chart_payload(movimentacoes: list[dict]) -> dict | None:
+    if not movimentacoes:
+        return None
+
+    buckets: dict[str, dict[str, float]] = {}
+    for mov in movimentacoes:
+        data_raw = str(mov.get("data") or "")[:10]
+        if not re.match(r"^\d{4}-\d{2}-\d{2}$", data_raw):
+            continue
+        tipo = str(mov.get("tipo") or "").lower()
+        valor = float(mov.get("valor") or 0.0)
+        if data_raw not in buckets:
+            buckets[data_raw] = {"entrada": 0.0, "saida": 0.0}
+        if tipo == "entrada":
+            buckets[data_raw]["entrada"] += valor
+        elif tipo == "saida":
+            buckets[data_raw]["saida"] += valor
+
+    if not buckets:
+        return None
+
+    labels = sorted(buckets.keys())
+    entradas = [round(buckets[d]["entrada"], 2) for d in labels]
+    saidas = [round(buckets[d]["saida"], 2) for d in labels]
+    return {
+        "tipo": "line",
+        "dados": {
+            "labels": labels,
+            "datasets": [
+                {
+                    "label": "Entradas",
+                    "data": entradas,
+                    "borderColor": "#22c55e",
+                    "backgroundColor": "rgba(34,197,94,0.18)",
+                    "tension": 0.25,
+                    "fill": False,
+                },
+                {
+                    "label": "Saídas",
+                    "data": saidas,
+                    "borderColor": "#ef4444",
+                    "backgroundColor": "rgba(239,68,68,0.18)",
+                    "tension": 0.25,
+                    "fill": False,
+                },
+            ],
+        },
+    }
 
 
 async def assistente_unificado_v2(
@@ -2801,10 +3151,77 @@ async def assistente_unificado_v2(
     Mantém histórico via `SessionStore`. Limite de 5 iterações.
     """
     from app.services.ai_tools import openai_tools_payload
-    from app.services.cotte_context_builder import SessionStore
+    from app.services.assistant_preferences_service import AssistantPreferencesService
+    from app.services.cotte_context_builder import SessionStore, SemanticMemoryStore
     from app.services.ia_service import ia_service
     from app.services.tool_executor import execute as tool_execute
     from app.services.tool_executor import execute_pending
+
+    if _v2_is_excel_chart_request(mensagem):
+        resposta_excel = (
+            "Hoje eu não gero arquivo Excel diretamente pelo chat. "
+            "Consigo te entregar os dados e o gráfico financeiro aqui no assistente, "
+            "e você exporta para planilha com segurança."
+        )
+        SessionStore.append_db(sessao_id, "assistant", resposta_excel, db)
+        return AIResponse(
+            sucesso=True,
+            resposta=resposta_excel,
+            confianca=0.98,
+            modulo_origem="assistente_v2",
+            dados={"capability": "excel_nao_suportado"},
+        )
+
+    if _v2_is_financial_chart_request(mensagem):
+        dias = _v2_extract_days_window(mensagem)
+        tc_mov = {
+            "id": "chart_movs",
+            "type": "function",
+            "function": {
+                "name": "listar_movimentacoes_financeiras",
+                "arguments": json.dumps({"dias": dias, "limit": 100}, ensure_ascii=False),
+            },
+        }
+        tc_saldo = {
+            "id": "chart_saldo",
+            "type": "function",
+            "function": {"name": "obter_saldo_caixa", "arguments": "{}"},
+        }
+        res_mov = await tool_execute(tc_mov, db=db, current_user=current_user, sessao_id=sessao_id)
+        res_saldo = await tool_execute(tc_saldo, db=db, current_user=current_user, sessao_id=sessao_id)
+        movs = (res_mov.data or {}).get("movimentacoes", []) if res_mov.status == "ok" else []
+        grafico = _v2_build_financial_chart_payload(movs)
+        saldo_atual = (res_saldo.data or {}).get("saldo_atual") if res_saldo.status == "ok" else None
+        qtd = len(movs)
+        if grafico:
+            final_text = (
+                f"Aqui está o gráfico financeiro dos últimos {dias} dias "
+                f"(com {qtd} movimentações)."
+            )
+            if saldo_atual is not None:
+                final_text += f" Saldo atual: R$ {float(saldo_atual):,.2f}."
+        else:
+            final_text = (
+                f"Não encontrei movimentações suficientes para montar o gráfico dos últimos {dias} dias."
+            )
+        SessionStore.append_db(sessao_id, "assistant", final_text, db)
+        return AIResponse(
+            sucesso=True,
+            resposta=final_text,
+            confianca=0.95 if grafico else 0.8,
+            modulo_origem="assistente_v2",
+            tipo_resposta="financeiro",
+            tool_trace=[
+                {"tool": "listar_movimentacoes_financeiras", "status": res_mov.status, "latencia_ms": res_mov.latencia_ms},
+                {"tool": "obter_saldo_caixa", "status": res_saldo.status, "latencia_ms": res_saldo.latencia_ms},
+            ],
+            dados={
+                "dias": dias,
+                "movimentacoes_total": qtd,
+                "saldo_atual": saldo_atual,
+                "grafico": grafico,
+            },
+        )
 
     # ── Fast-path: confirmação de ação destrutiva ────────────────────────
     # Quando o usuário clica "Confirmar" no card, o frontend reenvia a
@@ -2903,12 +3320,57 @@ async def assistente_unificado_v2(
         db=db,
     )
 
+    kb_snippet = _v2_load_kb_snippet()
+    system_prompt = f"{_V2_SYSTEM_PROMPT}\n\nData/hora atual: {now}."
+    if kb_snippet:
+        system_prompt += (
+            "\n\n## Manual funcional do sistema (fonte de verdade para 'como fazer')\n"
+            f"{kb_snippet}"
+        )
+
+    semantic_ctx = SemanticMemoryStore.build_context(
+        db=db,
+        empresa_id=getattr(current_user, "empresa_id", 0),
+        mensagem=mensagem,
+        usuario_id=getattr(current_user, "id", 0),
+    )
+    adaptive_ctx = AssistantPreferencesService.get_context_for_prompt(
+        db=db,
+        empresa_id=getattr(current_user, "empresa_id", 0),
+        usuario_id=getattr(current_user, "id", 0),
+        mensagem=mensagem,
+    )
+    adaptive_meta = {
+        "visualizacao_recomendada": adaptive_ctx.get("preferencia_visualizacao_usuario") or {},
+        "playbook_setor": adaptive_ctx.get("playbook_setor") or {},
+    }
+
     messages: list[dict] = [
         {
             "role": "system",
-            "content": f"{_V2_SYSTEM_PROMPT}\n\nData/hora atual: {now}.",
+            "content": system_prompt,
         },
     ]
+    if semantic_ctx:
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    "## Memória semântica da empresa (use para reduzir repetição e aumentar precisão)\n"
+                    + json.dumps(semantic_ctx, ensure_ascii=False, default=str)
+                ),
+            }
+        )
+    if adaptive_ctx:
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    "## Preferências adaptativas da empresa/usuário (aplicar por contexto)\n"
+                    + json.dumps(adaptive_ctx, ensure_ascii=False, default=str)
+                ),
+            }
+        )
     # SessionStore historiza apenas role+content (sem tool_calls). Mantemos como hint.
     for h in history[-12:]:
         if h.get("role") in ("user", "assistant") and h.get("content"):
@@ -3102,9 +3564,14 @@ async def assistente_unificado_v2(
             **(pending_action.get("extras") or {}),
             "input_tokens": total_in,
             "output_tokens": total_out,
+            **adaptive_meta,
         }
     else:
-        dados_out = {"input_tokens": total_in, "output_tokens": total_out}
+        dados_out = {
+            "input_tokens": total_in,
+            "output_tokens": total_out,
+            **adaptive_meta,
+        }
 
     return AIResponse(
         sucesso=True,

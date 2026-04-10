@@ -140,5 +140,5 @@ Use para fluxos de mensagens, webhooks e automação comercial.
 ## Learned Workspace Facts
 
 - E-mails HTML transacionais devem seguir práticas de cliente de e-mail: tabelas para layout, estilos inline e sem dependências externas (Tailwind CDN, Google Fonts ou scripts).
-- No assistente IA, cards de confirmação de ações pendentes não devem exibir ao operador a descrição técnica bruta da tool; usar resumo operacional dos argumentos e copy curta de revisão.
+- No assistente IA/WhatsApp, confirmações de ações pendentes devem exibir resumo operacional (não descrição técnica bruta da tool) e sempre mostrar claramente o que será confirmado: cliente, orçamento/entidade, valores e alterações relevantes.
 - Instruções persistentes de produto ou backlog para o agente no Cursor: preferir Project Rules e/ou `.cursor/rules/` e documentação durável (por exemplo `memory/decisions.md`); o par [SUGESTÃO]/[INOVAÇÃO] do `CLAUDE.md` padroniza o fechamento das respostas, não substitui especificação de features.

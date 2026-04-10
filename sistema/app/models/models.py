@@ -234,6 +234,9 @@ class Empresa(Base):
         Integer, nullable=True
     )  # None = usa limite do plano
     desativar_ia = Column(Boolean, default=False)
+    assistente_instrucoes = Column(
+        Text, nullable=True
+    )  # guardrails/instruções da empresa para o assistente IA
     desativar_lembretes = Column(Boolean, default=False)
     desativar_relatorios = Column(Boolean, default=False)
     # Automação de status de orçamento
@@ -1751,6 +1754,35 @@ class FeedbackAssistente(Base):
     criado_em = Column(DateTime(timezone=True), server_default=func.now())
 
     empresa = relationship("Empresa")
+
+
+class AssistentePreferenciaUsuario(Base):
+    """Preferências adaptativas de visualização por usuário para o assistente IA."""
+
+    __tablename__ = "assistente_preferencias_usuario"
+
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False, index=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False, index=True)
+    dominio = Column(String(50), nullable=False, default="geral", index=True)
+    formato_preferido = Column(
+        String(20), nullable=False, default="auto"
+    )  # auto|resumo|tabela
+    confianca = Column(Float, nullable=False, default=0.5)
+    criado_em = Column(DateTime(timezone=True), server_default=func.now())
+    atualizado_em = Column(DateTime(timezone=True), onupdate=func.now())
+
+    empresa = relationship("Empresa")
+    usuario = relationship("Usuario")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "empresa_id",
+            "usuario_id",
+            "dominio",
+            name="uq_assistente_pref_empresa_usuario_dominio",
+        ),
+    )
 
 
 # ── BROADCAST (mensagens do admin para todas as empresas) ─────────────────────

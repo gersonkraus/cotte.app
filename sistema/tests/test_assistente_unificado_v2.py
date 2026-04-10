@@ -3,15 +3,43 @@ from __future__ import annotations
 
 import asyncio
 import json
+import sys
+import types
+from datetime import date
+from decimal import Decimal
 
 import pytest
+
+if "litellm" not in sys.modules:
+    litellm_stub = types.ModuleType("litellm")
+
+    async def _acompletion(*args, **kwargs):
+        raise RuntimeError("litellm stub: acompletion não deve ser chamado diretamente neste teste")
+
+    def _completion(*args, **kwargs):
+        raise RuntimeError("litellm stub: completion não deve ser chamado diretamente neste teste")
+
+    litellm_stub.acompletion = _acompletion
+    litellm_stub.completion = _completion
+    sys.modules["litellm"] = litellm_stub
 
 from app.services import cotte_ai_hub, ia_service as ia_service_module
 from app.services.ai_tools import REGISTRY
 from app.services.ai_tools._base import ToolSpec
 from app.services.cotte_context_builder import SessionStore
+from app.models.models import (
+    AIChatMensagem,
+    AIChatSessao,
+    ContaFinanceira,
+    MovimentacaoCaixa,
+    OrigemRegistro,
+    StatusConta,
+    StatusOrcamento,
+    TipoConta,
+)
 from pydantic import BaseModel, Field
 from tests.conftest import make_empresa, make_usuario
+from tests.conftest import make_cliente, make_orcamento
 
 
 # ── Mock tool de leitura ──────────────────────────────────────────────────
@@ -43,6 +71,15 @@ def _register_echo():
 
 def _run(coro):
     return asyncio.get_event_loop().run_until_complete(coro)
+
+
+def _run_stream(coro):
+    async def _collect():
+        items = []
+        async for item in coro:
+            items.append(item)
+        return items
+    return asyncio.get_event_loop().run_until_complete(_collect())
 
 
 def _fake_response(*, content=None, tool_calls=None, finish="stop"):
@@ -180,3 +217,217 @@ def test_loop_limite_iteracoes(db, monkeypatch):
     )
     assert calls["n"] == 5
     assert "Limite" in (out.resposta or "")
+
+
+def test_stream_evento_final_exige_final_text(db, monkeypatch):
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+
+    async def fake_chat(messages, tools=None, **kw):
+        return _fake_response(content="Resumo final do orçamento.", finish="stop")
+
+    async def fake_chat_stream(messages, **kw):
+        yield "Resumo "
+        yield "final."
+
+    monkeypatch.setattr(ia_service_module.ia_service, "chat", fake_chat)
+    monkeypatch.setattr(ia_service_module.ia_service, "chat_stream", fake_chat_stream)
+
+    events_raw = _run_stream(
+        cotte_ai_hub.assistente_v2_stream_core(
+            mensagem="me diga os pendentes",
+            sessao_id="sess-stream-final-text",
+            db=db,
+            current_user=user,
+        )
+    )
+
+    decoded = []
+    for evt in events_raw:
+        if not evt.startswith("data: "):
+            continue
+        payload = evt[len("data: "):].strip()
+        if payload:
+            decoded.append(json.loads(payload))
+
+    final_events = [e for e in decoded if e.get("is_final") is True]
+    assert final_events, "Deve existir ao menos um evento final no SSE"
+    for evt in final_events:
+        assert isinstance(evt.get("final_text"), str)
+        assert evt["final_text"].strip() != ""
+        metadata = evt.get("metadata") or {}
+        assert metadata.get("final_text") == evt["final_text"]
+
+
+def test_v2_excel_chart_capability_fallback_sem_llm(db, monkeypatch):
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+
+    async def fake_chat(*args, **kwargs):
+        raise AssertionError("LLM não deve ser chamado no fallback de capability Excel")
+
+    monkeypatch.setattr(ia_service_module.ia_service, "chat", fake_chat)
+
+    out = _run(
+        cotte_ai_hub.assistente_unificado_v2(
+            mensagem="Crie uma planilha Excel com gráfico do meu financeiro",
+            sessao_id="sess-capability-excel",
+            db=db,
+            current_user=user,
+        )
+    )
+    assert out.sucesso is True
+    assert "não gero arquivo Excel" in (out.resposta or "")
+    assert (out.dados or {}).get("capability") == "excel_nao_suportado"
+
+
+def test_stream_grafico_financeiro_retorna_metadata_grafico(db, monkeypatch):
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+
+    db.add(
+        MovimentacaoCaixa(
+            empresa_id=emp.id,
+            tipo="entrada",
+            valor=Decimal("150.00"),
+            descricao="Recebimento teste",
+            categoria="teste",
+            data=date.today(),
+            confirmado=True,
+            criado_por_id=user.id,
+        )
+    )
+    db.add(
+        MovimentacaoCaixa(
+            empresa_id=emp.id,
+            tipo="saida",
+            valor=Decimal("60.00"),
+            descricao="Despesa teste",
+            categoria="teste",
+            data=date.today(),
+            confirmado=True,
+            criado_por_id=user.id,
+        )
+    )
+    db.commit()
+
+    async def fake_chat(*args, **kwargs):
+        raise AssertionError("LLM não deve ser chamado no fast-path de gráfico financeiro")
+
+    monkeypatch.setattr(ia_service_module.ia_service, "chat", fake_chat)
+
+    events_raw = _run_stream(
+        cotte_ai_hub.assistente_v2_stream_core(
+            mensagem="Gere um gráfico do meu financeiro dos últimos 7 dias",
+            sessao_id="sess-chart-fastpath",
+            db=db,
+            current_user=user,
+        )
+    )
+    decoded = []
+    for evt in events_raw:
+        if not evt.startswith("data: "):
+            continue
+        payload = evt[len("data: "):].strip()
+        if payload:
+            decoded.append(json.loads(payload))
+
+    final_evt = next((e for e in decoded if e.get("is_final") is True), None)
+    assert final_evt is not None
+    metadata = final_evt.get("metadata") or {}
+    assert metadata.get("tipo") == "financeiro"
+    assert metadata.get("grafico") is not None
+    assert (metadata.get("grafico") or {}).get("dados")
+    tools = metadata.get("tool_trace") or []
+    tool_names = [t.get("tool") for t in tools]
+    assert "listar_movimentacoes_financeiras" in tool_names
+    assert "obter_saldo_caixa" in tool_names
+
+
+def test_v2_pending_recusar_orcamento_expoe_impacto_financeiro(db, monkeypatch):
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+    cli = make_cliente(db, emp, nome="Cliente Recusa")
+    orc = make_orcamento(db, emp, cli, user, status=StatusOrcamento.APROVADO, total=500)
+
+    db.add(
+        ContaFinanceira(
+            empresa_id=emp.id,
+            orcamento_id=orc.id,
+            tipo=TipoConta.RECEBER,
+            descricao=f"Receber {orc.numero}",
+            valor=Decimal("500.00"),
+            valor_pago=Decimal("0.00"),
+            status=StatusConta.PENDENTE,
+            origem=OrigemRegistro.SISTEMA,
+        )
+    )
+    db.commit()
+
+    async def fake_chat(messages, tools=None, **kw):
+        return _fake_response(
+            tool_calls=[
+                _fake_tool_call("c1", "recusar_orcamento", {"orcamento_id": orc.id})
+            ],
+            finish="tool_calls",
+        )
+
+    monkeypatch.setattr(ia_service_module.ia_service, "chat", fake_chat)
+
+    out = _run(
+        cotte_ai_hub.assistente_unificado_v2(
+            mensagem=f"Recusar orçamento {orc.id}",
+            sessao_id="sess-recusa-impacto",
+            db=db,
+            current_user=user,
+        )
+    )
+
+    assert out.pending_action is not None
+    assert out.pending_action.get("tool") == "recusar_orcamento"
+    impacto = (out.dados or {}).get("impacto_financeiro") or {}
+    assert impacto.get("contas_pendentes_removidas", 0) >= 1
+
+
+def test_v2_injeta_memoria_semantica_empresa_no_prompt(db, monkeypatch):
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+
+    sessao_hist = AIChatSessao(id="sess-hist-mem", empresa_id=emp.id, usuario_id=user.id)
+    db.add(sessao_hist)
+    db.flush()
+    db.add(
+        AIChatMensagem(
+            sessao_id=sessao_hist.id,
+            role="user",
+            content="Qual meu padrão de fluxo de caixa nos últimos meses?",
+        )
+    )
+    db.commit()
+
+    captured = {"messages": None}
+
+    async def fake_chat(messages, tools=None, **kw):
+        captured["messages"] = messages
+        return _fake_response(content="Resumo com memória", finish="stop")
+
+    monkeypatch.setattr(ia_service_module.ia_service, "chat", fake_chat)
+
+    out = _run(
+        cotte_ai_hub.assistente_unificado_v2(
+            mensagem="Qual meu padrão de fluxo de caixa?",
+            sessao_id="sess-memoria-v2",
+            db=db,
+            current_user=user,
+        )
+    )
+    assert out.sucesso is True
+    msgs = captured["messages"] or []
+    system_blobs = [m.get("content", "") for m in msgs if m.get("role") == "system"]
+    merged = "\n".join(system_blobs)
+    assert "Memória semântica da empresa" in merged
+    assert "padrão de fluxo de caixa" in merged
+    assert "Preferências adaptativas da empresa/usuário" in merged
+    assert "perfil_operacional_dinamico" in merged
+    assert "\"90d\"" in merged
+    assert "prioridade_kpis" in merged

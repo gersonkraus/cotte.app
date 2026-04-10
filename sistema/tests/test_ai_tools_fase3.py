@@ -28,8 +28,10 @@ from app.services.ai_tools.financeiro_tools import (
 from app.services.ai_tools.orcamento_tools import (
     DuplicarOrcamentoInput,
     EditarOrcamentoInput,
+    ListarOrcamentosInput,
     _duplicar_orcamento,
     _editar_orcamento,
+    _listar_orcamentos,
 )
 from app.models.models import StatusOrcamento
 from tests.conftest import (
@@ -135,6 +137,52 @@ def test_editar_orcamento_nao_rascunho_bloqueia(db):
         )
     )
     assert res.get("code") == "invalid_state"
+
+
+@pytest.mark.parametrize(
+    "status_input",
+    ["ENVIADO", "PENDENTE", "EM_ABERTO", "A_RECEBER", "RECEBER"],
+)
+def test_listar_orcamentos_status_semantico(db, status_input):
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+    cli = make_cliente(db, emp, nome="Ana Júlia")
+
+    make_orcamento(
+        db,
+        emp,
+        cli,
+        user,
+        status=StatusOrcamento.ENVIADO,
+        total=150.0,
+        numero="ORC-100-26",
+    )
+    make_orcamento(
+        db,
+        emp,
+        cli,
+        user,
+        status=StatusOrcamento.APROVADO,
+        total=300.0,
+        numero="ORC-101-26",
+    )
+
+    res = _run(
+        _listar_orcamentos(
+            ListarOrcamentosInput(status=status_input, dias=365, limit=20),
+            db=db,
+            current_user=user,
+        )
+    )
+
+    expected_status = (
+        StatusOrcamento.APROVADO.value
+        if status_input in ("A_RECEBER", "RECEBER")
+        else StatusOrcamento.ENVIADO.value
+    )
+    assert res["total"] == 1
+    assert len(res["orcamentos"]) == 1
+    assert res["orcamentos"][0]["status"] == expected_status
 
 
 # ── Criar + marcar despesa paga (ciclo completo) ─────────────────────────

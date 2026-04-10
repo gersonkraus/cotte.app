@@ -46,8 +46,23 @@ async def _listar_orcamentos(
     )
     if inp.status:
         try:
-            q = q.filter(Orcamento.status == StatusOrcamento(inp.status.upper()))
+            status_raw = str(inp.status or "").strip()
+            status_key = status_raw.upper()
+            status_aliases = {
+                "PENDENTE": "ENVIADO",
+                "PENDENTES": "ENVIADO",
+                "EM_ABERTO": "ENVIADO",
+                "ABERTO": "ENVIADO",
+                "ABERTOS": "ENVIADO",
+                "A_RECEBER": "APROVADO",
+                "RECEBER": "APROVADO",
+            }
+            status_key = status_aliases.get(status_key, status_key)
+            status_enum = StatusOrcamento[status_key]
+            q = q.filter(Orcamento.status == status_enum)
         except ValueError:
+            return {"error": f"status inválido: {inp.status}", "code": "invalid_input"}
+        except KeyError:
             return {"error": f"status inválido: {inp.status}", "code": "invalid_input"}
     if inp.cliente_id:
         q = q.filter(Orcamento.cliente_id == inp.cliente_id)
@@ -521,6 +536,7 @@ async def _recusar_orcamento(
     inp: RecusarOrcamentoInput, *, db: Session, current_user: Usuario
 ) -> dict[str, Any]:
     from datetime import datetime, timezone
+    from app.models.models import ContaFinanceira, StatusConta
     from app.services.quote_notification_service import handle_quote_status_changed
 
     orc = _get_orcamento_da_empresa(db, inp.orcamento_id, current_user.empresa_id)
@@ -535,6 +551,18 @@ async def _recusar_orcamento(
         orc.recusa_em = datetime.now(timezone.utc)
     if inp.motivo and hasattr(orc, "recusa_motivo"):
         orc.recusa_motivo = inp.motivo
+    contas_pendentes = (
+        db.query(ContaFinanceira)
+        .filter(
+            ContaFinanceira.orcamento_id == orc.id,
+            ContaFinanceira.status == StatusConta.PENDENTE,
+            ContaFinanceira.valor_pago == 0,
+        )
+        .all()
+    )
+    qtd_pendentes = len(contas_pendentes)
+    valor_pendente = round(sum(float(c.valor or 0) for c in contas_pendentes), 2)
+
     db.commit()
     db.refresh(orc)
     try:
@@ -544,7 +572,19 @@ async def _recusar_orcamento(
         )
     except Exception:
         pass
-    return {"id": orc.id, "numero": orc.numero, "status": "recusado"}
+    return {
+        "id": orc.id,
+        "numero": orc.numero,
+        "status": "recusado",
+        "impacto_financeiro": {
+            "contas_pendentes_removidas": qtd_pendentes,
+            "valor_total_pendente_removido": valor_pendente,
+            "observacao": (
+                "Ao sair de APROVADO, contas a receber pendentes sem pagamento são removidas; "
+                "contas com pagamento permanecem para preservar histórico."
+            ),
+        },
+    }
 
 
 recusar_orcamento = ToolSpec(

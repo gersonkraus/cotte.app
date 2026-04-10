@@ -42,6 +42,7 @@ Permissão: operador, gestor
 Como: Abra os detalhes do orçamento → clique em "Recusar" → informe o motivo (opcional).
 Sinônimos: rejeitar orçamento, marcar recusado, negar proposta, recusar proposta
 Permissão: operador, gestor
+Impacto financeiro: se o orçamento estava APROVADO e for recusado/desaprovado, o sistema remove automaticamente as contas a receber que ainda estavam pendentes e sem pagamento. Contas com pagamento já registrado permanecem para preservar histórico financeiro.
 
 ### Duplicar orçamento
 Como: Na lista de orçamentos → clique no ícone ⋮ ao lado do orçamento → Duplicar. Um novo orçamento é criado em Rascunho com os mesmos itens, cliente e desconto, mas novo número e data.

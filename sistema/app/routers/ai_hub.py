@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 from app.core.database import get_db
 from app.services.cotte_ai_hub import ai_hub, AIResponse
 from app.core.auth import get_usuario_atual as get_current_user, exigir_permissao, exigir_modulo
-from app.models.models import Usuario, HistoricoEdicao
+from app.models.models import Usuario, HistoricoEdicao, Empresa
 
 router = APIRouter(prefix="/ai", tags=["AI"], dependencies=[Depends(exigir_modulo("ia"))])
 
@@ -479,7 +479,7 @@ async def analisar_conversao_endpoint(
     """
     from app.services.cotte_ai_hub import analisar_conversao_ia
 
-    return await analisar_conversao_ia(request.mensagem, db=db)
+    return await analisar_conversao_ia(request.mensagem, db=db, empresa_id=current_user.empresa_id)
 
 
 @router.post("/conversao/ticket-medio", response_model=AIResponse)
@@ -529,7 +529,7 @@ async def gerar_sugestoes_negocio_endpoint(
     """
     from app.services.cotte_ai_hub import gerar_sugestoes_negocio_ia
 
-    return await gerar_sugestoes_negocio_ia(request.mensagem, db=db)
+    return await gerar_sugestoes_negocio_ia(request.mensagem, db=db, empresa_id=current_user.empresa_id)
 
 
 @router.post("/negocio/cliente-mais-lucrativo", response_model=AIResponse)
@@ -658,6 +658,116 @@ class AIFeedbackRequest(BaseModel):
     avaliacao: str = Field(..., pattern="^(positivo|negativo)$")
     comentario: Optional[str] = Field(default=None, max_length=1000)
     modulo_origem: Optional[str] = None
+
+
+class AIPreferenciasAssistenteUpdateRequest(BaseModel):
+    """Atualização de preferências do assistente."""
+
+    instrucoes_empresa: Optional[str] = Field(
+        default=None,
+        max_length=4000,
+        description="Guardrails/instruções gerais da empresa para o assistente.",
+    )
+    formato_preferido: Optional[str] = Field(
+        default=None,
+        pattern="^(auto|resumo|tabela)$",
+        description="Preferência de visualização do usuário.",
+    )
+    dominio: Optional[str] = Field(
+        default="geral",
+        description="Domínio da preferência (geral, financeiro, orcamentos, etc.).",
+    )
+
+
+class AIPreferenciasAssistenteOut(BaseModel):
+    """Resposta de preferências do assistente."""
+
+    instrucoes_empresa: str = ""
+    pode_editar_instrucoes: bool = False
+    preferencia_visualizacao: dict = Field(default_factory=dict)
+    playbook_setor: dict = Field(default_factory=dict)
+
+
+@router.get("/assistente/preferencias", response_model=AIPreferenciasAssistenteOut)
+async def obter_preferencias_assistente(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
+):
+    """Retorna instruções da empresa, preferência visual do usuário e playbook de setor."""
+    from app.services.assistant_preferences_service import AssistantPreferencesService
+
+    empresa = (
+        db.query(Empresa.id, Empresa.assistente_instrucoes)
+        .filter(Empresa.id == current_user.empresa_id)
+        .first()
+    )
+    contexto = AssistantPreferencesService.get_context_for_prompt(
+        db=db,
+        empresa_id=current_user.empresa_id,
+        usuario_id=current_user.id,
+        mensagem="resumo geral",
+    )
+    return AIPreferenciasAssistenteOut(
+        instrucoes_empresa=(empresa.assistente_instrucoes if empresa else "") or "",
+        pode_editar_instrucoes=bool(
+            getattr(current_user, "is_gestor", False)
+            or getattr(current_user, "is_superadmin", False)
+        ),
+        preferencia_visualizacao=contexto.get("preferencia_visualizacao_usuario") or {},
+        playbook_setor=contexto.get("playbook_setor") or {},
+    )
+
+
+@router.patch("/assistente/preferencias", response_model=AIPreferenciasAssistenteOut)
+async def atualizar_preferencias_assistente(
+    request: AIPreferenciasAssistenteUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
+):
+    """Atualiza instruções da empresa (gestor/admin) e preferência visual do usuário."""
+    from app.services.assistant_preferences_service import AssistantPreferencesService
+
+    empresa = db.query(Empresa).filter(Empresa.id == current_user.empresa_id).first()
+    if not empresa:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+
+    pode_editar_instrucoes = bool(
+        getattr(current_user, "is_gestor", False)
+        or getattr(current_user, "is_superadmin", False)
+    )
+
+    if request.instrucoes_empresa is not None:
+        if not pode_editar_instrucoes:
+            raise HTTPException(
+                status_code=403,
+                detail="Somente gestor/admin pode editar instruções da empresa.",
+            )
+        empresa.assistente_instrucoes = request.instrucoes_empresa.strip() or None
+        db.add(empresa)
+        db.commit()
+        db.refresh(empresa)
+
+    if request.formato_preferido is not None:
+        AssistantPreferencesService.upsert_preferencia_visualizacao(
+            db,
+            empresa_id=current_user.empresa_id,
+            usuario_id=current_user.id,
+            formato_preferido=request.formato_preferido,
+            dominio=request.dominio or "geral",
+        )
+
+    contexto = AssistantPreferencesService.get_context_for_prompt(
+        db=db,
+        empresa_id=current_user.empresa_id,
+        usuario_id=current_user.id,
+        mensagem="resumo geral",
+    )
+    return AIPreferenciasAssistenteOut(
+        instrucoes_empresa=(empresa.assistente_instrucoes or ""),
+        pode_editar_instrucoes=pode_editar_instrucoes,
+        preferencia_visualizacao=contexto.get("preferencia_visualizacao_usuario") or {},
+        playbook_setor=contexto.get("playbook_setor") or {},
+    )
 
 
 @router.post("/feedback", status_code=201)

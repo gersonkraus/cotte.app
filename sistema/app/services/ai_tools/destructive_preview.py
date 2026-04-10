@@ -10,7 +10,14 @@ from typing import Any
 
 from sqlalchemy.orm import Session, joinedload
 
-from app.models.models import Agendamento, Cliente, ContaFinanceira, Orcamento, Usuario
+from app.models.models import (
+    Agendamento,
+    Cliente,
+    ContaFinanceira,
+    Orcamento,
+    StatusConta,
+    Usuario,
+)
 from app.utils.orcamento_utils import brl_fmt
 
 from .orcamento_tools import _get_orcamento_da_empresa
@@ -121,6 +128,36 @@ async def build_destructive_extras(
             if len(m) > 160:
                 m = m[:157] + "..."
             extras["mudancas"] = [f"Motivo da recusa: {m}"]
+        else:
+            extras["mudancas"] = []
+
+        if orc:
+            contas_pendentes = (
+                db.query(ContaFinanceira)
+                .filter(
+                    ContaFinanceira.orcamento_id == orc.id,
+                    ContaFinanceira.status == StatusConta.PENDENTE,
+                    ContaFinanceira.valor_pago == 0,
+                )
+                .all()
+            )
+            qtd_pendentes = len(contas_pendentes)
+            total_pendente = sum(float(c.valor or 0) for c in contas_pendentes)
+            extras["impacto_financeiro"] = {
+                "contas_pendentes_removidas": qtd_pendentes,
+                "valor_total_pendente_removido": round(total_pendente, 2),
+            }
+            extras["mudancas"].append(
+                "Impacto financeiro: ao sair de APROVADO, contas a receber pendentes e sem pagamento são removidas automaticamente."
+            )
+            if qtd_pendentes > 0:
+                extras["mudancas"].append(
+                    f"Previsão para este orçamento: {qtd_pendentes} conta(s) pendente(s), total {brl_fmt(total_pendente)}."
+                )
+            else:
+                extras["mudancas"].append(
+                    "Previsão para este orçamento: não há contas pendentes sem pagamento para remover."
+                )
 
     elif tool_name == "anexar_documento_orcamento":
         extras["mudancas"] = []

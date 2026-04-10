@@ -13,6 +13,7 @@ let currentAbortController = null; // Para o botão de parar geração
 let speechRecognition = null; // Para entrada por voz
 let isRecording = false;
 let slashCommandIndex = -1; // Índice atual da lista de slash commands
+let _assistentePrefsCache = null;
 
 const SLASH_COMMANDS = [
     { cmd: '/caixa', desc: 'Ver saldo atual disponível', icon: '💰' },
@@ -28,8 +29,87 @@ const SLASH_COMMANDS = [
     { cmd: '/ajuda', desc: 'Dúvidas sobre como usar o sistema', icon: '❓' }
 ];
 
+const MOBILE_BREAKPOINT = 768;
+const INPUT_MIN_HEIGHT_MOBILE = 40;
+const INPUT_MIN_HEIGHT_DESKTOP = 44;
+const DEFAULT_MESSAGE_PLACEHOLDER = 'Pergunte algo ou dê um comando...';
+const MOBILE_MESSAGE_PLACEHOLDER = 'Digite sua mensagem...';
+
 function hasHttpClient() {
     return !!httpClient && typeof httpClient.get === 'function' && typeof httpClient.post === 'function';
+}
+
+function showAssistentePrefNotice(msg, isError = false) {
+    const el = document.getElementById('assistenteInstrucoesPermissaoHint');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.style.color = isError ? '#ef4444' : '';
+}
+
+function renderAssistentePreferencesCard(prefData) {
+    const resumo = document.getElementById('assistentePreferenciasResumo');
+    const setorTag = document.getElementById('assistenteSetorTag');
+    const select = document.getElementById('assistenteFormatoSelect');
+    const txt = document.getElementById('assistenteInstrucoesInput');
+    const btn = document.getElementById('btnSalvarPreferenciasAssistente');
+    if (!resumo || !setorTag || !select || !txt || !btn) return;
+
+    const pref = prefData?.preferencia_visualizacao || {};
+    const playbook = prefData?.playbook_setor || {};
+    const podeEditar = !!prefData?.pode_editar_instrucoes;
+    const setor = playbook?.setor || 'geral';
+    const formato = pref?.formato_preferido || 'auto';
+
+    _assistentePrefsCache = prefData || null;
+    setorTag.textContent = `Setor: ${setor}`;
+    resumo.textContent = `Formato atual: ${formato}. Playbook ativo com janelas 7/30/90 dias.`;
+
+    select.value = ['auto', 'resumo', 'tabela'].includes(formato) ? formato : 'auto';
+    txt.value = prefData?.instrucoes_empresa || '';
+    txt.disabled = !podeEditar;
+    btn.disabled = false;
+    showAssistentePrefNotice(
+        podeEditar
+            ? 'Você pode editar as instruções da empresa.'
+            : 'Somente gestor/admin pode editar instruções da empresa.'
+    );
+}
+
+async function loadAssistentePreferences() {
+    if (!hasHttpClient() || typeof httpClient.get !== 'function') return;
+    try {
+        const data = await httpClient.get('/ai/assistente/preferencias');
+        renderAssistentePreferencesCard(data || {});
+    } catch (e) {
+        showAssistentePrefNotice('Não foi possível carregar preferências agora.', true);
+    }
+}
+
+async function saveAssistentePreferences() {
+    if (!hasHttpClient() || typeof httpClient.patch !== 'function') return;
+    const select = document.getElementById('assistenteFormatoSelect');
+    const txt = document.getElementById('assistenteInstrucoesInput');
+    const btn = document.getElementById('btnSalvarPreferenciasAssistente');
+    if (!select || !txt || !btn) return;
+    const podeEditar = !!(_assistentePrefsCache && _assistentePrefsCache.pode_editar_instrucoes);
+    const payload = {
+        formato_preferido: select.value || 'auto',
+        dominio: 'geral',
+    };
+    if (podeEditar) {
+        payload.instrucoes_empresa = txt.value || '';
+    }
+    btn.disabled = true;
+    showAssistentePrefNotice('Salvando preferências...');
+    try {
+        const out = await httpClient.patch('/ai/assistente/preferencias', payload);
+        renderAssistentePreferencesCard(out || {});
+        showAssistentePrefNotice('Preferências salvas com sucesso.');
+    } catch (e) {
+        showAssistentePrefNotice('Falha ao salvar preferências.', true);
+    } finally {
+        btn.disabled = false;
+    }
 }
 
 function sleep(ms) {
@@ -182,10 +262,11 @@ function dismissWelcome() {
 function resizeMessageInput() {
     const ta = document.getElementById('messageInput');
     if (!ta || ta.tagName !== 'TEXTAREA') return;
+    const minHeight = window.innerWidth <= MOBILE_BREAKPOINT ? INPUT_MIN_HEIGHT_MOBILE : INPUT_MIN_HEIGHT_DESKTOP;
     
     const currentHeight = ta.style.height;
     ta.style.transition = 'none';
-    ta.style.height = '44px'; // min-height
+    ta.style.height = `${minHeight}px`;
     const scrollH = ta.scrollHeight;
     ta.style.height = currentHeight;
     
@@ -193,12 +274,26 @@ function resizeMessageInput() {
     void ta.offsetHeight;
     ta.style.transition = '';
 
-    const max = window.innerWidth <= 768 ? 100 : 140;
-    const newHeight = Math.min(scrollH, max) + 'px';
+    const max = window.innerWidth <= MOBILE_BREAKPOINT ? 100 : 140;
+    const newHeight = Math.max(minHeight, Math.min(scrollH, max)) + 'px';
     
     if (ta.style.height !== newHeight) {
         ta.style.height = newHeight;
     }
+}
+
+function getAdaptiveMessagePlaceholder() {
+    return window.innerWidth <= MOBILE_BREAKPOINT
+        ? MOBILE_MESSAGE_PLACEHOLDER
+        : DEFAULT_MESSAGE_PLACEHOLDER;
+}
+
+function applyAdaptiveMessagePlaceholder(force = false) {
+    const ta = document.getElementById('messageInput');
+    if (!ta) return;
+    if (isRecording && !force) return;
+    if (!force && ta.value.trim()) return;
+    ta.placeholder = getAdaptiveMessagePlaceholder();
 }
 
 /** Atualiza badge de status (desktop e mobile). */
@@ -549,7 +644,7 @@ function stopSpeechRecognition() {
     }
     const ta = document.getElementById('messageInput');
     if (ta) {
-        ta.placeholder = 'Pergunte algo ou dê um comando...';
+        ta.placeholder = getAdaptiveMessagePlaceholder();
     }
 }
 
@@ -711,8 +806,19 @@ document.addEventListener('DOMContentLoaded', function() {
         input.focus();
         input.addEventListener('keydown', handleMessageKeydown);
         input.addEventListener('input', resizeMessageInput);
+        applyAdaptiveMessagePlaceholder();
         resizeMessageInput();
     }
+
+    window.addEventListener('resize', () => {
+        applyAdaptiveMessagePlaceholder();
+        resizeMessageInput();
+    }, { passive: true });
+
+    window.addEventListener('orientationchange', () => {
+        applyAdaptiveMessagePlaceholder();
+        resizeMessageInput();
+    }, { passive: true });
 
     const sendBtn = document.getElementById('sendButton');
     if (sendBtn) {
@@ -736,16 +842,22 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    }
-
     initSpeechRecognition();
     initSlashCommands();
+    loadAssistentePreferences();
 
     const topNew = document.getElementById('btnNovaConversaTop');
     if (topNew) topNew.addEventListener('click', () => novaConversaAssistente());
 
     const mobNew = document.getElementById('btnNovaConversaMobile');
     if (mobNew) mobNew.addEventListener('click', () => novaConversaAssistente());
+
+    const savePrefsBtn = document.getElementById('btnSalvarPreferenciasAssistente');
+    if (savePrefsBtn) {
+        savePrefsBtn.addEventListener('click', () => {
+            saveAssistentePreferences();
+        });
+    }
 
     const scrollBtn = document.getElementById('chatScrollBottomBtn');
     if (scrollBtn) {
@@ -993,7 +1105,11 @@ async function sendMessage() {
 
         const finalData = {
            sucesso: true,
-           resposta: responseText,
+           resposta: responseText
+                || (metadata && typeof metadata.final_text === 'string' ? metadata.final_text : '')
+                || (metadata && typeof metadata.resposta === 'string' ? metadata.resposta : '')
+                || (metadata && metadata.dados && typeof metadata.dados.resposta === 'string' ? metadata.dados.resposta : ''),
+           stream_has_chunks: !!(responseText && responseText.trim()),
            tipo_resposta: (metadata && metadata.tipo) ? metadata.tipo : 'geral',
            dados: metadata ? (metadata.dados || null) : null,
            grafico: metadata ? (metadata.grafico || null) : null,
@@ -1065,6 +1181,10 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
 
     if (isSuccess) {
         let responseContent = formatAIResponse(data, isStreamed);
+        const visPref = data?.dados?.visualizacao_recomendada || null;
+        if (visPref && visPref.formato_preferido && visPref.formato_preferido !== 'auto') {
+            responseContent += `<div class="tool-trace">🧭 Formato aplicado: <strong>${escapeHtml(String(visPref.formato_preferido))}</strong></div>`;
+        }
 
         // Tool Use v2: indicador de ferramentas executadas
         if (Array.isArray(data.tool_trace) && data.tool_trace.length > 0) {
@@ -1151,9 +1271,18 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
             responseContent += `<div class="sugestoes-container"><div class="sugestoes-header"><span class="sug-icon">✨</span> Próximos passos sugeridos</div>${chips}</div>`;
         }
 
+        const responseHasText = String(responseContent || '')
+            .replace(/<[^>]*>/g, '')
+            .replace(/&nbsp;/g, ' ')
+            .trim()
+            .length > 0;
+        if (!responseHasText) {
+            responseContent = `<div class="resposta-direta">Não consegui montar a resposta completa agora. Tente novamente em alguns segundos.</div>`;
+        }
+
         // Botões de feedback (👍/👎) — não exibir para onboarding ou erros
         const tipoSemFeedback = ['onboarding', 'orcamento_preview', 'orcamento_criado', 'orcamento_atualizado', 'operador_resultado', 'registro_criado'];
-        if (!tipoSemFeedback.includes(data.tipo_resposta)) {
+        if (!tipoSemFeedback.includes(data.tipo_resposta) && responseHasText) {
             const fbId = 'fb_' + Date.now();
             responseContent += `
                 <div class="feedback-bar" id="${fbId}">
@@ -1522,8 +1651,11 @@ function formatAIResponse(data, isStreamed = false) {
     }
 
     // ─── RESPOSTA COM TEXTO PRONTO (resposta direta da IA) ────────────
-    if ((data.resposta || dados.resposta) && !isStreamed) {
+    if (data.resposta || dados.resposta) {
         const rawTxt = data.resposta || dados.resposta;
+        if (isStreamed && data.stream_has_chunks) {
+            return '';
+        }
         return `<div class="resposta-direta">${textToHtmlRich(rawTxt)}</div>`;
     }
 
@@ -1577,7 +1709,7 @@ function formatAIResponse(data, isStreamed = false) {
         content += '<br>';
     }
 
-    return content || 'Resposta recebida.';
+    return content || (isStreamed ? '' : 'Resposta recebida.');
 }
 
 /**

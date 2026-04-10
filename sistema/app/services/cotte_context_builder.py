@@ -9,9 +9,11 @@ Fornece:
 
 import logging
 import os
+import re
+import unicodedata
 from collections import deque
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Optional, Any
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
@@ -26,6 +28,8 @@ logger = logging.getLogger(__name__)
 _sessions: dict[str, dict] = {}  # cache em RAM para suggessions e hot-path
 SESSION_TTL_MINUTES = 120  # aumentado para 2h
 MAX_MESSAGES_PER_SESSION = 12  # 6 turnos user + 6 assistant (maior contexto)
+_semantic_cache: dict[str, dict[str, Any]] = {}
+SEMANTIC_CACHE_TTL_SECONDS = 180
 
 
 def _prune_expired():
@@ -186,6 +190,307 @@ class SessionStore:
             "seen_count": len(seen),
             "recent": seen[-10:] if len(seen) > 10 else seen,
         }
+
+
+class SemanticMemoryStore:
+    """
+    Memória semântica por empresa para perguntas recorrentes no assistente v2.
+
+    Estratégia:
+    - Busca mensagens históricas do usuário (AIChatMensagem) da empresa
+    - Calcula similaridade léxica simples por sobreposição de tokens
+    - Resume padrões de uso de tools por domínio (ToolCallLog)
+    - Faz cache curto em RAM para reduzir custo em perguntas repetidas
+    """
+
+    _STOPWORDS = {
+        "como", "qual", "quais", "meu", "minha", "meus", "minhas", "para",
+        "com", "sem", "dos", "das", "uma", "umas", "uns", "por", "que",
+        "tem", "tenho", "sobre", "isso", "hoje", "ontem", "amanha", "amanhã",
+        "favor", "pode", "mostrar", "dizer", "fazer", "ser", "está", "esta",
+    }
+
+    @classmethod
+    def _normalize_text(cls, text: str) -> str:
+        txt = (text or "").strip().lower()
+        txt = unicodedata.normalize("NFKD", txt)
+        txt = "".join(ch for ch in txt if not unicodedata.combining(ch))
+        txt = re.sub(r"[^a-z0-9\s]", " ", txt)
+        txt = re.sub(r"\s+", " ", txt).strip()
+        return txt
+
+    @classmethod
+    def _tokens(cls, text: str) -> list[str]:
+        toks = [t for t in cls._normalize_text(text).split(" ") if len(t) >= 3]
+        return [t for t in toks if t not in cls._STOPWORDS]
+
+    @classmethod
+    def _infer_domain(cls, mensagem: str) -> str:
+        msg = cls._normalize_text(mensagem)
+        if any(k in msg for k in ("fluxo", "financeiro", "caixa", "receber", "pagar", "despesa", "faturamento")):
+            return "financeiro"
+        if any(k in msg for k in ("orcamento", "proposta", "aprovar", "recusar", "desconto")):
+            return "orcamentos"
+        if any(k in msg for k in ("cliente", "telefone", "email", "contato")):
+            return "clientes"
+        if any(k in msg for k in ("agenda", "agendamento", "remarcar", "cancelar agendamento")):
+            return "agendamentos"
+        return "geral"
+
+    @classmethod
+    def _cache_key(cls, empresa_id: int, mensagem: str) -> str:
+        domain = cls._infer_domain(mensagem)
+        tokens = cls._tokens(mensagem)[:4]
+        return f"{empresa_id}:{domain}:{'|'.join(tokens)}"
+
+    @classmethod
+    def _cache_key_with_user(cls, empresa_id: int, usuario_id: int, mensagem: str) -> str:
+        base = cls._cache_key(empresa_id, mensagem)
+        return f"{base}:u{usuario_id or 0}"
+
+    @classmethod
+    def _cache_get(cls, key: str) -> Optional[dict]:
+        item = _semantic_cache.get(key)
+        if not item:
+            return None
+        if item["expires_at"] < datetime.now(timezone.utc):
+            _semantic_cache.pop(key, None)
+            return None
+        return item["value"]
+
+    @classmethod
+    def _cache_set(cls, key: str, value: dict) -> None:
+        _semantic_cache[key] = {
+            "value": value,
+            "expires_at": datetime.now(timezone.utc) + timedelta(seconds=SEMANTIC_CACHE_TTL_SECONDS),
+        }
+
+    @classmethod
+    def _infer_response_style(cls, domain: str, frequencia_90d: int) -> dict:
+        if frequencia_90d >= 40:
+            gran = "executiva"
+            tom = "direto"
+        elif frequencia_90d >= 12:
+            gran = "equilibrada"
+            tom = "consultivo"
+        else:
+            gran = "didatica"
+            tom = "orientativo"
+
+        if domain == "financeiro":
+            return {"tom": tom, "granularidade": gran, "prioridade_kpis": ["saldo_atual", "resultado_periodo", "receitas_vs_despesas", "inadimplencia"]}
+        if domain == "orcamentos":
+            return {"tom": tom, "granularidade": gran, "prioridade_kpis": ["taxa_aprovacao", "ticket_medio", "orcamentos_pendentes", "tempo_medio_conversao"]}
+        if domain == "clientes":
+            return {"tom": tom, "granularidade": gran, "prioridade_kpis": ["clientes_ativos", "clientes_novos_periodo", "recorrencia_cliente", "ticket_por_cliente"]}
+        if domain == "agendamentos":
+            return {"tom": tom, "granularidade": gran, "prioridade_kpis": ["agendamentos_hoje", "confirmacao", "no_show", "ocupacao_proximos_7_dias"]}
+        return {"tom": tom, "granularidade": gran, "prioridade_kpis": ["resumo_geral", "alertas", "proximas_acoes"]}
+
+    @classmethod
+    def _build_dynamic_profile(
+        cls,
+        db: Session,
+        empresa_id: int,
+        usuario_id: int,
+        domain: str,
+        mensagem: str,
+    ) -> dict:
+        from app.models.models import AIChatMensagem, AIChatSessao, ToolCallLog, Usuario, Papel
+
+        now = datetime.now(timezone.utc)
+        windows = [7, 30, 90]
+        metricas: dict[str, dict] = {}
+
+        # Resolve setor/papel do usuário
+        setor_nome = "geral"
+        usuario_nome = "usuario"
+        try:
+            user = (
+                db.query(Usuario.id, Usuario.nome, Usuario.is_gestor, Usuario.papel_id)
+                .filter(Usuario.id == usuario_id, Usuario.empresa_id == empresa_id)
+                .first()
+            )
+            if user:
+                usuario_nome = user.nome or "usuario"
+                if user.is_gestor:
+                    setor_nome = "gestao"
+                if getattr(user, "papel_id", None):
+                    papel = db.query(Papel.nome, Papel.slug).filter(Papel.id == user.papel_id).first()
+                    if papel:
+                        setor_nome = (papel.slug or papel.nome or setor_nome or "geral").lower()
+        except Exception:
+            pass
+
+        for days in windows:
+            inicio = now - timedelta(days=days)
+            # Frequência operacional no domínio (base: ToolCallLog)
+            q_tools = (
+                db.query(func.count(ToolCallLog.id))
+                .filter(
+                    ToolCallLog.empresa_id == empresa_id,
+                    ToolCallLog.criado_em >= inicio,
+                    ToolCallLog.status == "ok",
+                )
+            )
+            if domain == "financeiro":
+                q_tools = q_tools.filter(ToolCallLog.tool.ilike("%financeir%") | ToolCallLog.tool.ilike("%saldo%") | ToolCallLog.tool.ilike("%moviment%"))
+            elif domain == "orcamentos":
+                q_tools = q_tools.filter(ToolCallLog.tool.ilike("%orcamento%"))
+            elif domain == "clientes":
+                q_tools = q_tools.filter(ToolCallLog.tool.ilike("%cliente%"))
+            elif domain == "agendamentos":
+                q_tools = q_tools.filter(ToolCallLog.tool.ilike("%agendamento%"))
+
+            uso_tools = int(q_tools.scalar() or 0)
+
+            # Recorrência da intenção em perguntas do chat
+            msgs = (
+                db.query(AIChatMensagem.content)
+                .join(AIChatSessao, AIChatMensagem.sessao_id == AIChatSessao.id)
+                .filter(
+                    AIChatSessao.empresa_id == empresa_id,
+                    AIChatMensagem.role == "user",
+                    AIChatMensagem.criado_em >= inicio,
+                )
+                .order_by(AIChatMensagem.criado_em.desc())
+                .limit(180)
+                .all()
+            )
+            q_tokens = set(cls._tokens(mensagem))
+            recorrencia = 0
+            for r in msgs:
+                txt = (r.content or "").strip()
+                if not txt:
+                    continue
+                overlap = len(q_tokens.intersection(set(cls._tokens(txt))))
+                if overlap >= 2:
+                    recorrencia += 1
+
+            metricas[f"{days}d"] = {
+                "uso_tools_dominio": uso_tools,
+                "perguntas_semelhantes": recorrencia,
+                "frequencia_operacional": uso_tools + recorrencia,
+            }
+
+        freq_90d = (metricas.get("90d") or {}).get("frequencia_operacional", 0)
+        style = cls._infer_response_style(domain, int(freq_90d))
+        return {
+            "usuario_id": usuario_id,
+            "usuario_nome": usuario_nome,
+            "setor": setor_nome,
+            "janelas": metricas,
+            "estilo_resposta_recomendado": style,
+            "regra_adaptacao": (
+                "Use tom/granularidade recomendados e priorize KPIs na ordem informada. "
+                "Quando houver baixa frequência, explique premissas; com alta frequência, responda de forma objetiva."
+            ),
+        }
+
+    @classmethod
+    def build_context(cls, db: Session, empresa_id: int, mensagem: str, usuario_id: int = 0) -> dict:
+        try:
+            from app.models.models import AIChatMensagem, AIChatSessao, ToolCallLog, Cliente
+        except Exception:
+            return {}
+
+        key = cls._cache_key_with_user(empresa_id, usuario_id, mensagem)
+        cached = cls._cache_get(key)
+        if cached is not None:
+            return cached
+
+        domain = cls._infer_domain(mensagem)
+        q_tokens = set(cls._tokens(mensagem))
+
+        # 1) Histórico de perguntas similares na empresa (recência + overlap)
+        rows = (
+            db.query(AIChatMensagem.content)
+            .join(AIChatSessao, AIChatMensagem.sessao_id == AIChatSessao.id)
+            .filter(
+                AIChatSessao.empresa_id == empresa_id,
+                AIChatMensagem.role == "user",
+            )
+            .order_by(AIChatMensagem.criado_em.desc())
+            .limit(120)
+            .all()
+        )
+
+        similares: list[tuple[int, str]] = []
+        for r in rows:
+            txt = (r.content or "").strip()
+            if not txt:
+                continue
+            overlap = len(q_tokens.intersection(set(cls._tokens(txt))))
+            if overlap >= 2:
+                similares.append((overlap, txt))
+        similares.sort(key=lambda x: x[0], reverse=True)
+        perguntas_recorrentes = []
+        seen = set()
+        for _, txt in similares:
+            norm = cls._normalize_text(txt)
+            if norm in seen:
+                continue
+            seen.add(norm)
+            perguntas_recorrentes.append(txt[:160])
+            if len(perguntas_recorrentes) >= 4:
+                break
+
+        # 2) Padrão operacional por domínio (tools mais usadas)
+        tool_rows = (
+            db.query(ToolCallLog.tool)
+            .filter(ToolCallLog.empresa_id == empresa_id, ToolCallLog.status == "ok")
+            .order_by(ToolCallLog.criado_em.desc())
+            .limit(200)
+            .all()
+        )
+        tool_counts: dict[str, int] = {}
+        for tr in tool_rows:
+            t = tr.tool or ""
+            if not t:
+                continue
+            if domain == "financeiro" and not any(k in t for k in ("saldo", "moviment", "despesa", "pagamento", "parcel")):
+                continue
+            if domain == "orcamentos" and "orcamento" not in t:
+                continue
+            if domain == "clientes" and "cliente" not in t:
+                continue
+            if domain == "agendamentos" and "agendamento" not in t:
+                continue
+            tool_counts[t] = tool_counts.get(t, 0) + 1
+        top_tools = sorted(tool_counts.items(), key=lambda kv: kv[1], reverse=True)[:5]
+
+        # 3) Contexto de cliente mencionado (quando houver "cliente X")
+        cliente_ctx = None
+        m = re.search(r"cliente\s+([a-zA-ZÀ-ÿ0-9 .'-]{2,80})", mensagem or "", re.IGNORECASE)
+        if m:
+            nome_busca = m.group(1).strip()
+            cands = (
+                db.query(Cliente.id, Cliente.nome)
+                .filter(
+                    Cliente.empresa_id == empresa_id,
+                    Cliente.nome.ilike(f"%{nome_busca}%"),
+                )
+                .limit(5)
+                .all()
+            )
+            if cands:
+                cliente_ctx = [{"id": c.id, "nome": c.nome} for c in cands]
+
+        value = {
+            "dominio_detectado": domain,
+            "perguntas_recorrentes_semelhantes": perguntas_recorrentes,
+            "top_tools_dominio": [{"tool": t, "usos": n} for t, n in top_tools],
+            "clientes_relacionados": cliente_ctx,
+            "perfil_operacional_dinamico": cls._build_dynamic_profile(
+                db=db,
+                empresa_id=empresa_id,
+                usuario_id=usuario_id,
+                domain=domain,
+                mensagem=mensagem,
+            ),
+        }
+        cls._cache_set(key, value)
+        return value
 
 
 # ── Context Builder ────────────────────────────────────────────────────────

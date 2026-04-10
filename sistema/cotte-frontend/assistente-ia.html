@@ -47,6 +47,34 @@
                 </div>
             </div>
 
+            <section class="assistente-preferencias-card" id="assistentePreferenciasCard" aria-label="Preferências do assistente">
+                <div class="assistente-preferencias-header">
+                    <div>
+                        <h2>Preferências do Assistente</h2>
+                        <p id="assistentePreferenciasResumo">Carregando preferências...</p>
+                    </div>
+                    <span class="assistente-preferencias-tag" id="assistenteSetorTag">Setor: --</span>
+                </div>
+                <div class="assistente-preferencias-grid">
+                    <label class="assistente-preferencias-field">
+                        <span>Formato preferido de resposta</span>
+                        <select id="assistenteFormatoSelect">
+                            <option value="auto">Automático por contexto</option>
+                            <option value="resumo">Resumo executivo</option>
+                            <option value="tabela">Tabela detalhada</option>
+                        </select>
+                    </label>
+                    <label class="assistente-preferencias-field">
+                        <span>Instruções da empresa (guardrails)</span>
+                        <textarea id="assistenteInstrucoesInput" rows="3" placeholder="Ex.: sempre responder com foco em margem, evitar termos técnicos para equipe de campo."></textarea>
+                    </label>
+                </div>
+                <div class="assistente-preferencias-actions">
+                    <small id="assistenteInstrucoesPermissaoHint"></small>
+                    <button type="button" class="btn btn-primary" id="btnSalvarPreferenciasAssistente">Salvar preferências</button>
+                </div>
+            </section>
+
             <!-- ── Chat Area ── -->
             <div class="chat-container">
                 <!-- Mobile Header -->

@@ -139,3 +139,18 @@ Para garantir consistência entre Dashboard, Aba de Caixa e Assistente IA, o mot
 - O horário permanece em `::after` como **caption** tipográfica (`font-variant-numeric: tabular-nums`) para limpar o bloco principal da mensagem.
 - O modo `embed` e o tema `dark` devem manter variações proporcionais da mesma linguagem visual; `prefers-reduced-motion` deve desativar animações/transições de mensagem e indicadores de loading.
 
+---
+
+## Assistente IA — Personalização Híbrida (10/04/2026)
+- A personalização do assistente v2 segue regra **híbrida**:
+  - `instruções da empresa` = guardrails obrigatórios;
+  - `preferência do usuário` = formato de saída e ordem dentro dos guardrails.
+- Persistência adicionada:
+  - `Empresa.assistente_instrucoes` (instruções por empresa);
+  - `assistente_preferencias_usuario` (formato por usuário/domínio: `auto|resumo|tabela`).
+- O contexto adaptativo (preferência visual + playbook setorial) é injetado no prompt em ambos os fluxos:
+  - `assistente_unificado_v2`;
+  - `assistente_v2_stream_core`.
+- Governança de edição:
+  - somente `gestor/admin` altera instruções da empresa.
+
