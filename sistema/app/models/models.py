@@ -2066,6 +2066,24 @@ class ToolCallLog(Base):
     )
 
 
+class SchemaDriftSnapshot(Base):
+    """Snapshot histórico das divergências entre models SQLAlchemy e banco."""
+
+    __tablename__ = "schema_drift_snapshots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    criado_em = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
+    app_version = Column(String(50), nullable=True)
+    environment = Column(String(50), nullable=True)
+    source = Column(String(30), nullable=False, default="manual_admin", index=True)
+    status_ok = Column(Boolean, nullable=False, default=False, index=True)
+    missing_tables_json = Column(JSON, nullable=True)
+    missing_columns_json = Column(JSON, nullable=True)
+    extra_columns_json = Column(JSON, nullable=True)
+
+
 class AIChatSessao(Base):
     """Sessão persistente do chat da IA."""
     __tablename__ = "ai_chat_sessoes"

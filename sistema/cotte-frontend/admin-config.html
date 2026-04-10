@@ -758,6 +758,9 @@
     <button class="admin-tab" onclick="switchTab('whatsapp')">
       <span class="admin-tab-icon">💬</span> <span class="tab-label">WhatsApp</span>
     </button>
+    <button class="admin-tab" onclick="switchTab('schema-drift')">
+      <span class="admin-tab-icon">🧪</span> <span class="tab-label">Schema Drift</span>
+    </button>
   </div>
 
     <!-- TAB: GERAL -->
@@ -909,6 +912,50 @@
         </button>
       </div>
     </div>
+
+    <!-- TAB: SCHEMA DRIFT -->
+    <div class="tab-content" id="tab-schema-drift">
+      <div class="config-section">
+        <div class="section-header">
+          <div class="section-icon blue">🧪</div>
+          <div>
+            <h3 class="section-title">Histórico e Diff de Schema Drift</h3>
+            <p class="section-desc">Compare snapshots de drift entre deploys e ambientes sem executar correções no banco.</p>
+          </div>
+        </div>
+
+        <div class="input-row" style="margin-bottom: 16px;">
+          <select id="drift-filter-deploy" class="input-field" style="max-width: 220px;">
+            <option value="">Todos os deploys</option>
+          </select>
+          <select id="drift-filter-environment" class="input-field" style="max-width: 180px;">
+            <option value="">Todos os ambientes</option>
+          </select>
+          <select id="drift-filter-source" class="input-field" style="max-width: 180px;">
+            <option value="">Todos os sources</option>
+            <option value="startup">startup</option>
+            <option value="manual_admin">manual_admin</option>
+          </select>
+          <button class="btn btn-ghost" onclick="carregarSchemaDriftSnapshots()">Atualizar</button>
+          <button class="btn btn-primary" onclick="gerarAutoFixPreview()" id="btn-auto-fix-preview">Preview Auto-Fix</button>
+        </div>
+
+        <div id="drift-preview-box" style="display:none;background:var(--color-surface-low);border-radius:12px;padding:12px 14px;margin-bottom:16px;"></div>
+
+        <div class="input-row" style="margin-bottom: 12px;">
+          <select id="drift-base-id" class="input-field" style="max-width: 280px;">
+            <option value="">Snapshot base (antes)</option>
+          </select>
+          <select id="drift-target-id" class="input-field" style="max-width: 280px;">
+            <option value="">Snapshot target (depois)</option>
+          </select>
+          <button class="btn btn-primary" onclick="compararSnapshotsDrift()">Comparar antes/depois</button>
+        </div>
+
+        <div id="drift-compare-result" style="margin-bottom:16px;"></div>
+        <div id="drift-snapshots-lista"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+    </div>
   </div>
 
   <!-- MODAL EDITAR TEMPLATE -->
@@ -971,7 +1018,7 @@
     document.querySelectorAll('.admin-tab').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
 
-    const tabIndex = ['geral', 'broadcast', 'catalogo', 'whatsapp'].indexOf(tabId);
+    const tabIndex = ['geral', 'broadcast', 'catalogo', 'whatsapp', 'schema-drift'].indexOf(tabId);
     document.querySelectorAll('.admin-tab')[tabIndex]?.classList.add('active');
     document.getElementById('tab-' + tabId)?.classList.add('active');
   }
@@ -1051,6 +1098,153 @@
   carregarConfig();
   carregarBroadcasts();
   carregarTemplatesAdmin();
+  carregarSchemaDriftSnapshots();
+
+  // ── SCHEMA DRIFT ─────────────────────────────────────────────────────────
+  let _driftSnapshots = [];
+
+  function _fmtDate(iso) {
+    if (!iso) return '—';
+    try {
+      return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    } catch (_) {
+      return iso;
+    }
+  }
+
+  function _snapshotLabel(s) {
+    return `#${s.id} · ${_fmtDate(s.criado_em)} · ${s.environment || 'n/a'} · ${s.source || 'n/a'} · ${s.app_version || 'n/a'}`;
+  }
+
+  function _uniqueValues(items, key) {
+    return [...new Set(items.map(i => i[key]).filter(Boolean))];
+  }
+
+  function preencherFiltrosSnapshots() {
+    const deploySel = document.getElementById('drift-filter-deploy');
+    const envSel = document.getElementById('drift-filter-environment');
+    const sourceSel = document.getElementById('drift-filter-source');
+    const baseSel = document.getElementById('drift-base-id');
+    const targetSel = document.getElementById('drift-target-id');
+
+    const deploys = _uniqueValues(_driftSnapshots, 'app_version');
+    const envs = _uniqueValues(_driftSnapshots, 'environment');
+    const sources = _uniqueValues(_driftSnapshots, 'source');
+
+    deploySel.innerHTML = '<option value="">Todos os deploys</option>' + deploys.map(v => `<option value="${v}">${v}</option>`).join('');
+    envSel.innerHTML = '<option value="">Todos os ambientes</option>' + envs.map(v => `<option value="${v}">${v}</option>`).join('');
+    sourceSel.innerHTML = '<option value="">Todos os sources</option>' + sources.map(v => `<option value="${v}">${v}</option>`).join('');
+
+    const opts = _driftSnapshots.map(s => `<option value="${s.id}">${_snapshotLabel(s)}</option>`).join('');
+    baseSel.innerHTML = '<option value="">Snapshot base (antes)</option>' + opts;
+    targetSel.innerHTML = '<option value="">Snapshot target (depois)</option>' + opts;
+  }
+
+  function renderListaSnapshotsFiltrada() {
+    const deploy = document.getElementById('drift-filter-deploy').value;
+    const environment = document.getElementById('drift-filter-environment').value;
+    const source = document.getElementById('drift-filter-source').value;
+    const wrap = document.getElementById('drift-snapshots-lista');
+
+    const filtrados = _driftSnapshots.filter(s => {
+      if (deploy && s.app_version !== deploy) return false;
+      if (environment && s.environment !== environment) return false;
+      if (source && s.source !== source) return false;
+      return true;
+    });
+
+    if (!filtrados.length) {
+      wrap.innerHTML = '<div style="font-size:13px;color:var(--muted)">Nenhum snapshot encontrado para os filtros selecionados.</div>';
+      return;
+    }
+
+    wrap.innerHTML = filtrados.map(s => {
+      const missingCols = (s.missing_columns || []).reduce((acc, item) => acc + ((item.columns || []).length || 0), 0);
+      const missingTables = (s.missing_tables || []).length;
+      const extraCols = (s.extra_columns || []).reduce((acc, item) => acc + ((item.columns || []).length || 0), 0);
+      return `
+        <div class="template-item" style="margin-bottom:10px;">
+          <div class="template-info">
+            <div class="template-name">${_snapshotLabel(s)}</div>
+            <div class="template-meta">status: <code>${s.status_ok ? 'ok' : 'drift_detected'}</code></div>
+            <div class="template-stats">missing tables: ${missingTables} · missing cols: ${missingCols} · extra cols: ${extraCols}</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <span class="template-badge ${s.status_ok ? '' : 'custom'}">${s.status_ok ? 'Saudável' : 'Com drift'}</span>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  async function carregarSchemaDriftSnapshots() {
+    const wrap = document.getElementById('drift-snapshots-lista');
+    wrap.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+    try {
+      const resp = await api.get('/admin/schema-drift/snapshots?limit=100');
+      _driftSnapshots = Array.isArray(resp.data) ? resp.data : [];
+      preencherFiltrosSnapshots();
+      renderListaSnapshotsFiltrada();
+    } catch (e) {
+      wrap.innerHTML = `<div style="font-size:13px;color:var(--red)">Erro ao carregar snapshots: ${e.message}</div>`;
+    }
+  }
+
+  async function compararSnapshotsDrift() {
+    const baseId = document.getElementById('drift-base-id').value;
+    const targetId = document.getElementById('drift-target-id').value;
+    const box = document.getElementById('drift-compare-result');
+    if (!baseId || !targetId) {
+      showNotif('⚠️', 'Comparação incompleta', 'Selecione snapshot base e target.', 'warning');
+      return;
+    }
+    box.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+    try {
+      const resp = await api.get(`/admin/schema-drift/snapshots/compare?base_id=${baseId}&target_id=${targetId}`);
+      const d = resp.data || {};
+      const newTables = d.new_missing_tables || [];
+      const resolvedTables = d.resolved_tables || [];
+      const newCols = d.new_missing_columns || [];
+      const resolvedCols = d.resolved_columns || [];
+      box.innerHTML = `
+        <div style="background:var(--color-surface-low);border-radius:12px;padding:12px 14px;">
+          <div style="font-weight:700;margin-bottom:8px;">Diff visual (antes/depois)</div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:8px;">Base #${d.base_snapshot_id} → Target #${d.target_snapshot_id}</div>
+          <div style="font-size:13px;margin-bottom:4px;"><strong>Novos problemas</strong>: ${newTables.length + newCols.length}</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Tabelas: ${newTables.join(', ') || 'nenhuma'} · Colunas: ${newCols.join(', ') || 'nenhuma'}</div>
+          <div style="font-size:13px;margin-bottom:4px;"><strong>Problemas resolvidos</strong>: ${resolvedTables.length + resolvedCols.length}</div>
+          <div style="font-size:12px;color:var(--muted);">Tabelas: ${resolvedTables.join(', ') || 'nenhuma'} · Colunas: ${resolvedCols.join(', ') || 'nenhuma'}</div>
+        </div>`;
+    } catch (e) {
+      box.innerHTML = `<div style="font-size:13px;color:var(--red)">Erro ao comparar snapshots: ${e.message}</div>`;
+    }
+  }
+
+  async function gerarAutoFixPreview() {
+    const btn = document.getElementById('btn-auto-fix-preview');
+    const box = document.getElementById('drift-preview-box');
+    setLoading(btn, true);
+    try {
+      const resp = await api.get('/admin/schema-drift/auto-fix-preview');
+      const data = resp.data || {};
+      const suggestions = data.suggestions || [];
+      box.style.display = 'block';
+      box.innerHTML = `
+        <div style="font-weight:700;margin-bottom:6px;">Auto-fix preview (sem execução)</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">dry_run: ${data.dry_run ? 'true' : 'false'} · executed: ${data.executed ? 'true' : 'false'}</div>
+        <div style="font-size:13px;margin-bottom:4px;">Sugestões: ${suggestions.length}</div>
+        <div style="font-size:12px;color:var(--muted);">${suggestions.slice(0, 5).map(s => `${s.target} (${s.action})`).join(' · ') || 'Nenhuma sugestão'}</div>
+      `;
+    } catch (e) {
+      box.style.display = 'block';
+      box.innerHTML = `<div style="font-size:13px;color:var(--red)">Erro ao gerar preview: ${e.message}</div>`;
+    } finally {
+      setLoading(btn, false, 'Preview Auto-Fix');
+    }
+  }
+
+  document.getElementById('drift-filter-deploy')?.addEventListener('change', renderListaSnapshotsFiltrada);
+  document.getElementById('drift-filter-environment')?.addEventListener('change', renderListaSnapshotsFiltrada);
+  document.getElementById('drift-filter-source')?.addEventListener('change', renderListaSnapshotsFiltrada);
 
   // ── BROADCASTS ──────────────────────────────────────────────────────────
   let _broadcasts = [];

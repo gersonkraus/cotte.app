@@ -6,7 +6,7 @@ import os, logging
 
 logger = logging.getLogger(__name__)
 
-from app.core.database import get_db
+from app.core.database import get_db, engine, Base
 from app.core.auth import hash_senha, get_superadmin
 from app.services.audit_service import registrar_auditoria
 from app.core.config import settings
@@ -42,8 +42,108 @@ from app.services.template_segmento_service import (
     admin_atualizar_template,
     admin_deletar_template,
 )
+from app.services.schema_drift_service import (
+    safe_analyze_schema_drift,
+    save_schema_drift_snapshot,
+    list_schema_drift_snapshots,
+    get_schema_drift_snapshot,
+    compare_schema_drift_snapshots,
+    generate_auto_fix_preview,
+)
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
+
+
+@router.get("/schema-drift")
+def schema_drift(db: Session = Depends(get_db), _=Depends(get_superadmin)):
+    """
+    Diagnóstico em tempo real de divergências entre models SQLAlchemy e schema do banco.
+    Uso interno para superadmin.
+    """
+    result = safe_analyze_schema_drift(engine, Base.metadata)
+    if not result["success"]:
+        raise HTTPException(status_code=500, detail=result["error"])
+    snapshot = save_schema_drift_snapshot(
+        db,
+        result["result"],
+        source="manual_admin",
+        app_version=settings.APP_VERSION,
+        environment=settings.ENVIRONMENT,
+    )
+    return {
+        "success": True,
+        "data": result["result"],
+        "snapshot_id": snapshot.id,
+        "suggestion": (
+            "Se houver missing_columns/missing_tables, execute 'cd sistema && alembic upgrade head'."
+        ),
+    }
+
+
+def _serialize_snapshot(snapshot) -> dict:
+    return {
+        "id": snapshot.id,
+        "criado_em": snapshot.criado_em,
+        "app_version": snapshot.app_version,
+        "environment": snapshot.environment,
+        "source": snapshot.source,
+        "status_ok": snapshot.status_ok,
+        "missing_tables": snapshot.missing_tables_json or [],
+        "missing_columns": snapshot.missing_columns_json or [],
+        "extra_columns": snapshot.extra_columns_json or [],
+    }
+
+
+@router.get("/schema-drift/snapshots")
+def schema_drift_snapshots(
+    limit: int = 20,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+    _=Depends(get_superadmin),
+):
+    snapshots = list_schema_drift_snapshots(db, limit=limit, offset=offset)
+    return {"success": True, "data": [_serialize_snapshot(s) for s in snapshots]}
+
+
+@router.get("/schema-drift/snapshots/compare")
+def schema_drift_snapshot_compare(
+    base_id: int,
+    target_id: int,
+    db: Session = Depends(get_db),
+    _=Depends(get_superadmin),
+):
+    base_snapshot = get_schema_drift_snapshot(db, base_id)
+    target_snapshot = get_schema_drift_snapshot(db, target_id)
+    if not base_snapshot or not target_snapshot:
+        raise HTTPException(
+            status_code=404, detail="Snapshot base/target não encontrado"
+        )
+    return {
+        "success": True,
+        "data": compare_schema_drift_snapshots(base_snapshot, target_snapshot),
+    }
+
+
+@router.get("/schema-drift/snapshots/{snapshot_id}")
+def schema_drift_snapshot_detail(
+    snapshot_id: int, db: Session = Depends(get_db), _=Depends(get_superadmin)
+):
+    snapshot = get_schema_drift_snapshot(db, snapshot_id)
+    if not snapshot:
+        raise HTTPException(status_code=404, detail="Snapshot não encontrado")
+    return {"success": True, "data": _serialize_snapshot(snapshot)}
+
+
+@router.get("/schema-drift/auto-fix-preview")
+def schema_drift_auto_fix_preview(_=Depends(get_superadmin)):
+    """
+    Gera plano de correção sugerido sem executar SQL/migrations.
+    """
+    result = safe_analyze_schema_drift(engine, Base.metadata)
+    if not result["success"]:
+        raise HTTPException(status_code=500, detail=result["error"])
+    preview = generate_auto_fix_preview(result["result"])
+    return {"success": True, "data": preview}
 
 
 EXTENSOES_LOGO = {".png", ".jpg", ".jpeg", ".webp"}

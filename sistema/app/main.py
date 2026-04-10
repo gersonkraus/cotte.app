@@ -37,6 +37,11 @@ logger = logging.getLogger(__name__)
 from app.core.config import settings
 from app.core.database import engine, Base
 from sqlalchemy import select
+from app.services.schema_drift_service import (
+    check_critical_schema_drift,
+    analyze_schema_drift,
+    save_schema_drift_snapshot,
+)
 
 # Imports dos routers
 from app.routers.auth_clientes import auth_router
@@ -338,6 +343,31 @@ async def startup_event():
         Base.metadata.create_all(conn)
 
     logging.info("Tabelas verificadas/criadas com sucesso")
+    critical_check = check_critical_schema_drift(engine, Base.metadata)
+    if not critical_check["ok"]:
+        colunas = ", ".join(critical_check["critical_missing"])
+        raise RuntimeError(
+            "Preflight de schema falhou. Divergência crítica detectada em: "
+            f"{colunas}. Execute 'cd sistema && alembic upgrade head' e reinicie a aplicação."
+        )
+    try:
+        from app.core.database import SessionLocal
+
+        db = SessionLocal()
+        try:
+            drift = analyze_schema_drift(engine, Base.metadata)
+            save_schema_drift_snapshot(
+                db,
+                drift,
+                source="startup",
+                app_version=settings.APP_VERSION,
+                environment=settings.ENVIRONMENT,
+            )
+        finally:
+            db.close()
+    except Exception as exc:  # noqa: BLE001
+        logging.warning("Schema drift snapshot (startup): erro ao salvar — %s", exc)
+
     await _sweep_assinaturas_expiradas()
     await _sweep_financeiro()
     await _sweep_agendamentos_followup()

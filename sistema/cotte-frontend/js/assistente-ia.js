@@ -1135,10 +1135,17 @@ async function sendMessage() {
         let metadata = null;
         let bubbleNode = null;
         let toolBadge = null;   // Badge temporário de "executando tool"
+        let _bubbleReady = false; // true após limpar dots e preparar bubble p/ conteúdo
 
+        // Guarda referência mas NÃO limpa ainda — dots ficam visíveis até 1º conteúdo
         if (loadingMessage) {
-            loadingMessage.classList.remove('loading');
             bubbleNode = loadingMessage.querySelector('.message-bubble');
+        }
+
+        function _prepareBubble() {
+            if (_bubbleReady) return;
+            _bubbleReady = true;
+            if (loadingMessage) loadingMessage.classList.remove('loading');
             if (bubbleNode) bubbleNode.innerHTML = '';
         }
 
@@ -1157,6 +1164,7 @@ async function sendMessage() {
 
                             // ── Evento de fase (thinking / tool_running) ──────
                             if (dataObj.phase === 'tool_running' && dataObj.tool) {
+                                _prepareBubble(); // limpa dots ao primeiro evento real
                                 // Criar/atualizar badge animado no bubble
                                 if (bubbleNode) {
                                     if (!toolBadge) {
@@ -1171,6 +1179,7 @@ async function sendMessage() {
 
                             // ── Chunk de texto ────────────────────────────────
                             if (dataObj.chunk) {
+                                _prepareBubble(); // limpa dots ao primeiro chunk de texto
                                 // Remover badge de tool quando começa o texto
                                 if (toolBadge) { toolBadge.remove(); toolBadge = null; }
                                 responseText += dataObj.chunk;
@@ -1194,6 +1203,7 @@ async function sendMessage() {
 
                             // ── Evento final ──────────────────────────────────
                             if (dataObj.is_final) {
+                                _prepareBubble(); // garante que dots são removidos
                                 if (toolBadge) { toolBadge.remove(); toolBadge = null; }
                                 metadata = dataObj.metadata || {};
                             }
