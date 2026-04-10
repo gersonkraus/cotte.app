@@ -674,7 +674,7 @@
 .input-group:focus-within {
     border-color: var(--ai-accent);
     background: var(--ai-card);
-    box-shadow: var(--ai-shadow-lg);
+    box-shadow: 0 4px 20px var(--ai-accent-glow), 0 0 0 1px var(--ai-accent);
     transform: translateY(-2px);
 }
 
@@ -688,6 +688,12 @@
     background: transparent;
     color: var(--ai-text);
     outline: none;
+}
+
+.input-group input:focus,
+.input-group textarea:focus {
+    border-color: transparent !important;
+    box-shadow: none !important;
 }
 
 .input-group textarea {

@@ -513,6 +513,8 @@ async function enviarWhatsAppLote() {
   if (!leadIds.length) { showToast('Selecione pelo menos um contato', 'error'); return; }
   var delayMin = parseInt(document.getElementById('lote-delay-min').value) || 9;
   var delayMax = parseInt(document.getElementById('lote-delay-max').value) || 15;
+  var btn = document.getElementById('btn-enviar-whatsapp-lote');
+  if(btn) setLoading(btn, true);
   try {
     var result = await api.post('/comercial/leads/enviar-lote', {
       lead_ids: leadIds, campaign_id: parseInt(templateId, 10), canal: 'whatsapp', delay_min: delayMin, delay_max: delayMax
@@ -528,7 +530,7 @@ async function enviarWhatsAppLote() {
     }
   } catch(e) {
     showToast('Erro ao enviar WhatsApps: ' + (e.message || 'Desconhecido'), 'error');
-  }
+  } finally { if(btn) setLoading(btn, false, 'Enviar ✉️'); }
 }
 
 async function enviarEmailLote() {
@@ -539,6 +541,8 @@ async function enviarEmailLote() {
   if (!leadIds.length) { showToast('Selecione pelo menos um contato', 'error'); return; }
   var delayMin = parseInt(document.getElementById('lote-delay-min').value) || 9;
   var delayMax = parseInt(document.getElementById('lote-delay-max').value) || 15;
+  var btn = document.getElementById('btn-enviar-whatsapp-lote');
+  if(btn) setLoading(btn, true);
   try {
     var result = await api.post('/comercial/leads/enviar-lote', {
       lead_ids: leadIds, campaign_id: parseInt(templateId, 10), canal: 'email', delay_min: delayMin, delay_max: delayMax
@@ -553,7 +557,7 @@ async function enviarEmailLote() {
     }
   } catch(e) {
     showToast('Erro ao enviar e-mails: ' + (e.message || 'Desconhecido'), 'error');
-  }
+  } finally { if(btn) setLoading(btn, false, 'Enviar ✉️'); }
 }
 
 function resetImport() {
@@ -781,6 +785,8 @@ async function enviarWhatsAppLoteHistorico(leads) {
   if (!leadIds.length) { showToast('Selecione pelo menos um contato', 'error'); return; }
   var delayMin = parseInt(document.getElementById('lote-delay-min').value) || 9;
   var delayMax = parseInt(document.getElementById('lote-delay-max').value) || 15;
+  var btn = document.getElementById('btn-enviar-whatsapp-lote');
+  if(btn) setLoading(btn, true);
   try {
     var result = await api.post('/comercial/leads/enviar-lote', {
       lead_ids: leadIds, campaign_id: parseInt(templateId, 10), canal: 'whatsapp', delay_min: delayMin, delay_max: delayMax
@@ -798,6 +804,8 @@ async function enviarEmailLoteHistorico(leads) {
   if (!leadIds.length) { showToast('Selecione pelo menos um contato', 'error'); return; }
   var delayMin = parseInt(document.getElementById('lote-delay-min').value) || 9;
   var delayMax = parseInt(document.getElementById('lote-delay-max').value) || 15;
+  var btn = document.getElementById('btn-enviar-whatsapp-lote');
+  if(btn) setLoading(btn, true);
   try {
     var result = await api.post('/comercial/leads/enviar-lote', {
       lead_ids: leadIds, campaign_id: parseInt(templateId, 10), canal: 'email', delay_min: delayMin, delay_max: delayMax
