@@ -484,16 +484,41 @@ function renderizarTemplateModerno(orc, token, API) {
 
   var proximosPassosHtml = '';
   if (orc.status === 'aprovado') {
+    var agModoPasso = (orc.agendamento_modo || 'nao_usa').toString().toLowerCase().replace(/-/g, '_');
+    var textoPassoAg =
+      agModoPasso !== 'nao_usa'
+        ? 'Quando houver datas disponiveis, escolha na secao Agendamento abaixo'
+        : 'Agendamento no cronograma da equipe';
     proximosPassosHtml =
       '<div style="background:white;border-radius:16px;box-shadow:0 4px 15px rgba(0,0,0,0.08);padding:20px;margin:20px 0;border:1px solid #f1f5f9">' +
         '<p style="font-size:12px;color:#64748b;font-weight:700;margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em">Proximos passos</p>' +
         '<div style="display:flex;flex-direction:column;gap:8px">' +
           '<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#334155"><span style="width:8px;height:8px;border-radius:999px;background:#22c55e;display:inline-block"></span>Notificacao enviada ao responsavel</div>' +
-          '<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#334155"><span style="width:8px;height:8px;border-radius:999px;background:#94a3b8;display:inline-block"></span>Agendamento no cronograma da equipe</div>' +
+          '<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#334155"><span style="width:8px;height:8px;border-radius:999px;background:#94a3b8;display:inline-block"></span>' + escHtml(textoPassoAg) + '</div>' +
           '<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#334155"><span style="width:8px;height:8px;border-radius:999px;background:#94a3b8;display:inline-block"></span>Inicio da execucao do servico/entrega</div>' +
         '</div>' +
       '</div>';
   }
+
+  // Mesmos ids/classes do template classico para reutilizar exibirSecaoAgendamento() em orcamento-publico.html
+  var secaoAgendamentoHtml =
+    '<div id="secao-agendamento" class="hidden mx-0" style="margin-top:12px">' +
+      '<div class="rounded-2xl overflow-hidden bg-white border border-blue-100 shadow-sm p-5">' +
+        '<h3 class="text-xs font-bold uppercase tracking-wide mb-3 text-blue-600">📅 Agendamento</h3>' +
+        '<div id="agendamento-aguardando" class="hidden">' +
+          '<p class="text-sm text-gray-600 mb-4">Escolha uma das datas disponíveis para seu atendimento.</p>' +
+          '<div id="agendamento-opcoes-lista" class="space-y-2 mb-4"></div>' +
+          '<p id="agendamento-erro" class="hidden text-red-500 text-xs mt-2"></p>' +
+        '</div>' +
+        '<div id="agendamento-escolhido" class="hidden">' +
+          '<p class="text-sm text-green-700 font-medium">✓ Data agendada com sucesso!</p>' +
+          '<p id="agendamento-data-escolhida" class="text-sm text-gray-600 mt-1"></p>' +
+        '</div>' +
+        '<div id="agendamento-sem-opcoes" class="hidden">' +
+          '<p class="text-sm text-gray-500">A equipe entrará em contato para agendar seu atendimento.</p>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
 
   var conteudo =
     '<style>' +
@@ -559,6 +584,7 @@ function renderizarTemplateModerno(orc, token, API) {
       contasGeradasHtml +
       pagamentoHtml +
       proximosPassosHtml +
+      secaoAgendamentoHtml +
 
       '<div id="timeline-container"></div>' +
 
@@ -728,5 +754,14 @@ function renderizarTemplateModerno(orc, token, API) {
         setTimeout(function() { feedbackEl.style.display = 'none'; }, 2500);
       });
     });
+  }
+
+  // Mesma logica do template classico: carrega opcoes via API publica (orcamento-publico.html)
+  if (typeof exibirSecaoAgendamento === 'function') {
+    try {
+      exibirSecaoAgendamento(orc);
+    } catch (_err) {
+      /* evita quebrar o render se ordem de scripts mudar */
+    }
   }
 }
