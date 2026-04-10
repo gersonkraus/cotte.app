@@ -111,23 +111,56 @@
     margin: 2px 0 0;
 }
 
+.pref-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.38);
+    z-index: 299;
+    animation: fadeIn 0.2s ease;
+}
+
+.pref-backdrop.is-open {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
 .assistente-preferencias-card {
     display: none;
-    position: absolute;
-    top: 104px;
-    right: 20px;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     margin-top: 0;
     background: var(--ai-card);
     border: 1px solid var(--ai-border);
     border-radius: 14px;
     padding: 14px;
-    width: min(640px, calc(100% - 40px));
-    z-index: 220;
+    width: min(720px, calc(100% - 40px));
+    max-height: 85vh;
+    overflow-y: auto;
+    z-index: 300;
     box-shadow: var(--ai-shadow-lg);
 }
 
 .assistente-preferencias-card.is-open {
     display: block;
+    animation: prefModalIn 0.22s cubic-bezier(0.2, 0.9, 0.2, 1);
+}
+
+@keyframes prefModalIn {
+    from {
+        opacity: 0;
+        transform: translate(-50%, calc(-50% + 10px)) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
 }
 
 .topbar-gear-btn {
@@ -182,6 +215,32 @@
     justify-content: space-between;
     gap: 12px;
     margin-bottom: 10px;
+}
+
+.assistente-preferencias-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.assistente-preferencias-close {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    border: 1px solid var(--ai-border);
+    background: var(--ai-bg);
+    color: var(--ai-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.85rem;
+    line-height: 1;
+}
+
+.assistente-preferencias-close:hover {
+    color: var(--ai-text);
+    border-color: var(--ai-accent);
 }
 
 .assistente-preferencias-header h2 {
@@ -1011,24 +1070,6 @@
     }
 
     /* ── Preferências: bottom sheet no mobile ── */
-    .pref-backdrop {
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.45);
-        z-index: 299;
-        animation: fadeIn 0.2s ease;
-    }
-
-    .pref-backdrop.is-open {
-        display: block;
-    }
-
-    @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-    }
-
     .assistente-preferencias-card {
         display: none;
         position: fixed;
@@ -1036,6 +1077,7 @@
         left: 0;
         right: 0;
         top: auto;
+        transform: none;
         margin: 0;
         border-radius: 20px 20px 0 0;
         border-bottom: none;
@@ -1049,6 +1091,7 @@
 
     .assistente-preferencias-card.is-open {
         display: block;
+        transform: none;
         animation: slideUpSheet 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
@@ -1522,6 +1565,10 @@
 
     .assistente-gear-saved-badge {
         transition: none;
+    }
+
+    .assistente-preferencias-card.is-open {
+        animation: none;
     }
 
     .loading-dots span {

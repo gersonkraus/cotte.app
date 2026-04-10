@@ -934,19 +934,86 @@ document.addEventListener('DOMContentLoaded', function() {
     ].filter(Boolean);
     const prefCard = document.getElementById('assistentePreferenciasCard');
     const prefBackdrop = document.getElementById('prefBackdrop');
+    const prefCloseBtn = document.getElementById('btnFecharPreferenciasAssistente');
+    let prefLastFocused = null;
+
+    function _getPrefFocusableElements() {
+        if (!prefCard) return [];
+        const selectors = [
+            'button:not([disabled])',
+            'select:not([disabled])',
+            'textarea:not([disabled])',
+            'input:not([disabled])',
+            '[href]',
+            '[tabindex]:not([tabindex="-1"])'
+        ];
+        return Array.from(prefCard.querySelectorAll(selectors.join(',')))
+            .filter((el) => !el.hasAttribute('disabled') && el.getAttribute('aria-hidden') !== 'true');
+    }
+
+    function _focusFirstPrefField() {
+        const preferred = document.getElementById('assistenteFormatoSelect');
+        if (preferred && !preferred.disabled) {
+            preferred.focus();
+            return;
+        }
+        const focusables = _getPrefFocusableElements();
+        if (focusables.length) focusables[0].focus();
+    }
+
+    function _isPrefOpen() {
+        return !!prefCard && prefCard.classList.contains('is-open');
+    }
+
     function _closePrefSheet() {
         if (prefCard) prefCard.classList.remove('is-open');
         if (prefBackdrop) prefBackdrop.classList.remove('is-open');
+        if (prefLastFocused && typeof prefLastFocused.focus === 'function') {
+            prefLastFocused.focus();
+        }
+        prefLastFocused = null;
+    }
+    function _openPrefSheet() {
+        prefLastFocused = document.activeElement;
+        if (prefCard) prefCard.classList.add('is-open');
+        if (prefBackdrop) prefBackdrop.classList.add('is-open');
+        window.requestAnimationFrame(() => _focusFirstPrefField());
     }
     if (gearBtns.length && prefCard) {
         gearBtns.forEach((gearBtn) => gearBtn.addEventListener('click', () => {
-            const open = prefCard.classList.toggle('is-open');
-            if (prefBackdrop) prefBackdrop.classList.toggle('is-open', open);
+            const open = prefCard.classList.contains('is-open');
+            if (open) _closePrefSheet();
+            else _openPrefSheet();
         }));
     }
     if (prefBackdrop) {
         prefBackdrop.addEventListener('click', _closePrefSheet);
     }
+    if (prefCloseBtn) {
+        prefCloseBtn.addEventListener('click', _closePrefSheet);
+    }
+    document.addEventListener('keydown', (event) => {
+        if (!_isPrefOpen()) return;
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            _closePrefSheet();
+            return;
+        }
+        if (event.key === 'Tab') {
+            const focusables = _getPrefFocusableElements();
+            if (!focusables.length) return;
+            const first = focusables[0];
+            const last = focusables[focusables.length - 1];
+            const active = document.activeElement;
+            if (event.shiftKey && active === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && active === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        }
+    });
 
     // Inovação 1 — Swipe down para fechar bottom sheet de preferências
     if (prefCard) {

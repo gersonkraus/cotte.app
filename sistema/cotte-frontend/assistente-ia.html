@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="css/style.css?v=7">
-    <link rel="stylesheet" href="css/assistente-ia.css?v=7">
+    <link rel="stylesheet" href="css/assistente-ia.css?v=9">
     <!-- Dependências da IA para Markdown e Gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -52,13 +52,16 @@
             </div>
 
             <div class="pref-backdrop" id="prefBackdrop"></div>
-            <section class="assistente-preferencias-card" id="assistentePreferenciasCard" aria-label="Preferências do assistente">
+            <section class="assistente-preferencias-card" id="assistentePreferenciasCard" aria-label="Preferências do assistente" role="dialog" aria-modal="true">
                 <div class="assistente-preferencias-header">
                     <div>
                         <h2>Preferências do Assistente</h2>
                         <p id="assistentePreferenciasResumo">Carregando preferências...</p>
                     </div>
-                    <span class="assistente-preferencias-tag" id="assistenteSetorTag">Setor: --</span>
+                    <div class="assistente-preferencias-header-actions">
+                        <span class="assistente-preferencias-tag" id="assistenteSetorTag">Setor: --</span>
+                        <button type="button" class="assistente-preferencias-close" id="btnFecharPreferenciasAssistente" aria-label="Fechar preferências">✕</button>
+                    </div>
                 </div>
                 <div class="assistente-preferencias-grid">
                     <label class="assistente-preferencias-field">
@@ -246,7 +249,7 @@
     </script>
     <script src="js/orcamento-reenvio-modal.js?v=1"></script>
     <script src="js/chat-virtualization.js?v=1"></script>
-    <script src="js/assistente-ia.js?v=23"></script>
+    <script src="js/assistente-ia.js?v=25"></script>
     <div class="notif" id="notif">
         <div class="notif-icon">✅</div>
         <div>
