@@ -1,7 +1,7 @@
 {
   "$schema": "https://stacklit.dev/schema/v1.json",
   "version": "1",
-  "generated_at": "2026-04-10T18:52:30Z",
+  "generated_at": "2026-04-10T19:01:33Z",
   "stacklit_version": "dev",
   "merkle_hash": "1f086b4d26c4c7825bf92319eacc1102ac127d8a232451232008dc78fc9b570e",
   "project": {
@@ -708,16 +708,19 @@
       }
     ],
     "recent": [
+      "DEPENDENCIES.md",
+      "stacklit.html",
+      "stacklit.json",
       "sistema/cotte-frontend/assistente-ia.html",
       "sistema/cotte-frontend/css/assistente-ia.css",
       "sistema/cotte-frontend/js/assistente-ia.js",
       "sistema/app/routers/orcamentos.py",
       "sistema/app/utils/orcamento_status.py",
       "sistema/tests/test_orcamento_status.py",
-      "sistema/app/services/prompts/knowledge_base.md",
-      "sistema/cotte-frontend/admin-config.html"
+      "sistema/app/services/prompts/knowledge_base.md"
     ],
     "stable": [
+      "DEPENDENCIES.md",
       "Dockerfile",
       "auditoria-tecnica.md",
       "conductor/archive/fluxo_orcamento_whatsapp_20260403/metadata.json",
@@ -726,8 +729,7 @@
       "conductor/tracks/audit-cotte-system/report.md",
       "conductor/tracks/audit-cotte-system/spec.md",
       "correcao-agendamento.md",
-      "docs/plano-assistente-v2.md",
-      "docs/plano_whatsapp_operador.html"
+      "docs/plano-assistente-v2.md"
     ]
   },
   "hints": {
