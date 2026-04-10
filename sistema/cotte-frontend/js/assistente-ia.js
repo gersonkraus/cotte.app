@@ -942,17 +942,19 @@ document.addEventListener('DOMContentLoaded', function() {
     const mobNew = document.getElementById('btnNovaConversaMobile');
     if (mobNew) mobNew.addEventListener('click', () => novaConversaAssistente());
 
-    // Gear: abre/fecha preferências como bottom sheet no mobile
-    const gearBtns = [
-        document.getElementById('btnPreferenciasGear'),
-        document.getElementById('btnPreferenciasGearDesktop')
-    ].filter(Boolean);
-    const prefCard = document.getElementById('assistentePreferenciasCard');
-    const prefBackdrop = document.getElementById('prefBackdrop');
-    const prefCloseBtn = document.getElementById('btnFecharPreferenciasAssistente');
+    // Gear / preferências: sempre resolver nós no DOM (evita refs obsoletas após innerHTML no slot)
     let prefLastFocused = null;
 
+    function _getAssistentePrefCard() {
+        return document.getElementById('assistentePreferenciasCard');
+    }
+
+    function _getPrefBackdrop() {
+        return document.getElementById('prefBackdrop');
+    }
+
     function _getPrefFocusableElements() {
+        const prefCard = _getAssistentePrefCard();
         if (!prefCard) return [];
         const selectors = [
             'button:not([disabled])',
@@ -977,10 +979,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function _isPrefOpen() {
+        const prefCard = _getAssistentePrefCard();
         return !!prefCard && prefCard.classList.contains('is-open');
     }
 
     function _closePrefSheet() {
+        const prefCard = _getAssistentePrefCard();
+        const prefBackdrop = _getPrefBackdrop();
         if (prefCard) prefCard.classList.remove('is-open');
         if (prefBackdrop) prefBackdrop.classList.remove('is-open');
         if (prefLastFocused && typeof prefLastFocused.focus === 'function') {
@@ -989,21 +994,37 @@ document.addEventListener('DOMContentLoaded', function() {
         prefLastFocused = null;
     }
     function _openPrefSheet() {
+        mountAssistentePreferenciasLayersToBody();
+        const prefCard = _getAssistentePrefCard();
+        const prefBackdrop = _getPrefBackdrop();
+        if (!prefCard) return;
         prefLastFocused = document.activeElement;
-        if (prefCard) prefCard.classList.add('is-open');
+        prefCard.classList.add('is-open');
         if (prefBackdrop) prefBackdrop.classList.add('is-open');
         window.requestAnimationFrame(() => _focusFirstPrefField());
     }
-    if (gearBtns.length && prefCard) {
-        gearBtns.forEach((gearBtn) => gearBtn.addEventListener('click', () => {
-            const open = prefCard.classList.contains('is-open');
+
+    document.addEventListener(
+        'click',
+        (ev) => {
+            const gear = ev.target.closest('#btnPreferenciasGear, #btnPreferenciasGearDesktop');
+            if (!gear) return;
+            ev.preventDefault();
+            mountAssistentePreferenciasLayersToBody();
+            const card = _getAssistentePrefCard();
+            if (!card) return;
+            const open = card.classList.contains('is-open');
             if (open) _closePrefSheet();
             else _openPrefSheet();
-        }));
+        },
+        true
+    );
+
+    const prefBackdropInit = _getPrefBackdrop();
+    if (prefBackdropInit) {
+        prefBackdropInit.addEventListener('click', _closePrefSheet);
     }
-    if (prefBackdrop) {
-        prefBackdrop.addEventListener('click', _closePrefSheet);
-    }
+    const prefCloseBtn = document.getElementById('btnFecharPreferenciasAssistente');
     if (prefCloseBtn) {
         prefCloseBtn.addEventListener('click', _closePrefSheet);
     }
@@ -1031,17 +1052,19 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Inovação 1 — Swipe down para fechar bottom sheet de preferências
-    if (prefCard) {
+    (function bindPrefSwipe() {
+        const pc = _getAssistentePrefCard();
+        if (!pc) return;
         let _swipeStartY = 0;
-        prefCard.addEventListener('touchstart', (e) => {
+        pc.addEventListener('touchstart', (e) => {
             _swipeStartY = e.touches[0].clientY;
         }, { passive: true });
-        prefCard.addEventListener('touchmove', (e) => {
+        pc.addEventListener('touchmove', (e) => {
             if (e.touches[0].clientY - _swipeStartY > 60) {
                 _closePrefSheet();
             }
         }, { passive: true });
-    }
+    })();
 
     // Inovação 2 — Header compacto quando teclado virtual abre
     if (window.visualViewport) {

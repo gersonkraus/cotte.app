@@ -57,6 +57,14 @@
     position: relative;
 }
 
+/* Hero + chat: miolo substituível por telas de bloqueio (mantém header com engrenagem no embed) */
+#aiAssistantMainSlot {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
 /* ── Hero (Glassmorphism) ─────────────────────────────────────── */
 .ai-hero {
     display: flex;
@@ -966,6 +974,14 @@
         flex: 1;
         min-height: 0;
         height: auto; /* sobrescreve 100dvh */
+    }
+
+    /* Header do chat fora do card: cantos contínuos com o miolo */
+    .ai-assistant-container > .chat-header {
+        border-radius: 20px 20px 0 0;
+    }
+    #aiAssistantMainSlot > .chat-container {
+        border-radius: 0 0 20px 20px;
     }
 
     /* ── Hamburger no chat-header ── */
