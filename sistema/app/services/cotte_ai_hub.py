@@ -1978,6 +1978,17 @@ async def assistente_v2_stream_core(
                 ),
             }
         )
+    _instrucoes_empresa = (adaptive_ctx or {}).get("instrucoes_empresa", "")
+    if _instrucoes_empresa:
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    "## GUARDRAILS OBRIGATÓRIOS DA EMPRESA (aplicar em TODA resposta, sem exceção)\n"
+                    + _instrucoes_empresa
+                ),
+            }
+        )
     if adaptive_ctx:
         messages.append(
             {
@@ -3358,6 +3369,17 @@ async def assistente_unificado_v2(
                 "content": (
                     "## Memória semântica da empresa (use para reduzir repetição e aumentar precisão)\n"
                     + json.dumps(semantic_ctx, ensure_ascii=False, default=str)
+                ),
+            }
+        )
+    _instrucoes_empresa = (adaptive_ctx or {}).get("instrucoes_empresa", "")
+    if _instrucoes_empresa:
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    "## GUARDRAILS OBRIGATÓRIOS DA EMPRESA (aplicar em TODA resposta, sem exceção)\n"
+                    + _instrucoes_empresa
                 ),
             }
         )
