@@ -801,13 +801,14 @@
 .ai-loading-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 4px 2px;
+  gap: 8px;
+  padding: 0;
 }
 
 .ai-loading-bubble {
-  min-width: 80px !important;
-  padding: 10px 20px !important;
+  min-width: 85px !important;
+  padding: 16px 20px 12px 22px !important;
+  border-radius: 20px 22px 20px 14px !important;
   background: linear-gradient(
     90deg,
     color-mix(in srgb, var(--ai-card) 90%, var(--ai-accent) 10%) 0%,
@@ -836,7 +837,8 @@
 }
 
 .message.loading .ai-loading-bubble::before {
-  display: none !important;
+  display: block !important;
+  opacity: 0.5;
 }
 
 .message.loading .ai-loading-bubble {
