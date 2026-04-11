@@ -1,9 +1,0 @@
---- sistema/cotte-frontend/css/assistente-ia.css
-+++ sistema/cotte-frontend/css/assistente-ia.css
-@@ -808,3 +808,3 @@
- .ai-loading-bubble {
--  min-width: unset !important;
--  padding: 0 !important;
-+  min-width: 80px !important;
-+  padding: 10px 20px !important;
-   background: linear-gradient(

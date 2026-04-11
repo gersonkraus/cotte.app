@@ -100,3 +100,17 @@ sistema/debug_output.txt
 sistema/test_result.txt
 homegk
 COTTE_Documentacao.base
+
+# oh-my-codex / OMX — estado local da máquina (não é código do produto)
+.omx/
+
+# Sessão volátil do agente (logs locais)
+memory/.last-session
+memory/.session-log
+
+# Patches temporários na raiz (experimentos / aplicação manual)
+/*.patch
+
+# Resíduos de merge e patch (diff3, patch -r)
+*.orig
+*.rej
