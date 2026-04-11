@@ -1,0 +1,10 @@
+--- sistema/cotte-frontend/css/assistente-ia.css
++++ sistema/cotte-frontend/css/assistente-ia.css
+@@ -803,3 +803,3 @@
+   align-items: center;
+-  gap: 12px;
+-  padding: 4px 2px;
++  gap: 8px;
++  padding: 0;
++  justify-content: center;
+ }

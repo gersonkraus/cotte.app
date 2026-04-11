@@ -1,0 +1,14 @@
+--- sistema/cotte-frontend/css/assistente-ia.css
++++ sistema/cotte-frontend/css/assistente-ia.css
+@@ -639,3 +639,3 @@
+   color: var(--ai-text);
+   border: none;
+-  padding-left: 17px;
++  padding-left: 20px;
+   border-radius: 18px 22px 20px 14px;
+@@ -2652,3 +2652,4 @@
+   white-space: pre-wrap;
+-  word-break: break-word;
++  word-break: normal;
++  overflow-wrap: anywhere;
+ }

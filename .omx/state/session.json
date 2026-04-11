@@ -1,9 +1,0 @@
-{
-  "session_id": "omx-1775871449854-w3jm4u",
-  "started_at": "2026-04-11T01:37:29.874Z",
-  "cwd": "/home/gk/Projeto-izi",
-  "pid": 1051937,
-  "platform": "linux",
-  "pid_start_ticks": 12902014,
-  "pid_cmdline": "node /home/gk/.npm-global/bin/omx --madmax --high --model google/gemini-3.1-pro-preview"
-}

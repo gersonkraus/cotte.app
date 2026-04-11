@@ -1,3 +1,10 @@
+---
+title: 2026 04 10 Workbox Migration
+tags:
+  - tecnico
+prioridade: media
+status: documentado
+---
 # Spec: Migração de Service Worker para Workbox (Opção 1 - CDN)
 
 ## 1. Objetivo
