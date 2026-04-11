@@ -21,3 +21,8 @@ uploads/
 **/*.pyc
 **/*.pyo
 **/.pytest_cache/
+
+# Artefatos locais (merge/patch, experimentos) — não são código de produção
+*.orig
+*.rej
+*.patch
