@@ -1,9 +1,9 @@
 {
   "$schema": "https://stacklit.dev/schema/v1.json",
   "version": "1",
-  "generated_at": "2026-04-10T19:01:33Z",
+  "generated_at": "2026-04-11T01:42:52Z",
   "stacklit_version": "dev",
-  "merkle_hash": "1f086b4d26c4c7825bf92319eacc1102ac127d8a232451232008dc78fc9b570e",
+  "merkle_hash": "a00ded3342198e996fa3c1a68b4157a31de4cc994160f1a5c453ba849f1e867c",
   "project": {
     "name": "Projeto-izi",
     "root": ".",
@@ -13,12 +13,12 @@
     "primary_language": "python",
     "languages": {
       "javascript": {
-        "files": 44,
-        "lines": 24121
+        "files": 55,
+        "lines": 25347
       },
       "python": {
-        "files": 286,
-        "lines": 63705
+        "files": 287,
+        "lines": 63756
       },
       "shell": {
         "files": 6,
@@ -35,16 +35,17 @@
     "entrypoints": [
       "sistema/scripts/verificar_urls_r2.py"
     ],
-    "total_files": 336,
-    "total_lines": 88103
+    "total_files": 348,
+    "total_lines": 89380
   },
   "modules": {
     "root": {
       "purpose": "Root package",
       "language": "javascript",
-      "files": 1,
-      "lines": 22,
+      "files": 2,
+      "lines": 59,
       "file_list": [
+        "patch_comercial.py",
         "playwright.config.js"
       ],
       "activity": "low"
@@ -167,7 +168,7 @@
       "purpose": "Core",
       "language": "python",
       "files": 11,
-      "lines": 2246,
+      "lines": 2260,
       "file_list": [
         "__init__.py",
         "auth.py",
@@ -435,13 +436,10 @@
       "purpose": "Cotte-frontend",
       "language": "javascript",
       "files": 2,
-      "lines": 39,
+      "lines": 110,
       "file_list": [
         "generate_icon.py",
         "sw.js"
-      ],
-      "depended_by": [
-        "sistema/cotte-frontend/js/dashboard"
       ],
       "activity": "high"
     },
@@ -458,12 +456,19 @@
     "sistema/cotte-frontend/js": {
       "purpose": "Js",
       "language": "javascript",
-      "files": 29,
-      "lines": 20198,
+      "files": 36,
+      "lines": 20620,
       "file_list": [
         "agendamentos.js",
         "api-financeiro.js",
         "api.js",
+        "assistente-ia-actions.js",
+        "assistente-ia-feedback.js",
+        "assistente-ia-input.js",
+        "assistente-ia-render-types.js",
+        "assistente-ia-render-utils.js",
+        "assistente-ia-render.js",
+        "assistente-ia-shell.js",
         "assistente-ia.js",
         "chat-tooltips.js",
         "chat-virtualization.js",
@@ -473,14 +478,10 @@
         "comercial-core.js",
         "comercial-dashboard.js",
         "comercial-import.js",
-        "comercial-leads.js",
-        "comercial-lembretes.js",
-        "comercial-mensagens.js",
-        "comercial-pipeline.js",
-        "comercial-propostas-publicas.js",
-        "comercial-templates.js",
-        "comercial.js",
-        "configuracoes.js"
+        "comercial-leads.js"
+      ],
+      "depended_by": [
+        "sistema/cotte-frontend/js/dashboard"
       ],
       "activity": "high"
     },
@@ -519,7 +520,7 @@
         "StatsRow": "constructor, load, calcularStats, render, renderLoading, renderStats, setupEventListeners, handleCardHover, handleCardLeave, handleCardClick, setupDynamicTooltips, update, updateStat, updateCard, destroy"
       },
       "depends_on": [
-        "sistema/cotte-frontend"
+        "sistema/cotte-frontend/js"
       ],
       "activity": "low"
     },
@@ -582,14 +583,14 @@
     "edges": [
       [
         "sistema/cotte-frontend/js/dashboard",
-        "sistema/cotte-frontend"
+        "sistema/cotte-frontend/js"
       ]
     ],
     "entrypoints": [
       "sistema/scripts/verificar_urls_r2.py"
     ],
     "most_depended": [
-      "sistema/cotte-frontend",
+      "sistema/cotte-frontend/js",
       "root",
       "scripts",
       "sistema",
@@ -616,8 +617,8 @@
       "sistema/app/services",
       "sistema/app/services/ai_tools",
       "sistema/app/utils",
+      "sistema/cotte-frontend",
       "sistema/cotte-frontend/css",
-      "sistema/cotte-frontend/js",
       "sistema/cotte-frontend/js/components",
       "sistema/cotte-frontend/js/services",
       "sistema/cotte-frontend/js/utils",
@@ -635,16 +636,20 @@
         "commits_90d": 88
       },
       {
-        "path": "sistema/app/routers/orcamentos.py",
-        "commits_90d": 86
+        "path": "sistema/cotte-frontend/index.html",
+        "commits_90d": 87
       },
       {
-        "path": "sistema/cotte-frontend/index.html",
+        "path": "sistema/app/routers/orcamentos.py",
         "commits_90d": 86
       },
       {
         "path": "sistema/cotte-frontend/orcamentos.html",
         "commits_90d": 85
+      },
+      {
+        "path": "sistema/cotte-frontend/assistente-ia.html",
+        "commits_90d": 73
       },
       {
         "path": "sistema/cotte-frontend/comercial.html",
@@ -655,16 +660,16 @@
         "commits_90d": 72
       },
       {
-        "path": "sistema/cotte-frontend/assistente-ia.html",
-        "commits_90d": 69
-      },
-      {
         "path": "sistema/cotte-frontend/admin.html",
         "commits_90d": 58
       },
       {
         "path": "sistema/cotte-frontend/orcamento-publico.html",
-        "commits_90d": 57
+        "commits_90d": 58
+      },
+      {
+        "path": "sistema/cotte-frontend/js/assistente-ia.js",
+        "commits_90d": 50
       },
       {
         "path": "sistema/app/routers/publico.py",
@@ -673,10 +678,6 @@
       {
         "path": "sistema/app/services/cotte_ai_hub.py",
         "commits_90d": 48
-      },
-      {
-        "path": "sistema/cotte-frontend/js/assistente-ia.js",
-        "commits_90d": 47
       },
       {
         "path": "sistema/cotte-frontend/financeiro.html",
@@ -691,45 +692,45 @@
         "commits_90d": 41
       },
       {
+        "path": "memory/.last-session",
+        "commits_90d": 39
+      },
+      {
+        "path": "memory/.session-log",
+        "commits_90d": 39
+      },
+      {
         "path": "sistema/app/routers/whatsapp.py",
         "commits_90d": 39
       },
       {
         "path": "sistema/cotte-frontend/catalogo.html",
         "commits_90d": 39
-      },
-      {
-        "path": "sistema/app/services/financeiro_service.py",
-        "commits_90d": 38
-      },
-      {
-        "path": "memory/.last-session",
-        "commits_90d": 37
       }
     ],
     "recent": [
-      "DEPENDENCIES.md",
-      "stacklit.html",
-      "stacklit.json",
-      "sistema/cotte-frontend/assistente-ia.html",
-      "sistema/cotte-frontend/css/assistente-ia.css",
-      "sistema/cotte-frontend/js/assistente-ia.js",
-      "sistema/app/routers/orcamentos.py",
-      "sistema/app/utils/orcamento_status.py",
-      "sistema/tests/test_orcamento_status.py",
-      "sistema/app/services/prompts/knowledge_base.md"
+      "docs/superpowers/specs/2026-04-10-workbox-migration.md",
+      "sistema/cotte-frontend/sw.js",
+      ".omx/state/notify-fallback-authority-owner.json",
+      ".omx/state/notify-fallback-state.json",
+      ".codex",
+      ".omx/hud-config.json",
+      ".omx/metrics.json",
+      ".omx/setup-scope.json",
+      ".omx/state/hud-state.json",
+      ".omx/state/notify-fallback.pid"
     ],
     "stable": [
-      "DEPENDENCIES.md",
-      "Dockerfile",
-      "auditoria-tecnica.md",
-      "conductor/archive/fluxo_orcamento_whatsapp_20260403/metadata.json",
-      "conductor/tracks/audit-cotte-system/index.md",
-      "conductor/tracks/audit-cotte-system/plan.md",
-      "conductor/tracks/audit-cotte-system/report.md",
-      "conductor/tracks/audit-cotte-system/spec.md",
-      "correcao-agendamento.md",
-      "docs/plano-assistente-v2.md"
+      ".codex",
+      ".omx/hud-config.json",
+      ".omx/metrics.json",
+      ".omx/setup-scope.json",
+      ".omx/state/hud-state.json",
+      ".omx/state/notify-fallback.pid",
+      ".omx/state/notify-hook-state.json",
+      ".omx/state/session.json",
+      ".omx/state/sessions/omx-1775862083067-uzpuxn/AGENTS.md",
+      ".omx/state/team-leader-nudge.json"
     ]
   },
   "hints": {
@@ -737,6 +738,7 @@
     "test_command": "npm test",
     "env_vars": [
       "ANTHROPIC_API_KEY",
+      "ENVIRONMENT",
       "TEST_EMAIL",
       "TEST_PASSWORD",
       "USERPROFILE"

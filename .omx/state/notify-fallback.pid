@@ -1,8 +1,8 @@
 {
-  "pid": 911494,
-  "parent_pid": 911479,
+  "pid": 1051952,
+  "parent_pid": 1051937,
   "cwd": "/home/gk/Projeto-izi",
-  "started_at": "2026-04-10T23:01:23.168Z",
+  "started_at": "2026-04-11T01:37:29.945Z",
   "max_lifetime_ms": 21600000,
-  "owner_token": "911494-1775862083168-duxhnde4"
+  "owner_token": "1051952-1775871449945-r4xa39em"
 }
