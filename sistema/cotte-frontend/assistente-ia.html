@@ -8,8 +8,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,500;0,600;0,700;0,800;1,600&family=Inter:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="css/style.css?v=7">
-    <link rel="stylesheet" href="css/assistente-ia.css?v=13">
-    <link rel="stylesheet" href="css/assistente-ia-mobile.css?v=2">
+    <link rel="stylesheet" href="css/assistente-ia.css?v=14">
+    <link rel="stylesheet" href="css/assistente-ia-mobile.css?v=3">
     <!-- Dependências da IA para Markdown e Gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -190,6 +190,43 @@
 
                 <!-- Quick Reply Chips (mobile, acima do input) -->
                 <div class="quick-reply-area" id="quickReplyArea" style="display:none;" aria-label="Sugestões rápidas"></div>
+                <div class="quick-actions-backdrop" id="quickActionsBackdrop"></div>
+                <div class="quick-actions-sheet" id="quickActionsSheet" role="dialog" aria-modal="true" aria-label="Ações rápidas">
+                    <div class="quick-actions-list">
+                        <button type="button" class="quick-action-item" data-quick-action="Qual meu saldo atual?">
+                            <span class="quick-action-icon">💰</span>
+                            <span class="quick-action-content">
+                                <span class="quick-action-label">Consultar Saldo</span>
+                                <span class="quick-action-desc">Ver saldo atualizado agora</span>
+                            </span>
+                            <span class="quick-action-chevron">›</span>
+                        </button>
+                        <button type="button" class="quick-action-item" data-quick-action="Gerar orcamento para cliente">
+                            <span class="quick-action-icon">📝</span>
+                            <span class="quick-action-content">
+                                <span class="quick-action-label">Novo Orçamento</span>
+                                <span class="quick-action-desc">Criar orçamento para cliente</span>
+                            </span>
+                            <span class="quick-action-chevron">›</span>
+                        </button>
+                        <button type="button" class="quick-action-item" data-quick-action="Listar meus clientes">
+                            <span class="quick-action-icon">👥</span>
+                            <span class="quick-action-content">
+                                <span class="quick-action-label">Listar Clientes</span>
+                                <span class="quick-action-desc">Consultar base de clientes</span>
+                            </span>
+                            <span class="quick-action-chevron">›</span>
+                        </button>
+                        <button type="button" class="quick-action-item" data-quick-action="Resumo financeiro do mes">
+                            <span class="quick-action-icon">📊</span>
+                            <span class="quick-action-content">
+                                <span class="quick-action-label">Resumo Financeiro</span>
+                                <span class="quick-action-desc">Acompanhar resultados do mês</span>
+                            </span>
+                            <span class="quick-action-chevron">›</span>
+                        </button>
+                    </div>
+                </div>
 
                 <button type="button" class="chat-scroll-bottom-btn" id="chatScrollBottomBtn" aria-label="Ir para a mensagem mais recente" title="Últimas mensagens">↓</button>
 
@@ -203,6 +240,12 @@
                         </div>
 
                         <div class="input-group">
+                            <button type="button" id="quickActionsBtn" class="chat-input-btn btn-attach" aria-label="Abrir ações rápidas" title="Ações rápidas">
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                </svg>
+                            </button>
                             <textarea id="messageInput" rows="1" placeholder="Pergunte algo ou dê um comando..." autocomplete="off" aria-label="Mensagem para o assistente"></textarea>
                             
                             <div class="input-actions-right">

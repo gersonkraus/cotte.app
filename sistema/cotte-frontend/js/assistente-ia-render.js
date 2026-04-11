@@ -26,6 +26,19 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
     }
 
     let responseContent = formatAIResponse(data, isStreamed);
+    const actionStatusMap = {
+        saldo_caixa: 'Saldo consultado',
+        resumo_financeiro: 'Resumo financeiro gerado',
+        orcamento_preview: 'Pré-visualização pronta',
+        orcamento_criado: 'Orçamento criado',
+        orcamento_atualizado: 'Orçamento atualizado',
+        registro_criado: 'Registro criado',
+        operador_resultado: 'Ação executada',
+    };
+    const actionStatusLabel = actionStatusMap[data.tipo_resposta];
+    if (actionStatusLabel) {
+        responseContent = `<div class="action-status-chip">✓ ${escapeHtml(actionStatusLabel)}</div>${responseContent}`;
+    }
     const visPref = data?.dados?.visualizacao_recomendada || null;
     if (visPref && visPref.formato_preferido && visPref.formato_preferido !== 'auto') {
         responseContent += `<div class="tool-trace">🧭 Formato aplicado: <strong>${escapeHtml(String(visPref.formato_preferido))}</strong></div>`;

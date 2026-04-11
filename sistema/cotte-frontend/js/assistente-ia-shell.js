@@ -666,6 +666,45 @@ function saveChatHistory() {
     _persistAssistenteChatMeta();
 }
 
+function _toggleQuickActions(open) {
+    const sheet = document.getElementById('quickActionsSheet');
+    const backdrop = document.getElementById('quickActionsBackdrop');
+    if (!sheet || !backdrop) return;
+    const shouldOpen = typeof open === 'boolean' ? open : !sheet.classList.contains('is-open');
+    sheet.classList.toggle('is-open', shouldOpen);
+    backdrop.classList.toggle('is-open', shouldOpen);
+}
+
+function _initQuickActionsSheet() {
+    const button = document.getElementById('quickActionsBtn');
+    const sheet = document.getElementById('quickActionsSheet');
+    const backdrop = document.getElementById('quickActionsBackdrop');
+    if (!button || !sheet || !backdrop) return;
+
+    button.addEventListener('click', () => _toggleQuickActions(true));
+    backdrop.addEventListener('click', () => _toggleQuickActions(false));
+
+    sheet.querySelectorAll('[data-quick-action]').forEach((item) => {
+        item.addEventListener('click', () => {
+            const message = item.getAttribute('data-quick-action') || '';
+            if (message && typeof sendQuickMessage === 'function') {
+                sendQuickMessage(message);
+            }
+            _toggleQuickActions(false);
+        });
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            _toggleQuickActions(false);
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    _initQuickActionsSheet();
+});
+
 window.getSuggestionIcon = getSuggestionIcon;
 window.getOrcamentoFollowupSuggestions = getOrcamentoFollowupSuggestions;
 window.dismissWelcome = dismissWelcome;
@@ -689,3 +728,4 @@ window.updateScrollBottomButtonVisibility = updateScrollBottomButtonVisibility;
 window.novaConversaAssistente = novaConversaAssistente;
 window.initAssistenteChatDelegation = initAssistenteChatDelegation;
 window.saveChatHistory = saveChatHistory;
+window._toggleQuickActions = _toggleQuickActions;

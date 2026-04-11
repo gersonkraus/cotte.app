@@ -59,13 +59,13 @@
     }
 
     .orc-action-btns--success {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
         gap: 10px;
     }
 
     .orc-action-btns--success .orc-action-btn {
-        min-height: 68px;
-        padding: 14px;
+        min-height: 52px;
+        padding: 10px 12px;
         border-radius: 14px;
     }
 
@@ -75,5 +75,15 @@
 
     .orc-action-btn__hint {
         font-size: 0.73rem;
+    }
+
+    .saldo-valor {
+        font-size: 1.6rem;
+    }
+}
+
+@media (max-width: 380px) {
+    .orc-action-btns--success {
+        grid-template-columns: 1fr;
     }
 }

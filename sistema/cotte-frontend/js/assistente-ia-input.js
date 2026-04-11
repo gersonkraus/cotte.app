@@ -297,6 +297,27 @@ function addMessage(
     messageDiv.innerHTML = `<div class="message-bubble" data-time="${time}">${copyBtn}${content}</div>`;
   }
 
+  const today = new Date();
+  const dateKey = [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, "0"),
+    String(today.getDate()).padStart(2, "0"),
+  ].join("-");
+  const hasTodaySeparator = !!messagesContainer.querySelector(
+    `.chat-date-separator[data-date="${dateKey}"]`,
+  );
+  if (!hasTodaySeparator) {
+    const separator = document.createElement("div");
+    separator.className = "chat-date-separator";
+    separator.dataset.date = dateKey;
+    const label = today.toLocaleDateString("pt-BR", {
+      day: "numeric",
+      month: "long",
+    });
+    separator.innerHTML = `<span class="chat-date-pill">${label}</span>`;
+    messagesContainer.appendChild(separator);
+  }
+
   messagesContainer.appendChild(messageDiv);
   if (typeof updateAssistenteMessageDensity === "function") {
     updateAssistenteMessageDensity();
