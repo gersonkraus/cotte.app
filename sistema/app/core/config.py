@@ -12,6 +12,10 @@ def _compute_version() -> str:
         # Se estiver em desenvolvimento, usa timestamp para forçar cache bust a cada reinício
         import os
 
+        version_env = os.getenv("RAILWAY_GIT_COMMIT_SHA")
+        if version_env:
+            return version_env[:7]
+
         if os.getenv("ENVIRONMENT") == "development":
             return str(int(time.time()))
 

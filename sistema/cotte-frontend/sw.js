@@ -15,9 +15,9 @@ if (workbox) {
 
   // Configuração de nome de cache para facilitar debug
   const CACHE_NAMES = {
-    pages: 'cotte-pages-v1',
-    assets: 'cotte-assets-v1',
-    images: 'cotte-images-v1',
+    pages: 'cotte-pages-v2',
+    assets: 'cotte-assets-v2',
+    images: 'cotte-images-v2',
     fonts: 'google-fonts'
   };
 
