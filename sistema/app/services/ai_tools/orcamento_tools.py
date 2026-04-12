@@ -410,27 +410,18 @@ async def _criar_orcamento(
     # Recarrega com itens para exibir no card
     orc_com_itens = (
         db.query(Orcamento)
-        .options(selectinload(Orcamento.itens))
+        .options(selectinload(Orcamento.itens), selectinload(Orcamento.cliente))
         .filter(Orcamento.id == orc.id)
         .first()
     )
-    itens_lista = [
-        {"descricao": i.descricao, "total": float(i.total or 0)}
-        for i in (orc_com_itens.itens if orc_com_itens else [])
-    ]
-    return {
-        "id": orc.id,
-        "numero": orc.numero,
-        "status": orc.status.value if orc.status else None,
-        "total": float(orc.total or 0),
-        "cliente_id": orc.cliente_id,
-        "cliente_nome": cliente.nome if cliente else "",
-        "link_publico": orc.link_publico or "",
-        "cliente_auto_criado": cliente_auto_criado,
-        "materiais_novos": materiais_novos,
-        "itens": itens_lista,
-        "criado": True,
-    }
+    return _build_orcamento_response(
+        orc_com_itens,
+        {
+            "cliente_auto_criado": cliente_auto_criado,
+            "materiais_novos": materiais_novos,
+            "criado": True,
+        },
+    )
 
 
 async def preview_criar_orcamento(
@@ -517,6 +508,28 @@ criar_orcamento = ToolSpec(
 
 
 # ── helper: carregar orçamento da empresa ─────────────────────────────────
+def _build_orcamento_response(orc: Orcamento, extra_fields: dict = None) -> dict:
+    itens_lista = [
+        {"descricao": i.descricao, "total": float(i.total or 0)}
+        for i in (orc.itens or [])
+    ]
+    resp = {
+        "id": orc.id,
+        "numero": orc.numero,
+        "status": orc.status.value if orc.status else None,
+        "total": float(orc.total or 0),
+        "cliente_id": orc.cliente_id,
+        "cliente_nome": orc.cliente.nome if orc.cliente else "",
+        "link_publico": orc.link_publico or "",
+        "itens": itens_lista,
+        "tem_telefone": bool(orc.cliente and getattr(orc.cliente, "telefone", None)),
+        "tem_email": bool(orc.cliente and getattr(orc.cliente, "email", None)),
+    }
+    if extra_fields:
+        resp.update(extra_fields)
+    return resp
+
+
 def _get_orcamento_da_empresa(
     db: Session, orcamento_id: int | str, empresa_id: int
 ) -> Optional[Orcamento]:
@@ -571,7 +584,9 @@ async def _aprovar_orcamento(
     if not orc:
         return {"error": "Orçamento não encontrado", "code": "not_found"}
     if orc.status == StatusOrcamento.APROVADO:
-        return {"id": orc.id, "ja_aprovado": True, "numero": orc.numero}
+        return _build_orcamento_response(
+            orc, {"ja_aprovado": True, "status": "aprovado"}
+        )
 
     old_status = orc.status
     orc.status = StatusOrcamento.APROVADO
@@ -597,7 +612,7 @@ async def _aprovar_orcamento(
         )
     except Exception:
         pass
-    return {"id": orc.id, "numero": orc.numero, "status": "aprovado"}
+    return _build_orcamento_response(orc, {"status": "aprovado"})
 
 
 aprovar_orcamento = ToolSpec(
@@ -991,14 +1006,12 @@ async def _editar_orcamento(
         return {"error": "nenhum campo para atualizar", "code": "invalid_input"}
     db.commit()
     db.refresh(orc)
-    return {
-        "id": orc.id,
-        "numero": orc.numero,
-        "observacoes": orc.observacoes,
-        "desconto": float(orc.desconto or 0),
-        "total": float(orc.total or 0),
-        "atualizado": True,
-    }
+    return _build_orcamento_response(
+        orc,
+        {
+            "atualizado": True,
+        },
+    )
 
 
 editar_orcamento = ToolSpec(
@@ -1081,13 +1094,13 @@ async def _editar_item_orcamento(
         orc.total = max(Decimal("0"), subtotal - desconto)
     db.commit()
     db.refresh(orc)
-    return {
-        "id": orc.id,
-        "numero": orc.numero,
-        "total": float(orc.total or 0),
-        "item_editado": inp.num_item,
-        "atualizado": True,
-    }
+    return _build_orcamento_response(
+        orc,
+        {
+            "item_editado": inp.num_item,
+            "atualizado": True,
+        },
+    )
 
 
 editar_item_orcamento = ToolSpec(

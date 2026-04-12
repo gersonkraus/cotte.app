@@ -257,6 +257,8 @@ const SUGGESTION_ICONS = {
  * Envia mensagem para o assistente
  */
 async function sendMessage() {
+    const isSilent = window._silentNextMessage;
+    window._silentNextMessage = false;
     if (!hasHttpClient()) {
         addMessage('Serviço de API indisponível. Recarregue a página e tente novamente.', false, true);
         return;
@@ -283,7 +285,7 @@ async function sendMessage() {
     resizeMessageInput();
     _updateVoiceSendToggle(input);
     _hideQuickReplyChips();
-    const isConfirmacaoSilenciosa = message === '__confirmar_acao__';
+    const isConfirmacaoSilenciosa = message === '__confirmar_acao__' || isSilent;
     if (!isConfirmacaoSilenciosa) {
         _ultimaPergunta = message;
         if (typeof trackAssistenteUserIntent === 'function') {

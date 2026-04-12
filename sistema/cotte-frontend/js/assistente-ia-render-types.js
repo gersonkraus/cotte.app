@@ -126,7 +126,7 @@ function renderOrcamentoCriado(dados) {
                     <button type="button" class="orc-card-v2__icon-btn btn-link" ${linkTokenAttr} title="Copiar link">🔗</button>
                     <button type="button" class="orc-card-v2__icon-btn btn-email" ${disEmail} data-enviar-email="${orcId}" data-orc-numero="${numEnc}" title="Enviar E-mail">✉️</button>
                 </div>
-                <button type="button" class="orc-card-v2__aprovar-btn btn-aprovar" data-quick-send="${aprovarEnc}">✓ Aprovar</button>
+                <button type="button" class="orc-card-v2__aprovar-btn btn-aprovar" data-quick-send="${aprovarEnc}" data-silent-send="true">✓ Aprovar</button>
             </div>
         </div>
     </div>`;
@@ -253,7 +253,7 @@ function renderOrcamentoAtualizado(dados) {
                     <button type="button" class="orc-card-v2__icon-btn btn-link" ${linkTokenAttr} title="Copiar link">🔗</button>
                     <button type="button" class="orc-card-v2__icon-btn btn-email" ${disEmail} data-enviar-email="${orcId}" data-orc-numero="${numEnc}" title="Enviar E-mail">✉️</button>
                 </div>
-                <button type="button" class="orc-card-v2__aprovar-btn btn-aprovar" data-quick-send="${aprovarEnc}">✓ Aprovar</button>
+                <button type="button" class="orc-card-v2__aprovar-btn btn-aprovar" data-quick-send="${aprovarEnc}" data-silent-send="true">✓ Aprovar</button>
             </div>
         </div>
     </div>`;
@@ -302,7 +302,7 @@ function renderOperadorResultado(data, dados) {
                         <button type="button" class="orc-card-v2__icon-btn btn-link" ${linkTokenAttr} title="Copiar link">🔗</button>
                         <button type="button" class="orc-card-v2__icon-btn btn-email" ${disEmail} data-enviar-email="${orcId}" data-orc-numero="${numEnc}" title="Enviar E-mail">✉️</button>
                     </div>
-                    <button type="button" class="orc-card-v2__aprovar-btn btn-aprovar" data-quick-send="${aprovarEnc}">✓ Aprovar</button>
+                    <button type="button" class="orc-card-v2__aprovar-btn btn-aprovar" data-quick-send="${aprovarEnc}" data-silent-send="true">✓ Aprovar</button>
                 </div>`;
         } else if (statusKey === 'aprovado') {
             const disWhats = dados.tem_telefone ? '' : 'disabled title="Cliente sem telefone"';

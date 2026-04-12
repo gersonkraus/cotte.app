@@ -620,6 +620,9 @@ function initAssistenteChatDelegation() {
             } catch (_) {
                 text = qs.getAttribute('data-quick-send') || '';
             }
+            if (qs.hasAttribute('data-silent-send')) {
+                window._silentNextMessage = true;
+            }
             sendQuickMessage(text);
             return;
         }
