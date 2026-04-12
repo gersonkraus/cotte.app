@@ -4,8 +4,8 @@
     }
 
     .chat-input {
-        position: sticky;
-        bottom: 0;
+        position: relative;
+        flex-shrink: 0;
         z-index: 4;
         box-shadow:
             0 -8px 32px rgba(0, 78, 92, 0.06),
@@ -13,8 +13,8 @@
     }
 
     .quick-reply-area {
-        position: sticky;
-        bottom: calc(66px + env(safe-area-inset-bottom, 0px));
+        position: relative;
+        flex-shrink: 0;
         z-index: 3;
     }
 
