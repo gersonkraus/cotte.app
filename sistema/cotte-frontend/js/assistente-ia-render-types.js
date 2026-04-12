@@ -29,16 +29,21 @@ function renderOrcamentoPreview(dados) {
     const previewJson = JSON.stringify(dados);
 
     return `<div class="orc-preview-card">
-        <div class="orc-preview-header">Prévia do Orçamento</div>
-        ${clienteHtml}
-        <div class="orc-field"><span class="orc-label">Serviço</span><span class="orc-value">${escapeHtml(dados.servico || '—')}</span></div>
-        <div class="orc-field"><span class="orc-label">Valor</span><span class="orc-value orc-valor">${valorFmt}</span></div>
-        ${descontoHtml}
-        <div class="orc-actions">
-            <button type="button" class="orc-confirm-btn" data-orc-confirm="1">Confirmar e Criar</button>
-            <button type="button" class="orc-cancel-btn" data-orc-dismiss="1">Cancelar</button>
+        <div class="orc-preview-header">
+            <span class="orc-preview-header__icon" aria-hidden="true">📋</span>
+            Prévia do Orçamento
         </div>
-        <script type="application/json" class="orc-data">${previewJson.replace(/<\/script>/g, '<\\/script>')}<\/script>
+        <div class="orc-preview-body">
+            ${clienteHtml}
+            <div class="orc-field"><span class="orc-label">Serviço</span><span class="orc-value">${escapeHtml(dados.servico || '—')}</span></div>
+            <div class="orc-field"><span class="orc-label">Valor</span><span class="orc-value orc-valor">${valorFmt}</span></div>
+            ${descontoHtml}
+            <div class="orc-actions">
+                <button type="button" class="orc-confirm-btn" data-orc-confirm="1">✓ Confirmar e Criar</button>
+                <button type="button" class="orc-cancel-btn" data-orc-dismiss="1">Cancelar</button>
+            </div>
+            <script type="application/json" class="orc-data">${previewJson.replace(/<\/script>/g, '<\\/script>')}<\/script>
+        </div>
     </div>`;
 }
 
@@ -210,27 +215,35 @@ function renderOperadorResultado(data, dados) {
         if (['rascunho', 'enviado'].includes(statusKey)) {
             const disWhats = dados.tem_telefone ? '' : 'disabled title="Cliente sem telefone"';
             const disEmail = dados.tem_email ? '' : 'disabled title="Cliente sem e-mail"';
+            const linkTokenAttr = dados.link_publico ? `data-copy-public-token="${escapeHtmlAttr(dados.link_publico)}"` : 'disabled title="Link indisponível"';
             botoesHtml = `
-                <div class="orc-action-btns">
-                    <button type="button" class="orc-action-btn btn-whats" ${disWhats} data-enviar-wa="${orcId}" data-orc-numero="${numEnc}">📱 WhatsApp</button>
-                    <button type="button" class="orc-action-btn btn-email" ${disEmail} data-enviar-email="${orcId}" data-orc-numero="${numEnc}">📧 E-mail</button>
-                    <button type="button" class="orc-action-btn btn-aprovar" data-quick-send="${aprovarEnc}">✅ Aprovar</button>
+                <div class="orc-card-v2__actions" style="margin-top:14px;margin-bottom:0">
+                    <div class="orc-card-v2__icon-btns">
+                        <button type="button" class="orc-card-v2__icon-btn btn-whats" ${disWhats} data-enviar-wa="${orcId}" data-orc-numero="${numEnc}" title="Enviar WhatsApp">💬</button>
+                        <button type="button" class="orc-card-v2__icon-btn btn-link" ${linkTokenAttr} title="Copiar link">🔗</button>
+                        <button type="button" class="orc-card-v2__icon-btn btn-email" ${disEmail} data-enviar-email="${orcId}" data-orc-numero="${numEnc}" title="Enviar E-mail">✉️</button>
+                    </div>
+                    <button type="button" class="orc-card-v2__aprovar-btn btn-aprovar" data-quick-send="${aprovarEnc}">✓ Aprovar</button>
                 </div>`;
         } else if (statusKey === 'aprovado') {
             const disWhats = dados.tem_telefone ? '' : 'disabled title="Cliente sem telefone"';
             botoesHtml = `
-                <div class="orc-action-btns">
-                    <button type="button" class="orc-action-btn btn-whats" ${disWhats} data-enviar-wa="${orcId}" data-orc-numero="${numEnc}">📱 Reenviar WhatsApp</button>
+                <div class="orc-card-v2__actions" style="margin-top:14px;margin-bottom:0">
+                    <div class="orc-card-v2__icon-btns">
+                        <button type="button" class="orc-card-v2__icon-btn btn-whats" ${disWhats} data-enviar-wa="${orcId}" data-orc-numero="${numEnc}" title="Reenviar WhatsApp">💬</button>
+                    </div>
                 </div>`;
         }
 
         return `<div class="opr-card">
             <div class="opr-numero">${escapeHtml(orcNum)} &nbsp;${statusBadge}</div>
-            <div class="opr-field"><span>Cliente</span><span>${escapeHtml(dados.cliente || '—')}</span></div>
-            ${itensHtml}
-            <div class="opr-field"><span>Total</span><span><strong>${formatValue(dados.total || 0)}</strong></span></div>
-            ${formaHtml}${validadeHtml}${obsHtml}${linkPublicoHtml}
-            ${botoesHtml}
+            <div class="opr-body">
+                <div class="opr-field"><span>Cliente</span><span>${escapeHtml(dados.cliente || '—')}</span></div>
+                ${itensHtml}
+                <div class="opr-field"><span>Total</span><span><strong>${formatValue(dados.total || 0)}</strong></span></div>
+                ${formaHtml}${validadeHtml}${obsHtml}${linkPublicoHtml}
+                ${botoesHtml}
+            </div>
         </div>`;
     }
 
@@ -245,11 +258,17 @@ function renderOperadorResultado(data, dados) {
 function renderSaldoRapido(dados) {
     const saldoAtual = dados.saldo_atual || dados.valor || 0;
     const saldoFormatado = formatValue(saldoAtual);
+    const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     return `
         <div class="saldo-rapido-resposta">
-            <div class="saldo-label">Saldo em Caixa</div>
-            <div class="saldo-valor ${saldoAtual >= 0 ? 'positivo' : 'negativo'}">${saldoFormatado}</div>
-            <div class="saldo-data">Atualizado em ${new Date().toLocaleDateString('pt-BR')}</div>
+            <div class="saldo-banner">
+                <span class="saldo-banner__icon" aria-hidden="true">💰</span>
+                Saldo em Caixa
+            </div>
+            <div class="saldo-body">
+                <div class="saldo-valor ${saldoAtual >= 0 ? 'positivo' : 'negativo'}">${saldoFormatado}</div>
+                <div class="saldo-data">${new Date().toLocaleDateString('pt-BR')} • ${hora}</div>
+            </div>
         </div>
     `;
 }

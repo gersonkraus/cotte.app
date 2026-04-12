@@ -62,9 +62,9 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
 
         responseContent += `
             <div class="confirmation-card">
-                <div class="confirmation-card-header">
-                    <div class="confirmation-card-icon">✓</div>
-                    <span>${escapeHtml(registroTipo)} Criado</span>
+                <div class="confirmation-card-banner">
+                    <span class="confirmation-card-banner__icon" aria-hidden="true">✓</span>
+                    ${escapeHtml(registroTipo)} Criado
                 </div>
                 <div class="confirmation-card-body">
                     <div class="confirmation-card-field">
@@ -92,14 +92,19 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
             : '';
         responseContent += `
             <div class="pending-action-card" role="dialog" aria-labelledby="pa-title-${token.slice(0,8)}" data-token="${tokAttr}">
-                <div class="pending-action-header" id="pa-title-${token.slice(0,8)}">⚠️ Confirmação necessária</div>
-                <div class="pending-action-tool"><strong>${humanizeToolName(pa.tool)}</strong></div>
-                <div class="pending-action-summary">${resumo}</div>
-                <div class="pending-action-guidance">Revise os dados abaixo antes de confirmar.</div>
-                <div class="pending-action-buttons">
-                    <button type="button" class="btn btn-primary" data-confirm-ia="${tokAttr}">Confirmar</button>
-                    ${btnCadastrar}
-                    <button type="button" class="btn btn-secondary" data-cancel-ia="1">Cancelar</button>
+                <div class="pending-action-header" id="pa-title-${token.slice(0,8)}">
+                    <span class="pending-action-header__icon" aria-hidden="true">⚠</span>
+                    Confirmação necessária
+                </div>
+                <div class="pending-action-body">
+                    <div class="pending-action-tool">${humanizeToolName(pa.tool)}</div>
+                    <div class="pending-action-summary">${resumo}</div>
+                    <div class="pending-action-guidance">Revise os dados antes de confirmar.</div>
+                    <div class="pending-action-buttons">
+                        <button type="button" class="orc-card-v2__aprovar-btn" data-confirm-ia="${tokAttr}">✓ Confirmar</button>
+                        ${btnCadastrar ? `<button type="button" class="orc-card-v2__aprovar-btn" style="background:var(--ai-green,#16a34a)" data-confirm-ia="${tokAttr}" data-cadastrar="1">✓ Confirmar e cadastrar</button>` : ''}
+                        <button type="button" class="orc-cancel-btn" style="flex:unset;width:100%" data-cancel-ia="1">Cancelar</button>
+                    </div>
                 </div>
             </div>`;
     }
