@@ -76,14 +76,7 @@
                 flex-shrink: 0;
             }
 
-            /* No modo embed em mobile, o cabeçalho principal deve ser exibido
-               em vez da barra de ferramentas de embed, para manter a navegação. */
-            .embed-mode .chat-header {
-                display: flex !important;
-            }
-            .embed-mode .embed-assistant-toolbar {
-                display: none !important;
-            }
+            /* [REMOVIDO] Regras movidas para o final do <body> para garantir prioridade no mobile. */
             
             .chat-header-brand {
                 flex: 1;
@@ -449,6 +442,18 @@
     <script src="js/assistente-ia-actions.js?v=2"></script>
     <script src="js/assistente-ia-feedback.js?v=2"></script>
     <script src="js/assistente-ia-render.js?v=4"></script>
+    <style>
+      @media (max-width: 768px) {
+        /* Força a exibição do header principal em modo embed no mobile,
+           garantindo que esta regra sobreponha qualquer outra de arquivos externos. */
+        .embed-mode .chat-header {
+          display: flex !important;
+        }
+        .embed-mode .embed-assistant-toolbar {
+          display: none !important;
+        }
+      }
+    </style>
     <div class="notif" id="notif">
         <div class="notif-icon">✅</div>
         <div>
