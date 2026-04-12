@@ -70,7 +70,6 @@
     sans-serif;
 }
 
-.page-assistente-ia .page-title,
 .page-assistente-ia .ai-hero-title,
 .page-assistente-ia .wpp-title,
 .page-assistente-ia .suggestion-group-title,
@@ -81,6 +80,14 @@
     "Inter",
     system-ui,
     sans-serif;
+}
+
+.page-assistente-ia .page-title {
+  font-family: "Outfit", sans-serif;
+}
+
+.page-assistente-ia .page-sub {
+  font-family: "DM Sans", sans-serif;
 }
 
 html:not([data-theme="dark"]) .page-assistente-ia {
