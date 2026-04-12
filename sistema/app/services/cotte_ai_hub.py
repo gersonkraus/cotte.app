@@ -1783,13 +1783,17 @@ async def assistente_v2_stream_core(
 
         dias = _v2_extract_days_window(mensagem)
         yield _enc({"phase": "thinking"})
-        yield _enc({"phase": "tool_running", "tool": "listar_movimentacoes_financeiras"})
+        yield _enc(
+            {"phase": "tool_running", "tool": "listar_movimentacoes_financeiras"}
+        )
         tc_mov = {
             "id": "chart_movs",
             "type": "function",
             "function": {
                 "name": "listar_movimentacoes_financeiras",
-                "arguments": json.dumps({"dias": dias, "limit": 100}, ensure_ascii=False),
+                "arguments": json.dumps(
+                    {"dias": dias, "limit": 100}, ensure_ascii=False
+                ),
             },
         }
         res_mov = await _tool_exec(
@@ -1813,9 +1817,17 @@ async def assistente_v2_stream_core(
             confirmation_token=None,
         )
 
-        movs = (res_mov.data or {}).get("movimentacoes", []) if res_mov.status == "ok" else []
+        movs = (
+            (res_mov.data or {}).get("movimentacoes", [])
+            if res_mov.status == "ok"
+            else []
+        )
         grafico = _v2_build_financial_chart_payload(movs)
-        saldo_atual = (res_saldo.data or {}).get("saldo_atual") if res_saldo.status == "ok" else None
+        saldo_atual = (
+            (res_saldo.data or {}).get("saldo_atual")
+            if res_saldo.status == "ok"
+            else None
+        )
         qtd = len(movs)
         if grafico:
             final_text = (
@@ -1825,9 +1837,7 @@ async def assistente_v2_stream_core(
             if saldo_atual is not None:
                 final_text += f" Saldo atual: R$ {float(saldo_atual):,.2f}."
         else:
-            final_text = (
-                f"Não encontrei movimentações suficientes para montar o gráfico dos últimos {dias} dias."
-            )
+            final_text = f"Não encontrei movimentações suficientes para montar o gráfico dos últimos {dias} dias."
         SessionStore.append_db(sessao_id, "assistant", final_text, db)
         yield _enc({"chunk": final_text})
         yield _enc(
@@ -1844,8 +1854,16 @@ async def assistente_v2_stream_core(
                     },
                     "grafico": grafico,
                     "tool_trace": [
-                        {"tool": "listar_movimentacoes_financeiras", "status": res_mov.status, "latencia_ms": res_mov.latencia_ms},
-                        {"tool": "obter_saldo_caixa", "status": res_saldo.status, "latencia_ms": res_saldo.latencia_ms},
+                        {
+                            "tool": "listar_movimentacoes_financeiras",
+                            "status": res_mov.status,
+                            "latencia_ms": res_mov.latencia_ms,
+                        },
+                        {
+                            "tool": "obter_saldo_caixa",
+                            "status": res_saldo.status,
+                            "latencia_ms": res_saldo.latencia_ms,
+                        },
                     ],
                 },
             }
@@ -1958,7 +1976,8 @@ async def assistente_v2_stream_core(
         mensagem=mensagem,
     )
     adaptive_meta = {
-        "visualizacao_recomendada": adaptive_ctx.get("preferencia_visualizacao_usuario") or {},
+        "visualizacao_recomendada": adaptive_ctx.get("preferencia_visualizacao_usuario")
+        or {},
         "playbook_setor": adaptive_ctx.get("playbook_setor") or {},
     }
 
@@ -2137,7 +2156,7 @@ async def assistente_v2_stream_core(
                 )
 
             if pending_action:
-                final_text = "Para concluir esta ação, confirme os dados abaixo."
+                final_text = ""
                 break
             continue
 
@@ -2197,15 +2216,26 @@ async def assistente_v2_stream_core(
             )
         ):
             tipo_resp = "financeiro"
-            mov_tool = next((t for t in tool_trace if t.get("tool") == "listar_movimentacoes_financeiras"), None)
+            mov_tool = next(
+                (
+                    t
+                    for t in tool_trace
+                    if t.get("tool") == "listar_movimentacoes_financeiras"
+                ),
+                None,
+            )
             if mov_tool and isinstance(mov_tool.get("data"), dict):
                 movs = mov_tool["data"].get("movimentacoes", [])
                 grafico_data = _v2_build_financial_chart_payload(movs)
 
     if not isinstance(final_text, str) or not final_text.strip():
-        final_text = "Não consegui montar a resposta completa agora. Tente novamente em alguns segundos."
+        if pending_action:
+            final_text = ""
+        else:
+            final_text = "Não consegui montar a resposta completa agora. Tente novamente em alguns segundos."
 
-    SessionStore.append_db(sessao_id, "assistant", final_text, db)
+    if final_text.strip():
+        SessionStore.append_db(sessao_id, "assistant", final_text, db)
 
     yield _enc(
         {
@@ -2619,7 +2649,12 @@ async def gerar_sugestoes_negocio_ia(
         )
         dados_empresa = {
             "orcamentos": [
-                {"id": o.id, "numero": o.numero, "total": float(o.total or 0), "status": str(o.status)}
+                {
+                    "id": o.id,
+                    "numero": o.numero,
+                    "total": float(o.total or 0),
+                    "status": str(o.status),
+                }
                 for o in orcs
             ],
             "clientes": [{"id": c.id, "nome": c.nome} for c in clientes],
@@ -3058,8 +3093,7 @@ def _v2_is_excel_chart_request(mensagem: str) -> bool:
     if not msg:
         return False
     has_excel = any(
-        k in msg
-        for k in ("excel", "planilha", "xlsx", "arquivo xls", "arquivo excel")
+        k in msg for k in ("excel", "planilha", "xlsx", "arquivo xls", "arquivo excel")
     )
     has_chart = any(k in msg for k in ("gráfico", "grafico", "chart"))
     has_financial_scope = any(
@@ -3190,7 +3224,9 @@ async def assistente_unificado_v2(
             "type": "function",
             "function": {
                 "name": "listar_movimentacoes_financeiras",
-                "arguments": json.dumps({"dias": dias, "limit": 100}, ensure_ascii=False),
+                "arguments": json.dumps(
+                    {"dias": dias, "limit": 100}, ensure_ascii=False
+                ),
             },
         }
         tc_saldo = {
@@ -3198,11 +3234,23 @@ async def assistente_unificado_v2(
             "type": "function",
             "function": {"name": "obter_saldo_caixa", "arguments": "{}"},
         }
-        res_mov = await tool_execute(tc_mov, db=db, current_user=current_user, sessao_id=sessao_id)
-        res_saldo = await tool_execute(tc_saldo, db=db, current_user=current_user, sessao_id=sessao_id)
-        movs = (res_mov.data or {}).get("movimentacoes", []) if res_mov.status == "ok" else []
+        res_mov = await tool_execute(
+            tc_mov, db=db, current_user=current_user, sessao_id=sessao_id
+        )
+        res_saldo = await tool_execute(
+            tc_saldo, db=db, current_user=current_user, sessao_id=sessao_id
+        )
+        movs = (
+            (res_mov.data or {}).get("movimentacoes", [])
+            if res_mov.status == "ok"
+            else []
+        )
         grafico = _v2_build_financial_chart_payload(movs)
-        saldo_atual = (res_saldo.data or {}).get("saldo_atual") if res_saldo.status == "ok" else None
+        saldo_atual = (
+            (res_saldo.data or {}).get("saldo_atual")
+            if res_saldo.status == "ok"
+            else None
+        )
         qtd = len(movs)
         if grafico:
             final_text = (
@@ -3212,9 +3260,7 @@ async def assistente_unificado_v2(
             if saldo_atual is not None:
                 final_text += f" Saldo atual: R$ {float(saldo_atual):,.2f}."
         else:
-            final_text = (
-                f"Não encontrei movimentações suficientes para montar o gráfico dos últimos {dias} dias."
-            )
+            final_text = f"Não encontrei movimentações suficientes para montar o gráfico dos últimos {dias} dias."
         SessionStore.append_db(sessao_id, "assistant", final_text, db)
         return AIResponse(
             sucesso=True,
@@ -3223,8 +3269,16 @@ async def assistente_unificado_v2(
             modulo_origem="assistente_v2",
             tipo_resposta="financeiro",
             tool_trace=[
-                {"tool": "listar_movimentacoes_financeiras", "status": res_mov.status, "latencia_ms": res_mov.latencia_ms},
-                {"tool": "obter_saldo_caixa", "status": res_saldo.status, "latencia_ms": res_saldo.latencia_ms},
+                {
+                    "tool": "listar_movimentacoes_financeiras",
+                    "status": res_mov.status,
+                    "latencia_ms": res_mov.latencia_ms,
+                },
+                {
+                    "tool": "obter_saldo_caixa",
+                    "status": res_saldo.status,
+                    "latencia_ms": res_saldo.latencia_ms,
+                },
             ],
             dados={
                 "dias": dias,
@@ -3352,7 +3406,8 @@ async def assistente_unificado_v2(
         mensagem=mensagem,
     )
     adaptive_meta = {
-        "visualizacao_recomendada": adaptive_ctx.get("preferencia_visualizacao_usuario") or {},
+        "visualizacao_recomendada": adaptive_ctx.get("preferencia_visualizacao_usuario")
+        or {},
         "playbook_setor": adaptive_ctx.get("playbook_setor") or {},
     }
 
@@ -3556,10 +3611,7 @@ async def assistente_unificado_v2(
                     pending_action = result.pending_action
 
             if pending_action:
-                final_text = (
-                    "Para concluir a ação, preciso da sua confirmação. "
-                    "Confira os detalhes e clique em confirmar."
-                )
+                final_text = ""
                 break
             # Próxima iteração: LLM verá os tool results
             continue
