@@ -506,8 +506,20 @@ function renderAnaliseTexto(dados, isStreamed) {
 }
 
 function formatAIResponse(data, isStreamed = false) {
-    const dados = data.dados || data;
-    const tipoResposta = (data.tipo_resposta && data.tipo_resposta !== 'geral') ? data.tipo_resposta : (dados.tipo || 'geral');
+    let dados = data.dados || data;
+    let tipoResposta = (data.tipo_resposta && data.tipo_resposta !== 'geral') ? data.tipo_resposta : (dados.tipo || 'geral');
+
+    // FIX: Corrige a renderização para respostas de aprovação de orçamento.
+    // O backend pode retornar `tipo_resposta: 'orcamento_criado'` mesmo para uma aprovação.
+    // Também, os dados do orçamento podem estar no nível raiz em vez de em `data.dados`.
+    const isApproval = typeof _ultimaPergunta !== 'undefined' && _ultimaPergunta && _ultimaPergunta.toLowerCase().startsWith('aprovar');
+    if (tipoResposta === 'orcamento_criado' && isApproval) {
+        tipoResposta = 'orcamento_aprovado';
+        // Se os dados do orçamento (ex: `data.id`) estiverem no nível raiz, use o objeto `data` como `dados`.
+        if (data.id) {
+            dados = data;
+        }
+    }
 
     if (tipoResposta === 'orcamento_preview' && dados) {
         return renderOrcamentoPreview(dados);
