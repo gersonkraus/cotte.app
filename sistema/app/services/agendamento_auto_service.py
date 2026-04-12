@@ -49,6 +49,7 @@ def _gerar_opcoes_automaticas(
     )
 
     horario_inicio = time(9, 0)
+    horario_fim_expediente = time(18, 0)
     dias_trabalho = [0, 1, 2, 3, 4]
 
     if config:
@@ -58,11 +59,19 @@ def _gerar_opcoes_automaticas(
                 horario_inicio = time(int(partes[0]), int(partes[1]))
             except (ValueError, IndexError):
                 pass
+        if config.horario_fim:
+            try:
+                partes = str(config.horario_fim).split(":")
+                horario_fim_expediente = time(int(partes[0]), int(partes[1]))
+            except (ValueError, IndexError):
+                pass
         if config.dias_trabalho:
             dias_trabalho = config.dias_trabalho
 
     config_usuario = (
-        _obter_config_usuario(db, empresa_id, responsavel_id) if responsavel_id else None
+        _obter_config_usuario(db, empresa_id, responsavel_id)
+        if responsavel_id
+        else None
     )
     config_validacao = _merge_config(config, config_usuario) if config else {}
     opcoes = []
@@ -71,38 +80,72 @@ def _gerar_opcoes_automaticas(
 
     while len(opcoes) < 3:
         if cursor.weekday() in dias_trabalho:
-            data_opcao = datetime.combine(cursor.date(), horario_inicio)
-            data_fim = data_opcao + timedelta(minutes=duracao_estimada_min)
-            ok_conflito, _ = _verificar_conflito(
-                db,
-                empresa_id,
-                data_opcao,
-                data_fim,
-                responsavel_id,
-            )
-            if not ok_conflito:
-                cursor += timedelta(days=1)
-                continue
+            hora_atual = horario_inicio
+            encontrou_no_dia = False
 
-            ok_bloqueio, _ = _verificar_slot_bloqueado(
-                db,
-                empresa_id,
-                data_opcao,
-                data_fim,
-                responsavel_id,
-            )
-            if not ok_bloqueio:
-                cursor += timedelta(days=1)
-                continue
+            while not encontrou_no_dia:
+                data_opcao = datetime.combine(cursor.date(), hora_atual)
+                data_fim = data_opcao + timedelta(minutes=duracao_estimada_min)
 
-            if config_validacao:
-                antecedencia_horas = config_validacao.get("antecedencia_minima_horas", 1)
-                limite = datetime.now() + timedelta(hours=antecedencia_horas)
-                if data_opcao < limite:
-                    cursor += timedelta(days=1)
-                    continue
+                # Se o horário já passou do expediente ou se o fim do agendamento ultrapassa o horário de expediente
+                # ignoramos e passamos para o próximo dia, a não ser que termine exatamente meia noite e expediente termine meia noite
+                is_meia_noite = data_fim.time() == time(0, 0)
+                expediente_meia_noite = horario_fim_expediente == time(23, 59)
 
-            opcoes.append({"data_hora": data_opcao})
+                if data_opcao.time() >= horario_fim_expediente:
+                    break
+
+                if data_fim.time() > horario_fim_expediente and not (
+                    is_meia_noite and expediente_meia_noite
+                ):
+                    # Se data_fim for no dia seguinte (00:xx) e o expediente não vai até 23:59
+                    if data_fim.date() > cursor.date() and not (
+                        is_meia_noite and expediente_meia_noite
+                    ):
+                        break
+
+                    # Se data_fim estiver no mesmo dia, mas for além do expediente
+                    if (
+                        data_fim.date() == cursor.date()
+                        and data_fim.time() > horario_fim_expediente
+                    ):
+                        break
+
+                ok_conflito, _ = _verificar_conflito(
+                    db,
+                    empresa_id,
+                    data_opcao,
+                    data_fim,
+                    responsavel_id,
+                )
+
+                ok_bloqueio, _ = _verificar_slot_bloqueado(
+                    db,
+                    empresa_id,
+                    data_opcao,
+                    data_fim,
+                    responsavel_id,
+                )
+
+                ok_antecedencia = True
+                if config_validacao:
+                    antecedencia_horas = config_validacao.get(
+                        "antecedencia_minima_horas", 1
+                    )
+                    limite = datetime.now() + timedelta(hours=antecedencia_horas)
+                    if data_opcao < limite:
+                        ok_antecedencia = False
+
+                if ok_conflito and ok_bloqueio and ok_antecedencia:
+                    opcoes.append({"data_hora": data_opcao})
+                    encontrou_no_dia = True
+                else:
+                    proxima_tentativa = data_opcao + timedelta(minutes=30)
+                    hora_atual = proxima_tentativa.time()
+
+                    if proxima_tentativa.date() > cursor.date():
+                        break
+
         cursor += timedelta(days=1)
         if cursor > hoje + timedelta(days=30):
             break
@@ -122,9 +165,7 @@ def criar_agendamento_automatico(
     Retorna dict com resultado ou None se não aplicável.
     É idempotente: não cria duplicata se já existe agendamento ativo.
     """
-    empresa = (
-        db.query(Empresa).filter(Empresa.id == orcamento.empresa_id).first()
-    )
+    empresa = db.query(Empresa).filter(Empresa.id == orcamento.empresa_id).first()
     if empresa is not None and not getattr(
         empresa, "utilizar_agendamento_automatico", True
     ):
@@ -168,7 +209,9 @@ def criar_agendamento_automatico(
         .filter(ConfigAgendamento.empresa_id == orcamento.empresa_id)
         .first()
     )
-    duracao_padrao = config.duracao_padrao_min if config and config.duracao_padrao_min else 60
+    duracao_padrao = (
+        config.duracao_padrao_min if config and config.duracao_padrao_min else 60
+    )
 
     responsavel_id = orcamento.criado_por_id
     if responsavel_id is None:
@@ -188,7 +231,9 @@ def criar_agendamento_automatico(
             "Falha ao criar agendamento automático: sem responsável válido (orcamento_id=%s).",
             orcamento.id,
         )
-        return {"erro": "Não foi possível definir responsável para o agendamento automático."}
+        return {
+            "erro": "Não foi possível definir responsável para o agendamento automático."
+        }
 
     opcoes = _gerar_opcoes_automaticas(
         db,
@@ -255,9 +300,7 @@ def processar_agendamento_apos_aprovacao(
     orcamento.aprovado_canal = (canal or "manual")[:20]
     orcamento.aprovado_em = datetime.now(timezone.utc)
 
-    empresa = (
-        db.query(Empresa).filter(Empresa.id == orcamento.empresa_id).first()
-    )
+    empresa = db.query(Empresa).filter(Empresa.id == orcamento.empresa_id).first()
     modo = orcamento.agendamento_modo
     if modo not in (
         ModoAgendamentoOrcamento.OPCIONAL,
