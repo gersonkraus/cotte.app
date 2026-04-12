@@ -10,6 +10,69 @@
     <link rel="stylesheet" href="css/style.css?v=7">
     <link rel="stylesheet" href="css/assistente-ia.css?v=14">
     <link rel="stylesheet" href="css/assistente-ia-mobile.css?v=3">
+    <style>
+        @media (max-width: 768px) {
+            /* 1. Main usando o espaço completo da tela (dvh para lidar com a barra do navegador mobile) */
+            body.page-assistente-ia, html {
+                height: 100dvh;
+                margin: 0;
+                overflow: hidden;
+            }
+            .main--chat {
+                height: 100dvh !important;
+                padding: 0 !important;
+                display: flex;
+                flex-direction: column;
+            }
+            .ai-assistant-container {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                height: 100%;
+                overflow: hidden;
+            }
+            
+            /* 2. Cabeçalho fixo no topo */
+            .chat-header {
+                position: sticky;
+                top: 0;
+                z-index: 100;
+                background-color: var(--bg-panel, #ffffff);
+                flex-shrink: 0;
+            }
+            
+            /* 3. Evitar deformação do brand em telas pequenas (390px) */
+            .chat-header-brand {
+                flex: 1;
+                min-width: 0; /* Permite que o flexbox encolha corretamente */
+            }
+            .chat-header-info {
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .chat-header-name {
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            /* Sugestão 1: Ocultar a .topbar no mobile */
+            .topbar {
+                display: none !important;
+            }
+
+            /* Sugestão 2: Safe Area Insets para o Input */
+            .chat-input {
+                padding-bottom: env(safe-area-inset-bottom);
+            }
+
+            /* Sugestão 3: Auto-resize do Textarea com limite */
+            #messageInput {
+                max-height: 100px;
+                overflow-y: auto;
+            }
+        }
+    </style>
     <!-- Dependências da IA para Markdown e Gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
