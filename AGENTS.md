@@ -511,6 +511,18 @@ Sempre que fizer sentido:
 - validar build ou execução local
 - validar manualmente o fluxo alterado
 
+## Regras para Deploy e Commits (Aider / AI Agents)
+- O processo de deploy e espelhamento é **100% automatizado** via hook `post-commit`.
+- Quando o usuário pedir "commit e push" ou "faça o deploy", você deve **APENAS** rodar `git commit` e `git push` no repositório local principal (`/home/gk/Projeto-izi`).
+- **NÃO** tente fazer deploy manual ou rodar scripts de deploy arbitrários.
+- **NÃO** tente copiar arquivos para outras pastas do sistema (como `/home/gk/cotte.app`).
+- O hook automático executará em background:
+  1. Sincronização do changelog com o Notion.
+  2. Limpeza da pasta de destino (`cotte.app`) e extração de arquivos rastreados (`git archive`).
+  3. Verificação bloqueadora de segurança (impede cópia acidental de `.env`, `.key`, `.pem`).
+  4. Commit na pasta de destino e deploy final para a Railway (`git push origin main` em background).
+  5. Script de rebuild do `graphify`.
+
 ## Quando a tarefa for grande
 Antes de implementar:
 - quebrar em etapas pequenas
