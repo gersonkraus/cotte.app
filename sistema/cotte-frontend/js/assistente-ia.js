@@ -452,10 +452,13 @@ async function sendMessage() {
            tool_trace: metadata ? (metadata.tool_trace || null) : null,
         };
 
-        // CORREÇÃO: Se a ação foi 'aprovar' e o backend respondeu como 'criado',
+        // CORREÇÃO: Se a ação foi 'aprovar' e o backend respondeu como 'criado' ou 'atualizado',
         // forçamos o tipo para 'aprovado' para renderizar o card correto.
-        if (message.toLowerCase().startsWith('aprovar') && finalData.tipo_resposta === 'orcamento_criado') {
-            finalData.tipo_resposta = 'orcamento_aprovado';
+        if (message.toLowerCase().startsWith('aprovar') && ['orcamento_criado', 'orcamento_atualizado', 'operador_resultado'].includes(finalData.tipo_resposta)) {
+            const orcData = finalData.dados || finalData.orcamento || finalData;
+            if (orcData && orcData.id && orcData.numero) {
+                finalData.tipo_resposta = 'orcamento_aprovado';
+            }
         }
 
         processAIResponse(finalData, loadingMessage, true);

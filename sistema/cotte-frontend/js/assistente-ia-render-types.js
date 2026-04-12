@@ -70,7 +70,7 @@ function renderOrcamentoCriado(dados) {
     const numSeq = orcNum.replace(/^ORC-/, '').split('-')[0] || orcNum;
     const clienteNome = dados.cliente_nome || 'Cliente não informado';
     const numEnc = encodeURIComponent(orcNum);
-    const aprovarEnc = encodeURIComponent('aprovar ' + numSeq);
+    const aprovarEnc = encodeURIComponent('aprovar ' + orcNum);
     const totalFmt = formatValue(dados.total);
     const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
@@ -136,7 +136,7 @@ function renderOrcamentoAprovado(dados) {
     const orcId = dados.id || '';
     const orcNum = dados.numero || '';
     const numSeq = orcNum.replace(/^ORC-/, '').split('-')[0] || orcNum;
-    const clienteNome = dados.cliente_nome || 'Cliente não informado';
+    const clienteNome = dados.cliente_nome || dados.cliente || 'Cliente não informado';
     const numEnc = encodeURIComponent(orcNum);
     const totalFmt = formatValue(dados.total);
 
@@ -203,7 +203,7 @@ function renderOrcamentoAtualizado(dados) {
     const clienteNome = dados.cliente_nome || 'Cliente';
     const totalFmt = formatValue(dados.total);
     const numEnc = encodeURIComponent(orcNum);
-    const aprovarEnc = encodeURIComponent('aprovar ' + numSeq);
+    const aprovarEnc = encodeURIComponent('aprovar ' + orcNum);
     const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
     let itensHtml = '';
@@ -289,7 +289,7 @@ function renderOperadorResultado(data, dados) {
         const orcNum = dados.numero || '';
         const numSeq = orcNum.replace(/^ORC-/, '').split('-')[0] || orcNum;
         const numEnc = encodeURIComponent(orcNum);
-        const aprovarEnc = encodeURIComponent('aprovar ' + numSeq);
+        const aprovarEnc = encodeURIComponent('aprovar ' + orcNum);
         let botoesHtml = '';
         if (['rascunho', 'enviado'].includes(statusKey)) {
             const disWhats = dados.tem_telefone ? '' : 'disabled title="Cliente sem telefone"';
@@ -510,16 +510,12 @@ function formatAIResponse(data, isStreamed = false) {
     let tipoResposta = (data.tipo_resposta && data.tipo_resposta !== 'geral') ? data.tipo_resposta : (dados.tipo || 'geral');
 
     // FIX: Corrige a renderização para respostas de aprovação de orçamento.
-    // O backend pode retornar `tipo_resposta: 'orcamento_criado'` mesmo para uma aprovação.
-    // Também, os dados do orçamento podem estar no nível raiz em vez de em `data.dados`.
+    // O backend pode retornar `orcamento_criado`, `orcamento_atualizado` ou `operador_resultado`.
     const isApproval = typeof _ultimaPergunta !== 'undefined' && _ultimaPergunta && _ultimaPergunta.toLowerCase().startsWith('aprovar');
-    if (tipoResposta === 'orcamento_criado' && isApproval) {
-        tipoResposta = 'orcamento_aprovado';
-        
-        // Procura os dados do orçamento na resposta. A API de aprovação pode aninhar os dados
-        // em `data.orcamento`, `data.dados` ou na raiz `data`.
+    if (isApproval && ['orcamento_criado', 'orcamento_atualizado', 'operador_resultado'].includes(tipoResposta)) {
         const orcamentoData = data.orcamento || data.dados || data;
-        if (orcamentoData && orcamentoData.id) {
+        if (orcamentoData && orcamentoData.id && orcamentoData.numero) {
+            tipoResposta = 'orcamento_aprovado';
             dados = orcamentoData;
         }
     }
