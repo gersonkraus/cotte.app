@@ -452,6 +452,12 @@ async function sendMessage() {
            tool_trace: metadata ? (metadata.tool_trace || null) : null,
         };
 
+        // CORREÇÃO: Se a ação foi 'aprovar' e o backend respondeu como 'criado',
+        // forçamos o tipo para 'aprovado' para renderizar o card correto.
+        if (message.toLowerCase().startsWith('aprovar') && finalData.tipo_resposta === 'orcamento_criado') {
+            finalData.tipo_resposta = 'orcamento_aprovado';
+        }
+
         processAIResponse(finalData, loadingMessage, true);
 
     } catch (error) {
