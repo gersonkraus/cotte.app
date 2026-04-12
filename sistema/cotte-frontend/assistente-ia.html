@@ -377,7 +377,20 @@
     <script src="js/utils.js?v=1"></script>
 <script src="js/api.js?v=17"></script>
     <script src="js/services/ApiService.js?v=2"></script>
-    <script>if (new URLSearchParams(location.search).get('embed') === '1') { document.body.classList.add('embed-mode'); document.addEventListener('DOMContentLoaded', function(){ var el = document.getElementById('messageInput'); if (el) el.placeholder = 'Pergunte algo...'; }); }</script>
+    <script>
+      if (new URLSearchParams(location.search).get('embed') === '1') {
+        // Em modo embed, a UI é simplificada. No mobile, porém, queremos manter o cabeçalho
+        // para navegação, então a classe `embed-mode` é aplicada apenas em telas maiores (desktop).
+        if (!window.matchMedia("(max-width: 768px)").matches) {
+          document.body.classList.add('embed-mode');
+        }
+        // O placeholder do input também é ajustado no modo embed.
+        document.addEventListener('DOMContentLoaded', function() {
+          var el = document.getElementById('messageInput');
+          if (el) el.placeholder = 'Pergunte algo...';
+        });
+      }
+    </script>
     <script src="js/layout.js?v=5"></script>
     <script>
       // Otimização para Tema Escuro antes de carregar o layout
