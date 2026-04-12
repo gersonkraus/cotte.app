@@ -132,6 +132,70 @@ function renderOrcamentoCriado(dados) {
     </div>`;
 }
 
+function renderOrcamentoAprovado(dados) {
+    const orcId = dados.id || '';
+    const orcNum = dados.numero || '';
+    const numSeq = orcNum.replace(/^ORC-/, '').split('-')[0] || orcNum;
+    const clienteNome = dados.cliente_nome || 'Cliente não informado';
+    const numEnc = encodeURIComponent(orcNum);
+    const totalFmt = formatValue(dados.total);
+
+    let itensHtml = '';
+    if (Array.isArray(dados.itens) && dados.itens.length > 0) {
+        itensHtml = dados.itens.map(it =>
+            `<div class="orc-card-v2__item-row">
+                <span>${escapeHtml(it.descricao || it.nome || '—')}</span>
+                <span>${formatValue(it.total ?? it.valor ?? 0)}</span>
+            </div>`
+        ).join('');
+    } else {
+        const servicoDesc = dados.servico || dados.descricao || 'Serviços gerais';
+        itensHtml = `<div class="orc-card-v2__item-row">
+            <span>${escapeHtml(servicoDesc)}</span>
+            <span>${formatValue(dados.valor || dados.total || 0)}</span>
+        </div>`;
+    }
+
+    const docBtn = orcId
+        ? `<button type="button" class="orc-card-v2__doc-btn" data-editar-orc="${orcId}" title="Editar orçamento">📄</button>`
+        : `<span class="orc-card-v2__doc-btn" style="cursor:default;opacity:0.4;" aria-hidden="true">📄</span>`;
+
+    const disWhats = dados.tem_telefone === false ? 'disabled title="Cliente sem telefone"' : '';
+    const disEmail = dados.tem_email === false ? 'disabled title="Cliente sem e-mail"' : '';
+    const linkTokenAttr = dados.link_publico ? `data-copy-public-token="${escapeHtmlAttr(dados.link_publico)}"` : 'disabled title="Link indisponível"';
+
+    return `<div class="orc-card-v2">
+        <div class="orc-card-v2__banner orc-card-v2__banner--update">
+            <span class="orc-card-v2__banner-icon" aria-hidden="true">✓</span>
+            Orçamento aprovado com sucesso
+        </div>
+        <div class="orc-card-v2__body">
+            <div class="orc-card-v2__header">
+                <div>
+                    <div class="orc-card-v2__num-label">Orçamento ${escapeHtml(orcNum)}</div>
+                    <div class="orc-card-v2__client">${escapeHtml(clienteNome)}</div>
+                </div>
+                ${docBtn}
+            </div>
+            <div class="orc-card-v2__items">${itensHtml}</div>
+            <div class="orc-card-v2__total">
+                <span class="orc-card-v2__total-label">Total</span>
+                <div class="orc-card-v2__total-value">
+                    <span class="orc-card-v2__valor-final-label">Valor Final</span>
+                    <span class="orc-card-v2__valor-final">${escapeHtml(totalFmt)}</span>
+                </div>
+            </div>
+            <div class="orc-card-v2__actions">
+                <div class="orc-card-v2__icon-btns">
+                    <button type="button" class="orc-card-v2__icon-btn btn-whats" ${disWhats} data-enviar-wa="${orcId}" data-orc-numero="${numEnc}" title="Enviar WhatsApp">💬</button>
+                    <button type="button" class="orc-card-v2__icon-btn btn-link" ${linkTokenAttr} title="Copiar link">🔗</button>
+                    <button type="button" class="orc-card-v2__icon-btn btn-email" ${disEmail} data-enviar-email="${orcId}" data-orc-numero="${numEnc}" title="Enviar E-mail">✉️</button>
+                </div>
+            </div>
+        </div>
+    </div>`;
+}
+
 function renderOrcamentoAtualizado(dados) {
     const orcId = dados.id || '';
     const orcNum = dados.numero || '';
@@ -451,6 +515,10 @@ function formatAIResponse(data, isStreamed = false) {
 
     if (tipoResposta === 'orcamento_criado' && dados) {
         return renderOrcamentoCriado(dados);
+    }
+
+    if (tipoResposta === 'orcamento_aprovado' && dados) {
+        return renderOrcamentoAprovado(dados);
     }
 
     if (tipoResposta === 'orcamento_atualizado' && dados) {
