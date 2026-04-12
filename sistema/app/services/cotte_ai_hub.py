@@ -1893,6 +1893,12 @@ async def assistente_v2_stream_core(
             if _tool_exec == "editar_orcamento":
                 final_text = "✅ Orçamento atualizado com sucesso."
                 tipo_resp = "orcamento_atualizado"
+            elif _tool_exec == "aprovar_orcamento":
+                final_text = "✅ Orçamento aprovado com sucesso."
+                tipo_resp = "orcamento_aprovado"
+            elif _tool_exec == "recusar_orcamento":
+                final_text = "✅ Orçamento recusado com sucesso."
+                tipo_resp = "orcamento_recusado"
             else:
                 final_text = "✅ Ação concluída com sucesso."
                 tipo_resp = "orcamento_criado"
@@ -3308,6 +3314,12 @@ async def assistente_unificado_v2(
                     if _tool_exec == "editar_orcamento":
                         final_text = "✅ Orçamento atualizado com sucesso."
                         tipo_resp = "orcamento_atualizado"
+                    elif _tool_exec == "aprovar_orcamento":
+                        final_text = "✅ Orçamento aprovado com sucesso."
+                        tipo_resp = "orcamento_aprovado"
+                    elif _tool_exec == "recusar_orcamento":
+                        final_text = "✅ Orçamento recusado com sucesso."
+                        tipo_resp = "orcamento_recusado"
                     else:
                         final_text = "✅ Orçamento criado com sucesso."
                         tipo_resp = "orcamento_criado"

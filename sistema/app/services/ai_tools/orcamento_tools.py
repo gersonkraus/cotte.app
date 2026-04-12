@@ -680,9 +680,7 @@ async def _recusar_orcamento(
         )
     except Exception:
         pass
-    return {
-        "id": orc.id,
-        "numero": orc.numero,
+    return _build_orcamento_response(orc, {
         "status": "recusado",
         "impacto_financeiro": {
             "contas_pendentes_removidas": qtd_pendentes,
@@ -692,7 +690,7 @@ async def _recusar_orcamento(
                 "contas com pagamento permanecem para preservar histórico."
             ),
         },
-    }
+    })
 
 
 recusar_orcamento = ToolSpec(

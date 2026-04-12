@@ -165,7 +165,7 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
         };
     }
 
-    const tiposV2Card = ['orcamento_criado', 'orcamento_atualizado', 'orcamento_preview'];
+    const tiposV2Card = ['orcamento_criado', 'orcamento_atualizado', 'orcamento_preview', 'orcamento_aprovado', 'orcamento_recusado'];
 
     let msgEl;
     if (!isStreamed) {
