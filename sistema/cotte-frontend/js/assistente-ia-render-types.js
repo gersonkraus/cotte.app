@@ -47,95 +47,130 @@ function renderOrcamentoCriado(dados) {
     const orcNum = dados.numero || '';
     const numSeq = orcNum.replace(/^ORC-/, '').split('-')[0] || orcNum;
     const clienteNome = dados.cliente_nome || 'Cliente não informado';
-    const servicoDesc = dados.servico || dados.descricao || 'Serviços gerais';
-
-    const copiarBtn = dados.link_publico
-        ? `<button type="button" class="orc-action-btn orc-action-btn--utility btn-link" data-copy-public-token="${escapeHtmlAttr(dados.link_publico)}">
-                <span class="orc-action-btn__icon" aria-hidden="true">🔗</span>
-                <span class="orc-action-btn__content">
-                    <span class="orc-action-btn__label">Copiar link</span>
-                    <span class="orc-action-btn__hint">Compartilhar manualmente</span>
-                </span>
-            </button>`
-        : '';
     const numEnc = encodeURIComponent(orcNum);
     const aprovarEnc = encodeURIComponent('aprovar ' + numSeq);
     const totalFmt = formatValue(dados.total);
+    const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-    let metaTags = `<span class="orc-success-meta-item">👤 ${escapeHtml(clienteNome)}</span>`;
-    if (dados.desconto && dados.desconto > 0) {
-        metaTags += `<span class="orc-success-meta-item highlight-meta">🏷️ Desconto: ${formatValue(dados.desconto)}</span>`;
-    }
-    if (dados.validade_dias) {
-        metaTags += `<span class="orc-success-meta-item">⏱️ Validade: ${dados.validade_dias} dias</span>`;
+    // Lista de itens: usa dados.itens se disponível, senão fallback com serviço + valor
+    let itensHtml = '';
+    if (Array.isArray(dados.itens) && dados.itens.length > 0) {
+        itensHtml = dados.itens.map(it =>
+            `<div class="orc-card-v2__item-row">
+                <span>${escapeHtml(it.descricao || it.nome || '—')}</span>
+                <span>${formatValue(it.total ?? it.valor ?? 0)}</span>
+            </div>`
+        ).join('');
+    } else {
+        const servicoDesc = dados.servico || dados.descricao || 'Serviços gerais';
+        itensHtml = `<div class="orc-card-v2__item-row">
+            <span>${escapeHtml(servicoDesc)}</span>
+            <span>${formatValue(dados.valor || dados.total || 0)}</span>
+        </div>`;
     }
 
-    return `<div class="orc-success-card orc-success-card--created">
-        <div class="orc-success-topline">
-            <span class="orc-success-icon" aria-hidden="true">✓</span>
-            <div class="orc-success-heading">
-                <span class="orc-success-kicker">Orçamento Gerado com Sucesso</span>
-                <span class="orc-success-subtitle">Escolha como deseja seguir com o envio</span>
+    const docBtn = orcId
+        ? `<button type="button" class="orc-card-v2__doc-btn" data-editar-orc="${orcId}" title="Editar orçamento">📄</button>`
+        : `<span class="orc-card-v2__doc-btn" style="cursor:default;opacity:0.4;" aria-hidden="true">📄</span>`;
+
+    const disWhats = dados.tem_telefone === false ? 'disabled title="Cliente sem telefone"' : '';
+    const disEmail = dados.tem_email === false ? 'disabled title="Cliente sem e-mail"' : '';
+    const linkTokenAttr = dados.link_publico ? `data-copy-public-token="${escapeHtmlAttr(dados.link_publico)}"` : 'disabled title="Link indisponível"';
+
+    return `<div class="orc-card-v2">
+        <div class="orc-card-v2__banner">
+            <span class="orc-card-v2__banner-icon" aria-hidden="true">✓</span>
+            Orçamento criado com sucesso
+        </div>
+        <div class="orc-card-v2__body">
+            <div class="orc-card-v2__header">
+                <div>
+                    <div class="orc-card-v2__num-label">Orçamento ${escapeHtml(orcNum)}</div>
+                    <div class="orc-card-v2__client">${escapeHtml(clienteNome)}</div>
+                </div>
+                ${docBtn}
             </div>
-        </div>
-        <div class="orc-success-num">${escapeHtml(orcNum || 'Orçamento')}</div>
-        <div class="orc-success-details">
-            <strong>Serviço/Produto:</strong> ${escapeHtml(servicoDesc)}<br>
-            <div style="margin-top: 8px; font-size: 1.1rem; color: var(--ai-text);"><strong>Total:</strong> ${escapeHtml(totalFmt)}</div>
-        </div>
-        <div class="orc-success-meta">
-            ${metaTags}
-        </div>
-        <div class="orc-success-actions-label">Próximos passos</div>
-        <div class="orc-action-btns orc-action-btns--success">
-            <button type="button" class="orc-action-btn orc-action-btn--primary btn-whats" data-enviar-wa="${orcId}" data-orc-numero="${numEnc}">
-                <span class="orc-action-btn__icon" aria-hidden="true">📱</span>
-                <span class="orc-action-btn__content">
-                    <span class="orc-action-btn__label">Enviar WhatsApp</span>
-                    <span class="orc-action-btn__hint">Canal principal para envio</span>
-                </span>
-            </button>
-            ${copiarBtn}
-            <button type="button" class="orc-action-btn orc-action-btn--secondary btn-email" data-enviar-email="${orcId}" data-orc-numero="${numEnc}">
-                <span class="orc-action-btn__icon" aria-hidden="true">📧</span>
-                <span class="orc-action-btn__content">
-                    <span class="orc-action-btn__label">Enviar E-mail</span>
-                    <span class="orc-action-btn__hint">Enviar por correio eletrônico</span>
-                </span>
-            </button>
-            <button type="button" class="orc-action-btn orc-action-btn--secondary btn-aprovar" data-quick-send="${aprovarEnc}">
-                <span class="orc-action-btn__icon" aria-hidden="true">✅</span>
-                <span class="orc-action-btn__content">
-                    <span class="orc-action-btn__label">Aprovar agora</span>
-                    <span class="orc-action-btn__hint">Avançar o status imediatamente</span>
-                </span>
-            </button>
+            <div class="orc-card-v2__items">${itensHtml}</div>
+            <div class="orc-card-v2__total">
+                <span class="orc-card-v2__total-label">Total</span>
+                <div class="orc-card-v2__total-value">
+                    <span class="orc-card-v2__valor-final-label">Valor Final</span>
+                    <span class="orc-card-v2__valor-final">${escapeHtml(totalFmt)}</span>
+                </div>
+            </div>
+            <div class="orc-card-v2__actions">
+                <div class="orc-card-v2__icon-btns">
+                    <button type="button" class="orc-card-v2__icon-btn btn-whats" ${disWhats} data-enviar-wa="${orcId}" data-orc-numero="${numEnc}" title="Enviar WhatsApp">💬</button>
+                    <button type="button" class="orc-card-v2__icon-btn btn-link" ${linkTokenAttr} title="Copiar link">🔗</button>
+                    <button type="button" class="orc-card-v2__icon-btn btn-email" ${disEmail} data-enviar-email="${orcId}" data-orc-numero="${numEnc}" title="Enviar E-mail">✉️</button>
+                </div>
+                <button type="button" class="orc-card-v2__aprovar-btn btn-aprovar" data-quick-send="${aprovarEnc}">✓ Aprovar</button>
+            </div>
+            <div class="orc-card-v2__footer">${hora} • Enviado pela IA</div>
         </div>
     </div>`;
 }
 
 function renderOrcamentoAtualizado(dados) {
+    const orcId = dados.id || '';
     const orcNum = dados.numero || '';
     const numSeq = orcNum.replace(/^ORC-/, '').split('-')[0] || orcNum;
-    const clienteNome = dados.cliente_nome || '';
+    const clienteNome = dados.cliente_nome || 'Cliente';
     const totalFmt = formatValue(dados.total);
     const numEnc = encodeURIComponent(orcNum);
-    const verEnc = encodeURIComponent('ver ' + numSeq);
+    const aprovarEnc = encodeURIComponent('aprovar ' + numSeq);
+    const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-    return `<div class="orc-success-card">
-        <div class="orc-success-topline">
-            <span class="orc-success-icon" aria-hidden="true">✓</span>
-            <span class="orc-success-kicker">Orçamento Atualizado com Sucesso</span>
+    let itensHtml = '';
+    if (Array.isArray(dados.itens) && dados.itens.length > 0) {
+        itensHtml = dados.itens.map(it =>
+            `<div class="orc-card-v2__item-row">
+                <span>${escapeHtml(it.descricao || it.nome || '—')}</span>
+                <span>${formatValue(it.total ?? it.valor ?? 0)}</span>
+            </div>`
+        ).join('');
+    } else {
+        const servicoDesc = dados.servico || dados.descricao || 'Serviços gerais';
+        itensHtml = `<div class="orc-card-v2__item-row">
+            <span>${escapeHtml(servicoDesc)}</span>
+            <span>${formatValue(dados.valor || dados.total || 0)}</span>
+        </div>`;
+    }
+
+    const linkTokenAttr = dados.link_publico ? `data-copy-public-token="${escapeHtmlAttr(dados.link_publico)}"` : 'disabled title="Link indisponível"';
+    const disWhats = dados.tem_telefone === false ? 'disabled title="Cliente sem telefone"' : '';
+    const disEmail = dados.tem_email === false ? 'disabled title="Cliente sem e-mail"' : '';
+
+    return `<div class="orc-card-v2">
+        <div class="orc-card-v2__banner orc-card-v2__banner--update">
+            <span class="orc-card-v2__banner-icon" aria-hidden="true">✓</span>
+            Orçamento atualizado com sucesso
         </div>
-        <div class="orc-success-num">${escapeHtml(orcNum || 'Orçamento')}</div>
-        <div class="orc-success-details">
-            ${clienteNome ? `<strong>Cliente:</strong> ${escapeHtml(clienteNome)}<br>` : ''}
-            <div style="margin-top: 8px; font-size: 1.1rem; color: var(--ai-text);"><strong>Novo total:</strong> ${escapeHtml(totalFmt)}</div>
-        </div>
-        <div class="orc-action-btns orc-action-btns--success">
-            <button type="button" class="orc-action-btn btn-whats" data-enviar-wa="${dados.id || ''}" data-orc-numero="${numEnc}">📱 Enviar WhatsApp</button>
-            <button type="button" class="orc-action-btn btn-email" data-enviar-email="${dados.id || ''}" data-orc-numero="${numEnc}">📧 Enviar E-mail</button>
-            <button type="button" class="orc-action-btn" data-quick-send="${verEnc}">🔍 Ver orçamento</button>
+        <div class="orc-card-v2__body">
+            <div class="orc-card-v2__header">
+                <div>
+                    <div class="orc-card-v2__num-label">Orçamento ${escapeHtml(orcNum)}</div>
+                    <div class="orc-card-v2__client">${escapeHtml(clienteNome)}</div>
+                </div>
+                <span class="orc-card-v2__doc-btn" style="cursor:default;" aria-hidden="true">📄</span>
+            </div>
+            <div class="orc-card-v2__items">${itensHtml}</div>
+            <div class="orc-card-v2__total">
+                <span class="orc-card-v2__total-label">Total</span>
+                <div class="orc-card-v2__total-value">
+                    <span class="orc-card-v2__valor-final-label">Novo Total</span>
+                    <span class="orc-card-v2__valor-final">${escapeHtml(totalFmt)}</span>
+                </div>
+            </div>
+            <div class="orc-card-v2__actions">
+                <div class="orc-card-v2__icon-btns">
+                    <button type="button" class="orc-card-v2__icon-btn btn-whats" ${disWhats} data-enviar-wa="${orcId}" data-orc-numero="${numEnc}" title="Enviar WhatsApp">💬</button>
+                    <button type="button" class="orc-card-v2__icon-btn btn-link" ${linkTokenAttr} title="Copiar link">🔗</button>
+                    <button type="button" class="orc-card-v2__icon-btn btn-email" ${disEmail} data-enviar-email="${orcId}" data-orc-numero="${numEnc}" title="Enviar E-mail">✉️</button>
+                </div>
+                <button type="button" class="orc-card-v2__aprovar-btn btn-aprovar" data-quick-send="${aprovarEnc}">✓ Aprovar</button>
+            </div>
+            <div class="orc-card-v2__footer">${hora} • Enviado pela IA</div>
         </div>
     </div>`;
 }

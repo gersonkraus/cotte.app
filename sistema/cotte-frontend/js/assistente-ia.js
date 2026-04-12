@@ -283,15 +283,21 @@ async function sendMessage() {
     resizeMessageInput();
     _updateVoiceSendToggle(input);
     _hideQuickReplyChips();
-    _ultimaPergunta = message;
-    if (typeof trackAssistenteUserIntent === 'function') {
-        trackAssistenteUserIntent(message);
+    const isConfirmacaoSilenciosa = message === '__confirmar_acao__';
+    if (!isConfirmacaoSilenciosa) {
+        _ultimaPergunta = message;
+        if (typeof trackAssistenteUserIntent === 'function') {
+            trackAssistenteUserIntent(message);
+        }
     }
     if (typeof setChatAutoFollow === 'function') {
         setChatAutoFollow(true, { scroll: false });
     }
 
-    addMessage(escapeHtml(message).replace(/\n/g, '<br>'), true, false, false, { forceScroll: true });
+    // Não exibe user bubble para confirmações silenciosas (pending_action)
+    if (!isConfirmacaoSilenciosa) {
+        addMessage(escapeHtml(message).replace(/\n/g, '<br>'), true, false, false, { forceScroll: true });
+    }
 
     const loadingMessage = addMessage('', false, false, true);
     isLoading = true;

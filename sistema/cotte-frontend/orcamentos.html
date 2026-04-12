@@ -1738,6 +1738,16 @@
 
   carregar();
 
+  // Abre modal de edição quando vindo do assistente IA (?editar=ID)
+  const _editarId = new URLSearchParams(window.location.search).get('editar');
+  if (_editarId) {
+    const _idNum = parseInt(_editarId, 10);
+    if (_idNum) {
+      // Aguarda o carregar() popular a lista antes de abrir o modal
+      setTimeout(() => abrirModalEditarOrcamento(_idNum), 800);
+    }
+  }
+
   // ── ATALHOS DE TECLADO ──────────────────────────────────────────────
   document.addEventListener('keydown', function(e) {
     if (e.ctrlKey && e.key === 'n') {

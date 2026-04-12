@@ -3457,3 +3457,263 @@ body.embed-mode .chat-header-new-btn {
 .latency-dot.very-slow {
   background: #ef4444;
 }
+
+/* ── Card de Orçamento v2 (estilo 011.png) ────────────────────────── */
+.orc-card-v2 {
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.10);
+  background: var(--ai-card);
+  border: 1px solid var(--ai-border);
+  width: 100%;
+  max-width: min(380px, 100%);
+  margin-top: 12px;
+}
+
+.orc-card-v2__banner {
+  background: color-mix(in srgb, var(--ai-accent) 12%, white 88%);
+  color: var(--ai-accent-dark, #0d7a6e);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.orc-card-v2__banner--update {
+  background: color-mix(in srgb, #6366f1 10%, white 90%);
+  color: #4f46e5;
+}
+
+.orc-card-v2__banner-icon {
+  background: var(--ai-accent);
+  color: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.orc-card-v2__body {
+  padding: 16px;
+}
+
+.orc-card-v2__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 14px;
+  gap: 10px;
+}
+
+.orc-card-v2__num-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ai-muted);
+  margin-bottom: 4px;
+}
+
+.orc-card-v2__client {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ai-text);
+  line-height: 1.25;
+}
+
+.orc-card-v2__doc-btn {
+  background: color-mix(in srgb, var(--ai-border) 50%, var(--ai-card) 50%);
+  border: 1px solid var(--ai-border);
+  border-radius: 10px;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.orc-card-v2__doc-btn:hover {
+  background: var(--ai-border);
+}
+
+.orc-card-v2__items {
+  background: color-mix(in srgb, var(--ai-bg) 70%, var(--ai-border) 30%);
+  border-radius: 10px;
+  padding: 4px 12px;
+  margin-bottom: 14px;
+}
+
+.orc-card-v2__item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 0;
+  font-size: 0.85rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--ai-border) 55%, transparent);
+  color: var(--ai-text);
+  gap: 8px;
+}
+
+.orc-card-v2__item-row:last-child {
+  border-bottom: none;
+}
+
+.orc-card-v2__item-row span:last-child {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.orc-card-v2__item-row span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orc-card-v2__total {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 16px;
+  padding-top: 2px;
+}
+
+.orc-card-v2__total-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ai-text);
+}
+
+.orc-card-v2__total-value {
+  text-align: right;
+}
+
+.orc-card-v2__valor-final-label {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--ai-muted);
+  margin-bottom: 2px;
+  text-align: right;
+}
+
+.orc-card-v2__valor-final {
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: var(--ai-accent);
+  line-height: 1;
+}
+
+.orc-card-v2__actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.orc-card-v2__icon-btns {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.orc-card-v2__icon-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--ai-border) 40%, var(--ai-card) 60%);
+  border: 1px solid var(--ai-border);
+  font-size: 1.05rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, transform 0.15s;
+  line-height: 1;
+}
+
+.orc-card-v2__icon-btn:hover:not(:disabled) {
+  background: var(--ai-border);
+  transform: scale(1.07);
+}
+
+.orc-card-v2__icon-btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.orc-card-v2__aprovar-btn {
+  flex: 1;
+  height: 42px;
+  background: var(--ai-accent);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background 0.15s, transform 0.15s;
+  white-space: nowrap;
+}
+
+.orc-card-v2__aprovar-btn:hover {
+  background: var(--ai-accent-dark, #0d7a6e);
+  transform: translateY(-1px);
+}
+
+.orc-card-v2__footer {
+  text-align: left;
+  font-size: 0.7rem;
+  color: var(--ai-muted);
+  opacity: 0.8;
+}
+
+.message-bubble--v2card .feedback-bar {
+  padding: 8px 14px 10px;
+}
+
+/* Neutraliza !important das classes btn-* herdadas no card v2 */
+.orc-card-v2 .btn-aprovar {
+  background: var(--ai-accent) !important;
+  color: #fff !important;
+  border-radius: 10px !important;
+}
+.orc-card-v2 .btn-link,
+.orc-card-v2 .btn-whats,
+.orc-card-v2 .btn-email {
+  background: color-mix(in srgb, var(--ai-border) 45%, var(--ai-card) 55%) !important;
+  color: var(--ai-text) !important;
+}
+
+/* Bubble transparente quando envolve card v2 (sem "card dentro de card") */
+.message.ai .message-bubble--v2card {
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  overflow: visible;
+  max-width: min(420px, 96vw);
+  width: min(420px, 96vw);
+  display: block;
+}
+.message.ai .message-bubble--v2card .orc-card-v2 {
+  margin-top: 0;
+  width: 100%;
+  max-width: 100%;
+}

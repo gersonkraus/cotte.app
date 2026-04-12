@@ -149,8 +149,9 @@ function confirmarAcaoIA(token, btnEl) {
         card.appendChild(status);
     }
     const input = document.getElementById('messageInput');
-    if (input && _ultimaPergunta) {
-        input.value = _ultimaPergunta;
+    if (input) {
+        // Usa texto neutro para não repetir a pergunta original no chat
+        input.value = '__confirmar_acao__';
         resizeMessageInput();
         sendMessage();
     }

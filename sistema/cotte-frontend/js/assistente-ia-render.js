@@ -36,7 +36,9 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
         operador_resultado: 'Ação executada',
     };
     const actionStatusLabel = actionStatusMap[data.tipo_resposta];
-    if (actionStatusLabel) {
+    // orcamento_criado e orcamento_atualizado já têm banner próprio no card
+    const tiposComBannerProprio = ['orcamento_criado', 'orcamento_atualizado'];
+    if (actionStatusLabel && !tiposComBannerProprio.includes(data.tipo_resposta)) {
         responseContent = `<div class="action-status-chip">✓ ${escapeHtml(actionStatusLabel)}</div>${responseContent}`;
     }
     const visPref = data?.dados?.visualizacao_recomendada || null;
@@ -137,7 +139,7 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
         responseContent = `<div class="resposta-direta">Não consegui montar a resposta completa agora. Tente novamente em alguns segundos.</div>`;
     }
 
-    const tipoSemFeedback = ['onboarding', 'orcamento_preview', 'orcamento_criado', 'orcamento_atualizado', 'operador_resultado', 'registro_criado'];
+    const tipoSemFeedback = ['onboarding', 'orcamento_preview', 'operador_resultado', 'registro_criado'];
     if (!tipoSemFeedback.includes(data.tipo_resposta) && responseHasText) {
         const fbId = 'fb_' + Date.now();
         responseContent += `
@@ -154,6 +156,8 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
         };
     }
 
+    const tiposV2Card = ['orcamento_criado', 'orcamento_atualizado'];
+
     let msgEl;
     if (!isStreamed) {
         msgEl = addMessage(responseContent, false);
@@ -161,7 +165,13 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
         msgEl = loadingMessage;
         if (responseContent) {
             const bubble = loadingMessage.querySelector('.message-bubble');
-            if (bubble) bubble.insertAdjacentHTML('beforeend', responseContent);
+            if (bubble) {
+                // Para cards v2, limpa texto streamed anterior (evita duplicação do status)
+                if (tiposV2Card.includes(data.tipo_resposta)) {
+                    bubble.innerHTML = '';
+                }
+                bubble.insertAdjacentHTML('beforeend', responseContent);
+            }
         }
         if (data.grafico && window.Chart) {
             setTimeout(() => renderChart(msgEl.querySelector('.message-bubble'), data.grafico), 100);
@@ -169,6 +179,12 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
     }
 
     if (msgEl) msgEl.dataset.pergunta = '';
+
+    // Bubble transparente para cards v2 (sem "card dentro de card")
+    if (tiposV2Card.includes(data.tipo_resposta) && msgEl) {
+        const bubble = msgEl.querySelector('.message-bubble');
+        if (bubble) bubble.classList.add('message-bubble--v2card');
+    }
 
     setTimeout(() => {
         const chips = msgEl?.querySelectorAll('.sugestao-chip');

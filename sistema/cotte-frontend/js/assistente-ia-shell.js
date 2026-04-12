@@ -635,6 +635,15 @@ function initAssistenteChatDelegation() {
                 }).catch(() => {});
             }
         }
+
+        const editBtn = t.closest('[data-editar-orc]');
+        if (editBtn) {
+            e.preventDefault();
+            const orcId = editBtn.getAttribute('data-editar-orc');
+            if (orcId) {
+                window.location.href = `orcamentos.html?editar=${encodeURIComponent(orcId)}`;
+            }
+        }
     });
 
     const obs = new MutationObserver((mutations) => {

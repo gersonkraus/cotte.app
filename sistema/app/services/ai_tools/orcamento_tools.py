@@ -354,6 +354,17 @@ async def _criar_orcamento(
 
     db.commit()
     db.refresh(orc)
+    # Recarrega com itens para exibir no card
+    orc_com_itens = (
+        db.query(Orcamento)
+        .options(selectinload(Orcamento.itens))
+        .filter(Orcamento.id == orc.id)
+        .first()
+    )
+    itens_lista = [
+        {"descricao": i.descricao, "total": float(i.total or 0)}
+        for i in (orc_com_itens.itens if orc_com_itens else [])
+    ]
     return {
         "id": orc.id,
         "numero": orc.numero,
@@ -364,6 +375,7 @@ async def _criar_orcamento(
         "link_publico": orc.link_publico or "",
         "cliente_auto_criado": cliente_auto_criado,
         "materiais_novos": materiais_novos,
+        "itens": itens_lista,
         "criado": True,
     }
 

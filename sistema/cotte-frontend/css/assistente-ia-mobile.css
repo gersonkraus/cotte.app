@@ -27,6 +27,21 @@
     .sugestoes-container {
         max-width: none;
         width: 100%;
+        height: max-content; /* Fix: Evita que cards se estiquem verticalmente no iOS/Safari */
+        align-self: flex-start; /* Fix: Previne stretch no flexbox */
+    }
+
+    .message {
+        align-items: flex-start !important; /* Força mensagens do assistente a não esticarem na main-axis */
+    }
+
+    .message.user {
+        align-items: flex-end !important;
+    }
+
+    .message-bubble {
+        height: auto;
+        min-height: min-content;
     }
 
     .orc-success-card {
@@ -59,31 +74,69 @@
     }
 
     .orc-action-btns--success {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
+        grid-template-columns: 1fr;
+        gap: 8px;
     }
 
     .orc-action-btns--success .orc-action-btn {
-        min-height: 52px;
-        padding: 10px 12px;
+        min-height: 56px;
+        padding: 12px 16px;
         border-radius: 14px;
+        align-items: center;
+        flex-direction: row;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .orc-action-btn__icon {
+        font-size: 1.3rem;
+        margin-top: 0;
     }
 
     .orc-action-btn__label {
-        font-size: 0.9rem;
+        font-size: 0.95rem;
     }
 
     .orc-action-btn__hint {
-        font-size: 0.73rem;
+        font-size: 0.78rem;
     }
 
     .saldo-valor {
         font-size: 1.6rem;
     }
-}
 
-@media (max-width: 380px) {
-    .orc-action-btns--success {
-        grid-template-columns: 1fr;
+    /* Card v2 responsivo */
+    .orc-card-v2 {
+        max-width: none;
+        width: 100%;
+        border-radius: 14px;
+    }
+
+    .message.ai .message-bubble--v2card {
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+
+    .orc-card-v2__client {
+        font-size: 1rem;
+    }
+
+    .orc-card-v2__valor-final {
+        font-size: 1.3rem;
+    }
+
+    .orc-card-v2__icon-btn {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+    }
+
+    .orc-card-v2__aprovar-btn {
+        height: 40px;
+        font-size: 0.88rem;
+    }
+
+    .orc-card-v2__item-row {
+        font-size: 0.82rem;
     }
 }
