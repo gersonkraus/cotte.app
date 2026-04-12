@@ -94,8 +94,22 @@
                 display: none !important;
             }
 
+            /* Faz o container principal ser rolável, não o miolo de mensagens */
+            .ai-assistant-container {
+                overflow-y: auto;
+            }
+
+            /* Impede que o miolo cresça ou tenha sua própria rolagem */
+            .chat-messages {
+                flex: initial !important;
+                overflow-y: visible !important;
+            }
+
             .chat-input {
                 padding-bottom: env(safe-area-inset-bottom);
+                position: sticky;
+                bottom: 0;
+                background-color: var(--bg-panel, #ffffff);
             }
 
             #messageInput {
