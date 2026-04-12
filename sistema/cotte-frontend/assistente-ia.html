@@ -11,28 +11,53 @@
     <link rel="stylesheet" href="css/assistente-ia.css?v=14">
     <link rel="stylesheet" href="css/assistente-ia-mobile.css?v=3">
     <style>
+        /* 1. Regras Globais (Desktop e Mobile) para preenchimento total */
+        body.page-assistente-ia, html {
+            height: 100%;
+            height: 100dvh;
+            margin: 0;
+            overflow: hidden;
+        }
+        
+        .main--chat {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            height: 100dvh;
+        }
+
+        .ai-assistant-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        #aiAssistantMainSlot {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+            width: 100%;
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+            width: 100%;
+        }
+
+        /* 2. Regras específicas para Mobile */
         @media (max-width: 768px) {
-            /* 1. Main usando o espaço completo da tela (dvh para lidar com a barra do navegador mobile) */
-            body.page-assistente-ia, html {
-                height: 100dvh;
-                margin: 0;
-                overflow: hidden;
-            }
             .main--chat {
-                height: 100dvh !important;
                 padding: 0 !important;
-                display: flex;
-                flex-direction: column;
-            }
-            .ai-assistant-container {
-                flex: 1;
-                display: flex;
-                flex-direction: column;
-                height: 100%;
-                overflow: hidden;
             }
             
-            /* 2. Cabeçalho fixo no topo */
             .chat-header {
                 position: sticky;
                 top: 0;
@@ -41,10 +66,9 @@
                 flex-shrink: 0;
             }
             
-            /* 3. Evitar deformação do brand em telas pequenas (390px) */
             .chat-header-brand {
                 flex: 1;
-                min-width: 0; /* Permite que o flexbox encolha corretamente */
+                min-width: 0;
             }
             .chat-header-info {
                 white-space: nowrap;
@@ -56,17 +80,14 @@
                 text-overflow: ellipsis;
             }
 
-            /* Sugestão 1: Ocultar a .topbar no mobile */
             .topbar {
                 display: none !important;
             }
 
-            /* Sugestão 2: Safe Area Insets para o Input */
             .chat-input {
                 padding-bottom: env(safe-area-inset-bottom);
             }
 
-            /* Sugestão 3: Auto-resize do Textarea com limite */
             #messageInput {
                 max-height: 100px;
                 overflow-y: auto;
