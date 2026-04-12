@@ -313,6 +313,7 @@ async function sendMessage() {
 
     let lastError = null;
     currentAbortController = new AbortController();
+    const confirmationToken = window._pendingConfirmationToken;
 
     try {
         if (!sessaoId) {
@@ -322,8 +323,8 @@ async function sendMessage() {
         }
 
         const requestBody = { mensagem: message, sessao_id: sessaoId };
-        if (window._pendingConfirmationToken) {
-            requestBody.confirmation_token = window._pendingConfirmationToken;
+        if (confirmationToken) {
+            requestBody.confirmation_token = confirmationToken;
             window._pendingConfirmationToken = null;
         }
         if (window._pendingOverrideArgs) {
@@ -466,6 +467,7 @@ async function sendMessage() {
         processAIResponse(finalData, loadingMessage, true);
 
     } catch (error) {
+        lastError = error;
         console.error('Error:', error);
         
         if (error.name === 'AbortError') {
@@ -508,6 +510,26 @@ async function sendMessage() {
         if (sendButton) {
             sendButton.classList.remove('is-loading');
             sendButton.title = 'Enviar';
+        }
+
+        if (confirmationToken) {
+            const card = document.querySelector(`.pending-action-card[data-token="${confirmationToken}"]`);
+            if (card) {
+                const status = card.querySelector('.pending-action-status');
+                if (status) {
+                    if (lastError && lastError.name !== 'AbortError') {
+                        status.textContent = '❌ Falha na execução';
+                        status.style.color = 'var(--ai-red, #ef4444)';
+                        card.querySelectorAll('button').forEach(b => b.disabled = false);
+                    } else if (!lastError) {
+                        status.textContent = '✅ Ação concluída';
+                        status.style.color = 'var(--ai-green, #10b981)';
+                    } else {
+                        status.textContent = 'Ação interrompida';
+                        card.querySelectorAll('button').forEach(b => b.disabled = false);
+                    }
+                }
+            }
         }
     }
 }
