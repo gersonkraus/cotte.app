@@ -75,6 +75,15 @@
                 background-color: var(--bg-panel, #ffffff);
                 flex-shrink: 0;
             }
+
+            /* No modo embed em mobile, o cabeçalho principal deve ser exibido
+               em vez da barra de ferramentas de embed, para manter a navegação. */
+            .embed-mode .chat-header {
+                display: flex !important;
+            }
+            .embed-mode .embed-assistant-toolbar {
+                display: none !important;
+            }
             
             .chat-header-brand {
                 flex: 1;
@@ -379,11 +388,7 @@
     <script src="js/services/ApiService.js?v=2"></script>
     <script>
       if (new URLSearchParams(location.search).get('embed') === '1') {
-        // Em modo embed, a UI é simplificada. No mobile, porém, queremos manter o cabeçalho
-        // para navegação, então a classe `embed-mode` é aplicada apenas em telas maiores (desktop).
-        if (!window.matchMedia("(max-width: 768px)").matches) {
-          document.body.classList.add('embed-mode');
-        }
+        document.body.classList.add('embed-mode');
         // O placeholder do input também é ajustado no modo embed.
         document.addEventListener('DOMContentLoaded', function() {
           var el = document.getElementById('messageInput');
