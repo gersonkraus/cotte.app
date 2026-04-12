@@ -515,9 +515,12 @@ function formatAIResponse(data, isStreamed = false) {
     const isApproval = typeof _ultimaPergunta !== 'undefined' && _ultimaPergunta && _ultimaPergunta.toLowerCase().startsWith('aprovar');
     if (tipoResposta === 'orcamento_criado' && isApproval) {
         tipoResposta = 'orcamento_aprovado';
-        // Se os dados do orçamento (ex: `data.id`) estiverem no nível raiz, use o objeto `data` como `dados`.
-        if (data.id) {
-            dados = data;
+        
+        // Procura os dados do orçamento na resposta. A API de aprovação pode aninhar os dados
+        // em `data.orcamento`, `data.dados` ou na raiz `data`.
+        const orcamentoData = data.orcamento || data.dados || data;
+        if (orcamentoData && orcamentoData.id) {
+            dados = orcamentoData;
         }
     }
 
