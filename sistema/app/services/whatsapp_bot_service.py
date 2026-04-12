@@ -5,6 +5,7 @@ Contem todas as funcoes processar_* e helpers que antes estavam no router.
 
 Mantem separacao clara: router = HTTP/webhook, service = negocio.
 """
+
 from __future__ import annotations
 
 import logging
@@ -84,11 +85,14 @@ async def processar_mensagem(
         # ── Verificar se é operador individual (Usuario.telefone_operador) ──
         operador_usuario = _usuario_por_telefone_operador(telefone, db)
         if operador_usuario:
-            empresa_op = db.query(Empresa).filter(
-                Empresa.id == operador_usuario.empresa_id
-            ).first()
+            empresa_op = (
+                db.query(Empresa)
+                .filter(Empresa.id == operador_usuario.empresa_id)
+                .first()
+            )
             if empresa_op:
                 from app.services.operador_wpp_service import processar_operador_wpp
+
                 await processar_operador_wpp(
                     telefone=telefone,
                     mensagem=mensagem,
@@ -105,7 +109,9 @@ async def processar_mensagem(
             if await _confirmar_aceite_pendente(telefone, db, empresa_contexto):
                 return
 
-        if msg_limpa in ["ACEITO", "ACEITO!", "SIM", "OK"] or msg_upper.startswith("ACEITO"):
+        if msg_limpa in ["ACEITO", "ACEITO!", "SIM", "OK"] or msg_upper.startswith(
+            "ACEITO"
+        ):
             await _processar_aprovacao(telefone, db, empresa_contexto)
             return
 
@@ -125,24 +131,41 @@ async def processar_mensagem(
         empresa_operador = empresa_contexto or _empresa_por_operador(telefone, db)
         if empresa_operador:
             try:
-                from app.services.ai_intention_classifier import detectar_intencao_assistente_async
+                from app.services.ai_intention_classifier import (
+                    detectar_intencao_assistente_async,
+                )
+
                 _classif = await detectar_intencao_assistente_async(mensagem)
                 _intencao_gestor = _classif.intencao.value
             except Exception:
                 _intencao_gestor = "OPERADOR"
 
             _INTENCOES_ASSISTENTE_GESTOR = {
-                "SALDO_RAPIDO", "FATURAMENTO", "CONTAS_RECEBER", "CONTAS_PAGAR",
-                "DASHBOARD", "PREVISAO", "INADIMPLENCIA", "ANALISE",
-                "CONVERSAO", "NEGOCIO", "ONBOARDING", "AJUDA_SISTEMA", "CONVERSACAO",
+                "SALDO_RAPIDO",
+                "FATURAMENTO",
+                "CONTAS_RECEBER",
+                "CONTAS_PAGAR",
+                "DASHBOARD",
+                "PREVISAO",
+                "INADIMPLENCIA",
+                "ANALISE",
+                "CONVERSAO",
+                "NEGOCIO",
+                "ONBOARDING",
+                "AJUDA_SISTEMA",
+                "CONVERSACAO",
             }
             if _intencao_gestor in _INTENCOES_ASSISTENTE_GESTOR:
-                await _processar_assistente_gestor(telefone, mensagem, empresa_operador, db)
+                await _processar_assistente_gestor(
+                    telefone, mensagem, empresa_operador, db
+                )
                 return
 
             _ag_cmd = _is_agendamento_cmd(mensagem)
             if _ag_cmd == "AGENDAR":
-                await _processar_comando_agendamento(telefone, mensagem, db, empresa_operador)
+                await _processar_comando_agendamento(
+                    telefone, mensagem, db, empresa_operador
+                )
                 return
             elif _ag_cmd == "AGENDAMENTOS_HOJE":
                 await _listar_agendamentos_hoje(telefone, db, empresa_operador)
@@ -160,11 +183,18 @@ async def processar_mensagem(
             )
             return
 
-        if any(kw in mensagem.lower() for kw in ["orçamento", "orcamento", "fazer", "valor", "serviço", "servico"]):
-            await _criar_orcamento_via_bot(telefone, mensagem, db, empresa=empresa_contexto)
+        if any(
+            kw in mensagem.lower()
+            for kw in ["orçamento", "orcamento", "fazer", "valor", "serviço", "servico"]
+        ):
+            await _criar_orcamento_via_bot(
+                telefone, mensagem, db, empresa=empresa_contexto
+            )
             return
 
-        cliente_existente = _cliente_por_telefone(telefone, db, empresa_contexto.id if empresa_contexto else None)
+        cliente_existente = _cliente_por_telefone(
+            telefone, db, empresa_contexto.id if empresa_contexto else None
+        )
         if not cliente_existente:
             empresa = empresa_contexto or _empresa_por_telefone_cliente(telefone, db)
             if empresa and getattr(empresa, "boas_vindas_ativo", True):
@@ -177,7 +207,9 @@ async def processar_mensagem(
                         '_"Pintura de 2 quartos"_\n\n'
                         "Estamos a disposição!"
                     )
-                texto = texto_cfg.replace("{empresa_nome}", empresa.nome or "sua empresa")
+                texto = texto_cfg.replace(
+                    "{empresa_nome}", empresa.nome or "sua empresa"
+                )
                 await enviar_mensagem_texto(telefone, texto, empresa=empresa)
                 return
 
@@ -209,13 +241,24 @@ async def _despachar_comando_operador(
     elif acao == "DESCONTO" and orc_id:
         valor_str = str(cmd.get("valor") or 0)
         sufixo = "REAIS" if cmd.get("desconto_tipo") == "fixo" else "%"
-        await _editar_desconto_orcamento(orc_id, valor_str, sufixo, telefone, db, empresa_operador)
+        await _editar_desconto_orcamento(
+            orc_id, valor_str, sufixo, telefone, db, empresa_operador
+        )
 
     elif acao == "ADICIONAR" and orc_id and cmd.get("descricao") and cmd.get("valor"):
-        await _adicionar_item_orcamento(orc_id, cmd["descricao"], float(cmd["valor"]), telefone, db, empresa_operador)
+        await _adicionar_item_orcamento(
+            orc_id,
+            cmd["descricao"],
+            float(cmd["valor"]),
+            telefone,
+            db,
+            empresa_operador,
+        )
 
     elif acao == "REMOVER" and orc_id and cmd.get("num_item"):
-        await _remover_item_orcamento(orc_id, int(cmd["num_item"]), telefone, db, empresa_operador)
+        await _remover_item_orcamento(
+            orc_id, int(cmd["num_item"]), telefone, db, empresa_operador
+        )
 
     elif acao == "ENVIAR" and orc_id:
         await _enviar_orcamento_para_cliente(orc_id, telefone, db, empresa_operador)
@@ -238,7 +281,11 @@ async def _despachar_comando_operador(
     elif acao == "MEUS_AGENDAMENTOS":
         await _listar_meus_agendamentos(telefone, db, empresa_operador)
 
-    elif acao in {"VER", "APROVAR", "RECUSAR", "ENVIAR", "DESCONTO", "ADICIONAR", "REMOVER"} and not orc_id:
+    elif (
+        acao
+        in {"VER", "APROVAR", "RECUSAR", "ENVIAR", "DESCONTO", "ADICIONAR", "REMOVER"}
+        and not orc_id
+    ):
         msg_sem_id = {
             "VER": "Qual orcamento voce quer ver? Digite: ver 5",
             "APROVAR": "Qual orcamento voce quer aprovar? Digite: aprovar 5",
@@ -251,7 +298,11 @@ async def _despachar_comando_operador(
             "AGENDAMENTOS_HOJE": "",
             "MEUS_AGENDAMENTOS": "",
         }
-        await enviar_mensagem_texto(telefone, msg_sem_id.get(acao, "Nao entendi. Digite ajuda."), empresa=empresa_operador)
+        await enviar_mensagem_texto(
+            telefone,
+            msg_sem_id.get(acao, "Nao entendi. Digite ajuda."),
+            empresa=empresa_operador,
+        )
 
     else:
         await _criar_orcamento_via_bot(telefone, mensagem, db, empresa=empresa_operador)
@@ -286,7 +337,9 @@ async def _processar_assistente_gestor(
             permissoes=usuario.permissoes if usuario else {},  # T3.3
             is_gestor=usuario.is_gestor if usuario else False,  # T3.3
         )
-        texto = (ai_resp.resposta or "").strip() or "Nao consegui processar sua mensagem."
+        texto = (
+            ai_resp.resposta or ""
+        ).strip() or "Nao consegui processar sua mensagem."
     except Exception:
         texto = "Ocorreu um erro ao processar sua mensagem. Tente novamente."
 
@@ -347,9 +400,7 @@ def _usuario_por_telefone_operador(telefone: str, db: Session) -> "Usuario | Non
     sufixo = dig[-8:]
 
     if _is_postgresql(db):
-        digits_expr = func.regexp_replace(
-            Usuario.telefone_operador, r"[^0-9]", "", "g"
-        )
+        digits_expr = func.regexp_replace(Usuario.telefone_operador, r"[^0-9]", "", "g")
         return (
             db.query(Usuario)
             .filter(
@@ -362,11 +413,15 @@ def _usuario_por_telefone_operador(telefone: str, db: Session) -> "Usuario | Non
         )
 
     # Fallback SQLite (testes locais)
-    for u in db.query(Usuario).filter(
-        Usuario.telefone_operador.isnot(None),
-        Usuario.telefone_operador != "",
-        Usuario.ativo == True,
-    ).all():
+    for u in (
+        db.query(Usuario)
+        .filter(
+            Usuario.telefone_operador.isnot(None),
+            Usuario.telefone_operador != "",
+            Usuario.ativo == True,
+        )
+        .all()
+    ):
         dig_u = _digitos_telefone(u.telefone_operador or "")
         if len(dig_u) >= 8 and dig_u[-8:] == sufixo:
             return u
@@ -552,7 +607,9 @@ async def _confirmar_aceite_pendente(
             descricao="Aprovado pelo cliente via WhatsApp.",
         )
     )
-    financeiro_service.criar_contas_receber_aprovacao(orcamento, orcamento.empresa_id, db)
+    financeiro_service.criar_contas_receber_aprovacao(
+        orcamento, orcamento.empresa_id, db
+    )
     try:
         from app.services.agendamento_auto_service import (
             processar_agendamento_apos_aprovacao,
@@ -603,7 +660,9 @@ async def _confirmar_aceite_pendente(
 async def _processar_aprovacao(
     telefone: str, db: Session, empresa_contexto: "Empresa | None" = None
 ):
-    cliente = _cliente_por_telefone(telefone, db, empresa_contexto.id if empresa_contexto else None)
+    cliente = _cliente_por_telefone(
+        telefone, db, empresa_contexto.id if empresa_contexto else None
+    )
     if not cliente:
         await enviar_mensagem_texto(
             telefone,
@@ -649,9 +708,13 @@ async def _processar_aprovacao(
 async def _processar_recusa(
     telefone: str, db: Session, empresa_contexto: "Empresa | None" = None
 ):
-    cliente = _cliente_por_telefone(telefone, db, empresa_contexto.id if empresa_contexto else None)
+    cliente = _cliente_por_telefone(
+        telefone, db, empresa_contexto.id if empresa_contexto else None
+    )
     if not cliente:
-        await enviar_mensagem_texto(telefone, "Nao encontrei seu cadastro.", empresa=empresa_contexto)
+        await enviar_mensagem_texto(
+            telefone, "Nao encontrei seu cadastro.", empresa=empresa_contexto
+        )
         return {"status": "cliente_nao_encontrado"}
 
     orcamento = (
@@ -666,7 +729,11 @@ async def _processar_recusa(
     )
 
     if not orcamento:
-        await enviar_mensagem_texto(telefone, "Nao encontrei um orcamento enviado recente.", empresa=empresa_contexto)
+        await enviar_mensagem_texto(
+            telefone,
+            "Nao encontrei um orcamento enviado recente.",
+            empresa=empresa_contexto,
+        )
         return {"status": "nenhum_orcamento_enviado"}
 
     orcamento.status = StatusOrcamento.RECUSADO
@@ -742,7 +809,11 @@ def _calcular_total(subtotal: float, desconto: float | None, tipo: str | None) -
 def _listar_itens_txt(orc: Orcamento) -> str:
     linhas = []
     for i, item in enumerate(orc.itens, 1):
-        qtd = int(item.quantidade) if item.quantidade == int(item.quantidade) else item.quantidade
+        qtd = (
+            int(item.quantidade)
+            if item.quantidade == int(item.quantidade)
+            else item.quantidade
+        )
         linhas.append(
             f"{i}. {item.descricao} -- {_brl_fmt(item.total)}"
             + (f" (x{qtd})" if qtd != 1 else "")
@@ -807,7 +878,7 @@ async def _enviar_ajuda(telefone: str, empresa: "Empresa | None" = None):
         "*DESCONTO {id} {valor} REAIS* -- desconto fixo\n"
         "*ENVIAR {id}* -- enviar PDF ao cliente\n\n"
         "Ou descreva um novo orcamento normalmente:\n"
-        '_Ex: Pintura 800 reais 10% desconto para Joao_',
+        "_Ex: Pintura 800 reais 10% desconto para Joao_",
         empresa=empresa,
     )
 
@@ -815,13 +886,19 @@ async def _enviar_ajuda(telefone: str, empresa: "Empresa | None" = None):
 async def _aprovar_orcamento_via_bot(
     orc_id: int, telefone: str, db: Session, empresa_op: "Empresa | None" = None
 ):
-    orc = _buscar_orcamento(orc_id, db, empresa_id=empresa_op.id if empresa_op else None)
+    orc = _buscar_orcamento(
+        orc_id, db, empresa_id=empresa_op.id if empresa_op else None
+    )
     if not orc:
-        await enviar_mensagem_texto(telefone, f"Orcamento #{orc_id} nao encontrado.", empresa=empresa_op)
+        await enviar_mensagem_texto(
+            telefone, f"Orcamento #{orc_id} nao encontrado.", empresa=empresa_op
+        )
         return
     empresa_check = empresa_op or _empresa_por_operador(telefone, db)
     if not empresa_check or empresa_check.id != orc.empresa_id:
-        await enviar_mensagem_texto(telefone, "Sem permissao para aprovar este orcamento.", empresa=empresa_op)
+        await enviar_mensagem_texto(
+            telefone, "Sem permissao para aprovar este orcamento.", empresa=empresa_op
+        )
         return
     _STATUS_APROVAVEL = {StatusOrcamento.ENVIADO, StatusOrcamento.PENDENTE}
     if orc.status not in _STATUS_APROVAVEL:
@@ -834,7 +911,13 @@ async def _aprovar_orcamento_via_bot(
     old_status = orc.status
     orc.status = StatusOrcamento.APROVADO
     renomear_numero_aprovado(orc, empresa_op)
-    db.add(HistoricoEdicao(orcamento_id=orc.id, editado_por_id=None, descricao="Aprovado pelo operador via WhatsApp."))
+    db.add(
+        HistoricoEdicao(
+            orcamento_id=orc.id,
+            editado_por_id=None,
+            descricao="Aprovado pelo operador via WhatsApp.",
+        )
+    )
     financeiro_service.criar_contas_receber_aprovacao(orc, orc.empresa_id, db)
     try:
         from app.services.agendamento_auto_service import (
@@ -849,7 +932,13 @@ async def _aprovar_orcamento_via_bot(
         )
     db.commit()
     db.refresh(orc)
-    await handle_quote_status_changed(db=db, quote=orc, old_status=old_status, new_status=orc.status, source="bot_whatsapp")
+    await handle_quote_status_changed(
+        db=db,
+        quote=orc,
+        old_status=old_status,
+        new_status=orc.status,
+        source="bot_whatsapp",
+    )
     await enviar_mensagem_texto(
         telefone,
         f"Orcamento *{orc.numero}* aprovado!\n"
@@ -862,15 +951,25 @@ async def _aprovar_orcamento_via_bot(
 async def _recusar_orcamento_via_bot(
     orc_id: int, telefone: str, db: Session, empresa_op: "Empresa | None" = None
 ):
-    orc = _buscar_orcamento(orc_id, db, empresa_id=empresa_op.id if empresa_op else None)
+    orc = _buscar_orcamento(
+        orc_id, db, empresa_id=empresa_op.id if empresa_op else None
+    )
     if not orc:
-        await enviar_mensagem_texto(telefone, f"Orcamento #{orc_id} nao encontrado.", empresa=empresa_op)
+        await enviar_mensagem_texto(
+            telefone, f"Orcamento #{orc_id} nao encontrado.", empresa=empresa_op
+        )
         return
     empresa_check = empresa_op or _empresa_por_operador(telefone, db)
     if not empresa_check or empresa_check.id != orc.empresa_id:
-        await enviar_mensagem_texto(telefone, "Sem permissao para recusar este orcamento.", empresa=empresa_op)
+        await enviar_mensagem_texto(
+            telefone, "Sem permissao para recusar este orcamento.", empresa=empresa_op
+        )
         return
-    _STATUS_RECUSAVEL = {StatusOrcamento.ENVIADO, StatusOrcamento.PENDENTE, StatusOrcamento.APROVADO}
+    _STATUS_RECUSAVEL = {
+        StatusOrcamento.ENVIADO,
+        StatusOrcamento.PENDENTE,
+        StatusOrcamento.APROVADO,
+    }
     if orc.status not in _STATUS_RECUSAVEL:
         await enviar_mensagem_texto(
             telefone,
@@ -879,9 +978,17 @@ async def _recusar_orcamento_via_bot(
         )
         return
     orc.status = StatusOrcamento.RECUSADO
-    db.add(HistoricoEdicao(orcamento_id=orc.id, editado_por_id=None, descricao="Recusado pelo operador via WhatsApp."))
+    db.add(
+        HistoricoEdicao(
+            orcamento_id=orc.id,
+            editado_por_id=None,
+            descricao="Recusado pelo operador via WhatsApp.",
+        )
+    )
     db.commit()
-    await enviar_mensagem_texto(telefone, f"Orcamento *{orc.numero}* recusado.", empresa=empresa_op)
+    await enviar_mensagem_texto(
+        telefone, f"Orcamento *{orc.numero}* recusado.", empresa=empresa_op
+    )
 
 
 async def _ver_orcamento(
@@ -889,13 +996,19 @@ async def _ver_orcamento(
 ):
     orc = _buscar_orcamento(orc_id, db, empresa_id=empresa.id if empresa else None)
     if not orc:
-        await enviar_mensagem_texto(telefone, f"Orcamento #{orc_id} nao encontrado.", empresa=empresa)
+        await enviar_mensagem_texto(
+            telefone, f"Orcamento #{orc_id} nao encontrado.", empresa=empresa
+        )
         return
 
     itens_txt = _listar_itens_txt(orc)
     desc_txt = ""
     if orc.desconto and orc.desconto > 0:
-        desc_label = f"{orc.desconto:.0f}%" if orc.desconto_tipo == "percentual" else _brl_fmt(orc.desconto)
+        desc_label = (
+            f"{orc.desconto:.0f}%"
+            if orc.desconto_tipo == "percentual"
+            else _brl_fmt(orc.desconto)
+        )
         desc_txt = f"Desconto: {desc_label}\n"
 
     await enviar_mensagem_texto(
@@ -914,16 +1027,27 @@ async def _ver_orcamento(
 
 
 async def _editar_desconto_orcamento(
-    orc_id: int, valor_str: str, sufixo_raw: str | None, telefone: str, db: Session, empresa_op: "Empresa | None" = None,
+    orc_id: int,
+    valor_str: str,
+    sufixo_raw: str | None,
+    telefone: str,
+    db: Session,
+    empresa_op: "Empresa | None" = None,
 ):
-    orc = _buscar_orcamento(orc_id, db, empresa_id=empresa_op.id if empresa_op else None)
+    orc = _buscar_orcamento(
+        orc_id, db, empresa_id=empresa_op.id if empresa_op else None
+    )
     if not orc:
-        await enviar_mensagem_texto(telefone, f"Orcamento #{orc_id} nao encontrado.", empresa=empresa_op)
+        await enviar_mensagem_texto(
+            telefone, f"Orcamento #{orc_id} nao encontrado.", empresa=empresa_op
+        )
         return
 
     empresa_check = empresa_op or _empresa_por_operador(telefone, db)
     if not empresa_check or empresa_check.id != orc.empresa_id:
-        await enviar_mensagem_texto(telefone, "Sem permissao para editar este orcamento.", empresa=empresa_op)
+        await enviar_mensagem_texto(
+            telefone, "Sem permissao para editar este orcamento.", empresa=empresa_op
+        )
         return
 
     valor = float(valor_str.replace(",", "."))
@@ -932,7 +1056,9 @@ async def _editar_desconto_orcamento(
     subtotal = sum(i.total for i in orc.itens)
 
     if valor > 0:
-        novo_total = max(0.0, subtotal - (subtotal * valor / 100 if tipo == "percentual" else valor))
+        novo_total = max(
+            0.0, subtotal - (subtotal * valor / 100 if tipo == "percentual" else valor)
+        )
     else:
         novo_total = subtotal
 
@@ -956,19 +1082,38 @@ async def _editar_desconto_orcamento(
 
 
 async def _adicionar_item_orcamento(
-    orc_id: int, descricao: str, valor: float, telefone: str, db: Session, empresa_op: "Empresa | None" = None,
+    orc_id: int,
+    descricao: str,
+    valor: float,
+    telefone: str,
+    db: Session,
+    empresa_op: "Empresa | None" = None,
 ):
-    orc = _buscar_orcamento(orc_id, db, empresa_id=empresa_op.id if empresa_op else None)
+    orc = _buscar_orcamento(
+        orc_id, db, empresa_id=empresa_op.id if empresa_op else None
+    )
     if not orc:
-        await enviar_mensagem_texto(telefone, f"Orcamento #{orc_id} nao encontrado.", empresa=empresa_op)
+        await enviar_mensagem_texto(
+            telefone, f"Orcamento #{orc_id} nao encontrado.", empresa=empresa_op
+        )
         return
 
     empresa_check = empresa_op or _empresa_por_operador(telefone, db)
     if not empresa_check or empresa_check.id != orc.empresa_id:
-        await enviar_mensagem_texto(telefone, "Sem permissao para editar este orcamento.", empresa=empresa_op)
+        await enviar_mensagem_texto(
+            telefone, "Sem permissao para editar este orcamento.", empresa=empresa_op
+        )
         return
 
-    db.add(ItemOrcamento(orcamento_id=orc.id, descricao=descricao, quantidade=1, valor_unit=valor, total=valor))
+    db.add(
+        ItemOrcamento(
+            orcamento_id=orc.id,
+            descricao=descricao,
+            quantidade=1,
+            valor_unit=valor,
+            total=valor,
+        )
+    )
     db.flush()
     db.refresh(orc)
 
@@ -989,16 +1134,26 @@ async def _adicionar_item_orcamento(
 
 
 async def _remover_item_orcamento(
-    orc_id: int, num_item: int, telefone: str, db: Session, empresa_op: "Empresa | None" = None,
+    orc_id: int,
+    num_item: int,
+    telefone: str,
+    db: Session,
+    empresa_op: "Empresa | None" = None,
 ):
-    orc = _buscar_orcamento(orc_id, db, empresa_id=empresa_op.id if empresa_op else None)
+    orc = _buscar_orcamento(
+        orc_id, db, empresa_id=empresa_op.id if empresa_op else None
+    )
     if not orc:
-        await enviar_mensagem_texto(telefone, f"Orcamento #{orc_id} nao encontrado.", empresa=empresa_op)
+        await enviar_mensagem_texto(
+            telefone, f"Orcamento #{orc_id} nao encontrado.", empresa=empresa_op
+        )
         return
 
     empresa_check = empresa_op or _empresa_por_operador(telefone, db)
     if not empresa_check or empresa_check.id != orc.empresa_id:
-        await enviar_mensagem_texto(telefone, "Sem permissao para editar este orcamento.", empresa=empresa_op)
+        await enviar_mensagem_texto(
+            telefone, "Sem permissao para editar este orcamento.", empresa=empresa_op
+        )
         return
 
     itens = list(orc.itens)
@@ -1043,55 +1198,108 @@ async def _remover_item_orcamento(
 
 
 async def _enviar_orcamento_para_cliente(
-    orcamento_id: int, solicitante: str, db: Session, empresa_op: "Empresa | None" = None,
+    orcamento_id: int,
+    solicitante: str,
+    db: Session,
+    empresa_op: "Empresa | None" = None,
 ):
     if not empresa_op:
-        await enviar_mensagem_texto(solicitante, "Sem permissao para enviar este orcamento.")
+        await enviar_mensagem_texto(
+            solicitante, "Sem permissao para enviar este orcamento."
+        )
         return {"status": "forbidden"}
 
     orcamento = db.query(Orcamento).filter(Orcamento.id == orcamento_id).first()
     if not orcamento:
-        await enviar_mensagem_texto(solicitante, f"Orcamento #{orcamento_id} nao encontrado.", empresa=empresa_op)
+        await enviar_mensagem_texto(
+            solicitante,
+            f"Orcamento #{orcamento_id} nao encontrado.",
+            empresa=empresa_op,
+        )
         return {"status": "not_found"}
 
     if orcamento.empresa_id != empresa_op.id:
-        await enviar_mensagem_texto(solicitante, "Sem permissao para enviar este orcamento.", empresa=empresa_op)
+        await enviar_mensagem_texto(
+            solicitante, "Sem permissao para enviar este orcamento.", empresa=empresa_op
+        )
         return {"status": "forbidden"}
 
     if not orcamento.cliente or not orcamento.cliente.telefone:
-        await enviar_mensagem_texto(solicitante, "Cliente sem telefone cadastrado.", empresa=empresa_op)
+        await enviar_mensagem_texto(
+            solicitante, "Cliente sem telefone cadastrado.", empresa=empresa_op
+        )
         return {"status": "sem_telefone"}
 
     empresa = orcamento.empresa
-    empresa_dict = {"nome": empresa.nome, "telefone": empresa.telefone, "cor_primaria": empresa.cor_primaria, "logo_url": empresa.logo_url}
+    empresa_dict = {
+        "nome": empresa.nome,
+        "telefone": empresa.telefone,
+        "cor_primaria": empresa.cor_primaria,
+        "logo_url": empresa.logo_url,
+    }
     itens = [
-        {"descricao": it.descricao, "quantidade": it.quantidade, "valor_unit": float(it.valor_unit), "total": float(it.total)}
+        {
+            "descricao": it.descricao,
+            "quantidade": it.quantidade,
+            "valor_unit": float(it.valor_unit),
+            "total": float(it.total),
+        }
         for it in orcamento.itens
     ]
     subtotal_env = sum(i["total"] for i in itens)
     orc_dict = {
-        "numero": orcamento.numero, "total": float(orcamento.total), "subtotal": subtotal_env,
-        "desconto": float(orcamento.desconto or 0.0), "desconto_tipo": orcamento.desconto_tipo or "percentual",
-        "validade_dias": orcamento.validade_dias or 7, "observacoes": orcamento.observacoes,
+        "numero": orcamento.numero,
+        "total": float(orcamento.total),
+        "subtotal": subtotal_env,
+        "desconto": float(orcamento.desconto or 0.0),
+        "desconto_tipo": orcamento.desconto_tipo or "percentual",
+        "validade_dias": orcamento.validade_dias or 7,
+        "observacoes": orcamento.observacoes,
         "forma_pagamento": str(orcamento.forma_pagamento),
-        "cliente": {"nome": orcamento.cliente.nome, "telefone": orcamento.cliente.telefone},
-        "cliente_nome": orcamento.cliente.nome, "empresa_nome": empresa.nome,
+        "cliente": {
+            "nome": orcamento.cliente.nome,
+            "telefone": orcamento.cliente.telefone,
+        },
+        "cliente_nome": orcamento.cliente.nome,
+        "empresa_nome": empresa.nome,
         "vendedor_nome": orcamento.criado_por.nome if orcamento.criado_por else None,
         "itens": itens,
     }
     pdf_bytes = gerar_pdf_orcamento(orc_dict, empresa_dict)
 
-    enviado = await enviar_orcamento_completo(orcamento.cliente.telefone, orc_dict, pdf_bytes, empresa=empresa)
+    enviado = await enviar_orcamento_completo(
+        orcamento.cliente.telefone, orc_dict, pdf_bytes, empresa=empresa
+    )
     if enviado:
         if orcamento.status == StatusOrcamento.RASCUNHO:
             orcamento.status = StatusOrcamento.ENVIADO
-            db.add(HistoricoEdicao(orcamento_id=orcamento.id, editado_por_id=None, descricao="Enviado por WhatsApp (numero da empresa / Evolution)."))
+            db.add(
+                HistoricoEdicao(
+                    orcamento_id=orcamento.id,
+                    editado_por_id=None,
+                    descricao="Enviado por WhatsApp (numero da empresa / Evolution).",
+                )
+            )
         else:
-            db.add(HistoricoEdicao(orcamento_id=orcamento.id, editado_por_id=None, descricao="Reenviado por WhatsApp."))
+            db.add(
+                HistoricoEdicao(
+                    orcamento_id=orcamento.id,
+                    editado_por_id=None,
+                    descricao="Reenviado por WhatsApp.",
+                )
+            )
         db.commit()
-        await enviar_mensagem_texto(solicitante, f"Orcamento *{orcamento.numero}* enviado para {orcamento.cliente.nome}!", empresa=empresa_op)
+        await enviar_mensagem_texto(
+            solicitante,
+            f"Orcamento *{orcamento.numero}* enviado para {orcamento.cliente.nome}!",
+            empresa=empresa_op,
+        )
     else:
-        await enviar_mensagem_texto(solicitante, "Falha ao enviar o orcamento. Tente pelo painel.", empresa=empresa_op)
+        await enviar_mensagem_texto(
+            solicitante,
+            "Falha ao enviar o orcamento. Tente pelo painel.",
+            empresa=empresa_op,
+        )
 
     return {"status": "sent" if enviado else "error"}
 
@@ -1138,7 +1346,9 @@ async def _criar_orcamento_via_bot(
     cliente_nome = interpretado.cliente_nome
     cliente = (
         db.query(Cliente)
-        .filter(Cliente.empresa_id == empresa.id, Cliente.nome.ilike(f"%{cliente_nome}%"))
+        .filter(
+            Cliente.empresa_id == empresa.id, Cliente.nome.ilike(f"%{cliente_nome}%")
+        )
         .first()
     )
 
@@ -1178,13 +1388,27 @@ async def _criar_orcamento_via_bot(
     desconto_tipo = interpretado.desconto_tipo or "percentual"
     if desconto > 0:
         max_pct = resolver_max_percent_desconto(usuario_criador, empresa)
-        err_desconto = erro_validacao_desconto(subtotal, desconto, desconto_tipo, max_pct)
+        err_desconto = erro_validacao_desconto(
+            subtotal, desconto, desconto_tipo, max_pct
+        )
         if err_desconto:
             await enviar_mensagem_texto(telefone, err_desconto, empresa=empresa)
             return {"status": "desconto_invalido", "erro": err_desconto}
-    total_calc = float(aplicar_desconto(_Decimal(str(subtotal)), _Decimal(str(desconto)), desconto_tipo))
+    total_calc = float(
+        aplicar_desconto(
+            _Decimal(str(subtotal)), _Decimal(str(desconto)), desconto_tipo
+        )
+    )
 
     checar_limite_orcamentos(db, empresa)
+
+    from app.models.models import ModoAgendamentoOrcamento
+
+    agendamento_modo_ia = ModoAgendamentoOrcamento.NAO_USA
+    if empresa and getattr(empresa, "agendamento_modo_padrao", None):
+        agendamento_modo_ia = empresa.agendamento_modo_padrao
+    if empresa and getattr(empresa, "agendamento_escolha_obrigatoria", False):
+        agendamento_modo_ia = ModoAgendamentoOrcamento.NAO_USA
 
     orcamento = None
     for tentativa in range(3):
@@ -1209,6 +1433,7 @@ async def _criar_orcamento_via_bot(
             link_publico=secrets.token_urlsafe(12),
             origem_whatsapp=True,
             mensagem_ia=mensagem,
+            agendamento_modo=agendamento_modo_ia,
         )
         db.add(orcamento)
         try:
@@ -1216,8 +1441,14 @@ async def _criar_orcamento_via_bot(
             break
         except Exception as e:
             orig = str(getattr(e, "orig", e))
-            if any(k in orig for k in ("orcamentos_numero", "uq_orcamentos", "ix_orcamentos")):
-                logger.warning("Colisao de numero de orcamento via WhatsApp (tentativa %d)", tentativa + 1)
+            if any(
+                k in orig
+                for k in ("orcamentos_numero", "uq_orcamentos", "ix_orcamentos")
+            ):
+                logger.warning(
+                    "Colisao de numero de orcamento via WhatsApp (tentativa %d)",
+                    tentativa + 1,
+                )
                 continue
             raise
     else:
@@ -1253,25 +1484,47 @@ async def _criar_orcamento_via_bot(
     db.commit()
     db.refresh(orcamento)
 
-    empresa_dict = {"nome": empresa.nome, "telefone": empresa.telefone, "cor_primaria": empresa.cor_primaria}
+    empresa_dict = {
+        "nome": empresa.nome,
+        "telefone": empresa.telefone,
+        "cor_primaria": empresa.cor_primaria,
+    }
     orc_dict = {
-        "numero": numero, "total": total_calc, "subtotal": subtotal,
-        "desconto": desconto, "desconto_tipo": desconto_tipo, "validade_dias": 7,
-        "observacoes": interpretado.observacoes, "forma_pagamento": "pix",
+        "numero": numero,
+        "total": total_calc,
+        "subtotal": subtotal,
+        "desconto": desconto,
+        "desconto_tipo": desconto_tipo,
+        "validade_dias": 7,
+        "observacoes": interpretado.observacoes,
+        "forma_pagamento": "pix",
         "cliente": {"nome": cliente_nome, "telefone": None},
-        "itens": [{"descricao": interpretado.servico, "quantidade": 1, "valor_unit": subtotal, "total": subtotal}],
+        "itens": [
+            {
+                "descricao": interpretado.servico,
+                "quantidade": 1,
+                "valor_unit": subtotal,
+                "total": subtotal,
+            }
+        ],
     }
     pdf_bytes = gerar_pdf_orcamento(orc_dict, empresa_dict)
     orcamento.pdf_url = f"/o/{orcamento.link_publico}/pdf"
     db.commit()
 
-    total_fmt = f"R$ {total_calc:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    total_fmt = (
+        f"R$ {total_calc:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    )
     desc_txt = ""
     if desconto > 0:
         if desconto_tipo == "percentual":
             desc_txt = f"\nDesconto: {desconto:.0f}%"
         else:
-            desc_fmt = f"R$ {desconto:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            desc_fmt = (
+                f"R$ {desconto:,.2f}".replace(",", "X")
+                .replace(".", ",")
+                .replace("X", ".")
+            )
             desc_txt = f"\nDesconto: {desc_fmt}"
 
     _seq = re.search(r"ORC-(\d+)-", numero) or re.search(r"(\d+)", numero)
@@ -1317,7 +1570,10 @@ def _is_agendamento_cmd(msg_upper: str) -> str | None:
 
 
 async def _processar_comando_agendamento(
-    telefone: str, mensagem: str, db: Session, empresa: "Empresa",
+    telefone: str,
+    mensagem: str,
+    db: Session,
+    empresa: "Empresa",
 ):
     from app.services.agendamento_service import criar_agendamento, criar_do_orcamento
 
@@ -1330,7 +1586,9 @@ async def _processar_comando_agendamento(
         .first()
     )
     if not usuario:
-        await enviar_mensagem_texto(telefone, "Usuario nao encontrado.", empresa=empresa)
+        await enviar_mensagem_texto(
+            telefone, "Usuario nao encontrado.", empresa=empresa
+        )
         return
 
     if orc_match:
@@ -1348,11 +1606,16 @@ async def _processar_comando_agendamento(
         if hora_match:
             h = int(hora_match.group(1))
             m = int(hora_match.group(2) or 0)
-            data_agendada = data_agendada.replace(hour=h, minute=m, second=0, microsecond=0)
+            data_agendada = data_agendada.replace(
+                hour=h, minute=m, second=0, microsecond=0
+            )
 
         ag, erro = criar_do_orcamento(
-            db=db, empresa_id=empresa.id, usuario_id=usuario.id,
-            orcamento_id=orc_id, data_agendada=data_agendada,
+            db=db,
+            empresa_id=empresa.id,
+            usuario_id=usuario.id,
+            orcamento_id=orc_id,
+            data_agendada=data_agendada,
         )
         if erro:
             await enviar_mensagem_texto(telefone, f"{erro}", empresa=empresa)
@@ -1386,18 +1649,25 @@ async def _listar_agendamentos_hoje(telefone: str, db: Session, empresa: "Empres
 
     agendamentos = listar_hoje(db, empresa.id)
     if not agendamentos:
-        await enviar_mensagem_texto(telefone, "Nenhum agendamento para hoje.", empresa=empresa)
+        await enviar_mensagem_texto(
+            telefone, "Nenhum agendamento para hoje.", empresa=empresa
+        )
         return
 
     linhas = [f"*Agendamentos de Hoje* ({len(agendamentos)})\n"]
     for ag in agendamentos:
         status_icon = {
-            "pendente": "[P]", "confirmado": "[C]", "em_andamento": "[E]", "concluido": "[OK]",
+            "pendente": "[P]",
+            "confirmado": "[C]",
+            "em_andamento": "[E]",
+            "concluido": "[OK]",
         }.get(ag.get("status", ""), "*")
         cliente = ag.get("cliente_nome", "--")
         hora = _fmt_data_br(ag.get("data_agendada"))
         resp = ag.get("responsavel_nome", "--")
-        linhas.append(f"{status_icon} {ag.get('numero', '?')} -- {cliente}\n   {hora} | {resp}")
+        linhas.append(
+            f"{status_icon} {ag.get('numero', '?')} -- {cliente}\n   {hora} | {resp}"
+        )
 
     await enviar_mensagem_texto(telefone, "\n".join(linhas), empresa=empresa)
 
@@ -1412,15 +1682,22 @@ async def _listar_meus_agendamentos(telefone: str, db: Session, empresa: "Empres
         .first()
     )
     if not usuario:
-        await enviar_mensagem_texto(telefone, "Usuario nao encontrado.", empresa=empresa)
+        await enviar_mensagem_texto(
+            telefone, "Usuario nao encontrado.", empresa=empresa
+        )
         return
 
     itens, total = listar_agendamentos(
-        db=db, empresa_id=empresa.id, responsavel_id=usuario.id, data_de=dt.now(timezone.utc),
+        db=db,
+        empresa_id=empresa.id,
+        responsavel_id=usuario.id,
+        data_de=dt.now(timezone.utc),
     )
 
     if not itens:
-        await enviar_mensagem_texto(telefone, "Voce nao tem agendamentos futuros.", empresa=empresa)
+        await enviar_mensagem_texto(
+            telefone, "Voce nao tem agendamentos futuros.", empresa=empresa
+        )
         return
 
     linhas = [f"*Seus Proximos Agendamentos* ({total})\n"]

@@ -186,7 +186,10 @@ def _resolver_agendamento_modo_criacao(
                 "A configuração da empresa exige escolha explícita em cada proposta."
             ),
         )
-    if empresa is not None and getattr(empresa, "agendamento_modo_padrao", None) is not None:
+    if (
+        empresa is not None
+        and getattr(empresa, "agendamento_modo_padrao", None) is not None
+    ):
         return empresa.agendamento_modo_padrao
     return ModoAgendamentoOrcamento.NAO_USA
 
@@ -215,9 +218,7 @@ async def criar_orcamento(
 
     empresa_ctx = usuario.empresa
     if empresa_ctx is None:
-        empresa_ctx = (
-            db.query(Empresa).filter(Empresa.id == usuario.empresa_id).first()
-        )
+        empresa_ctx = db.query(Empresa).filter(Empresa.id == usuario.empresa_id).first()
     modo_agendamento = _resolver_agendamento_modo_criacao(
         dados.agendamento_modo, empresa_ctx
     )
@@ -448,6 +449,15 @@ async def criar_orcamento_pelo_texto(
     validade_padrao = (
         (usuario.empresa.validade_padrao_dias or 7) if usuario.empresa else 7
     )  # #10
+
+    agendamento_modo_ia = ModoAgendamentoOrcamento.NAO_USA
+    if usuario.empresa and getattr(usuario.empresa, "agendamento_modo_padrao", None):
+        agendamento_modo_ia = usuario.empresa.agendamento_modo_padrao
+    if usuario.empresa and getattr(
+        usuario.empresa, "agendamento_escolha_obrigatoria", False
+    ):
+        agendamento_modo_ia = ModoAgendamentoOrcamento.NAO_USA
+
     orcamento = None
     for tentativa in range(3):
         _numero, _seq = gerar_numero(usuario.empresa, db, offset=tentativa)
@@ -466,6 +476,7 @@ async def criar_orcamento_pelo_texto(
             link_publico=secrets.token_urlsafe(24),
             origem_whatsapp=False,
             mensagem_ia=mensagem,
+            agendamento_modo=agendamento_modo_ia,
         )
         db.add(orcamento)
         sp = db.begin_nested()
@@ -672,6 +683,7 @@ async def duplicar_orcamento(
         total=orc.total,
         link_publico=secrets.token_urlsafe(24),
         origem_whatsapp=False,
+        agendamento_modo=orc.agendamento_modo,
     )
     db.add(novo)
     db.flush()
@@ -1102,17 +1114,23 @@ async def enviar_whatsapp(
     # Gerar PDF apenas se configurado
     pdf_bytes = b""
     wa_anexo_ativo = getattr(orc.empresa, "enviar_pdf_whatsapp", False)
-    logger.info(f"[WA] Checando anexo PDF: empresa_id={orc.empresa_id}, flag={wa_anexo_ativo}")
-    
+    logger.info(
+        f"[WA] Checando anexo PDF: empresa_id={orc.empresa_id}, flag={wa_anexo_ativo}"
+    )
+
     if wa_anexo_ativo:
         try:
             pdf_bytes = gerar_pdf_orcamento(orc_dict, empresa_dict)
-            logger.info(f"[WA] PDF gerado com {len(pdf_bytes)} bytes para orçamento {orc.numero}")
+            logger.info(
+                f"[WA] PDF gerado com {len(pdf_bytes)} bytes para orçamento {orc.numero}"
+            )
         except Exception as e:
             logger.error(f"Erro ao gerar PDF para WhatsApp: {e}")
             pdf_bytes = b""
     else:
-        logger.info(f"[WA] Anexo PDF desativado para empresa {orc.empresa_id}. Enviando apenas texto.")
+        logger.info(
+            f"[WA] Anexo PDF desativado para empresa {orc.empresa_id}. Enviando apenas texto."
+        )
 
     enviado = await enviar_orcamento_completo(
         telefone=orc.cliente.telefone,
@@ -2309,9 +2327,7 @@ def _enviar_email_background(
                 log_email.status = "enviado"
                 log_email.enviado_em = datetime.now(timezone.utc)
                 orc_row = (
-                    db.query(Orcamento)
-                    .filter(Orcamento.id == orcamento_id)
-                    .first()
+                    db.query(Orcamento).filter(Orcamento.id == orcamento_id).first()
                 )
                 if orc_row and orc_row.enviado_em is None:
                     orc_row.enviado_em = log_email.enviado_em

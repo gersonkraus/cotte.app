@@ -624,6 +624,14 @@ async def _acao_criar(mensagem: str, cmd: dict, usuario, empresa, db: Session) -
 
     validade_padrao = (empresa.validade_padrao_dias or 7) if empresa else 7
 
+    from app.models.models import ModoAgendamentoOrcamento
+
+    agendamento_modo_ia = ModoAgendamentoOrcamento.NAO_USA
+    if empresa and getattr(empresa, "agendamento_modo_padrao", None):
+        agendamento_modo_ia = empresa.agendamento_modo_padrao
+    if empresa and getattr(empresa, "agendamento_escolha_obrigatoria", False):
+        agendamento_modo_ia = ModoAgendamentoOrcamento.NAO_USA
+
     orcamento = None
     for tentativa in range(3):
         _numero, _seq = gerar_numero(usuario.empresa, db, offset=tentativa)
@@ -642,6 +650,7 @@ async def _acao_criar(mensagem: str, cmd: dict, usuario, empresa, db: Session) -
             link_publico=secrets.token_urlsafe(24),
             origem_whatsapp=False,
             mensagem_ia=mensagem,
+            agendamento_modo=agendamento_modo_ia,
         )
         db.add(orcamento)
         sp = db.begin_nested()

@@ -1,4 +1,5 @@
 """Tools de orçamento: listar, obter e criar."""
+
 from __future__ import annotations
 
 from datetime import date, timedelta
@@ -104,7 +105,9 @@ listar_orcamentos = ToolSpec(
 
 # ── obter_orcamento ────────────────────────────────────────────────────────
 class ObterOrcamentoInput(BaseModel):
-    id: int | str = Field(description="ID NÚMERICO ou NÚMERO do orçamento (ex: 104 ou 'O-104').")
+    id: int | str = Field(
+        description="ID NÚMERICO ou NÚMERO do orçamento (ex: 104 ou 'O-104')."
+    )
 
 
 async def _obter_orcamento(
@@ -175,7 +178,10 @@ def _resolver_cliente(inp: "CriarOrcamentoInput", db: Session, current_user: Usu
     if inp.cliente_id:
         c = (
             db.query(Cliente)
-            .filter(Cliente.id == inp.cliente_id, Cliente.empresa_id == current_user.empresa_id)
+            .filter(
+                Cliente.id == inp.cliente_id,
+                Cliente.empresa_id == current_user.empresa_id,
+            )
             .first()
         )
         if not c:
@@ -205,13 +211,21 @@ def _resolver_cliente(inp: "CriarOrcamentoInput", db: Session, current_user: Usu
         exatos = [c for c in candidatos if c.nome.lower() == nome.lower()]
         if len(exatos) == 1:
             return exatos[0], False, None
-        return None, False, {
-            "error": f"Múltiplos clientes para '{nome}'. Especifique o cliente_id.",
-            "code": "ambiguous_cliente",
-            "candidatos": [{"id": c.id, "nome": c.nome} for c in candidatos],
-        }
+        return (
+            None,
+            False,
+            {
+                "error": f"Múltiplos clientes para '{nome}'. Especifique o cliente_id.",
+                "code": "ambiguous_cliente",
+                "candidatos": [{"id": c.id, "nome": c.nome} for c in candidatos],
+            },
+        )
 
-    return None, False, {"error": "Informe cliente_id ou cliente_nome.", "code": "missing_cliente"}
+    return (
+        None,
+        False,
+        {"error": "Informe cliente_id ou cliente_nome.", "code": "missing_cliente"},
+    )
 
 
 def _resolver_itens(inp: "CriarOrcamentoInput", db: Session, current_user: Usuario):
@@ -230,7 +244,10 @@ def _resolver_itens(inp: "CriarOrcamentoInput", db: Session, current_user: Usuar
         if servico_id:
             svc_obj = (
                 db.query(Servico)
-                .filter(Servico.id == servico_id, Servico.empresa_id == current_user.empresa_id)
+                .filter(
+                    Servico.id == servico_id,
+                    Servico.empresa_id == current_user.empresa_id,
+                )
                 .first()
             )
             if svc_obj and valor_unit is None:
@@ -252,22 +269,37 @@ def _resolver_itens(inp: "CriarOrcamentoInput", db: Session, current_user: Usuar
                     valor_unit = float(matches[0].preco_padrao or 0)
             else:
                 if valor_unit is None:
-                    return None, None, {
-                        "error": f"Item '{descricao}' não está no catálogo e o valor não foi informado.",
-                        "code": "missing_valor",
-                        "item": descricao,
-                    }
-                materiais_novos.append({"descricao": descricao, "valor_unit": valor_unit})
+                    return (
+                        None,
+                        None,
+                        {
+                            "error": f"Item '{descricao}' não está no catálogo e o valor não foi informado.",
+                            "code": "missing_valor",
+                            "item": descricao,
+                        },
+                    )
+                materiais_novos.append(
+                    {"descricao": descricao, "valor_unit": valor_unit}
+                )
 
         if valor_unit is None or valor_unit <= 0:
-            return None, None, {
-                "error": f"Valor inválido ou zero para o item '{descricao}'.",
-                "code": "missing_valor",
-                "item": descricao,
-            }
+            return (
+                None,
+                None,
+                {
+                    "error": f"Valor inválido ou zero para o item '{descricao}'.",
+                    "code": "missing_valor",
+                    "item": descricao,
+                },
+            )
 
         itens_resolvidos.append(
-            {"descricao": descricao, "quantidade": it.quantidade, "valor_unit": valor_unit, "servico_id": servico_id}
+            {
+                "descricao": descricao,
+                "quantidade": it.quantidade,
+                "valor_unit": valor_unit,
+                "servico_id": servico_id,
+            }
         )
 
     return itens_resolvidos, materiais_novos, None
@@ -310,6 +342,15 @@ async def _criar_orcamento(
         vu = Decimal(str(ir["valor_unit"]))
         total += (qtd * vu).quantize(Decimal("0.01"))
 
+    from app.models.models import ModoAgendamentoOrcamento
+
+    empresa = current_user.empresa
+    agendamento_modo_ia = ModoAgendamentoOrcamento.NAO_USA
+    if empresa and getattr(empresa, "agendamento_modo_padrao", None):
+        agendamento_modo_ia = empresa.agendamento_modo_padrao
+    if empresa and getattr(empresa, "agendamento_escolha_obrigatoria", False):
+        agendamento_modo_ia = ModoAgendamentoOrcamento.NAO_USA
+
     orc = None
     for tentativa in range(3):
         if tentativa > 0:
@@ -325,18 +366,30 @@ async def _criar_orcamento(
             total=total,
             observacoes=inp.observacoes,
             link_publico=secrets.token_urlsafe(24),
+            agendamento_modo=agendamento_modo_ia,
         )
         db.add(orc)
         try:
             db.flush()
             break
         except IntegrityError as e:
-            if any(k in str(e.orig) for k in ("ix_orcamentos", "orcamentos_numero", "uq_orcamentos_empresa_numero", "numero")):
+            if any(
+                k in str(e.orig)
+                for k in (
+                    "ix_orcamentos",
+                    "orcamentos_numero",
+                    "uq_orcamentos_empresa_numero",
+                    "numero",
+                )
+            ):
                 db.rollback()
                 continue
             raise
     else:
-        return {"error": "Não foi possível gerar número único", "code": "numero_conflict"}
+        return {
+            "error": "Não foi possível gerar número único",
+            "code": "numero_conflict",
+        }
 
     for ir in itens_resolvidos:
         qtd = Decimal(str(ir["quantidade"]))
@@ -380,7 +433,9 @@ async def _criar_orcamento(
     }
 
 
-async def preview_criar_orcamento(args_dict: dict, *, db: Session, current_user: Usuario) -> dict:
+async def preview_criar_orcamento(
+    args_dict: dict, *, db: Session, current_user: Usuario
+) -> dict:
     """Dry-run read-only: verifica cliente/itens sem gravar nada. Retorna extras para o card."""
     try:
         inp = CriarOrcamentoInput(**args_dict)
@@ -393,7 +448,10 @@ async def preview_criar_orcamento(args_dict: dict, *, db: Session, current_user:
     if inp.cliente_id:
         c = (
             db.query(Cliente)
-            .filter(Cliente.id == inp.cliente_id, Cliente.empresa_id == current_user.empresa_id)
+            .filter(
+                Cliente.id == inp.cliente_id,
+                Cliente.empresa_id == current_user.empresa_id,
+            )
             .first()
         )
         cliente_nome_resolvido = c.nome if c else str(inp.cliente_id)
@@ -412,7 +470,9 @@ async def preview_criar_orcamento(args_dict: dict, *, db: Session, current_user:
             cliente_nome_resolvido = candidatos[0].nome
         else:
             exatos = [c for c in candidatos if c.nome.lower() == _nome.lower()]
-            cliente_nome_resolvido = exatos[0].nome if len(exatos) == 1 else candidatos[0].nome
+            cliente_nome_resolvido = (
+                exatos[0].nome if len(exatos) == 1 else candidatos[0].nome
+            )
 
     # Resolve itens — apenas leitura, sem criar
     materiais_novos = []
@@ -429,7 +489,9 @@ async def preview_criar_orcamento(args_dict: dict, *, db: Session, current_user:
                 .all()
             )
             if not matches:
-                materiais_novos.append({"descricao": it.descricao, "valor_unit": it.valor_unit})
+                materiais_novos.append(
+                    {"descricao": it.descricao, "valor_unit": it.valor_unit}
+                )
 
     return {
         "cliente_auto_criar": cliente_auto_criar,
@@ -460,35 +522,43 @@ def _get_orcamento_da_empresa(
 ) -> Optional[Orcamento]:
     from sqlalchemy import or_
     import re
-    
+
     val_str = str(orcamento_id).strip()
-    
-    q = db.query(Orcamento).options(selectinload(Orcamento.itens), selectinload(Orcamento.cliente)).filter(Orcamento.empresa_id == empresa_id)
-    
+
+    q = (
+        db.query(Orcamento)
+        .options(selectinload(Orcamento.itens), selectinload(Orcamento.cliente))
+        .filter(Orcamento.empresa_id == empresa_id)
+    )
+
     exact = q.filter(Orcamento.numero == val_str).first()
     if exact:
         return exact
-        
-    match = re.search(r'\d+', val_str)
+
+    match = re.search(r"\d+", val_str)
     if match:
         val_int = int(match.group())
-        
-        candidatos = q.filter(or_(Orcamento.id == val_int, Orcamento.sequencial_numero == val_int)).all()
+
+        candidatos = q.filter(
+            or_(Orcamento.id == val_int, Orcamento.sequencial_numero == val_int)
+        ).all()
         if not candidatos:
             return None
-            
+
         for c in candidatos:
             if c.sequencial_numero == val_int:
                 return c
-                
+
         return candidatos[0]
-        
+
     return None
 
 
 # ── aprovar_orcamento (DESTRUTIVA) ─────────────────────────────────────────
 class AprovarOrcamentoInput(BaseModel):
-    orcamento_id: int | str = Field(description="ID NÚMERICO ou NÚMERO do orçamento a aprovar.")
+    orcamento_id: int | str = Field(
+        description="ID NÚMERICO ou NÚMERO do orçamento a aprovar."
+    )
 
 
 async def _aprovar_orcamento(
@@ -511,13 +581,19 @@ async def _aprovar_orcamento(
         )
     except Exception as e:
         db.rollback()
-        return {"error": f"Falha ao criar contas a receber: {e}", "code": "financeiro_error"}
+        return {
+            "error": f"Falha ao criar contas a receber: {e}",
+            "code": "financeiro_error",
+        }
     db.commit()
     db.refresh(orc)
     try:
         await handle_quote_status_changed(
-            db=db, quote=orc, old_status=old_status,
-            new_status=orc.status, source="assistente_tool",
+            db=db,
+            quote=orc,
+            old_status=old_status,
+            new_status=orc.status,
+            source="assistente_tool",
         )
     except Exception:
         pass
@@ -540,7 +616,9 @@ aprovar_orcamento = ToolSpec(
 
 # ── recusar_orcamento (DESTRUTIVA) ─────────────────────────────────────────
 class RecusarOrcamentoInput(BaseModel):
-    orcamento_id: int | str = Field(description="ID NÚMERICO ou NÚMERO do orçamento a recusar.")
+    orcamento_id: int | str = Field(
+        description="ID NÚMERICO ou NÚMERO do orçamento a recusar."
+    )
     motivo: Optional[str] = Field(default=None, max_length=500)
 
 
@@ -579,8 +657,11 @@ async def _recusar_orcamento(
     db.refresh(orc)
     try:
         await handle_quote_status_changed(
-            db=db, quote=orc, old_status=old_status,
-            new_status=orc.status, source="assistente_tool",
+            db=db,
+            quote=orc,
+            old_status=old_status,
+            new_status=orc.status,
+            source="assistente_tool",
         )
     except Exception:
         pass
@@ -615,7 +696,9 @@ recusar_orcamento = ToolSpec(
 
 # ── enviar_orcamento_whatsapp (DESTRUTIVA) ────────────────────────────────
 class EnviarOrcamentoWhatsappInput(BaseModel):
-    orcamento_id: int | str = Field(description="ID NÚMERICO ou NÚMERO do orçamento a enviar (ex: 104 ou 'O-104').")
+    orcamento_id: int | str = Field(
+        description="ID NÚMERICO ou NÚMERO do orçamento a enviar (ex: 104 ou 'O-104')."
+    )
 
 
 async def _enviar_orcamento_whatsapp(
@@ -673,7 +756,9 @@ enviar_orcamento_whatsapp = ToolSpec(
 
 # ── enviar_orcamento_email (DESTRUTIVA) ───────────────────────────────────
 class EnviarOrcamentoEmailInput(BaseModel):
-    orcamento_id: int | str = Field(description="ID NÚMERICO ou NÚMERO do orçamento a enviar (ex: 104 ou 'O-104').")
+    orcamento_id: int | str = Field(
+        description="ID NÚMERICO ou NÚMERO do orçamento a enviar (ex: 104 ou 'O-104')."
+    )
 
 
 async def _enviar_orcamento_email(
@@ -711,7 +796,9 @@ async def _enviar_orcamento_email(
             cliente_nome=orc.cliente.nome,
             numero_orcamento=orc.numero,
             empresa_nome=orc.empresa.nome,
-            link_publico=f"{base_url}/o/{orc.link_publico}" if base_url else orc.link_publico,
+            link_publico=f"{base_url}/o/{orc.link_publico}"
+            if base_url
+            else orc.link_publico,
             pdf_bytes=pdf_bytes,
             anexar_pdf=True,
             valor_total=float(orc.total or 0),
@@ -745,7 +832,9 @@ enviar_orcamento_email = ToolSpec(
 
 # ── duplicar_orcamento (DESTRUTIVA) ────────────────────────────────────────
 class DuplicarOrcamentoInput(BaseModel):
-    orcamento_id: int | str = Field(description="ID NÚMERICO ou NÚMERO do orçamento (ex: 104 ou 'O-104').")
+    orcamento_id: int | str = Field(
+        description="ID NÚMERICO ou NÚMERO do orçamento (ex: 104 ou 'O-104')."
+    )
 
 
 async def _duplicar_orcamento(
@@ -779,18 +868,30 @@ async def _duplicar_orcamento(
             total=orc.total,
             link_publico=secrets.token_urlsafe(24),
             origem_whatsapp=False,
+            agendamento_modo=orc.agendamento_modo,
         )
         db.add(novo)
         try:
             db.flush()
             break
         except IntegrityError as e:
-            if any(k in str(e.orig) for k in ("ix_orcamentos", "orcamentos_numero", "uq_orcamentos_empresa_numero", "numero")):
+            if any(
+                k in str(e.orig)
+                for k in (
+                    "ix_orcamentos",
+                    "orcamentos_numero",
+                    "uq_orcamentos_empresa_numero",
+                    "numero",
+                )
+            ):
                 db.rollback()
                 continue
             raise
     else:
-        return {"error": "Não foi possível gerar número único", "code": "numero_conflict"}
+        return {
+            "error": "Não foi possível gerar número único",
+            "code": "numero_conflict",
+        }
 
     for item in orc.itens:
         db.add(
@@ -829,7 +930,9 @@ duplicar_orcamento = ToolSpec(
 
 # ── editar_orcamento (DESTRUTIVA, só em RASCUNHO) ──────────────────────────
 class EditarOrcamentoInput(BaseModel):
-    orcamento_id: int | str = Field(description="ID NÚMERICO ou NÚMERO do orçamento (ex: 104 ou 'O-104').")
+    orcamento_id: int | str = Field(
+        description="ID NÚMERICO ou NÚMERO do orçamento (ex: 104 ou 'O-104')."
+    )
     observacoes: Optional[str] = Field(default=None, max_length=2000)
     desconto: Optional[Decimal] = Field(default=None, ge=0)
     desconto_tipo: Optional[str] = Field(
@@ -837,8 +940,9 @@ class EditarOrcamentoInput(BaseModel):
     )
     validade_dias: Optional[int] = Field(default=None, ge=1, le=365)
     valor_total: Optional[Decimal] = Field(
-        default=None, ge=0,
-        description="Novo valor total desejado para o orçamento. Se houver 1 item, ajusta o preço unitário. Se houver múltiplos itens, aplica desconto fixo para atingir o total."
+        default=None,
+        ge=0,
+        description="Novo valor total desejado para o orçamento. Se houver 1 item, ajusta o preço unitário. Se houver múltiplos itens, aplica desconto fixo para atingir o total.",
     )
 
 
@@ -873,7 +977,9 @@ async def _editar_orcamento(
         itens = orc.itens or []
         if len(itens) == 1:
             item = itens[0]
-            item.valor_unit = inp.valor_total / (Decimal(str(item.quantidade)) if item.quantidade else Decimal("1"))
+            item.valor_unit = inp.valor_total / (
+                Decimal(str(item.quantidade)) if item.quantidade else Decimal("1")
+            )
             item.total = inp.valor_total
         elif len(itens) > 1:
             subtotal = sum(Decimal(str(i.total or 0)) for i in itens)
@@ -911,11 +1017,21 @@ editar_orcamento = ToolSpec(
 
 # ── editar_item_orcamento (DESTRUTIVA) ────────────────────────────────────
 class EditarItemOrcamentoInput(BaseModel):
-    orcamento_id: int | str = Field(description="ID numérico ou número do orçamento (ex: 104 ou 'O-104').")
-    num_item: int = Field(ge=1, description="Número do item (1 = primeiro, 2 = segundo, etc.).")
-    descricao: Optional[str] = Field(default=None, max_length=500, description="Nova descrição do item.")
-    valor_unit: Optional[Decimal] = Field(default=None, ge=0, description="Novo valor unitário do item.")
-    quantidade: Optional[Decimal] = Field(default=None, gt=0, description="Nova quantidade do item.")
+    orcamento_id: int | str = Field(
+        description="ID numérico ou número do orçamento (ex: 104 ou 'O-104')."
+    )
+    num_item: int = Field(
+        ge=1, description="Número do item (1 = primeiro, 2 = segundo, etc.)."
+    )
+    descricao: Optional[str] = Field(
+        default=None, max_length=500, description="Nova descrição do item."
+    )
+    valor_unit: Optional[Decimal] = Field(
+        default=None, ge=0, description="Novo valor unitário do item."
+    )
+    quantidade: Optional[Decimal] = Field(
+        default=None, gt=0, description="Nova quantidade do item."
+    )
 
 
 async def _editar_item_orcamento(
@@ -931,7 +1047,10 @@ async def _editar_item_orcamento(
         }
     itens = orc.itens or []
     if not itens:
-        return {"error": "Orçamento não tem itens para editar.", "code": "invalid_input"}
+        return {
+            "error": "Orçamento não tem itens para editar.",
+            "code": "invalid_input",
+        }
     if inp.num_item > len(itens):
         return {
             "error": f"Item {inp.num_item} não existe. O orçamento tem {len(itens)} item(ns).",
@@ -989,7 +1108,9 @@ editar_item_orcamento = ToolSpec(
 # ── anexar_documento_orcamento (DESTRUTIVA) ────────────────────────────────
 class AnexarDocumentoOrcamentoInput(BaseModel):
     orcamento_id: int = Field(gt=0)
-    documento_id: int = Field(gt=0, description="ID do documento da empresa (biblioteca).")
+    documento_id: int = Field(
+        gt=0, description="ID do documento da empresa (biblioteca)."
+    )
     exibir_no_portal: bool = Field(default=True)
     enviar_por_email: bool = Field(default=True)
     enviar_por_whatsapp: bool = Field(default=False)
@@ -1027,7 +1148,10 @@ async def _anexar_documento_orcamento(
         .first()
     )
     if existente:
-        return {"error": "Documento já vinculado a este orçamento", "code": "already_exists"}
+        return {
+            "error": "Documento já vinculado a este orçamento",
+            "code": "already_exists",
+        }
 
     max_ordem = (
         db.query(func.max(OrcamentoDocumento.ordem))

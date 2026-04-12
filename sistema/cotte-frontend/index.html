@@ -1251,8 +1251,8 @@
       modalBody.prepend(container);
     }
 
-    async function _obterPadroesEmpresaModalOrc() {
-      if (!_empresaCfgModalOrc) {
+    async function _obterPadroesEmpresaModalOrc(forceRefresh = true) {
+      if (!_empresaCfgModalOrc || forceRefresh) {
         try {
           _empresaCfgModalOrc = await api.get('/empresa/');
         } catch (_) {
