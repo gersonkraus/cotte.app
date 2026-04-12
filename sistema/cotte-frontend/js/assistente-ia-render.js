@@ -41,9 +41,10 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
     if (actionStatusLabel && !tiposComBannerProprio.includes(data.tipo_resposta)) {
         responseContent = `<div class="action-status-chip">✓ ${escapeHtml(actionStatusLabel)}</div>${responseContent}`;
     }
+    let metaTracesHtml = '';
     const visPref = data?.dados?.visualizacao_recomendada || null;
     if (visPref && visPref.formato_preferido && visPref.formato_preferido !== 'auto') {
-        responseContent += `<div class="tool-trace">🧭 Formato aplicado: <strong>${escapeHtml(String(visPref.formato_preferido))}</strong></div>`;
+        metaTracesHtml += `<div class="tool-trace" style="margin-top:12px;font-size:0.75rem;color:var(--ai-muted)">🧭 Formato aplicado: <strong>${escapeHtml(String(visPref.formato_preferido))}</strong></div>`;
     }
 
     if (Array.isArray(data.tool_trace) && data.tool_trace.length > 0) {
@@ -51,7 +52,7 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
             const ico = t.status === 'ok' ? '✅' : (t.status === 'pending' ? '⏳' : '⚠️');
             return `<span class="tool-trace-item">${ico} ${escapeHtml(String(t.tool))}</span>`;
         }).join(' ');
-        responseContent += `<div class="tool-trace">🛠️ ${items}</div>`;
+        metaTracesHtml += `<div class="tool-trace" style="margin-top:4px;font-size:0.75rem;color:var(--ai-muted)">🛠️ ${items}</div>`;
     }
 
     if (data.tipo_resposta === 'registro_criado' && data.dados) {
@@ -91,19 +92,18 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
             ? `<button type="button" class="btn btn-confirm-alt" data-confirm-ia="${tokAttr}" data-cadastrar="1">Confirmar e cadastrar produto</button>`
             : '';
         responseContent += `
-            <div class="pending-action-card" role="dialog" aria-labelledby="pa-title-${token.slice(0,8)}" data-token="${tokAttr}">
-                <div class="pending-action-header" id="pa-title-${token.slice(0,8)}">
-                    <span class="pending-action-header__icon" aria-hidden="true">⚠</span>
+            <div class="orc-card-v2 pending-action-card" role="dialog" aria-labelledby="pa-title-${token.slice(0,8)}" data-token="${tokAttr}">
+                <div class="orc-card-v2__banner orc-card-v2__banner--warning" id="pa-title-${token.slice(0,8)}">
+                    <span class="orc-card-v2__banner-icon" aria-hidden="true" style="background:#f59e0b">⚠</span>
                     Confirmação necessária
                 </div>
-                <div class="pending-action-body">
+                <div class="orc-card-v2__body">
                     <div class="pending-action-tool">${humanizeToolName(pa.tool)}</div>
                     <div class="pending-action-summary">${resumo}</div>
-                    <div class="pending-action-guidance">Revise os dados antes de confirmar.</div>
-                    <div class="pending-action-buttons">
-                        <button type="button" class="orc-card-v2__aprovar-btn" data-confirm-ia="${tokAttr}">✓ Confirmar</button>
-                        ${btnCadastrar ? `<button type="button" class="orc-card-v2__aprovar-btn" style="background:var(--ai-green,#16a34a)" data-confirm-ia="${tokAttr}" data-cadastrar="1">✓ Confirmar e cadastrar</button>` : ''}
-                        <button type="button" class="orc-cancel-btn" style="flex:unset;width:100%" data-cancel-ia="1">Cancelar</button>
+                    <div class="orc-card-v2__actions" style="margin-top:16px;flex-wrap:wrap">
+                        <button type="button" class="orc-card-v2__aprovar-btn" data-confirm-ia="${tokAttr}" style="background:var(--ai-green);color:white;min-height:42px">✅ Confirmar</button>
+                        ${temMateriaisNovos ? `<button type="button" class="orc-card-v2__aprovar-btn pa-btn-cadastrar" data-confirm-ia="${tokAttr}" data-cadastrar="1" style="min-height:42px;flex:1 1 100%">✅ ✏️ Cadastrar material</button>` : ''}
+                        <button type="button" class="orc-cancel-btn pa-cancel-btn" data-cancel-ia="1" style="flex:1;min-height:42px;display:flex;align-items:center;justify-content:center;border-radius:10px;">✕ Cancelar</button>
                     </div>
                 </div>
             </div>`;
@@ -119,7 +119,7 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
         sugestoes = data.sugestoes;
     }
 
-    const tipoResp = data.tipo_resposta || (data.dados && data.dados.tipo) || '';
+    const tipoResp = (data.tipo_resposta && data.tipo_resposta !== 'geral') ? data.tipo_resposta : ((data.dados && data.dados.tipo) || 'geral');
     if (tipoResp === 'orcamento_criado' || tipoResp === 'orcamento_atualizado') {
         sugestoes = getOrcamentoFollowupSuggestions(data, sugestoes, tipoResp);
     }
@@ -135,17 +135,21 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
         responseContent += `<div class="sugestoes-container"><div class="sugestoes-header"><span class="sug-icon">✨</span> Próximos passos sugeridos</div>${chips}</div>`;
     }
 
-    const responseHasText = String(responseContent || '')
-        .replace(/<[^>]*>/g, '')
-        .replace(/&nbsp;/g, ' ')
-        .trim()
-        .length > 0;
-    if (!responseHasText) {
+    // Se o backend não mandou texto e também não é um dos cards ricos estruturados:
+    const ehCardRico = ['orcamento_criado', 'orcamento_atualizado', 'orcamento_preview', 'onboarding', 'registro_criado', 'saldo_caixa', 'resumo_financeiro'].includes(tipoResp) || data.pending_action || (responseContent && responseContent.includes('opr-card'));
+    const responseHasText = (responseContent && responseContent.replace(/<[^>]*>/g, '').trim().length > 0) || (isStreamed && data.stream_has_chunks);
+
+    if (!responseHasText && !ehCardRico) {
         responseContent = `<div class="resposta-direta">Não consegui montar a resposta completa agora. Tente novamente em alguns segundos.</div>`;
     }
 
+    // Injeta os metas (tool_trace e formato) apenas na bolha de resposta e NÃO acima dos cards de bloco.
+    if (metaTracesHtml) {
+        responseContent += metaTracesHtml;
+    }
+
     const tipoSemFeedback = ['onboarding', 'orcamento_preview', 'operador_resultado', 'registro_criado'];
-    if (!tipoSemFeedback.includes(data.tipo_resposta) && responseHasText) {
+    if (!tipoSemFeedback.includes(tipoResp) && !data.pending_action && (responseHasText || ehCardRico)) {
         const fbId = 'fb_' + Date.now();
         responseContent += `
             <div class="feedback-bar" id="${fbId}">
@@ -157,11 +161,11 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
         window._feedbackData[fbId] = {
             pergunta: _ultimaPergunta,
             resposta: data.resposta || '',
-            modulo_origem: data.modulo_origem || data.tipo_resposta || 'geral',
+            modulo_origem: data.modulo_origem || tipoResp || 'geral',
         };
     }
 
-    const tiposV2Card = ['orcamento_criado', 'orcamento_atualizado'];
+    const tiposV2Card = ['orcamento_criado', 'orcamento_atualizado', 'orcamento_preview'];
 
     let msgEl;
     if (!isStreamed) {
@@ -172,7 +176,7 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
             const bubble = loadingMessage.querySelector('.message-bubble');
             if (bubble) {
                 // Para cards v2, limpa texto streamed anterior (evita duplicação do status)
-                if (tiposV2Card.includes(data.tipo_resposta)) {
+                if (tiposV2Card.includes(tipoResp) || data.pending_action) {
                     bubble.innerHTML = '';
                 }
                 bubble.insertAdjacentHTML('beforeend', responseContent);
@@ -186,7 +190,7 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
     if (msgEl) msgEl.dataset.pergunta = '';
 
     // Bubble transparente para cards v2 (sem "card dentro de card")
-    if (tiposV2Card.includes(data.tipo_resposta) && msgEl) {
+    if ((tiposV2Card.includes(tipoResp) || data.pending_action) && msgEl) {
         const bubble = msgEl.querySelector('.message-bubble');
         if (bubble) bubble.classList.add('message-bubble--v2card');
     }

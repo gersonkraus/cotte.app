@@ -12,35 +12,52 @@ function renderOrcamentoPreview(dados) {
         const opts = dados.clientes_sugeridos.map(c =>
             `<option value="${escapeHtmlAttr(String(c.id))}">${escapeHtml(c.nome)}</option>`
         ).join('');
-        clienteHtml = `<div class="orc-field orc-field-col"><span class="orc-label">Cliente</span>
+        clienteHtml = `<div class="orc-card-v2__item-row" style="flex-direction:column;align-items:flex-start;gap:4px">
+            <span class="orc-label" style="font-size:0.8rem;color:var(--ai-muted)">Cliente</span>
             <select class="orc-select" id="orc-cliente-select">
                 <option value="">-- Selecionar Cliente --</option>${opts}
-            </select></div>`;
+            </select>
+        </div>`;
     } else if (dados.cliente_encontrado) {
-        clienteHtml = `<div class="orc-field"><span class="orc-label">Cliente</span><span class="orc-value orc-ok">✓ ${escapeHtml(dados.cliente_nome)}</span></div>`;
+        clienteHtml = `<div class="orc-card-v2__item-row">
+            <span class="orc-label" style="font-size:0.8rem;color:var(--ai-muted)">Cliente</span>
+            <span class="orc-ok" style="font-weight:600">✓ ${escapeHtml(dados.cliente_nome)}</span>
+        </div>`;
     } else {
-        clienteHtml = `<div class="orc-field"><span class="orc-label">Cliente</span><span class="orc-value orc-warn">${escapeHtml(dados.cliente_nome || 'A definir')}</span></div>`;
+        clienteHtml = `<div class="orc-card-v2__item-row">
+            <span class="orc-label" style="font-size:0.8rem;color:var(--ai-muted)">Cliente</span>
+            <span class="orc-warn" style="font-weight:600">${escapeHtml(dados.cliente_nome || 'A definir')}</span>
+        </div>`;
     }
 
     const descontoHtml = dados.desconto > 0
-        ? `<div class="orc-field"><span class="orc-label">Desconto</span><span class="orc-value">${escapeHtml(String(dados.desconto))}${dados.desconto_tipo === 'percentual' ? '%' : ' R$'}</span></div>`
+        ? `<div class="orc-card-v2__item-row">
+            <span class="orc-label" style="font-size:0.8rem;color:var(--ai-muted)">Desconto</span>
+            <span style="font-weight:600">${escapeHtml(String(dados.desconto))}${dados.desconto_tipo === 'percentual' ? '%' : ' R$'}</span>
+        </div>`
         : '';
 
     const previewJson = JSON.stringify(dados);
 
-    return `<div class="orc-preview-card">
-        <div class="orc-preview-header">
-            <span class="orc-preview-header__icon" aria-hidden="true">📋</span>
+    return `<div class="orc-card-v2 orc-preview-card">
+        <div class="orc-card-v2__banner orc-card-v2__banner--preview">
+            <span class="orc-card-v2__banner-icon" aria-hidden="true" style="background:#6366f1">📋</span>
             Prévia do Orçamento
         </div>
-        <div class="orc-preview-body">
+        <div class="orc-card-v2__body">
             ${clienteHtml}
-            <div class="orc-field"><span class="orc-label">Serviço</span><span class="orc-value">${escapeHtml(dados.servico || '—')}</span></div>
-            <div class="orc-field"><span class="orc-label">Valor</span><span class="orc-value orc-valor">${valorFmt}</span></div>
+            <div class="orc-card-v2__item-row">
+                <span class="orc-label" style="font-size:0.8rem;color:var(--ai-muted)">Serviço</span>
+                <span>${escapeHtml(dados.servico || '—')}</span>
+            </div>
+            <div class="orc-card-v2__item-row">
+                <span class="orc-label" style="font-size:0.8rem;color:var(--ai-muted)">Valor</span>
+                <span class="orc-valor" style="color:var(--ai-accent);font-size:1.1rem">${valorFmt}</span>
+            </div>
             ${descontoHtml}
-            <div class="orc-actions">
-                <button type="button" class="orc-confirm-btn" data-orc-confirm="1">✓ Confirmar e Criar</button>
-                <button type="button" class="orc-cancel-btn" data-orc-dismiss="1">Cancelar</button>
+            <div class="orc-card-v2__actions" style="margin-top:16px">
+                <button type="button" class="orc-card-v2__aprovar-btn" data-orc-confirm="1" style="background:var(--ai-accent);color:white;">✓ Confirmar e Criar</button>
+                <button type="button" class="orc-cancel-btn" data-orc-dismiss="1" style="flex:1;min-height:42px;display:flex;align-items:center;justify-content:center;border-radius:10px;">Cancelar</button>
             </div>
             <script type="application/json" class="orc-data">${previewJson.replace(/<\/script>/g, '<\\/script>')}<\/script>
         </div>
@@ -111,7 +128,6 @@ function renderOrcamentoCriado(dados) {
                 </div>
                 <button type="button" class="orc-card-v2__aprovar-btn btn-aprovar" data-quick-send="${aprovarEnc}">✓ Aprovar</button>
             </div>
-            <div class="orc-card-v2__footer">${hora} • Enviado pela IA</div>
         </div>
     </div>`;
 }
@@ -175,7 +191,6 @@ function renderOrcamentoAtualizado(dados) {
                 </div>
                 <button type="button" class="orc-card-v2__aprovar-btn btn-aprovar" data-quick-send="${aprovarEnc}">✓ Aprovar</button>
             </div>
-            <div class="orc-card-v2__footer">${hora} • Enviado pela IA</div>
         </div>
     </div>`;
 }
@@ -428,7 +443,7 @@ function renderAnaliseTexto(dados, isStreamed) {
 
 function formatAIResponse(data, isStreamed = false) {
     const dados = data.dados || data;
-    const tipoResposta = data.tipo_resposta || dados.tipo;
+    const tipoResposta = (data.tipo_resposta && data.tipo_resposta !== 'geral') ? data.tipo_resposta : (dados.tipo || 'geral');
 
     if (tipoResposta === 'orcamento_preview' && dados) {
         return renderOrcamentoPreview(dados);
