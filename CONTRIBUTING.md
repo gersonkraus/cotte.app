@@ -20,7 +20,8 @@ A prioridade é:
 
 - **AGENTS.md** — resumo operacional para agentes e automação no repositório.
 - **CONTRIBUTING.md** — guia estendido para pessoas (e revisão humana).
-- Seções `##` críticas compartilhadas são verificadas por `npm run validate:contributing` (ver `scripts/validate-contributing-links.mjs`). Evite renomear esses títulos sem atualizar o script e o outro arquivo.
+- **Índice unificado (gerado):** [docs/contribuicao.md](docs/contribuicao.md) — fonte: `docs/contribuicao.yaml`; após editar o YAML, rode `npm run generate:contribuicao` e faça commit de `docs/contribuicao.md`.
+- Seções `##` críticas compartilhadas estão listadas em `docs/contribuicao.yaml` (`critical: true`) e são verificadas por `npm run validate:contributing`. Evite renomear esses títulos sem atualizar o YAML e o outro guia.
 - Se no futuro houver **duplicação excessiva** entre os dois guias, prefira uma única fonte em `docs/` e manter em AGENTS/CONTRIBUTING apenas um parágrafo de contexto + link.
 
 ---

@@ -9,7 +9,8 @@
     "test:ui": "playwright test --ui",
     "test:report": "playwright show-report",
     "guard:gitlinks": "bash scripts/check_no_gitlinks.sh",
-    "validate:contributing": "node scripts/validate-contributing-links.mjs"
+    "validate:contributing": "node scripts/validate-contributing-links.mjs",
+    "generate:contribuicao": "node scripts/generate-contribuicao-doc.mjs"
   },
   "repository": {
     "type": "git",
@@ -23,7 +24,9 @@
   },
   "homepage": "https://github.com/gersonkraus/Projeto-izi#readme",
   "devDependencies": {
-    "@playwright/test": "^1.58.2"
+    "@playwright/test": "^1.58.2",
+    "github-slugger": "^2.0.0",
+    "yaml": "^2.8.3"
   },
   "dependencies": {
     "@ai-sdk/google-vertex": "^4.0.104"

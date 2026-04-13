@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Garante que AGENTS.md e CONTRIBUTING.md mantenham os mesmos títulos ## para
- * seções consideradas críticas (contrato documental entre guia de agentes e guia humano).
+ * seções críticas definidas em docs/contribuicao.yaml (critical: true).
  *
  * Uso: node scripts/validate-contributing-links.mjs
  *      npm run validate:contributing
@@ -9,21 +9,11 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { parse as parseYaml } from 'yaml';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
-
-/** Deve existir com o mesmo texto em ambos os arquivos (linha ## Título). */
-const CRITICAL_SECTIONS = [
-  'Ordem de precedência',
-  'Regras para backend',
-  'Regras para frontend',
-  'Regras para debug',
-  'Regras para configuração',
-  'Regras para testes e validação',
-  'O que evitar',
-  'Princípio final',
-];
+const YAML_PATH = path.join(ROOT, 'docs', 'contribuicao.yaml');
 
 function extractH2(md) {
   const h2 = [];
@@ -34,6 +24,22 @@ function extractH2(md) {
   return h2;
 }
 
+function loadCriticalTitles() {
+  if (!fs.existsSync(YAML_PATH)) {
+    console.error('validate-contributing-links: falta docs/contribuicao.yaml');
+    process.exit(1);
+  }
+  const doc = parseYaml(fs.readFileSync(YAML_PATH, 'utf8'));
+  const sections = Array.isArray(doc.sections) ? doc.sections : [];
+  const critical = sections.filter((s) => s && s.critical === true);
+  const titles = critical.map((s) => s.title).filter(Boolean);
+  if (!titles.length) {
+    console.error('validate-contributing-links: nenhuma secção critical: true em docs/contribuicao.yaml');
+    process.exit(1);
+  }
+  return titles;
+}
+
 function main() {
   const agentsPath = path.join(ROOT, 'AGENTS.md');
   const contributingPath = path.join(ROOT, 'CONTRIBUTING.md');
@@ -41,6 +47,7 @@ function main() {
     console.error('validate-contributing-links: AGENTS.md ou CONTRIBUTING.md não encontrado(s).');
     process.exit(1);
   }
+  const CRITICAL_SECTIONS = loadCriticalTitles();
   const agents = fs.readFileSync(agentsPath, 'utf8');
   const contributing = fs.readFileSync(contributingPath, 'utf8');
   const agentsH2 = new Set(extractH2(agents));
@@ -53,7 +60,7 @@ function main() {
   if (missing.length) {
     console.error('validate-contributing-links: desalinhamento em títulos críticos:\n');
     for (const m of missing) console.error(`  - ${m}`);
-    console.error('\nEdite um dos arquivos para restaurar o mesmo título ## ou atualize CRITICAL_SECTIONS no script.');
+    console.error('\nAjuste os ficheiros ou docs/contribuicao.yaml (secções com critical: true).');
     process.exit(1);
   }
   console.log('validate-contributing-links: OK (títulos críticos alinhados entre AGENTS.md e CONTRIBUTING.md).');

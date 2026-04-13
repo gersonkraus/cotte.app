@@ -19,6 +19,8 @@ Marque **todos** que se aplicam e siga o checklist correspondente em [CONTRIBUTI
 - [ ] Mapeei impacto em backend/frontend/contrato de API (quando aplicável)
 - [ ] Validei como indicado na descrição (testes manuais ou automatizados)
 - [ ] Não incluo segredos, `.env`, chaves ou dados sensíveis
+- [ ] Se alterei `docs/contribuicao.yaml`, rodei `npm run generate:contribuicao` e incluí `docs/contribuicao.md` atualizado
+- [ ] Se alterei `AGENTS.md` ou `CONTRIBUTING.md` com títulos `##` de secções `critical` no YAML, confirmei com `npm run validate:contributing`
 
 ## Como validar
 

@@ -15,6 +15,8 @@ A prioridade é manter o sistema funcionando, corrigir problemas reais e impleme
 ## Complemento de orientação
 Para detalhes complementares de contribuição, validação, boas práticas e organização do trabalho, consultar também `CONTRIBUTING.md`.
 
+Índice gerado a partir de `docs/contribuicao.yaml` (resumos e ligações): [docs/contribuicao.md](docs/contribuicao.md).
+
 ## Idioma
 - Responder sempre em português do Brasil.
 - Explicar de forma clara, direta e objetiva.

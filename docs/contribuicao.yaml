@@ -1,0 +1,96 @@
+# Fonte única de metadados para o índice docs/contribuicao.md
+# Seções com critical: true devem existir como ## Título idêntico em AGENTS.md e CONTRIBUTING.md.
+version: 1
+
+hub:
+  title: "Contribuição — índice"
+  intro: |
+    Este ficheiro é **gerado automaticamente** a partir de `docs/contribuicao.yaml`.
+    Para alterar textos ou ordem das entradas, edite o YAML e execute `npm run generate:contribuicao`.
+
+    Os guias completos permanecem em [`AGENTS.md`](../AGENTS.md) (agentes/automação) e
+    [`CONTRIBUTING.md`](../CONTRIBUTING.md) (contribuição humana e detalhes).
+
+sections:
+  - title: "Objetivo"
+    summary: >
+      Propósito do repositório e prioridades (manter o sistema estável, mudanças pequenas e validáveis).
+    agents_heading: "Objetivo do projeto"
+    contributing_heading: "Objetivo"
+
+  - title: "Complemento de orientação"
+    summary: >
+      Referência ao CONTRIBUTING e ao índice gerado; alinhamento entre guias.
+    agents_only: true
+    agents_heading: "Complemento de orientação"
+
+  - title: "Idioma"
+    summary: >
+      Português do Brasil nas comunicações e documentação.
+    agents_heading: "Idioma"
+    contributing_heading: "Idioma e comunicação"
+
+  - title: "Ordem de precedência"
+    critical: true
+    summary: >
+      Hierarquia em caso de conflito: segurança, regras do projeto, evidência, menor alteração, preferências.
+    # mesmo título em ambos os ficheiros
+
+  - title: "Postura de execução"
+    summary: >
+      Executar até concluir quando seguro; pedir confirmação só com risco ou ambiguidade real.
+    agents_only: true
+    agents_heading: "Postura de execução"
+
+  - title: "Flags e telemetria (assistente IA)"
+    summary: >
+      localStorage `cotte_assistente_metrics` = `1` ativa métricas de performance no assistente (ambiente local).
+    contributing_only: true
+    contributing_heading: "Flags e telemetria (assistente IA)"
+
+  - title: "Regras para backend"
+    critical: true
+    summary: >
+      Preservar contratos de API, FastAPI, validações e impacto no frontend antes de mudar payloads.
+
+  - title: "Regras para frontend"
+    critical: true
+    summary: >
+      Evitar regressões de layout, CSS global e DOM; preservar estados de loading/erro.
+
+  - title: "Regras para debug"
+    critical: true
+    summary: >
+      Reproduzir, achar causa raiz, corrigir com mudança mínima e validar com evidência.
+
+  - title: "Regras para configuração"
+    critical: true
+    summary: >
+      Não expor segredos; não alterar env sem necessidade; distinguir problema de config vs código.
+
+  - title: "Limpeza e simplificação"
+    summary: >
+      Plano curto, validar antes; preferir remoção e simplificação a novas abstrações desnecessárias.
+    agents_heading: "Regras para limpeza e simplificação"
+    contributing_heading: "Regras para cleanup, refactor e simplificação"
+
+  - title: "Regras para testes e validação"
+    critical: true
+    summary: >
+      Rodar testes e validação manual quando fizer sentido; não declarar sucesso sem evidência.
+
+  - title: "Regras para deploy e commits"
+    summary: >
+      Deploy automático via post-commit; apenas `git commit` e `git push` no repositório principal quando solicitado.
+    agents_heading: "Regras para deploy e commits"
+    contributing_heading: "Deploy e push"
+
+  - title: "O que evitar"
+    critical: true
+    summary: >
+      Refatoração ampla sem pedido, mudanças estéticas desnecessárias, alterar contratos sem mapear consumidores.
+
+  - title: "Princípio final"
+    critical: true
+    summary: >
+      Segurança, evidência e menor impacto; preferir verificação a suposição.

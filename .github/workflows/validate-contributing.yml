@@ -1,0 +1,52 @@
+# Valida alinhamento AGENTS ↔ CONTRIBUTING e consistência do índice gerado (docs/contribuicao.md).
+name: Validar documentação de contribuição
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'AGENTS.md'
+      - 'CONTRIBUTING.md'
+      - 'docs/contribuicao.yaml'
+      - 'docs/contribuicao.md'
+      - 'scripts/validate-contributing-links.mjs'
+      - 'scripts/generate-contribuicao-doc.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/validate-contributing.yml'
+  pull_request:
+    paths:
+      - 'AGENTS.md'
+      - 'CONTRIBUTING.md'
+      - 'docs/contribuicao.yaml'
+      - 'docs/contribuicao.md'
+      - 'scripts/validate-contributing-links.mjs'
+      - 'scripts/generate-contribuicao-doc.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/validate-contributing.yml'
+
+jobs:
+  validate-contributing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Validar títulos críticos (AGENTS ↔ CONTRIBUTING)
+        run: npm run validate:contributing
+
+      - name: Regenerar índice e verificar diff
+        run: |
+          npm run generate:contribuicao
+          if ! git diff --exit-code docs/contribuicao.md; then
+            echo "::error::docs/contribuicao.md está desatualizado em relação a docs/contribuicao.yaml. Rode: npm run generate:contribuicao"
+            exit 1
+          fi

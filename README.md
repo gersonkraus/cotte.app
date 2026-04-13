@@ -27,8 +27,8 @@ Sistema completo de gestão comercial com orçamentos, clientes, produtos e inte
 ## Como contribuir
 
 - Guia completo: [CONTRIBUTING.md](CONTRIBUTING.md) (princípios, validação, commits e deploy).
+- Índice gerado (YAML → Markdown): [docs/contribuicao.md](docs/contribuicao.md); fonte `docs/contribuicao.yaml`; comandos `npm run generate:contribuicao` e `npm run validate:contributing`.
 - **Revisão:** abra um PR para `main`, descreva o problema e como validar; o [template de PR](.github/pull_request_template.md) referencia trechos do CONTRIBUTING por tipo de mudança.
-- Alinhamento documental agente/humano: `npm run validate:contributing`.
 
 ## 🚀 Tecnologias
 
@@ -213,6 +213,7 @@ Guia detalhado: [sistema/DEPLOY-RAILWAY.md](sistema/DEPLOY-RAILWAY.md).
 | Arquivo | Conteúdo |
 |---------|----------|
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Como contribuir, revisão e flags de desenvolvimento (ex.: assistente IA) |
+| [docs/contribuicao.md](docs/contribuicao.md) | Índice gerado a partir de `docs/contribuicao.yaml` (resumos e ligações AGENTS/CONTRIBUTING) |
 | [CLAUDE.md](CLAUDE.md) | Stack, arquivos-chave e convenções para o assistente |
 | [arquitetura_sistema.md](arquitetura_sistema.md) | Visão geral da arquitetura |
 | [fluxo_do_sistema.md](fluxo_do_sistema.md) | Fluxo principal de orçamentos e notificações |
