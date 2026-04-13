@@ -778,7 +778,9 @@ class Orcamento(Base):
     # Rastreamento de aprovação e fila de pré-agendamento (z018)
     aprovado_canal = Column(String(20), nullable=True)
     aprovado_em = Column(DateTime(timezone=True), nullable=True)
-    agendamento_opcoes_pendente_liberacao = Column(Boolean, default=False, nullable=False)
+    agendamento_opcoes_pendente_liberacao = Column(
+        Boolean, default=False, nullable=False
+    )
     agendamento_opcoes_liberado_em = Column(DateTime(timezone=True), nullable=True)
     agendamento_opcoes_liberado_por_id = Column(
         Integer, ForeignKey("usuarios.id"), nullable=True
@@ -1217,8 +1219,12 @@ class PropostaEnviada(Base):
     __tablename__ = "propostas_enviadas"
 
     id = Column(Integer, primary_key=True, index=True)
-    proposta_publica_id = Column(Integer, ForeignKey("propostas_publicas.id"), nullable=False, index=True)
-    lead_id = Column(Integer, ForeignKey("commercial_leads.id"), nullable=False, index=True)
+    proposta_publica_id = Column(
+        Integer, ForeignKey("propostas_publicas.id"), nullable=False, index=True
+    )
+    lead_id = Column(
+        Integer, ForeignKey("commercial_leads.id"), nullable=False, index=True
+    )
     slug = Column(String(36), unique=True, nullable=False, index=True)  # UUID
     dados_personalizados = Column(JSON, default=dict)  # Valores das variáveis
     validade_dias = Column(Integer, default=7)
@@ -1232,7 +1238,9 @@ class PropostaEnviada(Base):
 
     proposta_template = relationship("PropostaPublica", back_populates="enviadas")
     lead = relationship("CommercialLead")
-    visualizacoes = relationship("PropostaVisualizacao", back_populates="proposta_enviada")
+    visualizacoes = relationship(
+        "PropostaVisualizacao", back_populates="proposta_enviada"
+    )
 
 
 class PropostaVisualizacao(Base):
@@ -1241,7 +1249,9 @@ class PropostaVisualizacao(Base):
     __tablename__ = "propostas_visualizacoes"
 
     id = Column(Integer, primary_key=True, index=True)
-    proposta_enviada_id = Column(Integer, ForeignKey("propostas_enviadas.id"), nullable=False, index=True)
+    proposta_enviada_id = Column(
+        Integer, ForeignKey("propostas_enviadas.id"), nullable=False, index=True
+    )
     ip = Column(String(45), nullable=True)  # IPv4 ou IPv6
     user_agent = Column(Text, nullable=True)
     secao_mais_vista = Column(String(50), nullable=True)
@@ -1737,6 +1747,14 @@ class CampaignLead(Base):
     campaign = relationship("Campaign")
     lead = relationship("CommercialLead")
 
+    @property
+    def lead_nome_empresa(self):
+        return self.lead.nome_empresa if self.lead else None
+
+    @property
+    def lead_nome_responsavel(self):
+        return self.lead.nome_responsavel if self.lead else None
+
 
 class FeedbackAssistente(Base):
     """Avaliações de utilidade das respostas do assistente IA."""
@@ -2057,7 +2075,9 @@ class ToolCallLog(Base):
     tool = Column(String(100), nullable=False, index=True)
     args_json = Column(JSON, nullable=True)
     resultado_json = Column(JSON, nullable=True)
-    status = Column(String(20), nullable=False, index=True)  # ok|erro|forbidden|pending|invalid_input|unknown_tool
+    status = Column(
+        String(20), nullable=False, index=True
+    )  # ok|erro|forbidden|pending|invalid_input|unknown_tool
     latencia_ms = Column(Integer, nullable=True)
     input_tokens = Column(Integer, nullable=True)
     output_tokens = Column(Integer, nullable=True)
@@ -2086,24 +2106,36 @@ class SchemaDriftSnapshot(Base):
 
 class AIChatSessao(Base):
     """Sessão persistente do chat da IA."""
+
     __tablename__ = "ai_chat_sessoes"
 
-    id = Column(String(64), primary_key=True, index=True) # sessao_id client-side UUID
+    id = Column(String(64), primary_key=True, index=True)  # sessao_id client-side UUID
     empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False, index=True)
     usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False, index=True)
-    
+
     criado_em = Column(DateTime(timezone=True), server_default=func.now())
     atualizado_em = Column(DateTime(timezone=True), onupdate=func.now())
 
-    mensagens = relationship("AIChatMensagem", back_populates="sessao", cascade="all, delete-orphan", order_by="AIChatMensagem.criado_em")
+    mensagens = relationship(
+        "AIChatMensagem",
+        back_populates="sessao",
+        cascade="all, delete-orphan",
+        order_by="AIChatMensagem.criado_em",
+    )
 
 
 class AIChatMensagem(Base):
     """Mensagem de uma sessão de chat."""
+
     __tablename__ = "ai_chat_mensagens"
 
     id = Column(Integer, primary_key=True, index=True)
-    sessao_id = Column(String(64), ForeignKey("ai_chat_sessoes.id", ondelete="CASCADE"), nullable=False, index=True)
+    sessao_id = Column(
+        String(64),
+        ForeignKey("ai_chat_sessoes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     role = Column(String(20), nullable=False)  # 'user', 'assistant'
     content = Column(Text, nullable=False)
     criado_em = Column(DateTime(timezone=True), server_default=func.now(), index=True)
