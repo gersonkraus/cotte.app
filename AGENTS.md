@@ -219,3 +219,9 @@ Sempre que possível, usar esta ordem:
 Resolver com segurança, evidência e o menor impacto possível.
 Quando houver dúvida entre uma solução maior e uma solução menor que resolve corretamente, preferir a menor.
 Quando houver dúvida entre suposição e verificação, verificar.
+
+## Preferências aprendidas (utilizador)
+- Em pedidos de commit, preferir incluir apenas os ficheiros do escopo da alteração, evitando misturar mudanças não relacionadas no mesmo commit.
+
+## Factos duráveis do workspace
+- No desenvolvimento local, o frontend em `cotte-frontend` costuma ser servido com o prefixo `/app/`; se a UI parecer desatualizada mas o HTML/CSS servido já contiver as mudanças, tratar como problema provável de cache do navegador ou de service worker antes de concluir falha do servidor.
