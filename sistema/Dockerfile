@@ -56,12 +56,14 @@ COPY --from=builder /install /install
 ENV PYTHONPATH=/install:$PYTHONPATH
 
 # Copiar apenas o código e arquivos necessários
+# cotte-frontend/ é obrigatório: app.main monta StaticFiles em _BASE_DIR/cotte-frontend → /app/cotte-frontend
 COPY app/ ./app/
+COPY cotte-frontend/ ./cotte-frontend/
 COPY alembic/ ./alembic/
-COPY alembic.ini ./
-COPY release.sh ./
-COPY Procfile ./
-COPY static/ ./static/   # se precisar dos assets estáticos
+COPY alembic.ini ./alembic.ini
+COPY release.sh ./release.sh
+COPY Procfile ./Procfile
+COPY static/ ./static/
 # Ajuste acima conforme arquivos realmente necessários
 
 # Garantir permissão de execução

@@ -21,6 +21,7 @@ static/logos/
 playwright-report/
 test-results/
 graphify-out*
+**/graphify-out*/
 dist/
 build/
 node_modules/
