@@ -2956,7 +2956,9 @@ async function salvarCampanha() {
 async function dispararCampanha(id) {
   if (!confirm('Disparar campanha agora? Esta ação enviará mensagens para os leads selecionados.')) return;
   try {
-    await api.post('/comercial/campaigns/' + id + '/disparo', {});
+    await api.post('/comercial/campaigns/' + id + '/disparo', {
+      campaign_id: id
+    });
     showToast('Disparo iniciado! Acompanhe nas métricas.');
     carregarCampanhas();
   } catch (e) {
