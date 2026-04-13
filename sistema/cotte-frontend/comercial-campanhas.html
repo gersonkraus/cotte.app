@@ -121,21 +121,42 @@
                     </div>
 
                     <div class="form-group">
-                        <label>Leads Selecionados:</label>
+                        <label>Seleção de Leads:</label>
                         <div class="leads-selection">
-                            <div class="leads-search">
-                                <input type="search" id="leads-search" placeholder="Buscar leads..." autocomplete="off">
-                                <button type="button" class="btn btn-secondary" onclick="searchLeads()">Buscar</button>
+                            <div class="leads-search-container" style="display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap;">
+                                <input type="search" id="leads-search" placeholder="Buscar leads..." autocomplete="off" style="flex: 1; min-width: 200px;" onkeyup="if(event.key==='Enter') app.filterLeadsAPI()">
+                                <select id="smart-list-select" style="width: auto; padding: 8px; border-radius: 4px; border: 1px solid var(--border);" onchange="app.filterLeadsAPI()">
+                                    <option value="">Todas as Listas (sem filtro)</option>
+                                    <option value="novos_7d">Novos leads (últimos 7 dias)</option>
+                                    <option value="sem_contato_30d">Sem contato (> 30 dias)</option>
+                                </select>
                             </div>
-                            <div class="leads-list" id="leads-list">
-                                <!-- Leads serão carregados aqui -->
+                            <div class="leads-list-container" style="position: relative; max-height: 400px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px;">
+                                <div class="leads-list" id="leads-list" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
+                                    <!-- Leads serão carregados aqui via Infinite Scroll -->
+                                </div>
+                                <div id="leads-loading" style="text-align: center; padding: 15px; display: none; color: var(--muted); font-size: 14px;">Carregando...</div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" onclick="closeCampaignModal()">Cancelar</button>
-                        <button type="submit" class="btn btn-primary">Criar Campanha</button>
+                    <!-- Painel flutuante -->
+                    <div id="selection-panel" style="position: sticky; bottom: -20px; background: var(--surface); padding: 12px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; border-radius: 0 0 8px 8px; margin-top: 10px; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); z-index: 10;">
+                        <div style="font-size: 14px;">
+                            <strong><span id="sel-count">0</span> leads selecionados</strong>
+                            <div style="font-size: 12px; color: var(--muted); margin-top: 4px;">
+                                <span id="sel-wa">0</span> WhatsApp válido | <span id="sel-em">0</span> Email válido
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="app.selectAllVisible()">Sel. Todos Visíveis</button>
+                            <button type="button" class="btn btn-ghost btn-sm" onclick="app.clearSelection()">Limpar</button>
+                        </div>
+                    </div>
+
+                    <div class="form-actions" style="margin-top: 20px;">
+                        <button type="button" class="btn btn-secondary" onclick="app.closeCampaignModal()">Cancelar</button>
+                        <button type="submit" id="btn-submit-campaign" class="btn btn-primary">Criar Campanha</button>
                     </div>
                 </form>
             </div>

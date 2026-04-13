@@ -227,6 +227,26 @@ def list_leads(
             "pipeline aberto (não ganho/perdido)."
         ),
     ),
+    has_whatsapp: Optional[bool] = Query(
+        None,
+        description="Apenas leads com WhatsApp",
+    ),
+    has_email: Optional[bool] = Query(
+        None,
+        description="Apenas leads com E-mail",
+    ),
+    sem_contato_dias: Optional[int] = Query(
+        None,
+        description="Apenas leads sem contato nos últimos N dias",
+    ),
+    novo_dias: Optional[int] = Query(
+        None,
+        description="Apenas leads criados nos últimos N dias",
+    ),
+    status_pipeline_notin: Optional[str] = Query(
+        None,
+        description="Status a excluir (separados por vírgula)",
+    ),
     order_by: Optional[str] = "criado_em",
     order_dir: Optional[str] = "desc",
     page: int = 1,
@@ -271,8 +291,48 @@ def list_leads(
             )
         )
 
+    if status_pipeline_notin:
+        excluir = [s.strip() for s in status_pipeline_notin.split(",") if s.strip()]
+        if excluir:
+            query = query.filter(CommercialLead.status_pipeline.notin_(excluir))
+
+    if has_whatsapp is True:
+        query = query.filter(
+            CommercialLead.whatsapp.isnot(None), CommercialLead.whatsapp != ""
+        )
+    elif has_whatsapp is False:
+        query = query.filter(
+            or_(CommercialLead.whatsapp.is_(None), CommercialLead.whatsapp == "")
+        )
+
+    if has_email is True:
+        query = query.filter(
+            CommercialLead.email.isnot(None), CommercialLead.email != ""
+        )
+    elif has_email is False:
+        query = query.filter(
+            or_(CommercialLead.email.is_(None), CommercialLead.email == "")
+        )
+
+    agora = datetime.now(timezone.utc)
+    if novo_dias:
+        from datetime import timedelta
+
+        data_limite = agora - timedelta(days=novo_dias)
+        query = query.filter(CommercialLead.criado_em >= data_limite)
+
+    if sem_contato_dias:
+        from datetime import timedelta
+
+        data_limite = agora - timedelta(days=sem_contato_dias)
+        query = query.filter(
+            or_(
+                CommercialLead.ultimo_contato_em.is_(None),
+                CommercialLead.ultimo_contato_em <= data_limite,
+            )
+        )
+
     if follow_up_hoje:
-        agora = datetime.now(timezone.utc)
         query = query.filter(CommercialLead.proximo_contato_em.isnot(None))
         query = query.filter(CommercialLead.proximo_contato_em <= agora)
         query = query.filter(
@@ -291,8 +351,31 @@ def list_leads(
     offset = (page - 1) * per_page
     leads = query.offset(offset).limit(per_page).all()
 
+    # Busca ultimo disparo para os leads da página (Termostato de Spam)
+    lead_ids = [l.id for l in leads]
+    ultimos_disparos = {}
+    if lead_ids:
+        from app.models.models import CampaignLead
+
+        resultados = (
+            db.query(
+                CampaignLead.lead_id, func.max(CampaignLead.criado_em).label("ultimo")
+            )
+            .filter(CampaignLead.lead_id.in_(lead_ids))
+            .group_by(CampaignLead.lead_id)
+            .all()
+        )
+        ultimos_disparos = {r.lead_id: r.ultimo for r in resultados}
+
+    items = []
+    for l in leads:
+        out = _lead_to_out(l)
+        ultimo = ultimos_disparos.get(l.id)
+        out["ultimo_disparo_em"] = ultimo.isoformat() if ultimo else None
+        items.append(out)
+
     return {
-        "items": [_lead_to_out(l) for l in leads],
+        "items": items,
         "total": total,
         "page": page,
         "per_page": per_page,

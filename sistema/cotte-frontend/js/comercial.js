@@ -2897,7 +2897,7 @@ async function carregarTemplatesCampanha() {
 
 async function carregarLeadsParaCampanha() {
   try {
-    var res = await api.get('/comercial/leads');
+    var res = await api.get('/comercial/leads?per_page=1000&status_pipeline_notin=fechado_ganho,fechado_perdido');
     var sel = document.getElementById('camp-leads');
     sel.innerHTML = '';
     (res.items || res || []).forEach(function(l) {
