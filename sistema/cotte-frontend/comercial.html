@@ -687,7 +687,7 @@ Exemplos de formatos aceitos:
   </div>
 
   <!-- Modal Template -->
-  <div class="modal-overlay" id="modal-template">
+  <div class="modal-overlay modal-slide-over" id="modal-template">
     <div class="modal">
       <header class="modal-header">
         <h3 class="modal-title" id="modal-tpl-title">Novo Template</h3>
@@ -706,11 +706,23 @@ Exemplos de formatos aceitos:
         </div>
         <div class="fg"><label class="fl">Assunto (e-mail)</label><input type="text" class="fi" id="tpl-assunto"></div>
         <div class="fg"><label class="fl">Conteúdo *</label><textarea class="ft" id="tpl-conteudo" rows="6" required></textarea></div>
-        <div class="tpl-vars">Variáveis: <code>{{nome}}</code> <code>{{empresa}}</code> <code>{{cidade}}</code> <code>{{segmento}}</code> <code>{{plano}}</code> <code>{{valor}}</code> <code>{{link_demo}}</code> <code>{{link_proposta}}</code></div>
+        <div class="tpl-vars-interactive">
+          <span style="font-size:11px;color:var(--muted);display:block;margin-bottom:6px;">Inserir variável no cursor:</span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button type="button" class="btn-var-badge" data-var="{nome}">nome</button>
+            <button type="button" class="btn-var-badge" data-var="{empresa}">empresa</button>
+            <button type="button" class="btn-var-badge" data-var="{cidade}">cidade</button>
+            <button type="button" class="btn-var-badge" data-var="{segmento}">segmento</button>
+            <button type="button" class="btn-var-badge" data-var="{plano}">plano</button>
+            <button type="button" class="btn-var-badge" data-var="{valor}">valor</button>
+            <button type="button" class="btn-var-badge" data-var="{link_demo}">link_demo</button>
+            <button type="button" class="btn-var-badge" data-var="{link_proposta}">link_proposta</button>
+          </div>
+        </div>
       </div>
       <footer class="modal-footer">
-        <button class="btn btn-secondary">Cancelar</button>
-        <button class="btn btn-primary">Salvar</button>
+        <button class="btn btn-secondary" onclick="fecharModal('modal-template')">Cancelar</button>
+        <button class="btn btn-primary" onclick="TemplatesManager.salvarTemplate()">Salvar</button>
       </footer>
     </div>
   </div>
@@ -891,6 +903,7 @@ Exemplos de formatos aceitos:
   <script src="js/comercial-dashboard.js?v=3"></script>
   <script src="js/comercial-leads.js?v=3"></script>
   <script src="js/comercial-pipeline.js?v=1"></script>
+  <script src="js/TemplatesManager.js?v=1"></script>
   <script src="js/comercial-mensagens.js?v=1"></script>
   <script src="js/comercial-lembretes.js?v=1"></script>
   <script src="js/comercial-cadastros.js?v=1"></script>
