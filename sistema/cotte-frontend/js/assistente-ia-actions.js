@@ -4,6 +4,37 @@
  * Ações operacionais do assistente e mutações com efeitos colaterais.
  */
 
+function _assistenteMetricsEnabled() {
+    try {
+        return localStorage.getItem('cotte_assistente_metrics') === '1';
+    } catch (_) {
+        return false;
+    }
+}
+
+function _scheduleOrcamentoConfirmPaintMeasure() {
+    if (!_assistenteMetricsEnabled() || typeof performance === 'undefined' || !performance.mark) return;
+    try {
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                try {
+                    performance.mark('assistente_orc_confirm_end');
+                    performance.measure(
+                        'assistente_orc_confirm_ms',
+                        'assistente_orc_confirm_start',
+                        'assistente_orc_confirm_end',
+                    );
+                    const entries = performance.getEntriesByName('assistente_orc_confirm_ms');
+                    const m = entries[entries.length - 1];
+                    if (m && typeof console !== 'undefined' && console.debug) {
+                        console.debug('[COTTE assistente] confirm→paint', Math.round(m.duration), 'ms');
+                    }
+                } catch (_) { /* ignore */ }
+            });
+        });
+    } catch (_) { /* ignore */ }
+}
+
 async function confirmarOrcamento(btn) {
     if (!hasHttpClient()) return;
 
@@ -17,15 +48,28 @@ async function confirmarOrcamento(btn) {
     const select = card.querySelector('#orc-cliente-select');
     const clienteId = select ? (parseInt(select.value) || null) : (dados.cliente_id || null);
 
-    const body = {
-        cliente_id: clienteId,
-        cliente_nome: dados.cliente_nome || 'A definir',
-        servico: dados.servico || 'Serviço',
-        valor: dados.valor || 0,
-        desconto: dados.desconto || 0,
-        desconto_tipo: dados.desconto_tipo || 'percentual',
-        observacoes: dados.observacoes || null
-    };
+    const build = typeof buildConfirmarOrcamentoPayload === 'function'
+        ? buildConfirmarOrcamentoPayload
+        : function (d, cid) {
+            return {
+                cliente_id: cid,
+                cliente_nome: d.cliente_nome || 'A definir',
+                servico: d.servico || 'Serviço',
+                valor: d.valor || 0,
+                desconto: d.desconto || 0,
+                desconto_tipo: d.desconto_tipo || 'percentual',
+                observacoes: d.observacoes || null,
+            };
+        };
+    const body = build(dados, clienteId);
+
+    if (_assistenteMetricsEnabled()) {
+        try {
+            performance.clearMarks('assistente_orc_confirm_start');
+            performance.clearMarks('assistente_orc_confirm_end');
+            performance.mark('assistente_orc_confirm_start');
+        } catch (_) { /* ignore */ }
+    }
 
     btn.disabled = true;
     btn.textContent = 'Criando...';
@@ -36,6 +80,7 @@ async function confirmarOrcamento(btn) {
         if (loadingMsg) loadingMsg.remove();
         if (card) card.remove();
         processAIResponse(data, null);
+        _scheduleOrcamentoConfirmPaintMeasure();
     } catch (e) {
         if (loadingMsg) loadingMsg.remove();
         btn.disabled = false;

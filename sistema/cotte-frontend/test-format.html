@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<!--
+  Regressão visual estática: renderOrcamentoCriado / renderOrcamentoPreview sem Playwright.
+  Abrir via o mesmo host do app: http://localhost:PORT/app/test-format.html
+  (arquivos servidos de cotte-frontend com prefixo /app no FastAPI.)
+-->
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Assistente — fixtures de render (v2)</title>
+  <link rel="stylesheet" href="css/style.css?v=7" />
+  <link rel="stylesheet" href="css/assistente-ia.css?v=16" />
+  <link rel="stylesheet" href="css/assistente-ia-mobile.css?v=5" />
+  <script>
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+    function escapeHtmlAttr(s) {
+      return escapeHtml(s);
+    }
+    function textToHtmlRich(s) {
+      return String(s);
+    }
+    function textToHtmlPlain(s) {
+      return String(s);
+    }
+    function humanizeToolName(s) {
+      return String(s);
+    }
+    function formatValue(v) {
+      const n = Number(v);
+      if (Number.isNaN(n)) return 'R$ 0,00';
+      return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+    function getOrcamentoFollowupSuggestions() {
+      return [];
+    }
+    window.marked = { parse: function (s) { return String(s); } };
+  </script>
+  <script src="js/assistente-ia-render-types.js?v=3"></script>
+  <style>
+    body.page-assistente-ia {
+      margin: 0;
+      padding: 24px;
+      background: var(--bg, #f8fafc);
+    }
+    .test-format-section {
+      margin-bottom: 48px;
+      max-width: 520px;
+    }
+    .test-format-section h2 {
+      font-family: Outfit, sans-serif;
+      font-size: 1rem;
+      margin: 0 0 12px;
+      color: var(--text, #0f172a);
+    }
+  </style>
+</head>
+<body class="page-assistente-ia">
+  <div class="test-format-section">
+    <h2>Orçamento criado (renderOrcamentoCriado)</h2>
+    <div id="slot-criado"></div>
+  </div>
+  <div class="test-format-section">
+    <h2>Prévia (renderOrcamentoPreview)</h2>
+    <div id="slot-preview"></div>
+  </div>
+  <script>
+    var dadosCriado = {
+      id: 321,
+      numero: 'ORC-321-26',
+      cliente_nome: 'Maria',
+      servico: 'Instalação elétrica',
+      total: 350,
+      valor: 350,
+      link_publico: 'tok-public-321',
+      tem_telefone: true,
+      tem_email: true,
+    };
+    var dadosPreview = {
+      cliente_nome: 'Maria',
+      servico: 'Instalação elétrica',
+      valor: 350,
+      desconto: 0,
+      desconto_tipo: 'percentual',
+      observacoes: 'Executar amanhã',
+    };
+    document.getElementById('slot-criado').innerHTML = renderOrcamentoCriado(dadosCriado);
+    document.getElementById('slot-preview').innerHTML = renderOrcamentoPreview(dadosPreview);
+  </script>
+</body>
+</html>

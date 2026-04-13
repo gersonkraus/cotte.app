@@ -581,16 +581,48 @@ document.addEventListener("DOMContentLoaded", function () {
 
   if (window.visualViewport) {
     const chatHeader = document.querySelector(".chat-header");
+    const MOBILE_VW = 768;
+
+    function applyAssistenteVisualViewport() {
+      const vv = window.visualViewport;
+      if (!vv) return;
+
+      if (window.innerWidth > MOBILE_VW) {
+        document.documentElement.style.removeProperty("--assistente-vv-height");
+        document.documentElement.style.removeProperty("--assistente-vv-offset-top");
+        return;
+      }
+
+      const h = Math.max(0, Math.round(vv.height));
+      document.documentElement.style.setProperty(
+        "--assistente-vv-height",
+        `${h}px`,
+      );
+      document.documentElement.style.setProperty(
+        "--assistente-vv-offset-top",
+        `${Math.round(vv.offsetTop)}px`,
+      );
+
+      if (chatHeader) {
+        const isKeyboard = vv.height < window.screen.height * 0.72;
+        chatHeader.classList.toggle("chat-header--compact", isKeyboard);
+      }
+    }
+
     window.visualViewport.addEventListener(
       "resize",
-      () => {
-        if (!chatHeader) return;
-        const isKeyboard =
-          window.visualViewport.height < window.screen.height * 0.72;
-        chatHeader.classList.toggle("chat-header--compact", isKeyboard);
-      },
+      applyAssistenteVisualViewport,
       { passive: true },
     );
+    window.visualViewport.addEventListener(
+      "scroll",
+      applyAssistenteVisualViewport,
+      { passive: true },
+    );
+    window.addEventListener("resize", applyAssistenteVisualViewport, {
+      passive: true,
+    });
+    applyAssistenteVisualViewport();
   }
 
   const sidebarHamburger = document.getElementById("btnSidebarMobile");

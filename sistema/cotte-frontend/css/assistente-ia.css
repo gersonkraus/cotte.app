@@ -1261,6 +1261,7 @@ html:not([data-theme="dark"]) .input-group {
     border-radius: 0;
     border: none;
     height: 100%;
+    min-height: 0; /* Android/Chrome: flex child pode encolher; rolagem fica em .chat-messages */
     background-image: none;
   }
 

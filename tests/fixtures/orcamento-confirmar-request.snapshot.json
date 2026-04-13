@@ -1,0 +1,9 @@
+{
+  "cliente_id": null,
+  "cliente_nome": "Maria",
+  "servico": "Instalação elétrica",
+  "valor": 350,
+  "desconto": 0,
+  "desconto_tipo": "percentual",
+  "observacoes": "Executar amanhã"
+}

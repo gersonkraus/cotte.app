@@ -140,13 +140,13 @@ Ao validar:
 Ao realizar qualquer verificação, análise, correção ou alteração, incluir também:
 
 ### Melhorias essenciais
-- pelo menos 2 sugestões de melhorias relevantes e essenciais ligadas ao contexto analisado
+- Sugestão de pelo menos 2 sugestões de melhorias relevantes e essenciais ligadas ao contexto analisado
 
 ### Ideias inovadoras
-- pelo menos 2 ideias inovadoras para facilitar o processo ligado ao contexto analisado
+- Sugestão de pelo menos 2 ideias inovadoras para facilitar o processo ligado ao contexto analisado
 
 ### Melhorias de frontend de alto impacto
-- pelo menos 2 melhorias específicas de frontend que fariam diferença real no contexto analisado
+- Sugestão de pelo menos 2 melhorias específicas de frontend que fariam diferença real no contexto analisado
 
 Esses pontos devem ser contextuais, práticos e conectados ao problema avaliado.
 Não sugerir melhorias genéricas sem relação com o caso.

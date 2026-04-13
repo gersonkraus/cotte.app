@@ -39,7 +39,7 @@ function renderOrcamentoPreview(dados) {
 
     const previewJson = JSON.stringify(dados);
 
-    return `<div class="orc-card-v2 orc-preview-card">
+    return `<div class="orc-card-v2 orc-preview-card" data-testid="assistente-orc-preview-card">
         <div class="orc-card-v2__banner orc-card-v2__banner--preview">
             <span class="orc-card-v2__banner-icon" aria-hidden="true" style="background:#6366f1">📋</span>
             Prévia do Orçamento
@@ -99,7 +99,7 @@ function renderOrcamentoCriado(dados) {
     const disEmail = dados.tem_email === false ? 'disabled title="Cliente sem e-mail"' : '';
     const linkTokenAttr = dados.link_publico ? `data-copy-public-token="${escapeHtmlAttr(dados.link_publico)}"` : 'disabled title="Link indisponível"';
 
-    return `<div class="orc-card-v2">
+    return `<div class="orc-card-v2" data-testid="orc-created-card">
         <div class="orc-card-v2__banner">
             <span class="orc-card-v2__banner-icon" aria-hidden="true">✓</span>
             Orçamento criado com sucesso

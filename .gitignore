@@ -68,6 +68,14 @@ sistema/static/logos/
 .railway/
 
 # Ferramentas de IA / IDE
+.codex
+.roomodes
+.opencode/
+conductor/
+memory/
+.clineignore
+.mcp.json
+
 .aider*
 .claude/
 .cursor/

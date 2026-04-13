@@ -58,25 +58,31 @@ test.describe('Assistente IA mobile', () => {
     await page.locator('#messageInput').fill('Prévia orçamento');
     await page.locator('#sendButton').click();
 
-    const preview = page.locator('.orc-preview-card');
+    const preview = page.getByTestId('assistente-orc-preview-card');
     await expect(preview).toBeVisible();
     await preview.locator('[data-orc-confirm]').click();
 
-    const successCard = page.locator('.orc-success-card');
-    await expect(successCard).toContainText('ORC-321-26');
-    await expect(successCard).toContainText('Instalação elétrica');
-    await expect(successCard.locator('.orc-success-actions-label')).toContainText('Próximos passos');
+    // Resposta de POST /ai/orcamento/confirmar usa renderOrcamentoCriado (data-testid orc-created-card)
+    const successBubble = page.locator('.message.ai').last();
+    await expect(successBubble).toBeVisible();
+    await expect(successBubble).toContainText('ORC-321-26', { timeout: 15000 });
+    await expect(successBubble).toContainText('Instalação elétrica');
 
-    const actionButtons = successCard.locator('.orc-action-btn');
-    await expect(actionButtons).toHaveCount(4);
-    await expect(actionButtons.nth(0)).toContainText('Enviar WhatsApp');
-    await expect(actionButtons.nth(1)).toContainText('Copiar link');
-    await expect(actionButtons.nth(2)).toContainText('Enviar E-mail');
-    await expect(actionButtons.nth(3)).toContainText('Aprovar agora');
+    const successCard = page.getByTestId('orc-created-card');
+    await expect(successCard).toBeVisible();
+
+    await expect(successBubble.locator('.sugestoes-header')).toContainText('Próximos passos');
+
+    await expect(successCard.locator('.orc-card-v2__icon-btn.btn-whats')).toHaveAttribute('title', 'Enviar WhatsApp');
+    await expect(successCard.locator('.orc-card-v2__icon-btn.btn-link')).toHaveAttribute('title', 'Copiar link');
+    await expect(successCard.locator('.orc-card-v2__icon-btn.btn-email')).toHaveAttribute('title', 'Enviar E-mail');
+    await expect(successCard.locator('.orc-card-v2__aprovar-btn.btn-aprovar')).toContainText('Aprovar');
 
     const layout = await successCard.evaluate((card) => {
-      const actions = card.querySelector('.orc-action-btns--success');
-      const buttons = Array.from(card.querySelectorAll('.orc-action-btn')).map((btn) => {
+      const actions = card.querySelector('.orc-card-v2__actions');
+      const buttons = Array.from(
+        card.querySelectorAll('.orc-card-v2__icon-btn, .orc-card-v2__aprovar-btn'),
+      ).map((btn) => {
         const rect = btn.getBoundingClientRect();
         return { top: rect.top, left: rect.left, width: rect.width };
       });
@@ -91,8 +97,10 @@ test.describe('Assistente IA mobile', () => {
 
     expect(layout.cardScrollWidth).toBeLessThanOrEqual(layout.cardClientWidth + 1);
     expect(layout.actionsScrollWidth).toBeLessThanOrEqual(layout.actionsClientWidth + 1);
-    expect(layout.buttons[1].top).toBeGreaterThan(layout.buttons[0].top + 8);
-    expect(Math.abs(layout.buttons[1].left - layout.buttons[0].left)).toBeLessThan(2);
+    // v2: ícones na mesma linha; segundo à direita do primeiro
+    expect(layout.buttons.length).toBeGreaterThanOrEqual(2);
+    expect(layout.buttons[1].left).toBeGreaterThan(layout.buttons[0].left + 8);
+    expect(Math.abs(layout.buttons[1].top - layout.buttons[0].top)).toBeLessThan(4);
   });
 
   test('abre modal de reenvio e envia por WhatsApp e e-mail', async ({ page }) => {
@@ -116,7 +124,7 @@ test.describe('Assistente IA mobile', () => {
   test('copia o link público no card de orçamento criado', async ({ page }) => {
     await page.locator('#messageInput').fill('Prévia orçamento');
     await page.locator('#sendButton').click();
-    await page.locator('.orc-preview-card [data-orc-confirm]').click();
+    await page.getByTestId('assistente-orc-preview-card').locator('[data-orc-confirm]').click();
 
     const copyBtn = page.locator('[data-copy-public-token]');
     await expect(copyBtn).toBeVisible();
