@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script>
+    function escapeHtml(s) { return String(s); }
+    function escapeHtmlAttr(s) { return String(s); }
+    function textToHtmlRich(s) { return String(s); }
+    function textToHtmlPlain(s) { return String(s); }
+    function humanizeToolName(s) { return String(s); }
+    function formatValue(v) { return "R$ " + v; }
+    function getOrcamentoFollowupSuggestions() { return []; }
+    window.marked = { parse: s => s };
+</script>
+    var _ultimaPergunta = "";
+<script src="/app/js/assistente-ia-render-types.js"></script>
+<script src="/app/js/assistente-ia-render.js"></script>
+</head>
+<body>
+    <div id="mock-loading" class="message bot">
+        <div class="message-bubble"></div>
+    </div>
+<script>
+    try {
+        window.saveChatHistory = function() {};
+        const data = {
+            sucesso: true,
+            stream_has_chunks: false,
+            tipo_resposta: "geral",
+            dados: { tipo: "orcamento_criado", id: 1, numero: "ORC-123", cliente_nome: "Maria", total: 500 },
+            tool_trace: [{ tool: "criar_orcamento", status: "ok" }]
+        };
+        const loadingMessage = document.getElementById('mock-loading');
+        window.processAIResponse(data, loadingMessage, true);
+        console.log("BUBBLE HTML:", loadingMessage.innerHTML);
+    } catch(e) {
+        console.log("ERROR:", e);
+    }
+</script>
+</body>
+</html>

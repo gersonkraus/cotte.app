@@ -1,0 +1,298 @@
+{
+  "communities": {
+    "0": [
+      "alembic_migrations",
+      "audit_geral",
+      "audit_system_index",
+      "audit_system_plan",
+      "audit_system_report",
+      "audit_system_spec",
+      "fastapi_backend",
+      "sqlalchemy_orm",
+      "tecnico_banco"
+    ],
+    "1": [
+      "cotte_ai_hub",
+      "ia_service",
+      "instrucoes_ia",
+      "plano_assistente_v2",
+      "plano_tool_use_v2",
+      "prompt_cotte_ai_v2",
+      "tool_use_architecture",
+      "whatsapp_evolution_api"
+    ],
+    "2": [
+      "analise_assistente_cotte",
+      "casos_uso",
+      "funcionalidades_sistema",
+      "implementacao_importacao_ia",
+      "modal_planos",
+      "modulo_assistente_ia",
+      "modulo_whatsapp",
+      "plano_melhorias"
+    ],
+    "3": [
+      "analise_financeiro",
+      "audit_financeiro",
+      "financeiro_playbook",
+      "modulo_financeiro",
+      "plano_implementacao_financeiro",
+      "tecnico_financeiro"
+    ],
+    "4": [
+      "cloudflare_r2",
+      "corrigir_cors_r2",
+      "deploy_railway",
+      "migracao_r2",
+      "railway_deploy",
+      "variaveis_ambiente"
+    ],
+    "5": [
+      "ai_tools_domain",
+      "assistente_tool_use",
+      "cadastro_cliente",
+      "modulo_clientes",
+      "tecnico_catalogo",
+      "tool_trace"
+    ],
+    "6": [
+      "audit_permissoes",
+      "exigir_permissao",
+      "prompt_permissoes_escalaveis",
+      "sistema_permissoes",
+      "sprint_priorization",
+      "tecnico_permissoes"
+    ],
+    "7": [
+      "assistente_ia_melhorias_2026",
+      "assistente_personalidade",
+      "context_panel_ia",
+      "tecnico_assistente_ia",
+      "teste_manual_commits",
+      "thinking_steps_ia"
+    ],
+    "8": [
+      "documentos_orcamento",
+      "editor_documentos_plano",
+      "fluxo_otp_aceite",
+      "modulo_orcamentos",
+      "otp_aceite_orcamento",
+      "pdf_service"
+    ],
+    "9": [
+      "documentacao_refatoracao",
+      "plano_novo_frontend",
+      "ux_improvements",
+      "vanilla_js_frontend"
+    ],
+    "10": [
+      "bubblewrap_twa",
+      "pwa_support",
+      "service_worker",
+      "workbox_migration"
+    ],
+    "11": [
+      "notion_databases",
+      "openclaw_notion_integration"
+    ],
+    "12": [
+      "correcao_agendamento",
+      "tecnico_agendamento"
+    ],
+    "13": [
+      "documentacao_mudancas",
+      "implementacao_completa"
+    ],
+    "14": [
+      "melhorias_grk",
+      "roadmap_connected"
+    ],
+    "15": [
+      "brevo_email_service",
+      "brevo_setup"
+    ],
+    "16": [
+      "configuracoes_empresa",
+      "tecnico_configuracoes"
+    ],
+    "17": [
+      "guia_usuario"
+    ],
+    "18": [
+      "tender_wave_doc"
+    ],
+    "19": [
+      "auditoria_tecnica"
+    ],
+    "20": [
+      "implementation_summary"
+    ],
+    "21": [
+      "ultimas_atualizacoes"
+    ],
+    "22": [
+      "revisar_implement"
+    ]
+  },
+  "cohesion": {
+    "0": 0.22,
+    "1": 0.29,
+    "2": 0.25,
+    "3": 0.33,
+    "4": 0.33,
+    "5": 0.33,
+    "6": 0.4,
+    "7": 0.4,
+    "8": 0.33,
+    "9": 0.5,
+    "10": 0.5,
+    "11": 1.0,
+    "12": 1.0,
+    "13": 1.0,
+    "14": 1.0,
+    "15": 1.0,
+    "16": 1.0,
+    "17": 1.0,
+    "18": 1.0,
+    "19": 1.0,
+    "20": 1.0,
+    "21": 1.0,
+    "22": 1.0
+  },
+  "gods": [
+    {
+      "id": "funcionalidades_sistema",
+      "label": "System Features Overview",
+      "edges": 8
+    },
+    {
+      "id": "modulo_financeiro",
+      "label": "Financeiro Module",
+      "edges": 7
+    },
+    {
+      "id": "modulo_orcamentos",
+      "label": "Or\u00e7amentos Module",
+      "edges": 5
+    },
+    {
+      "id": "modulo_assistente_ia",
+      "label": "Assistente IA Module",
+      "edges": 5
+    },
+    {
+      "id": "tecnico_assistente_ia",
+      "label": "Assistente IA Technical Spec",
+      "edges": 5
+    },
+    {
+      "id": "ai_tools_domain",
+      "label": "AI Domain Tools (clientes/financeiro/catalogo/orcamento)",
+      "edges": 5
+    },
+    {
+      "id": "ia_service",
+      "label": "ia_service.py \u2014 AI Service Core",
+      "edges": 4
+    },
+    {
+      "id": "sistema_permissoes",
+      "label": "Permission System Architecture",
+      "edges": 4
+    },
+    {
+      "id": "audit_system_spec",
+      "label": "System Audit Spec",
+      "edges": 4
+    },
+    {
+      "id": "modulo_clientes",
+      "label": "Clientes Module",
+      "edges": 3
+    }
+  ],
+  "surprises": [
+    {
+      "source": "Plans Modal README",
+      "target": "System Features Overview",
+      "source_files": [
+        "docs/archive/MODAL_PLANOS_README.md",
+        "docs/funcionalidades.md"
+      ],
+      "confidence": "INFERRED",
+      "relation": "conceptually_related_to",
+      "why": "inferred connection - not explicitly stated in source; peripheral node `Plans Modal README` unexpectedly reaches hub `System Features Overview`"
+    },
+    {
+      "source": "Improvement Proposals Plan",
+      "target": "System Features Overview",
+      "source_files": [
+        "docs/tecnico/plano-melhorias-proposta.md",
+        "docs/funcionalidades.md"
+      ],
+      "confidence": "INFERRED",
+      "relation": "references",
+      "why": "inferred connection - not explicitly stated in source; peripheral node `Improvement Proposals Plan` unexpectedly reaches hub `System Features Overview`"
+    },
+    {
+      "source": "System Use Cases",
+      "target": "System Features Overview",
+      "source_files": [
+        "docs/operacional/casos-de-uso.md",
+        "docs/funcionalidades.md"
+      ],
+      "confidence": "INFERRED",
+      "relation": "references",
+      "why": "inferred connection - not explicitly stated in source; peripheral node `System Use Cases` unexpectedly reaches hub `System Features Overview`"
+    },
+    {
+      "source": "Document Editor Plan",
+      "target": "Or\u00e7amentos Module",
+      "source_files": [
+        "docs/archive/editor_documentos_plano.md",
+        "docs/funcionalidades.md"
+      ],
+      "confidence": "INFERRED",
+      "relation": "conceptually_related_to",
+      "why": "inferred connection - not explicitly stated in source; peripheral node `Document Editor Plan` unexpectedly reaches hub `Or\u00e7amentos Module`"
+    },
+    {
+      "source": "General System Audit",
+      "target": "Permission System Architecture",
+      "source_files": [
+        "docs/archive/AUDIT.md",
+        "docs/archive/audit-permissoes.md"
+      ],
+      "confidence": "INFERRED",
+      "relation": "references",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities"
+    }
+  ],
+  "questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `System Features Overview` connect `Community 2` to `Community 8`, `Community 3`, `Community 5`?",
+      "why": "High betweenness centrality (0.107) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `Assistente IA Module` connect `Community 2` to `Community 1`, `Community 7`?",
+      "why": "High betweenness centrality (0.097) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `Financeiro Module` connect `Community 3` to `Community 2`, `Community 5`?",
+      "why": "High betweenness centrality (0.054) - this node is a cross-community bridge."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 3 inferred relationships involving `System Features Overview` (e.g. with `Plans Modal README` and `Improvement Proposals Plan`) actually correct?",
+      "why": "`System Features Overview` has 3 INFERRED edges - model-reasoned connections that need verification."
+    },
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `OpenClaw Notion Integration`, `Notion Databases (Tasks/Changelog/Roadmap)`, `WhatsApp Integration Module` to the rest of the system?",
+      "why": "52 weakly-connected nodes found - possible documentation gaps or missing edges."
+    }
+  ]
+}

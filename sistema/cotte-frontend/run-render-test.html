@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script>
+    // Mocks
+    function escapeHtml(s) { return String(s); }
+    function escapeHtmlAttr(s) { return String(s); }
+    function textToHtmlRich(s) { return String(s); }
+    function textToHtmlPlain(s) { return String(s); }
+    function humanizeToolName(s) { return String(s); }
+    function formatValue(v) { return "R$ " + v; }
+    function getOrcamentoFollowupSuggestions() { return []; }
+    
+    // Global vars
+    window.marked = { parse: s => s };
+</script>
+<script src="/app/js/assistente-ia-render-types.js"></script>
+<script src="/app/js/assistente-ia-render.js"></script>
+</head>
+<body>
+    <div id="mock-loading" class="message bot">
+        <div class="message-bubble"></div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,89 @@
+/* === TOKENS PRECISION ATELIER V2.0 === */
+:root {
+  --color-primary: #00687a;
+  --color-primary-hover: #005566;
+  --color-primary-container: #06b6d4;
+  --color-primary-light: #cff4fc;
+  --color-on-primary: #ffffff;
+  --color-surface-lowest: #ffffff;
+  --color-surface-low: #f0f5f9;
+  --color-surface: #f7fafe;
+  --color-surface-high: #e8edf2;
+  --color-surface-highest: #dde3e9;
+  --color-on-surface: #181c1f;
+  --color-on-surface-variant:#42484e;
+  --color-on-surface-muted: #6b737b;
+  --color-on-surface-faint: #9aa3ab;
+  --color-outline: rgba(24, 28, 31, 0.40);
+  --color-outline-variant: rgba(24, 28, 31, 0.15);
+  --color-outline-subtle: rgba(24, 28, 31, 0.08);
+  --color-error: #ba1a1a;
+  --color-error-container: #ffdad6;
+  --color-on-error: #ffffff;
+  --color-on-error-container:#410002;
+  --color-success: #1a6e3c;
+  --color-success-container: #b7f0cb;
+  --color-on-success: #ffffff;
+  --color-on-success-container:#002110;
+  --color-warning: #7a5200;
+  --color-warning-container: #ffdfa0;
+  --color-on-warning: #ffffff;
+  --color-on-warning-container:#261900;
+  --color-info: #00527a;
+  --color-info-container: #c5e8ff;
+  --color-on-info: #ffffff;
+  --color-on-info-container: #001e30;
+  --color-secondary: #4a6268;
+  --color-secondary-container: #cde7ed;
+  --color-on-secondary: #ffffff;
+  --color-on-secondary-container: #051f24;
+
+  --font-display: 'Plus Jakarta Sans', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  
+  --text-display-md: 700 2.5rem/1.15 var(--font-display);
+  --text-display-sm: 600 1.5rem/1.2 var(--font-display); /* Adjusted slightly for cards */
+  --text-headline-md: 600 1.5rem/1.3 var(--font-display);
+  --text-headline-sm: 600 1.25rem/1.35 var(--font-display);
+  --text-title-sm: 500 0.875rem/1.5 var(--font-body);
+  --text-body-md: 400 0.875rem/1.6 var(--font-body);
+  --text-label-lg: 500 0.875rem/1.4 var(--font-body);
+  --text-label-md: 500 0.75rem/1.4 var(--font-body);
+  --text-label-sm: 500 0.6875rem/1.3 var(--font-body);
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  --shadow-color: rgba(24, 28, 31, 0.08);
+  --shadow-1: 0 2px 8px var(--shadow-color), 0 1px 3px rgba(24, 28, 31, 0.04);
+  --shadow-2: 0 4px 16px var(--shadow-color), 0 2px 6px rgba(24, 28, 31, 0.05);
+
+  --duration-fast: 100ms;
+  --ease-in-out: cubic-bezier(0.4, 0.0, 0.2, 1.0);
+  --ease-out: cubic-bezier(0.0, 0.0, 0.2, 1.0);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-primary: #4fd8eb;
+    --color-primary-container: #004f5d;
+    --color-surface-lowest: #1a1f22;
+    --color-surface-low: #1f2428;
+    --color-surface: #111518;
+    --color-on-surface: #e1e3e5;
+    --color-on-surface-variant:#bdc4ca;
+    --color-on-surface-muted: #8d9499;
+    --color-success-container: #004d23;
+    --color-on-success-container:#b7f0cb;
+    --color-warning-container: #5a3b00;
+    --color-on-warning-container:#ffdfa0;
+  }
+}
