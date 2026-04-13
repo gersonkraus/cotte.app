@@ -8,7 +8,8 @@
     "test:unit": "node tests/unit/assistente-orcamento-confirmar-payload.test.js",
     "test:ui": "playwright test --ui",
     "test:report": "playwright show-report",
-    "guard:gitlinks": "bash scripts/check_no_gitlinks.sh"
+    "guard:gitlinks": "bash scripts/check_no_gitlinks.sh",
+    "validate:contributing": "node scripts/validate-contributing-links.mjs"
   },
   "repository": {
     "type": "git",

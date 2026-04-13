@@ -24,6 +24,12 @@ Sistema completo de gestão comercial com orçamentos, clientes, produtos e inte
 **Testes:** ✅ Configurados (pytest backend, Playwright E2E)
 **Integrações:** ✅ WhatsApp, PDF, IA
 
+## Como contribuir
+
+- Guia completo: [CONTRIBUTING.md](CONTRIBUTING.md) (princípios, validação, commits e deploy).
+- **Revisão:** abra um PR para `main`, descreva o problema e como validar; o [template de PR](.github/pull_request_template.md) referencia trechos do CONTRIBUTING por tipo de mudança.
+- Alinhamento documental agente/humano: `npm run validate:contributing`.
+
 ## 🚀 Tecnologias
 
 ### Backend
@@ -206,6 +212,7 @@ Guia detalhado: [sistema/DEPLOY-RAILWAY.md](sistema/DEPLOY-RAILWAY.md).
 
 | Arquivo | Conteúdo |
 |---------|----------|
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Como contribuir, revisão e flags de desenvolvimento (ex.: assistente IA) |
 | [CLAUDE.md](CLAUDE.md) | Stack, arquivos-chave e convenções para o assistente |
 | [arquitetura_sistema.md](arquitetura_sistema.md) | Visão geral da arquitetura |
 | [fluxo_do_sistema.md](fluxo_do_sistema.md) | Fluxo principal de orçamentos e notificações |

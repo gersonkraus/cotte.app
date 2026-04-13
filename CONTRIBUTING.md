@@ -16,6 +16,24 @@ A prioridade é:
 4. preservar contratos existentes
 5. fazer mudanças pequenas, claras e fáceis de validar
 
+### Relação com AGENTS.md
+
+- **AGENTS.md** — resumo operacional para agentes e automação no repositório.
+- **CONTRIBUTING.md** — guia estendido para pessoas (e revisão humana).
+- Seções `##` críticas compartilhadas são verificadas por `npm run validate:contributing` (ver `scripts/validate-contributing-links.mjs`). Evite renomear esses títulos sem atualizar o script e o outro arquivo.
+- Se no futuro houver **duplicação excessiva** entre os dois guias, prefira uma única fonte em `docs/` e manter em AGENTS/CONTRIBUTING apenas um parágrafo de contexto + link.
+
+---
+
+## Flags e telemetria (assistente IA)
+
+No navegador, a chave de **localStorage** `cotte_assistente_metrics`:
+
+- Valor **`1`**: ativa marcas e medidas da Performance API (`performance.mark` / `performance.measure`) no fluxo de confirmação de orçamento no assistente (mede tempo aproximado até paint após a ação).
+- **Omissão ou outro valor**: telemetria desligada (comportamento padrão).
+
+Uso recomendado apenas para **depuração de performance em ambiente local**, não para utilizadores finais em produção.
+
 ---
 
 ## Idioma e comunicação

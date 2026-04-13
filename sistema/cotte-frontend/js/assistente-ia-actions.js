@@ -2,6 +2,9 @@
  * assistente-ia-actions.js
  *
  * Ações operacionais do assistente e mutações com efeitos colaterais.
+ *
+ * Telemetria opcional (Performance API): defina localStorage `cotte_assistente_metrics` = `1`
+ * para medir tempo até paint após confirmar orçamento. Ver CONTRIBUTING.md (Flags e telemetria).
  */
 
 function _assistenteMetricsEnabled() {
