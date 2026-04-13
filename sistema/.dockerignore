@@ -1,28 +1,44 @@
-*.db
-*.pdf
-test_*.py
-debug_*.py
-check_*.py
-verify_*.py
-simple_test.py
-direct_test.py
-migrate_clientes.py
-server.log
-debug_output.txt
-nul
-openapi.json
-plans/
-docs/
-uploads/
-.env
-.aider.conf.yml
-.claude/
+# Sistema — ignorar artefatos locais e arquivos pesados
+__pycache__/
 **/__pycache__/
 **/*.pyc
 **/*.pyo
-**/.pytest_cache/
+.venv/
+venv/
+env/
+.env
+.env.*
+*.log
+*.db
+test_*.db
+test_*.sqlite
+/uploads/
+uploads/
+static/pdfs/
+static/logos/
 
-# Artefatos locais (merge/patch, experimentos) — não são código de produção
+# Ferramentas e relatórios
+playwright-report/
+test-results/
+graphify-out*
+dist/
+build/
+node_modules/
+
+# Git e patches/experimentos
+.git
+.gitignore
+*.patch
 *.orig
 *.rej
-*.patch
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Outros
+debug_output.txt
+test_result.txt
+*.zip
+*.tar.gz
