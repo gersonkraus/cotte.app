@@ -25,4 +25,5 @@ PORT=${PORT:-8000}
 # devolvem Location: http://... → Mixed Content no browser.
 # * = confiar em qualquer IP que fale com o container (típico PaaS só exposto ao LB).
 export FORWARDED_ALLOW_IPS="${FORWARDED_ALLOW_IPS:-*}"
-exec uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips "$FORWARDED_ALLOW_IPS"
+# python3 -m uvicorn: compatível com pip --target=/install (Docker) onde uvicorn não está no PATH
+exec python3 -m uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips "$FORWARDED_ALLOW_IPS"
