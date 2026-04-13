@@ -2897,6 +2897,7 @@ async function carregarTemplatesCampanha() {
 
 async function carregarLeadsParaCampanha() {
   try {
+    document.getElementById('camp-leads-info').innerText = 'Carregando leads...';
     var res = await api.get('/comercial/leads?per_page=1000&status_pipeline_notin=fechado_ganho,fechado_perdido');
     var sel = document.getElementById('camp-leads');
     sel.innerHTML = '';
@@ -2904,9 +2905,23 @@ async function carregarLeadsParaCampanha() {
       var nome = l.nome_responsavel || l.nome_empresa || 'Lead #' + l.id;
       sel.innerHTML += '<option value="' + l.id + '">' + escapeHtml(nome) + ' - ' + (l.whatsapp || l.email || '') + '</option>';
     });
+    atualizarContagemLeadsCampanha();
   } catch (e) {
     console.error('Erro ao carregar leads:', e);
+    document.getElementById('camp-leads-info').innerText = 'Erro ao carregar leads.';
   }
+}
+
+function atualizarContagemLeadsCampanha() {
+  var sel = document.getElementById('camp-leads');
+  var total = sel.options.length;
+  var selecionados = sel.selectedOptions.length;
+  
+  var texto = selecionados === 0 
+    ? total + ' leads disponíveis' 
+    : selecionados + ' selecionados de ' + total + ' disponíveis';
+    
+  document.getElementById('camp-leads-info').innerText = texto;
 }
 
 async function salvarCampanha() {

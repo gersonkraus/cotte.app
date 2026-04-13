@@ -649,7 +649,8 @@ Exemplos de formatos aceitos:
         </div>
         <div class="fg">
           <label class="fl">Leads (selecione ou deixe vazio para todos)</label>
-          <select class="fs" id="camp-leads" multiple style="min-height:120px"></select>
+          <div id="camp-leads-info" style="font-size: 12px; color: var(--muted); margin-bottom: 8px;">Carregando leads...</div>
+          <select class="fs" id="camp-leads" multiple style="min-height:120px" onchange="atualizarContagemLeadsCampanha()"></select>
         </div>
       </div>
       <footer class="modal-footer">
