@@ -66,15 +66,43 @@ function _buildSemanticPrintableHtml(payload) {
 function _openSemanticPrintPreview(payload, printNow = false) {
     const html = _buildSemanticPrintableHtml(payload || {});
     const printWin = window.open('', '_blank', 'noopener,noreferrer');
-    if (!printWin) return;
-    printWin.document.open();
-    printWin.document.write(html);
-    printWin.document.close();
-    if (printNow) {
-        printWin.focus();
+    if (printWin) {
+        printWin.document.open();
+        printWin.document.write(html);
+        printWin.document.close();
+        if (printNow) {
+            printWin.focus();
+            setTimeout(() => {
+                try { printWin.print(); } catch (_) { /* noop */ }
+            }, 250);
+        }
+        return;
+    }
+
+    // Fallback para popup bloqueado: usa iframe oculto para preview/impressão.
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc) {
+        iframe.remove();
+        return;
+    }
+    doc.open();
+    doc.write(html);
+    doc.close();
+    if (printNow && iframe.contentWindow) {
         setTimeout(() => {
-            try { printWin.print(); } catch (_) { /* noop */ }
+            try { iframe.contentWindow.print(); } catch (_) { /* noop */ }
+            setTimeout(() => iframe.remove(), 1200);
         }, 250);
+    } else {
+        setTimeout(() => iframe.remove(), 8000);
     }
 }
 
@@ -795,11 +823,32 @@ function initAssistenteChatDelegation() {
         if (semanticCopySummaryBtn) {
             e.preventDefault();
             const summary = semanticCopySummaryBtn.getAttribute('data-semantic-copy-summary') || '';
-            navigator.clipboard.writeText(summary).then(() => {
+            const setFeedback = () => {
                 const original = semanticCopySummaryBtn.textContent;
                 semanticCopySummaryBtn.textContent = 'Resumo copiado';
                 setTimeout(() => { semanticCopySummaryBtn.textContent = original || 'Copiar resumo'; }, 1400);
-            }).catch(() => {});
+            };
+            const fallbackCopy = () => {
+                try {
+                    const ta = document.createElement('textarea');
+                    ta.value = summary;
+                    ta.setAttribute('readonly', '');
+                    ta.style.position = 'fixed';
+                    ta.style.opacity = '0';
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    ta.remove();
+                    setFeedback();
+                } catch (_) {
+                    // noop
+                }
+            };
+            if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                navigator.clipboard.writeText(summary).then(setFeedback).catch(fallbackCopy);
+            } else {
+                fallbackCopy();
+            }
             return;
         }
 

@@ -666,9 +666,22 @@ function renderSemanticContract(data, semanticContract, isStreamed) {
         content += `<div class="semantic-actions" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">${actionsHtml}</div>`;
     }
 
-    if (sc.printable && typeof sc.printable === 'object') {
+    const printableObj = sc.printable && typeof sc.printable === 'object' ? sc.printable : null;
+    const printableRows = Array.isArray(printableObj?.rows) ? printableObj.rows : [];
+    const printableSummary = String(printableObj?.summary || summary || '');
+    const printableHint = `${String(data?.resposta || '')} ${String(sc?.summary || '')}`.toLowerCase();
+    const shouldShowPrintable = !!(
+        printableObj
+        && (
+            printableRows.length > 0
+            || printableObj.force_printable === true
+            || /\b(imprimir|impress[aã]o|pdf|exportar)\b/.test(printableHint)
+        )
+    );
+
+    if (shouldShowPrintable) {
         const title = sc.printable.title || 'Versão imprimível disponível';
-        const printSummary = sc.printable.summary || summary;
+        const printSummary = printableSummary;
         const printablePayloadEscaped = escapeHtmlAttr(JSON.stringify(sc.printable));
         content += `<div class="semantic-printable-card" data-testid="semantic-printable-card">
             <div class="semantic-printable-card__head">
