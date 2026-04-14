@@ -10,6 +10,8 @@ status: draft
 ---
 
 # Sugestões Futuras
+  - cruzar depois o sugestoesfuturas.md com o backlog de capability flags do frontend
+  - destacar no futuro quais sugestões impactam diretamente assistente-ia.html e a futura UI do copiloto técnico
 
 ## Objetivo
 
