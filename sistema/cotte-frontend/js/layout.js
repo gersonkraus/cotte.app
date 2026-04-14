@@ -13,7 +13,7 @@
  *
  * Chaves válidas: dashboard | orcamentos | clientes | catalogo |
  *                 documentos | relatorios | financeiro | agendamentos |
- *                 assistente-ia | copiloto-tecnico | usuarios | configuracoes |
+ *                 assistente-ia | copiloto-tecnico | ai-observabilidade | usuarios | configuracoes |
  *                 comercial | admin | admin-planos | admin-config
  * (whatsapp.html usa admin-config para destacar Config Admin no menu)
  */
@@ -187,6 +187,17 @@ const _SIDEBAR_HTML = `
         </span>
         Configurações Admin
       </a>
+      <a id="nav-ai-observabilidade-link" class="nav-item nav-ai-observabilidade-link" data-page="ai-observabilidade" href="ai-observabilidade.html" style="display:none">
+        <span class="nav-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="4" y1="19" x2="20" y2="19"/>
+            <line x1="7" y1="16" x2="7" y2="10"/>
+            <line x1="12" y1="16" x2="12" y2="6"/>
+            <line x1="17" y1="16" x2="17" y2="13"/>
+          </svg>
+        </span>
+        Observabilidade IA
+      </a>
       <a id="nav-comercial-link" class="nav-item nav-comercial-link" data-page="comercial" href="comercial.html" style="display:none">
         <span class="nav-icon">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -300,6 +311,7 @@ function inicializarLayout(pageKey, opts = {}) {
         document.getElementById('nav-admin-link').style.display = 'flex';
         document.getElementById('nav-admin-planos-link').style.display = 'flex';
         document.getElementById('nav-admin-config-link').style.display = 'flex';
+        document.getElementById('nav-ai-observabilidade-link').style.display = 'flex';
       }
     }
 

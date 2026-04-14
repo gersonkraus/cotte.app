@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>COTTE - Observabilidade IA</title>
+  <link rel="stylesheet" href="css/style.css?v=3" />
+  <style>
+    .obs-main {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 20px 24px 24px;
+      min-height: 0;
+    }
+    .obs-toolbar {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      align-items: end;
+      background: var(--surface, #fff);
+      border-radius: 14px;
+      box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+      padding: 14px;
+    }
+    .obs-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .obs-field label {
+      font-size: 12px;
+      color: var(--muted, #6b7280);
+      font-weight: 600;
+    }
+    .obs-input {
+      width: 100%;
+      border: 1px solid var(--border, #e5e7eb);
+      border-radius: 10px;
+      background: var(--surface2, #f8fafc);
+      padding: 9px 10px;
+      font-size: 13px;
+      outline: none;
+      color: var(--text, #111827);
+    }
+    .obs-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .obs-card {
+      background: var(--surface, #fff);
+      border-radius: 12px;
+      box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+      padding: 12px 14px;
+    }
+    .obs-card-label {
+      font-size: 11px;
+      color: var(--muted, #6b7280);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-bottom: 8px;
+    }
+    .obs-card-value {
+      font-size: 24px;
+      font-weight: 700;
+      line-height: 1.1;
+      color: var(--text, #111827);
+    }
+    .obs-status {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .obs-status.healthy { background: rgba(16, 185, 129, 0.15); color: #059669; }
+    .obs-status.degraded { background: rgba(245, 158, 11, 0.15); color: #b45309; }
+    .obs-status.critical { background: rgba(239, 68, 68, 0.15); color: #b91c1c; }
+    .obs-status.no_data { background: rgba(100, 116, 139, 0.15); color: #475569; }
+    .obs-table-wrap {
+      background: var(--surface, #fff);
+      border-radius: 14px;
+      box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+      overflow: hidden;
+    }
+    .obs-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .obs-table th, .obs-table td {
+      text-align: left;
+      padding: 11px 12px;
+      border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+      vertical-align: top;
+    }
+    .obs-table th {
+      font-size: 11px;
+      color: var(--muted, #6b7280);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      background: var(--surface2, #f8fafc);
+    }
+    .obs-muted {
+      color: var(--muted, #6b7280);
+      font-size: 12px;
+    }
+    .obs-alert {
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 13px;
+      display: none;
+    }
+    .obs-alert.error {
+      display: block;
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #b91c1c;
+    }
+    @media (max-width: 1100px) {
+      .obs-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .obs-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 700px) {
+      .obs-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .obs-main { padding: 14px; }
+      .obs-toolbar { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-title-wrap">
+        <div class="page-title">Observabilidade IA</div>
+        <div class="obs-muted">Saude operacional por engine e janela de tempo.</div>
+      </div>
+    </div>
+
+    <section class="obs-main">
+      <div class="obs-toolbar">
+        <div class="obs-field">
+          <label for="obs-hours">Janela (horas)</label>
+          <select id="obs-hours" class="obs-input">
+            <option value="1">1h</option>
+            <option value="6">6h</option>
+            <option value="12">12h</option>
+            <option value="24" selected>24h</option>
+            <option value="72">72h</option>
+            <option value="168">7 dias</option>
+          </select>
+        </div>
+        <div class="obs-field">
+          <label for="obs-engine">Engine</label>
+          <select id="obs-engine" class="obs-input">
+            <option value="">Todas</option>
+            <option value="operational">Operational</option>
+            <option value="analytics">Analytics</option>
+            <option value="documental">Documental</option>
+            <option value="internal_copilot">Internal Copilot</option>
+          </select>
+        </div>
+        <div class="obs-field">
+          <label for="obs-company">Empresa (opcional)</label>
+          <input id="obs-company" class="obs-input" type="number" min="1" placeholder="ID da empresa" />
+        </div>
+        <div class="obs-field">
+          <label for="obs-auto-refresh">Atualizacao</label>
+          <select id="obs-auto-refresh" class="obs-input">
+            <option value="0" selected>Manual</option>
+            <option value="30">A cada 30s</option>
+            <option value="60">A cada 60s</option>
+          </select>
+        </div>
+        <div class="obs-field">
+          <button id="obs-refresh-btn" class="btn btn-primary" type="button">Atualizar</button>
+        </div>
+      </div>
+
+      <div id="obs-alert" class="obs-alert"></div>
+
+      <div class="obs-grid">
+        <div class="obs-card">
+          <div class="obs-card-label">Total calls</div>
+          <div id="obs-kpi-calls" class="obs-card-value">-</div>
+        </div>
+        <div class="obs-card">
+          <div class="obs-card-label">Total errors</div>
+          <div id="obs-kpi-errors" class="obs-card-value">-</div>
+        </div>
+        <div class="obs-card">
+          <div class="obs-card-label">Error rate</div>
+          <div id="obs-kpi-rate" class="obs-card-value">-</div>
+        </div>
+        <div class="obs-card">
+          <div class="obs-card-label">P95 max</div>
+          <div id="obs-kpi-p95" class="obs-card-value">-</div>
+        </div>
+        <div class="obs-card">
+          <div class="obs-card-label">Eventos auditoria</div>
+          <div id="obs-kpi-audit" class="obs-card-value">-</div>
+        </div>
+        <div class="obs-card">
+          <div class="obs-card-label">Saude geral</div>
+          <div id="obs-kpi-health" class="obs-card-value">-</div>
+        </div>
+      </div>
+
+      <div class="obs-table-wrap">
+        <table class="obs-table">
+          <thead>
+            <tr>
+              <th>Engine</th>
+              <th>Saude</th>
+              <th>Total</th>
+              <th>Errors</th>
+              <th>Error rate</th>
+              <th>Avg latency</th>
+              <th>P95 latency</th>
+              <th>Top tools</th>
+            </tr>
+          </thead>
+          <tbody id="obs-engines-body">
+            <tr>
+              <td colspan="8" class="obs-muted">Nenhum dado carregado.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div id="obs-meta" class="obs-muted"></div>
+    </section>
+  </main>
+
+  <script src="js/utils.js?v=1"></script>
+  <script src="js/api.js?v=17"></script>
+  <script src="js/services/ApiService.js?v=2"></script>
+  <script src="js/layout.js?v=5"></script>
+  <script src="js/ai-observabilidade.js?v=1"></script>
+</body>
+</html>
