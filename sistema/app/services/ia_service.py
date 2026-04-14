@@ -10,7 +10,15 @@ import re
 import unicodedata
 from typing import List, Dict, Any, Optional
 
-from litellm import acompletion, completion
+try:
+    from litellm import acompletion, completion
+except ModuleNotFoundError:  # pragma: no cover - fallback para ambiente de teste/local sem dependência opcional
+    async def acompletion(*args, **kwargs):
+        raise RuntimeError("litellm não está instalado no ambiente atual")
+
+    def completion(*args, **kwargs):
+        raise RuntimeError("litellm não está instalado no ambiente atual")
+
 from app.core.config import settings
 from app.schemas.schemas import IAInterpretacaoOut
 

@@ -8,6 +8,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.tenant_context import enable_superadmin_bypass, set_tenant_context
 from app.models.models import Empresa, Plano, Usuario
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -146,14 +147,24 @@ def get_usuario_atual(
             except AttributeError:
                 pass
         db.commit()
+    set_tenant_context(
+        db,
+        empresa_id=usuario.empresa_id,
+        usuario_id=usuario.id,
+        is_superadmin=usuario.is_superadmin,
+    )
     return usuario
 
 
-def get_superadmin(usuario: Usuario = Depends(get_usuario_atual)) -> Usuario:
+def get_superadmin(
+    usuario: Usuario = Depends(get_usuario_atual),
+    db: Session = Depends(get_db),
+) -> Usuario:
     if not usuario.is_superadmin:
         raise HTTPException(
             status_code=403, detail="Acesso restrito ao administrador do sistema"
         )
+    enable_superadmin_bypass(db, usuario=usuario, reason="superadmin_dependency")
     return usuario
 
 

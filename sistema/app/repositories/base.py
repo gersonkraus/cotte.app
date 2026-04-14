@@ -9,6 +9,8 @@ import hashlib
 import json
 
 from app.core.database import Base
+from app.core.tenant_context import get_scoped_empresa_id, tenant_bypass_enabled
+from app.models.tenant import TenantScopedMixin
 
 ModelType = TypeVar("ModelType", bound=Base)
 CreateSchemaType = TypeVar("CreateSchemaType")
@@ -108,6 +110,13 @@ class RepositoryBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         """Remove um registro por ID."""
         try:
             stmt = delete(self.model).where(self.model.id == id)
+            if (
+                issubclass(self.model, TenantScopedMixin)
+                and not tenant_bypass_enabled(db)
+            ):
+                empresa_id = get_scoped_empresa_id(db)
+                if empresa_id is not None:
+                    stmt = stmt.where(self.model.empresa_id == empresa_id)
             result = db.execute(stmt)
             db.commit()
             return result.rowcount > 0

@@ -18,6 +18,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
+from app.models.tenant import TenantScopedMixin
 from decimal import Decimal
 import enum
 from datetime import date
@@ -359,7 +360,7 @@ class Empresa(Base):
     )
 
 
-class BancoPIXEmpresa(Base):
+class BancoPIXEmpresa(TenantScopedMixin, Base):
     """Cadastro de contas/bancos da empresa com chave PIX associada."""
 
     __tablename__ = "bancos_pix_empresa"
@@ -395,7 +396,7 @@ class BancoPIXEmpresa(Base):
 # ── PAPÉIS (RBAC) ──────────────────────────────────────────────────────────
 
 
-class Papel(Base):
+class Papel(TenantScopedMixin, Base):
     """Papel/role de acesso por empresa. Ex: Gestor, Vendedor, Financeiro."""
 
     __tablename__ = "papeis"
@@ -490,7 +491,7 @@ class AuditLog(Base):
 # ── CLIENTE ────────────────────────────────────────────────────────────────
 
 
-class Cliente(Base):
+class Cliente(TenantScopedMixin, Base):
     __tablename__ = "clientes"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -540,7 +541,7 @@ class ConfigGlobal(Base):
 # ── CATEGORIAS DO CATÁLOGO ──────────────────────────────────────────────────
 
 
-class CategoriaCatalogo(Base):
+class CategoriaCatalogo(TenantScopedMixin, Base):
     __tablename__ = "categorias_catalogo"
 
     id = Column(Integer, primary_key=True)
@@ -553,7 +554,7 @@ class CategoriaCatalogo(Base):
 # ── SERVIÇO (catálogo) ─────────────────────────────────────────────────────
 
 
-class Servico(Base):
+class Servico(TenantScopedMixin, Base):
     __tablename__ = "servicos"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -574,7 +575,7 @@ class Servico(Base):
 # ── DOCUMENTOS DA EMPRESA ───────────────────────────────────────────────────
 
 
-class DocumentoEmpresa(Base):
+class DocumentoEmpresa(TenantScopedMixin, Base):
     __tablename__ = "documentos_empresa"
     __table_args__ = (
         UniqueConstraint(
@@ -698,7 +699,7 @@ class OrcamentoDocumento(Base):
 # ── ORÇAMENTO ──────────────────────────────────────────────────────────────
 
 
-class Orcamento(Base):
+class Orcamento(TenantScopedMixin, Base):
     __tablename__ = "orcamentos"
     __table_args__ = (
         UniqueConstraint("empresa_id", "numero", name="uq_orcamentos_empresa_numero"),
@@ -931,7 +932,7 @@ class HistoricoEdicao(Base):
 # ── NOTIFICAÇÃO (in-app) ────────────────────────────────────────────────────
 
 
-class Notificacao(Base):
+class Notificacao(TenantScopedMixin, Base):
     __tablename__ = "notificacoes"
     __table_args__ = (
         Index(
@@ -1194,7 +1195,7 @@ class CommercialConfig(Base):
 # ── Propostas Públicas ───────────────────────────────────────────────────────
 
 
-class PropostaPublica(Base):
+class PropostaPublica(TenantScopedMixin, Base):
     """Templates de propostas públicas interativas."""
 
     __tablename__ = "propostas_publicas"
@@ -1341,7 +1342,7 @@ class CommercialInteraction(Base):
 # ── MÓDULO FINANCEIRO ───────────────────────────────────────────────────────
 
 
-class FormaPagamentoConfig(Base):
+class FormaPagamentoConfig(TenantScopedMixin, Base):
     """Formas de pagamento configuráveis por empresa (PIX, Cartão, Dinheiro, etc.)."""
 
     __tablename__ = "formas_pagamento_config"
@@ -1388,7 +1389,7 @@ class FormaPagamentoConfig(Base):
     )
 
 
-class ContaFinanceira(Base):
+class ContaFinanceira(TenantScopedMixin, Base):
     """Conta a receber ou a pagar vinculada a um orçamento."""
 
     __tablename__ = "contas_financeiras"
@@ -1514,7 +1515,7 @@ class PagamentoFinanceiro(Base):
         )
 
 
-class TemplateNotificacao(Base):
+class TemplateNotificacao(TenantScopedMixin, Base):
     """Templates de mensagem editáveis por empresa para notificações financeiras."""
 
     __tablename__ = "templates_notificacao"
@@ -1531,7 +1532,7 @@ class TemplateNotificacao(Base):
     empresa = relationship("Empresa")
 
 
-class HistoricoCobranca(Base):
+class HistoricoCobranca(TenantScopedMixin, Base):
     """Histórico de cobranças enviadas por WhatsApp/e-mail para contas financeiras."""
 
     __tablename__ = "historico_cobrancas"
@@ -1552,7 +1553,7 @@ class HistoricoCobranca(Base):
     conta = relationship("ContaFinanceira", backref="historico_cobrancas")
 
 
-class ConfiguracaoFinanceira(Base):
+class ConfiguracaoFinanceira(TenantScopedMixin, Base):
     """Configurações financeiras por empresa (1 registro por empresa)."""
 
     __tablename__ = "configuracoes_financeiras"
@@ -1577,7 +1578,7 @@ class ConfiguracaoFinanceira(Base):
 # ── MODELOS FASE 2 (SPRINTS 2.1 E 2.2) ─────────────────────────────────────
 
 
-class MovimentacaoCaixa(Base):
+class MovimentacaoCaixa(TenantScopedMixin, Base):
     """Movimentação de caixa - entradas e saídas manuais."""
 
     __tablename__ = "movimentacoes_caixa"
@@ -1600,7 +1601,7 @@ class MovimentacaoCaixa(Base):
     criado_por = relationship("Usuario")
 
 
-class CategoriaFinanceira(Base):
+class CategoriaFinanceira(TenantScopedMixin, Base):
     """Categorias customizáveis para receitas e despesas."""
 
     __tablename__ = "categorias_financeiras"
@@ -1631,7 +1632,7 @@ class CategoriaFinanceira(Base):
     empresa = relationship("Empresa")
 
 
-class SaldoCaixaConfig(Base):
+class SaldoCaixaConfig(TenantScopedMixin, Base):
     """Configuração de saldo inicial de caixa por empresa."""
 
     __tablename__ = "saldo_caixa_configs"
@@ -1651,7 +1652,7 @@ class SaldoCaixaConfig(Base):
 # ── IMPORTAÇÃO DE LEADS ─────────────────────────────────────────────────────
 
 
-class LeadImportacao(Base):
+class LeadImportacao(TenantScopedMixin, Base):
     """Registro de importações em massa de leads."""
 
     __tablename__ = "lead_importacoes"
@@ -1700,7 +1701,7 @@ class LeadImportacaoItem(Base):
 # ── CAMPANHAS ───────────────────────────────────────────────────────────────
 
 
-class Campaign(Base):
+class Campaign(TenantScopedMixin, Base):
     """Campanhas de disparo de propostas em massa."""
 
     __tablename__ = "campaigns"
@@ -1756,7 +1757,7 @@ class CampaignLead(Base):
         return self.lead.nome_responsavel if self.lead else None
 
 
-class FeedbackAssistente(Base):
+class FeedbackAssistente(TenantScopedMixin, Base):
     """Avaliações de utilidade das respostas do assistente IA."""
 
     __tablename__ = "feedback_assistente"
@@ -1774,7 +1775,7 @@ class FeedbackAssistente(Base):
     empresa = relationship("Empresa")
 
 
-class AssistentePreferenciaUsuario(Base):
+class AssistentePreferenciaUsuario(TenantScopedMixin, Base):
     """Preferências adaptativas de visualização por usuário para o assistente IA."""
 
     __tablename__ = "assistente_preferencias_usuario"
@@ -1854,7 +1855,7 @@ class OrigemAgendamento(str, enum.Enum):
     AUTOMATICO = "automatico"
 
 
-class Agendamento(Base):
+class Agendamento(TenantScopedMixin, Base):
     __tablename__ = "agendamentos"
     __table_args__ = (
         UniqueConstraint("empresa_id", "numero", name="uq_agendamentos_empresa_numero"),
@@ -1955,7 +1956,7 @@ class AgendamentoOpcao(Base):
     )
 
 
-class ConfigAgendamento(Base):
+class ConfigAgendamento(TenantScopedMixin, Base):
     """Configuração de agendamento por empresa."""
 
     __tablename__ = "config_agendamento"
@@ -1986,7 +1987,7 @@ class ConfigAgendamento(Base):
     empresa = relationship("Empresa")
 
 
-class ConfigAgendamentoUsuario(Base):
+class ConfigAgendamentoUsuario(TenantScopedMixin, Base):
     """Override de configuração de agendamento por funcionário."""
 
     __tablename__ = "config_agendamento_usuario"
@@ -2016,7 +2017,7 @@ class ConfigAgendamentoUsuario(Base):
     )
 
 
-class SlotBloqueado(Base):
+class SlotBloqueado(TenantScopedMixin, Base):
     """Bloqueio de horário — empresa-wide (usuario_id NULL) ou individual."""
 
     __tablename__ = "slots_bloqueados"
@@ -2104,7 +2105,7 @@ class SchemaDriftSnapshot(Base):
     extra_columns_json = Column(JSON, nullable=True)
 
 
-class AIChatSessao(Base):
+class AIChatSessao(TenantScopedMixin, Base):
     """Sessão persistente do chat da IA."""
 
     __tablename__ = "ai_chat_sessoes"
