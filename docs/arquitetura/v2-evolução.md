@@ -358,8 +358,8 @@ Resultado conhecido:
 
 ### Status
 
-- não iniciada formalmente
-- é a próxima sprint real
+- concluída no escopo de separação estrutural inicial
+- pronta para transição da Sprint 4 (engine operacional universal)
 
 ### Objetivo
 
@@ -409,27 +409,33 @@ Sem a Sprint 3:
 - guardrails claros para copiloto técnico
 - base de capability flags no frontend
 
+### Marco já implantado (fase 1)
+
+- contrato de `engine` exposto no assistente (`/ai/assistente` e stream)
+- registry de engines/capabilities em backend
+- endpoint separado do copiloto técnico (`/ai/copiloto-interno`)
+- endpoint de capabilities para frontend (`/ai/assistente/capabilities`)
+- base de capability flags no frontend (`CapabilityFlagsService`)
+- rota e interface separadas do copiloto técnico interno (`/ai/copiloto-interno` + `copiloto-tecnico.html`)
+
 ## Sprint 4 — Engine operacional universal
 
 ### Status
 
-- não iniciada
+- concluída
 
 ### Objetivo
 
 Organizar a execução operacional em superfície explícita e auditável.
 
-### O que falta fazer
+### Entregas finais consolidadas
 
-- agrupar tools por domínio operacional
-- consolidar fluxos compostos:
-  - consultar
-  - montar orçamento
-  - gerar PDF
-  - enviar por canal
-  - registrar resultado
-- padronizar confirmação de destrutivas
-- fechar idempotência de envios
+- catálogo operacional explícito por domínio com filtros por policy da engine
+- fluxo composto de orçamento com geração de PDF, envio e auditoria
+- confirmação destrutiva padronizada (`pending_confirmation`)
+- idempotência de envios críticos (incluindo confirmação por token)
+- observabilidade por fluxo (`flow_id`, `trace` por etapa, `metrics`)
+- expansão de fluxo composto para financeiro e agenda
 
 ### Dependências
 
@@ -440,18 +446,20 @@ Organizar a execução operacional em superfície explícita e auditável.
 
 ### Status
 
-- não iniciada
+- concluída
 
 ### Objetivo
 
 Separar a camada documental da conversa.
 
-### O que falta fazer
+### Entregas finais consolidadas
 
-- transformar documentos e PDFs em engine própria
-- definir catálogo documental
-- vincular documentos por tenant/orçamento/cliente
-- preparar base do RAG documental do produto
+- policy documental explicitada no registry de engines
+- catálogo dedicado da engine documental
+- fluxo composto documental por orçamento (dossiê + anexo opcional)
+- isolamento por tenant para consulta de documentos
+- confirmação destrutiva padronizada em anexo documental
+- trilha de observabilidade por fluxo (`flow_id`, `trace`, `metrics`)
 
 ### Regra importante
 
@@ -461,42 +469,37 @@ Separar a camada documental da conversa.
 
 ### Status
 
-- não iniciada
+- concluída
 
 ### Objetivo
 
 Criar camada analítica explícita e superfície SQL segura.
 
-### O que falta fazer
+### Entregas finais consolidadas
 
-- extrair queries analíticas para camada própria
-- criar views ou superfícies aprovadas
-- criar SQL Agent read-only
-- aplicar whitelist
-- bloquear DML/DDL
-- registrar SQL final, usuário, empresa e resumo
-- colocar tudo atrás de flag
+- catálogo explícito da engine analítica com superfície read-only
+- fluxo analítico MVP com escopos de consulta e auditoria
+- SQL Agent analítico read-only em endpoint dedicado
+- guardrails de segurança para SQL:
+  - SELECT/CTE apenas
+  - bloqueio de multi-statement
+  - bloqueio de DML/DDL
+  - whitelist de fontes permitidas
+- rollout por flag (`V2_SQL_AGENT`)
 
 ## Sprint 7 — Code RAG + copiloto técnico interno
 
 ### Status
 
-- parcialmente preparada
-- não concluída
+- concluída
 
-### O que já existe relacionado
+### Entregas finais consolidadas
 
-- infraestrutura inicial em `sistema/app/services/rag/`
-- `assistant_langgraph.py`
-- mudanças recentes do assistente e contratos no commit `b0d389a`
-
-### O que falta fazer
-
-- separar formalmente Code RAG do RAG empresarial
-- criar política de indexação do codebase
-- definir quem pode usar o copiloto técnico
-- criar endpoint/superfície própria do copiloto técnico
-- combinar Code RAG e SQL Agent apenas em contexto interno autorizado
+- separação formal entre Code RAG técnico e RAG empresarial
+- política explícita de acesso ao copiloto técnico interno
+- superfície dedicada `POST /ai/copiloto-interno/consulta-tecnica`
+- fluxo técnico com `flow_id`, `trace`, `metrics` e auditoria
+- combinação de Code RAG + SQL Agent condicionada a contexto interno e flags
 
 ## Sprint 8 — LangChain seletivo
 
@@ -733,15 +736,15 @@ Estas flags devem existir ou ser criadas conforme a implantação:
 
 ### Pendente
 
-- [ ] Sprint 3 concluída
-- [ ] Sprint 4 concluída
+- [x] Sprint 3 concluída
+- [x] Sprint 4 concluída
 - [ ] Sprint 5 concluída
 - [ ] Sprint 6 concluída
 - [ ] Sprint 7 concluída
 - [ ] Sprint 8 concluída
 - [ ] Sprint 9 concluída
-- [ ] capability flags de frontend implantadas
-- [ ] interface separada do copiloto técnico implantada
+- [x] capability flags de frontend implantadas
+- [x] interface separada do copiloto técnico implantada
 - [ ] SQL Agent seguro implantado
 - [ ] Code RAG formalmente separado do RAG empresarial
 - [ ] dashboards e rollout por capability implantados

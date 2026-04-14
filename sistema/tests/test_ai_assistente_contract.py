@@ -12,6 +12,7 @@ from app.models.models import (
     CommercialLead,
     DocumentoEmpresa,
 )
+from app.routers import ai_hub as ai_hub_router
 from app.services import cotte_ai_hub
 from app.services.cotte_ai_hub import AIResponse, SimpleCache, ai_hub
 from app.services.cotte_context_builder import ContextBuilder, SessionStore
@@ -26,7 +27,10 @@ def _headers_for(user_id: int, token_version: int = 0) -> dict[str, str]:
 
 @pytest.mark.asyncio
 async def test_assistente_sync_contract(client, admin_token, monkeypatch):
+    captured: dict = {}
+
     async def fake_v2(**kwargs):
+        captured.update(kwargs)
         return AIResponse(
             sucesso=True,
             resposta="ok",
@@ -49,6 +53,7 @@ async def test_assistente_sync_contract(client, admin_token, monkeypatch):
     assert data["sucesso"] is True
     assert "pending_action" in data and data["pending_action"]["confirmation_token"]
     assert isinstance(data.get("tool_trace"), list)
+    assert captured.get("engine") == "operational"
 
 
 @pytest.mark.asyncio
@@ -73,6 +78,343 @@ async def test_assistente_stream_contract(client, admin_token, monkeypatch):
     assert '"phase":"thinking"' in body
     assert '"is_final":true' in body
     assert '"confirmation_token":"abc"' in body
+
+
+@pytest.mark.asyncio
+async def test_assistente_capabilities_contract(client, admin_token):
+    resp = await client.get(
+        "/api/v1/ai/assistente/capabilities",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert payload.get("success") is True
+    assert "flags" in (payload.get("data") or {})
+    assert "engines" in (payload.get("data") or {})
+    assert "available_engines" in (payload.get("data") or {})
+
+
+@pytest.mark.asyncio
+async def test_assistente_rejeita_engine_internal_no_endpoint_operacional(
+    client, admin_token
+):
+    resp = await client.post(
+        "/api/v1/ai/assistente",
+        json={
+            "mensagem": "teste",
+            "sessao_id": "sess-internal-reject",
+            "engine": "internal_copilot",
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 400
+    payload = resp.json()
+    detail = str(payload.get("detail", "")).lower()
+    wrapped_message = str(
+        ((payload.get("error") or {}).get("message")) or ""
+    ).lower()
+    assert "copiloto técnico" in (detail + " " + wrapped_message)
+
+
+@pytest.mark.asyncio
+async def test_copiloto_interno_consulta_tecnica_requires_code_rag_flag(client, admin_token, monkeypatch):
+    monkeypatch.setenv("V2_INTERNAL_COPILOT", "true")
+    monkeypatch.setenv("V2_CODE_RAG", "false")
+    resp = await client.post(
+        "/api/v1/ai/copiloto-interno/consulta-tecnica",
+        json={"mensagem": "investigar erro", "sessao_id": "sess-tech-flag", "include_code_context": True},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_copiloto_interno_consulta_tecnica_contract(client, admin_token, monkeypatch):
+    monkeypatch.setenv("V2_INTERNAL_COPILOT", "true")
+    monkeypatch.setenv("V2_CODE_RAG", "true")
+    monkeypatch.setenv("V2_SQL_AGENT", "true")
+
+    async def fake_flow(**kwargs):
+        return {
+            "success": True,
+            "flow_id": "flow-tech-1",
+            "data": {"registro": {"flow_id": "flow-tech-1"}},
+            "trace": [{"step": "code_rag_context", "status": "ok"}],
+            "metrics": {"total_steps": 2},
+        }
+
+    monkeypatch.setattr(ai_hub_router, "run_internal_technical_flow", fake_flow)
+    resp = await client.post(
+        "/api/v1/ai/copiloto-interno/consulta-tecnica",
+        json={
+            "mensagem": "investigar erro no serviço",
+            "sessao_id": "sess-tech-ok",
+            "include_code_context": True,
+            "sql_query": "SELECT id FROM orcamentos",
+            "sql_limit": 10,
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert payload.get("success") is True
+    assert payload.get("flow_id") == "flow-tech-1"
+
+
+@pytest.mark.asyncio
+async def test_operacional_catalogo_contract(client, admin_token):
+    resp = await client.get(
+        "/api/v1/ai/operacional/catalogo",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert payload.get("success") is True
+    data = payload.get("data") or {}
+    assert "orcamentos" in data
+    assert isinstance(data["orcamentos"], list)
+    all_tools = [item.get("name") for items in data.values() for item in (items or [])]
+    assert "analisar_tool_logs" not in all_tools
+
+
+@pytest.mark.asyncio
+async def test_operacional_fluxo_valida_entrada(client, admin_token):
+    resp = await client.post(
+        "/api/v1/ai/operacional/fluxo-orcamento",
+        json={"sessao_id": "sess-op-valida"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_operacional_fluxo_pending_confirmation_contract(client, admin_token, monkeypatch):
+    async def fake_flow(**kwargs):
+        return {
+            "success": False,
+            "code": "pending_confirmation",
+            "error": "Confirmação necessária",
+            "pending_action": {"tool": "enviar_orcamento_email", "confirmation_token": "tok-flow"},
+            "trace": [{"step": "enviar_canal", "status": "pending"}],
+        }
+
+    monkeypatch.setattr(ai_hub_router, "run_orcamento_operational_flow", fake_flow)
+    resp = await client.post(
+        "/api/v1/ai/operacional/fluxo-orcamento",
+        json={
+            "sessao_id": "sess-op-pending",
+            "orcamento_id": 1,
+            "canal_envio": "email",
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 202
+    payload = resp.json()
+    assert payload.get("code") == "pending_confirmation"
+    assert (payload.get("pending_action") or {}).get("confirmation_token") == "tok-flow"
+
+
+@pytest.mark.asyncio
+async def test_operacional_fluxo_financeiro_valida_entrada(client, admin_token):
+    resp = await client.post(
+        "/api/v1/ai/operacional/fluxo-financeiro",
+        json={"sessao_id": "sess-op-fin-422", "tipo": "entrada", "valor": 0, "descricao": "x"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_operacional_fluxo_financeiro_pending_confirmation_contract(client, admin_token, monkeypatch):
+    async def fake_flow(**kwargs):
+        return {
+            "success": False,
+            "code": "pending_confirmation",
+            "error": "Confirmação necessária",
+            "flow_id": "flow-fin-1",
+            "metrics": {"total_steps": 2, "steps_pending": 1},
+            "pending_action": {"tool": "criar_movimentacao_financeira", "confirmation_token": "tok-fin"},
+            "trace": [{"step": "executar_acao_financeira", "status": "pending"}],
+        }
+
+    monkeypatch.setattr(ai_hub_router, "run_financeiro_operational_flow", fake_flow)
+    resp = await client.post(
+        "/api/v1/ai/operacional/fluxo-financeiro",
+        json={
+            "sessao_id": "sess-op-fin-pending",
+            "tipo": "entrada",
+            "valor": 120.0,
+            "descricao": "Recebimento teste",
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 202
+    payload = resp.json()
+    assert payload.get("flow_id") == "flow-fin-1"
+    assert payload.get("code") == "pending_confirmation"
+    assert (payload.get("pending_action") or {}).get("confirmation_token") == "tok-fin"
+
+
+@pytest.mark.asyncio
+async def test_operacional_fluxo_agendamento_valida_entrada(client, admin_token):
+    resp = await client.post(
+        "/api/v1/ai/operacional/fluxo-agendamento",
+        json={"sessao_id": "sess-op-ag-422", "acao": "criar"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_operacional_fluxo_agendamento_pending_confirmation_contract(client, admin_token, monkeypatch):
+    async def fake_flow(**kwargs):
+        return {
+            "success": False,
+            "code": "pending_confirmation",
+            "error": "Confirmação necessária",
+            "flow_id": "flow-ag-1",
+            "metrics": {"total_steps": 2, "steps_pending": 1},
+            "pending_action": {"tool": "remarcar_agendamento", "confirmation_token": "tok-ag"},
+            "trace": [{"step": "executar_acao_agenda", "status": "pending"}],
+        }
+
+    monkeypatch.setattr(ai_hub_router, "run_agendamento_operational_flow", fake_flow)
+    resp = await client.post(
+        "/api/v1/ai/operacional/fluxo-agendamento",
+        json={
+            "sessao_id": "sess-op-ag-pending",
+            "acao": "remarcar",
+            "agendamento_id": 123,
+            "nova_data": "2026-04-25T15:00:00",
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 202
+    payload = resp.json()
+    assert payload.get("flow_id") == "flow-ag-1"
+    assert payload.get("code") == "pending_confirmation"
+    assert (payload.get("pending_action") or {}).get("confirmation_token") == "tok-ag"
+
+
+@pytest.mark.asyncio
+async def test_documental_catalogo_contract(client, admin_token, monkeypatch):
+    monkeypatch.setenv("V2_DOCUMENT_ENGINE", "true")
+    resp = await client.get(
+        "/api/v1/ai/documental/catalogo",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert payload.get("success") is True
+    data = payload.get("data") or {}
+    assert data.get("engine") == "documental"
+    assert "domains" in data
+
+
+@pytest.mark.asyncio
+async def test_documental_fluxo_pending_confirmation_contract(client, admin_token, monkeypatch):
+    monkeypatch.setenv("V2_DOCUMENT_ENGINE", "true")
+
+    async def fake_flow(**kwargs):
+        return {
+            "success": False,
+            "code": "pending_confirmation",
+            "error": "Confirmação necessária",
+            "flow_id": "flow-doc-1",
+            "metrics": {"total_steps": 3, "steps_pending": 1},
+            "pending_action": {"tool": "anexar_documento_orcamento", "confirmation_token": "tok-doc"},
+            "trace": [{"step": "anexar_documento_orcamento", "status": "pending"}],
+        }
+
+    monkeypatch.setattr(ai_hub_router, "run_documental_orcamento_flow", fake_flow)
+    resp = await client.post(
+        "/api/v1/ai/documental/fluxo-orcamento",
+        json={"sessao_id": "sess-doc-pending", "orcamento_id": 10, "documento_id": 4},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 202
+    payload = resp.json()
+    assert payload.get("flow_id") == "flow-doc-1"
+    assert payload.get("code") == "pending_confirmation"
+    assert (payload.get("pending_action") or {}).get("confirmation_token") == "tok-doc"
+
+
+@pytest.mark.asyncio
+async def test_analytics_catalogo_contract(client, admin_token, monkeypatch):
+    monkeypatch.setenv("V2_ANALYTICS_ENGINE", "true")
+    resp = await client.get(
+        "/api/v1/ai/analytics/catalogo",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert payload.get("success") is True
+    data = payload.get("data") or {}
+    assert data.get("engine") == "analytics"
+    assert "domains" in data
+
+
+@pytest.mark.asyncio
+async def test_analytics_fluxo_contract(client, admin_token, monkeypatch):
+    monkeypatch.setenv("V2_ANALYTICS_ENGINE", "true")
+
+    async def fake_flow(**kwargs):
+        return {
+            "success": True,
+            "flow_id": "flow-an-1",
+            "data": {"scope": "financeiro_resumo"},
+            "trace": [{"step": "consultar_superficie_analitica", "status": "ok"}],
+            "metrics": {"total_steps": 2},
+        }
+
+    monkeypatch.setattr(ai_hub_router, "run_analytics_flow", fake_flow)
+    resp = await client.post(
+        "/api/v1/ai/analytics/fluxo",
+        json={"sessao_id": "sess-an-flow", "scope": "financeiro_resumo", "dias": 30, "limit": 10},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert payload.get("success") is True
+    assert payload.get("flow_id") == "flow-an-1"
+
+
+@pytest.mark.asyncio
+async def test_analytics_sql_agent_requires_flag(client, admin_token, monkeypatch):
+    monkeypatch.setenv("V2_ANALYTICS_ENGINE", "true")
+    monkeypatch.setenv("V2_SQL_AGENT", "false")
+    resp = await client.post(
+        "/api/v1/ai/analytics/sql-agent",
+        json={"sessao_id": "sess-sql-off", "sql": "SELECT id FROM orcamentos", "limit": 10},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_analytics_sql_agent_contract(client, admin_token, monkeypatch):
+    monkeypatch.setenv("V2_ANALYTICS_ENGINE", "true")
+    monkeypatch.setenv("V2_SQL_AGENT", "true")
+
+    async def fake_flow(**kwargs):
+        return {
+            "success": True,
+            "flow_id": "flow-sql-1",
+            "data": {"resultado_sql": {"row_count": 1}},
+            "trace": [{"step": "executar_sql_analitico", "status": "ok"}],
+            "metrics": {"total_steps": 1},
+        }
+
+    monkeypatch.setattr(ai_hub_router, "run_analytics_sql_query_flow", fake_flow)
+    resp = await client.post(
+        "/api/v1/ai/analytics/sql-agent",
+        json={"sessao_id": "sess-sql-on", "sql": "SELECT id FROM orcamentos", "limit": 10},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert payload.get("success") is True
+    assert payload.get("flow_id") == "flow-sql-1"
 
 
 @pytest.mark.asyncio

@@ -6,6 +6,7 @@ Exposto em /api/v1/ai/{modulo}
 import uuid as _uuid
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import Optional, Literal
 from pydantic import BaseModel, Field
@@ -16,6 +17,34 @@ from app.core.database import get_db
 from app.services.cotte_ai_hub import ai_hub, AIResponse
 from app.core.auth import get_usuario_atual as get_current_user, exigir_permissao, exigir_modulo
 from app.models.models import Usuario, HistoricoEdicao, Empresa
+from app.services.assistant_engine_registry import (
+    DEFAULT_ENGINE,
+    ENGINE_INTERNAL_COPILOT,
+    is_code_rag_enabled,
+    is_engine_available_for_user,
+    is_sql_agent_enabled,
+    list_capabilities,
+    resolve_engine,
+)
+from app.services.operational_engine_service import (
+    run_agendamento_operational_flow,
+    get_operational_catalog,
+    run_financeiro_operational_flow,
+    run_orcamento_operational_flow,
+)
+from app.services.documental_engine_service import (
+    get_documental_catalog,
+    run_documental_orcamento_flow,
+)
+from app.services.analytics_engine_service import (
+    get_analytics_catalog,
+    run_analytics_flow,
+    run_analytics_sql_query_flow,
+)
+from app.services.internal_copilot_service import (
+    can_use_internal_copilot,
+    run_internal_technical_flow,
+)
 
 router = APIRouter(prefix="/ai", tags=["AI"], dependencies=[Depends(exigir_modulo("ia"))])
 
@@ -96,6 +125,10 @@ class AIAssistenteRequest(BaseModel):
         default=None,
         description="Overrides opcionais aplicados sobre os args do pending (allowlisted por tool).",
     )
+    engine: Literal["operational", "analytics", "documental", "internal_copilot"] = Field(
+        default=DEFAULT_ENGINE,
+        description="Engine alvo da Sprint 3. Default permanece operacional.",
+    )
 
 
 class AIConfirmarOrcamentoRequest(BaseModel):
@@ -117,6 +150,127 @@ class AIStatusResponse(BaseModel):
     modulos_disponiveis: list[str]
     cache_stats: dict
     versoes_modelos: dict
+
+
+class AICopilotoRequest(BaseModel):
+    """Requisicao do copiloto tecnico interno (interface separada)."""
+
+    mensagem: str = Field(..., min_length=1, max_length=1000)
+    sessao_id: str = Field(default_factory=lambda: str(_uuid.uuid4()))
+
+
+class AICopilotoTecnicoFlowRequest(BaseModel):
+    """Fluxo técnico dedicado do copiloto interno (Sprint 7)."""
+
+    mensagem: str = Field(..., min_length=1, max_length=1000)
+    sessao_id: str = Field(default_factory=lambda: str(_uuid.uuid4()))
+    include_code_context: bool = True
+    sql_query: Optional[str] = Field(default=None, min_length=5, max_length=4000)
+    sql_limit: int = Field(default=50, ge=1, le=200)
+
+
+class OperacionalFlowItemRequest(BaseModel):
+    descricao: str = Field(min_length=1, max_length=300)
+    quantidade: float = Field(default=1.0, gt=0)
+    valor_unit: Optional[float] = Field(default=None, gt=0)
+    servico_id: Optional[int] = Field(default=None, gt=0)
+
+
+class OperacionalFluxoOrcamentoRequest(BaseModel):
+    """Fluxo composto operacional da Sprint 4."""
+
+    sessao_id: str = Field(default_factory=lambda: str(_uuid.uuid4()))
+    orcamento_id: Optional[int] = Field(default=None, gt=0)
+    cliente_id: Optional[int] = Field(default=None, gt=0)
+    cliente_nome: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    itens: list[OperacionalFlowItemRequest] = Field(default_factory=list)
+    observacoes: Optional[str] = Field(default=None, max_length=2000)
+    cadastrar_materiais_novos: bool = False
+    canal_envio: Optional[Literal["whatsapp", "email"]] = None
+    confirmation_token: Optional[str] = Field(
+        default=None,
+        description="Token de confirmação para etapa destrutiva pendente do fluxo.",
+    )
+
+
+class OperacionalFluxoFinanceiroRequest(BaseModel):
+    """Fluxo composto financeiro operacional da Sprint 4."""
+
+    sessao_id: str = Field(default_factory=lambda: str(_uuid.uuid4()))
+    tipo: Literal["entrada", "saida"]
+    valor: float = Field(gt=0)
+    descricao: str = Field(min_length=2, max_length=300)
+    categoria: Optional[str] = Field(default="geral", max_length=100)
+    data: Optional[str] = Field(
+        default=None, description="ISO date (YYYY-MM-DD). Omitir = hoje."
+    )
+    confirmation_token: Optional[str] = Field(
+        default=None,
+        description="Token de confirmação para etapa destrutiva pendente do fluxo.",
+    )
+
+
+class OperacionalFluxoAgendamentoRequest(BaseModel):
+    """Fluxo composto de agenda operacional da Sprint 4."""
+
+    sessao_id: str = Field(default_factory=lambda: str(_uuid.uuid4()))
+    acao: Literal["criar", "remarcar"]
+    cliente_id: Optional[int] = Field(default=None, gt=0)
+    data_agendada: Optional[str] = Field(
+        default=None, description="ISO datetime (ex.: 2026-04-20T14:30:00)."
+    )
+    duracao_estimada_min: Optional[int] = Field(default=60, ge=15, le=1440)
+    tipo: Optional[str] = Field(default="servico", max_length=50)
+    orcamento_id: Optional[int] = Field(default=None, gt=0)
+    endereco: Optional[str] = Field(default=None, max_length=500)
+    observacoes: Optional[str] = Field(default=None, max_length=500)
+    agendamento_id: Optional[int] = Field(default=None, gt=0)
+    nova_data: Optional[str] = Field(
+        default=None, description="ISO datetime para remarcação."
+    )
+    motivo: Optional[str] = Field(default=None, max_length=500)
+    confirmation_token: Optional[str] = Field(
+        default=None,
+        description="Token de confirmação para etapa destrutiva pendente do fluxo.",
+    )
+
+
+class DocumentalFluxoOrcamentoRequest(BaseModel):
+    """Fluxo composto documental por orçamento na Sprint 5."""
+
+    sessao_id: str = Field(default_factory=lambda: str(_uuid.uuid4()))
+    orcamento_id: int | str
+    documento_id: Optional[int] = Field(default=None, gt=0)
+    exibir_no_portal: bool = True
+    enviar_por_email: bool = True
+    enviar_por_whatsapp: bool = False
+    obrigatorio: bool = False
+    confirmation_token: Optional[str] = Field(
+        default=None,
+        description="Token de confirmação para etapa destrutiva pendente do fluxo.",
+    )
+
+
+class AnalyticsFluxoRequest(BaseModel):
+    """Fluxo analítico MVP da Sprint 6."""
+
+    sessao_id: str = Field(default_factory=lambda: str(_uuid.uuid4()))
+    scope: Literal[
+        "financeiro_resumo",
+        "orcamentos_resumo",
+        "clientes_resumo",
+        "despesas_resumo",
+    ] = "financeiro_resumo"
+    dias: int = Field(default=30, ge=1, le=365)
+    limit: int = Field(default=20, ge=1, le=100)
+
+
+class AnalyticsSqlAgentRequest(BaseModel):
+    """Consulta SQL analítica read-only da Sprint 6."""
+
+    sessao_id: str = Field(default_factory=lambda: str(_uuid.uuid4()))
+    sql: str = Field(min_length=5, max_length=4000)
+    limit: int = Field(default=50, ge=1, le=200)
 
 
 # ── Endpoints Principais ────────────────────────────────────────────────────
@@ -592,12 +746,29 @@ async def assistente_universal_stream(
         ) + 1
         db.commit()
 
+    engine = resolve_engine(request.engine)
+    if engine == ENGINE_INTERNAL_COPILOT:
+        raise HTTPException(
+            status_code=400,
+            detail="Use o endpoint /ai/copiloto-interno para o copiloto técnico.",
+        )
+    if not is_engine_available_for_user(
+        engine,
+        is_superadmin=bool(getattr(current_user, "is_superadmin", False)),
+        is_gestor=bool(getattr(current_user, "is_gestor", False)),
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Engine solicitada indisponível para este usuário/ambiente.",
+        )
+
     return StreamingResponse(
         assistente_unificado_stream(
             mensagem=request.mensagem,
             sessao_id=request.sessao_id,
             db=db,
             current_user=current_user,
+            engine=engine,
             request_id=_request_id_from_http(http_request),
             confirmation_token=getattr(request, "confirmation_token", None),
             override_args=getattr(request, "override_args", None),
@@ -631,6 +802,22 @@ async def assistente_universal(
         ) + 1
         db.commit()
 
+    engine = resolve_engine(request.engine)
+    if engine == ENGINE_INTERNAL_COPILOT:
+        raise HTTPException(
+            status_code=400,
+            detail="Use o endpoint /ai/copiloto-interno para o copiloto técnico.",
+        )
+    if not is_engine_available_for_user(
+        engine,
+        is_superadmin=bool(getattr(current_user, "is_superadmin", False)),
+        is_gestor=bool(getattr(current_user, "is_gestor", False)),
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Engine solicitada indisponível para este usuário/ambiente.",
+        )
+
     # Assistente Unificado V2 (Tool Use nativo) — engine padrão
     # USE_TOOL_CALLING=false desativa apenas em emerência; o normal é sempre V2.
     if os.getenv("USE_TOOL_CALLING", "true").lower() != "false":
@@ -641,6 +828,7 @@ async def assistente_universal(
             sessao_id=request.sessao_id,
             db=db,
             current_user=current_user,
+            engine=engine,
             request_id=_request_id_from_http(http_request),
             confirmation_token=request.confirmation_token,
             override_args=request.override_args,
@@ -658,6 +846,434 @@ async def assistente_universal(
         permissoes=current_user.permissoes or {},
         is_gestor=current_user.is_gestor,
     )
+
+
+@router.get("/assistente/capabilities")
+async def assistente_capabilities(
+    current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
+):
+    """Base de capability flags por tela/componente para Sprint 3."""
+    capabilities = list_capabilities()
+    available_engines = {
+        engine_key: is_engine_available_for_user(
+            engine_key,
+            is_superadmin=bool(getattr(current_user, "is_superadmin", False)),
+            is_gestor=bool(getattr(current_user, "is_gestor", False)),
+        )
+        for engine_key in capabilities.get("engines", {}).keys()
+    }
+    return {
+        "success": True,
+        "data": {
+            **capabilities,
+            "available_engines": available_engines,
+        },
+    }
+
+
+@router.post("/copiloto-interno", response_model=AIResponse)
+async def copiloto_tecnico_interno(
+    request: AICopilotoRequest,
+    http_request: Request,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
+):
+    """Endpoint separado para o copiloto tecnico interno (nao reutiliza UI operacional)."""
+    is_superadmin = bool(getattr(current_user, "is_superadmin", False))
+    is_gestor = bool(getattr(current_user, "is_gestor", False))
+    if not can_use_internal_copilot(is_superadmin=is_superadmin, is_gestor=is_gestor):
+        raise HTTPException(
+            status_code=403,
+            detail="Acesso ao copiloto técnico restrito a usuários internos autorizados.",
+        )
+    if not is_engine_available_for_user(
+        ENGINE_INTERNAL_COPILOT,
+        is_superadmin=is_superadmin,
+        is_gestor=is_gestor,
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Copiloto técnico interno indisponível para este usuário/ambiente.",
+        )
+
+    from app.services.cotte_ai_hub import assistente_unificado_v2
+
+    return await assistente_unificado_v2(
+        mensagem=request.mensagem,
+        sessao_id=request.sessao_id,
+        db=db,
+        current_user=current_user,
+        engine=ENGINE_INTERNAL_COPILOT,
+        request_id=_request_id_from_http(http_request),
+    )
+
+
+@router.post("/copiloto-interno/consulta-tecnica")
+async def copiloto_tecnico_consulta(
+    request: AICopilotoTecnicoFlowRequest,
+    http_request: Request,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
+):
+    """Fluxo técnico interno dedicado (Code RAG + SQL Agent opcional)."""
+    is_superadmin = bool(getattr(current_user, "is_superadmin", False))
+    is_gestor = bool(getattr(current_user, "is_gestor", False))
+    if not can_use_internal_copilot(is_superadmin=is_superadmin, is_gestor=is_gestor):
+        raise HTTPException(
+            status_code=403,
+            detail="Acesso ao copiloto técnico restrito a usuários internos autorizados.",
+        )
+    if not is_engine_available_for_user(
+        ENGINE_INTERNAL_COPILOT,
+        is_superadmin=is_superadmin,
+        is_gestor=is_gestor,
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Copiloto técnico interno indisponível para este usuário/ambiente.",
+        )
+    if request.include_code_context and not is_code_rag_enabled():
+        raise HTTPException(
+            status_code=403,
+            detail="Code RAG técnico desabilitado.",
+        )
+    if request.sql_query and not is_sql_agent_enabled():
+        raise HTTPException(
+            status_code=403,
+            detail="SQL Agent técnico desabilitado.",
+        )
+
+    result = await run_internal_technical_flow(
+        db=db,
+        current_user=current_user,
+        request_id=_request_id_from_http(http_request),
+        sessao_id=request.sessao_id,
+        mensagem=request.mensagem,
+        include_code_context=bool(request.include_code_context),
+        sql_query=request.sql_query,
+        sql_limit=request.sql_limit,
+    )
+    status_code = 200 if result.get("success") else 409
+    payload = {
+        "success": bool(result.get("success")),
+        "flow_id": result.get("flow_id"),
+        "data": result.get("data"),
+        "error": result.get("error"),
+        "code": result.get("code"),
+        "trace": result.get("trace"),
+        "metrics": result.get("metrics"),
+    }
+    if status_code == 200:
+        return payload
+    return JSONResponse(status_code=status_code, content=payload)
+
+
+@router.get("/operacional/catalogo")
+async def catalogo_engine_operacional(
+    current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
+):
+    """Catálogo explícito de tools por domínio operacional (Sprint 4)."""
+    if not is_engine_available_for_user(
+        "operational",
+        is_superadmin=bool(getattr(current_user, "is_superadmin", False)),
+        is_gestor=bool(getattr(current_user, "is_gestor", False)),
+    ):
+        raise HTTPException(status_code=403, detail="Engine operacional indisponível.")
+    return {"success": True, "data": get_operational_catalog()}
+
+
+@router.get("/documental/catalogo")
+async def catalogo_engine_documental(
+    current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
+):
+    """Catálogo explícito da engine documental (Sprint 5)."""
+    if not is_engine_available_for_user(
+        "documental",
+        is_superadmin=bool(getattr(current_user, "is_superadmin", False)),
+        is_gestor=bool(getattr(current_user, "is_gestor", False)),
+    ):
+        raise HTTPException(status_code=403, detail="Engine documental indisponível.")
+    return {"success": True, "data": get_documental_catalog()}
+
+
+@router.get("/analytics/catalogo")
+async def catalogo_engine_analytics(
+    current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
+):
+    """Catálogo explícito da engine analítica (Sprint 6)."""
+    if not is_engine_available_for_user(
+        "analytics",
+        is_superadmin=bool(getattr(current_user, "is_superadmin", False)),
+        is_gestor=bool(getattr(current_user, "is_gestor", False)),
+    ):
+        raise HTTPException(status_code=403, detail="Engine analítica indisponível.")
+    return {"success": True, "data": get_analytics_catalog()}
+
+
+@router.post("/operacional/fluxo-orcamento")
+async def fluxo_orcamento_operacional(
+    request: OperacionalFluxoOrcamentoRequest,
+    http_request: Request,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("ia", "escrita")),
+):
+    """Fluxo composto: consultar/montar orçamento -> gerar PDF -> enviar -> registrar."""
+    if not request.orcamento_id and not request.itens:
+        raise HTTPException(
+            status_code=422,
+            detail="Informe orcamento_id existente ou pelo menos um item para criação.",
+        )
+
+    result = await run_orcamento_operational_flow(
+        db=db,
+        current_user=current_user,
+        request_id=_request_id_from_http(http_request),
+        sessao_id=request.sessao_id,
+        cliente_id=request.cliente_id,
+        cliente_nome=request.cliente_nome,
+        itens=[item.model_dump(exclude_none=True) for item in request.itens],
+        observacoes=request.observacoes,
+        cadastrar_materiais_novos=bool(request.cadastrar_materiais_novos),
+        orcamento_id=request.orcamento_id,
+        canal_envio=request.canal_envio,
+        confirmation_token=request.confirmation_token,
+    )
+    status_code = 200 if result.get("success") else 409
+    if result.get("code") == "pending_confirmation":
+        status_code = 202
+    payload = {
+        "success": bool(result.get("success")),
+        "flow_id": result.get("flow_id"),
+        "data": result.get("data"),
+        "error": result.get("error"),
+        "code": result.get("code"),
+        "trace": result.get("trace"),
+        "metrics": result.get("metrics"),
+        "pending_action": result.get("pending_action"),
+    }
+    if status_code == 200:
+        return payload
+    return JSONResponse(status_code=status_code, content=payload)
+
+
+@router.post("/operacional/fluxo-agendamento")
+async def fluxo_agendamento_operacional(
+    request: OperacionalFluxoAgendamentoRequest,
+    http_request: Request,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("agendamentos", "escrita")),
+):
+    """Fluxo composto de agenda: consultar contexto -> criar/remarcar -> registrar."""
+    if request.acao == "criar":
+        if not request.cliente_id or not request.data_agendada:
+            raise HTTPException(
+                status_code=422,
+                detail="Para ação criar, informe cliente_id e data_agendada.",
+            )
+    if request.acao == "remarcar":
+        if not request.agendamento_id or not request.nova_data:
+            raise HTTPException(
+                status_code=422,
+                detail="Para ação remarcar, informe agendamento_id e nova_data.",
+            )
+
+    result = await run_agendamento_operational_flow(
+        db=db,
+        current_user=current_user,
+        request_id=_request_id_from_http(http_request),
+        sessao_id=request.sessao_id,
+        acao=request.acao,
+        cliente_id=request.cliente_id,
+        data_agendada=request.data_agendada,
+        duracao_estimada_min=request.duracao_estimada_min,
+        tipo=request.tipo,
+        orcamento_id=request.orcamento_id,
+        endereco=request.endereco,
+        observacoes=request.observacoes,
+        agendamento_id=request.agendamento_id,
+        nova_data=request.nova_data,
+        motivo=request.motivo,
+        confirmation_token=request.confirmation_token,
+    )
+    status_code = 200 if result.get("success") else 409
+    if result.get("code") == "pending_confirmation":
+        status_code = 202
+    payload = {
+        "success": bool(result.get("success")),
+        "flow_id": result.get("flow_id"),
+        "data": result.get("data"),
+        "error": result.get("error"),
+        "code": result.get("code"),
+        "trace": result.get("trace"),
+        "metrics": result.get("metrics"),
+        "pending_action": result.get("pending_action"),
+    }
+    if status_code == 200:
+        return payload
+    return JSONResponse(status_code=status_code, content=payload)
+
+
+@router.post("/documental/fluxo-orcamento")
+async def fluxo_documental_orcamento(
+    request: DocumentalFluxoOrcamentoRequest,
+    http_request: Request,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
+):
+    """Fluxo composto documental por orçamento: dossiê e anexo opcional."""
+    if not is_engine_available_for_user(
+        "documental",
+        is_superadmin=bool(getattr(current_user, "is_superadmin", False)),
+        is_gestor=bool(getattr(current_user, "is_gestor", False)),
+    ):
+        raise HTTPException(status_code=403, detail="Engine documental indisponível.")
+
+    result = await run_documental_orcamento_flow(
+        db=db,
+        current_user=current_user,
+        request_id=_request_id_from_http(http_request),
+        sessao_id=request.sessao_id,
+        orcamento_id=request.orcamento_id,
+        documento_id=request.documento_id,
+        exibir_no_portal=bool(request.exibir_no_portal),
+        enviar_por_email=bool(request.enviar_por_email),
+        enviar_por_whatsapp=bool(request.enviar_por_whatsapp),
+        obrigatorio=bool(request.obrigatorio),
+        confirmation_token=request.confirmation_token,
+    )
+    status_code = 200 if result.get("success") else 409
+    if result.get("code") == "pending_confirmation":
+        status_code = 202
+    payload = {
+        "success": bool(result.get("success")),
+        "flow_id": result.get("flow_id"),
+        "data": result.get("data"),
+        "error": result.get("error"),
+        "code": result.get("code"),
+        "trace": result.get("trace"),
+        "metrics": result.get("metrics"),
+        "pending_action": result.get("pending_action"),
+    }
+    if status_code == 200:
+        return payload
+    return JSONResponse(status_code=status_code, content=payload)
+
+
+@router.post("/analytics/fluxo")
+async def fluxo_analytics(
+    request: AnalyticsFluxoRequest,
+    http_request: Request,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
+):
+    """Fluxo composto analítico read-only da Sprint 6."""
+    if not is_engine_available_for_user(
+        "analytics",
+        is_superadmin=bool(getattr(current_user, "is_superadmin", False)),
+        is_gestor=bool(getattr(current_user, "is_gestor", False)),
+    ):
+        raise HTTPException(status_code=403, detail="Engine analítica indisponível.")
+    result = await run_analytics_flow(
+        db=db,
+        current_user=current_user,
+        request_id=_request_id_from_http(http_request),
+        sessao_id=request.sessao_id,
+        scope=request.scope,
+        dias=request.dias,
+        limit=request.limit,
+    )
+    status_code = 200 if result.get("success") else 409
+    payload = {
+        "success": bool(result.get("success")),
+        "flow_id": result.get("flow_id"),
+        "data": result.get("data"),
+        "error": result.get("error"),
+        "code": result.get("code"),
+        "trace": result.get("trace"),
+        "metrics": result.get("metrics"),
+        "pending_action": result.get("pending_action"),
+    }
+    if status_code == 200:
+        return payload
+    return JSONResponse(status_code=status_code, content=payload)
+
+
+@router.post("/analytics/sql-agent")
+async def analytics_sql_agent(
+    request: AnalyticsSqlAgentRequest,
+    http_request: Request,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
+):
+    """SQL Agent analítico seguro (read-only)."""
+    if not is_engine_available_for_user(
+        "analytics",
+        is_superadmin=bool(getattr(current_user, "is_superadmin", False)),
+        is_gestor=bool(getattr(current_user, "is_gestor", False)),
+    ):
+        raise HTTPException(status_code=403, detail="Engine analítica indisponível.")
+    if not is_sql_agent_enabled():
+        raise HTTPException(status_code=403, detail="SQL Agent analítico desabilitado.")
+    result = await run_analytics_sql_query_flow(
+        db=db,
+        current_user=current_user,
+        request_id=_request_id_from_http(http_request),
+        sessao_id=request.sessao_id,
+        sql=request.sql,
+        limit=request.limit,
+    )
+    status_code = 200 if result.get("success") else 409
+    payload = {
+        "success": bool(result.get("success")),
+        "flow_id": result.get("flow_id"),
+        "data": result.get("data"),
+        "error": result.get("error"),
+        "code": result.get("code"),
+        "trace": result.get("trace"),
+        "metrics": result.get("metrics"),
+        "pending_action": result.get("pending_action"),
+    }
+    if status_code == 200:
+        return payload
+    return JSONResponse(status_code=status_code, content=payload)
+
+
+@router.post("/operacional/fluxo-financeiro")
+async def fluxo_financeiro_operacional(
+    request: OperacionalFluxoFinanceiroRequest,
+    http_request: Request,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("financeiro", "escrita")),
+):
+    """Fluxo composto financeiro: consultar contexto -> executar ação -> registrar."""
+    result = await run_financeiro_operational_flow(
+        db=db,
+        current_user=current_user,
+        request_id=_request_id_from_http(http_request),
+        sessao_id=request.sessao_id,
+        tipo=request.tipo,
+        valor=request.valor,
+        descricao=request.descricao,
+        categoria=request.categoria,
+        data=request.data,
+        confirmation_token=request.confirmation_token,
+    )
+    status_code = 200 if result.get("success") else 409
+    if result.get("code") == "pending_confirmation":
+        status_code = 202
+    payload = {
+        "success": bool(result.get("success")),
+        "flow_id": result.get("flow_id"),
+        "data": result.get("data"),
+        "error": result.get("error"),
+        "code": result.get("code"),
+        "trace": result.get("trace"),
+        "metrics": result.get("metrics"),
+        "pending_action": result.get("pending_action"),
+    }
+    if status_code == 200:
+        return payload
+    return JSONResponse(status_code=status_code, content=payload)
 
 
 # ── Feedback do Assistente ───────────────────────────────────────────────

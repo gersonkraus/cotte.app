@@ -39,6 +39,15 @@ from app.services.ai_intention_classifier import (
     detectar_intencao_assistente,
     detectar_intencao_assistente_async,
 )
+from app.services.assistant_engine_registry import (
+    DEFAULT_ENGINE,
+    ENGINE_INTERNAL_COPILOT,
+    build_engine_guardrails,
+    get_engine_policy,
+    is_code_rag_enabled,
+    tools_payload_for_engine,
+    resolve_engine,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1765,6 +1774,7 @@ async def assistente_v2_stream_core(
     sessao_id: str,
     db,
     current_user,
+    engine: str = DEFAULT_ENGINE,
     request_id: str | None = None,
     confirmation_token: str | None = None,
     override_args: dict | None = None,
@@ -1779,7 +1789,6 @@ async def assistente_v2_stream_core(
     - {"error": "msg"}                           — erro grave
     """
     import asyncio
-    from app.services.ai_tools import openai_tools_payload
     from app.services.assistant_preferences_service import AssistantPreferencesService
     from app.services.cotte_context_builder import SessionStore, SemanticMemoryStore
     from app.services.ia_service import ia_service
@@ -1792,6 +1801,9 @@ async def assistente_v2_stream_core(
 
     def _enc(d):
         return f"data: {json.dumps(d, ensure_ascii=False, default=str)}\n\n"
+
+    resolved_engine = resolve_engine(engine)
+    engine_policy = get_engine_policy(resolved_engine)
 
     if _v2_is_excel_chart_request(mensagem):
         final_text = (
@@ -2030,6 +2042,12 @@ async def assistente_v2_stream_core(
     kb_snippet = _v2_load_kb_snippet()
     system_prompt = f"{_V2_SYSTEM_PROMPT}\n\nData/hora atual: {agora}."
     system_prompt += _v2_prompt_listar_orcamentos_datas_br()
+    system_prompt += "\n\n" + build_engine_guardrails(resolved_engine)
+    if resolved_engine == ENGINE_INTERNAL_COPILOT:
+        system_prompt += (
+            "\n- Este canal e interno: nao responda operacoes de negocio de clientes."
+            "\n- Nao reutilize contexto de assistente operacional."
+        )
     if kb_snippet:
         system_prompt += (
             "\n\n## Manual funcional do sistema (fonte de verdade para 'como fazer')\n"
@@ -2122,7 +2140,7 @@ async def assistente_v2_stream_core(
             messages.append({"role": role, "content": content})
     messages.append({"role": "user", "content": mensagem})
 
-    tools_payload = openai_tools_payload()
+    tools_payload = tools_payload_for_engine(resolved_engine)
     tool_trace: list[dict] = []
     pending_action: dict | None = None
     grafico_data: dict | None = None
@@ -2381,6 +2399,7 @@ async def assistente_unificado_stream(
     sessao_id: str,
     db,
     current_user,
+    engine: str = DEFAULT_ENGINE,
     request_id: str | None = None,
     confirmation_token: str | None = None,
     override_args: dict | None = None,
@@ -2398,6 +2417,7 @@ async def assistente_unificado_stream(
             sessao_id=sessao_id,
             db=db,
             current_user=current_user,
+            engine=engine,
             request_id=request_id,
             confirmation_token=confirmation_token,
             override_args=override_args,
@@ -3484,6 +3504,7 @@ async def assistente_unificado_v2(
     sessao_id: str,
     db: Session,
     current_user: Any,  # Usuario; importado lazy para evitar ciclo
+    engine: str = DEFAULT_ENGINE,
     request_id: Optional[str] = None,
     confirmation_token: Optional[str] = None,
     override_args: Optional[dict] = None,
@@ -3496,6 +3517,7 @@ async def assistente_unificado_v2(
         "sessao_id": sessao_id,
         "db": db,
         "current_user": current_user,
+        "engine": engine,
         "request_id": request_id,
         "confirmation_token": confirmation_token,
         "override_args": override_args,
@@ -3515,6 +3537,7 @@ async def _assistente_unificado_v2_legacy(
     sessao_id: str,
     db: Session,
     current_user: Any,  # Usuario; importado lazy para evitar ciclo
+    engine: str = DEFAULT_ENGINE,
     request_id: Optional[str] = None,
     confirmation_token: Optional[str] = None,
     override_args: Optional[dict] = None,
@@ -3523,12 +3546,14 @@ async def _assistente_unificado_v2_legacy(
 
     Mantém histórico via `SessionStore`. Limite de 5 iterações.
     """
-    from app.services.ai_tools import openai_tools_payload
     from app.services.assistant_preferences_service import AssistantPreferencesService
     from app.services.cotte_context_builder import SessionStore, SemanticMemoryStore
     from app.services.ia_service import ia_service
     from app.services.tool_executor import execute as tool_execute
     from app.services.tool_executor import execute_pending
+
+    resolved_engine = resolve_engine(engine)
+    engine_policy = get_engine_policy(resolved_engine)
 
     if _v2_is_excel_chart_request(mensagem):
         resposta_excel = (
@@ -3751,35 +3776,54 @@ async def _assistente_unificado_v2_legacy(
     kb_snippet = _v2_load_kb_snippet()
     system_prompt = f"{_V2_SYSTEM_PROMPT}\n\nData/hora atual: {now}."
     system_prompt += _v2_prompt_listar_orcamentos_datas_br()
+    system_prompt += "\n\n" + build_engine_guardrails(resolved_engine)
+    if resolved_engine == ENGINE_INTERNAL_COPILOT:
+        system_prompt += (
+            "\n- Este canal e interno: nao responda operacoes de negocio de clientes."
+            "\n- Nao reutilize contexto de assistente operacional."
+        )
     if kb_snippet:
         system_prompt += (
             "\n\n## Manual funcional do sistema (fonte de verdade para 'como fazer')\n"
             f"{kb_snippet}"
         )
 
-    semantic_ctx = SemanticMemoryStore.build_context(
-        db=db,
-        empresa_id=getattr(current_user, "empresa_id", 0),
-        mensagem=mensagem,
-        usuario_id=getattr(current_user, "id", 0),
-    )
-    try:
-        from app.services.rag import TenantRAGService
-
-        rag_ctx = TenantRAGService.build_prompt_context(
+    semantic_ctx = {}
+    rag_ctx = {}
+    adaptive_ctx = {}
+    code_ctx = {}
+    if engine_policy.allow_business_context:
+        semantic_ctx = SemanticMemoryStore.build_context(
             db=db,
             empresa_id=getattr(current_user, "empresa_id", 0),
-            query=mensagem,
-            top_k=4,
+            mensagem=mensagem,
+            usuario_id=getattr(current_user, "id", 0),
         )
-    except Exception:
-        rag_ctx = {}
-    adaptive_ctx = AssistantPreferencesService.get_context_for_prompt(
-        db=db,
-        empresa_id=getattr(current_user, "empresa_id", 0),
-        usuario_id=getattr(current_user, "id", 0),
-        mensagem=mensagem,
-    )
+        adaptive_ctx = AssistantPreferencesService.get_context_for_prompt(
+            db=db,
+            empresa_id=getattr(current_user, "empresa_id", 0),
+            usuario_id=getattr(current_user, "id", 0),
+            mensagem=mensagem,
+        )
+    if engine_policy.allow_tenant_rag:
+        try:
+            from app.services.rag import TenantRAGService
+
+            rag_ctx = TenantRAGService.build_prompt_context(
+                db=db,
+                empresa_id=getattr(current_user, "empresa_id", 0),
+                query=mensagem,
+                top_k=4,
+            )
+        except Exception:
+            rag_ctx = {}
+    if resolved_engine == ENGINE_INTERNAL_COPILOT and is_code_rag_enabled():
+        try:
+            from app.services.code_rag_service import build_code_context
+
+            code_ctx = build_code_context(query=mensagem, top_k=4)
+        except Exception:
+            code_ctx = {}
     adaptive_meta = {
         "visualizacao_recomendada": adaptive_ctx.get("preferencia_visualizacao_usuario")
         or {},
@@ -3810,6 +3854,17 @@ async def _assistente_unificado_v2_legacy(
                     "## Contexto RAG por tenant (usar somente como apoio factual)\n"
                     f"Fontes: {', '.join(rag_ctx.get('sources') or [])}\n\n"
                     + (rag_ctx.get("context") or "")
+                ),
+            }
+        )
+    if code_ctx and code_ctx.get("context"):
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    "## Code RAG técnico interno (usar apenas para suporte técnico interno)\n"
+                    f"Fontes: {', '.join(code_ctx.get('sources') or [])}\n\n"
+                    + (code_ctx.get("context") or "")
                 ),
             }
         )
@@ -3850,7 +3905,7 @@ async def _assistente_unificado_v2_legacy(
         usuario_id=getattr(current_user, "id", 0),
     )
 
-    tools_payload = openai_tools_payload()
+    tools_payload = tools_payload_for_engine(resolved_engine)
     tool_trace: list[dict] = []
     pending_action: Optional[dict] = None
     total_in = 0
