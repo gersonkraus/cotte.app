@@ -580,6 +580,115 @@ function renderTabelaRica(data, dados, isStreamed) {
     return content;
 }
 
+function renderSemanticTableRows(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) return '';
+    const headersSet = new Set();
+    rows.slice(0, 20).forEach((obj) => {
+        if (obj && typeof obj === 'object') {
+            Object.keys(obj).forEach((k) => headersSet.add(k));
+        }
+    });
+    const headers = Array.from(headersSet)
+        .filter((k) => typeof rows[0][k] !== 'object')
+        .slice(0, 8);
+    if (!headers.length) return '';
+
+    const ths = headers
+        .map((h) => `<th>${escapeHtml(String(h).replace(/_/g, ' ').replace(/^[a-z]/, (l) => l.toUpperCase()))}</th>`)
+        .join('');
+    const trs = rows.slice(0, 100).map((obj) => {
+        const tds = headers.map((h) => {
+            let val = obj[h];
+            if (typeof val === 'number') {
+                if (h.toLowerCase().match(/valor|total|preco|preço|saldo|despesa|receita|ticket/)) {
+                    val = formatValue(val);
+                } else if (val % 1 !== 0) {
+                    val = val.toLocaleString('pt-BR');
+                }
+            } else if (typeof val === 'boolean') {
+                val = val ? 'Sim' : 'Não';
+            }
+            return `<td><span class="ai-td-content">${escapeHtml(String(val ?? '—'))}</span></td>`;
+        }).join('');
+        return `<tr>${tds}</tr>`;
+    }).join('');
+
+    return `<div class="ai-table-wrapper">
+        <table class="ai-table">
+            <thead><tr>${ths}</tr></thead>
+            <tbody>${trs}</tbody>
+        </table>
+    </div>`;
+}
+
+function renderSemanticContract(data, semanticContract, isStreamed) {
+    const sc = semanticContract || {};
+    let content = '';
+    const summary = (sc.summary || data.resposta || '').trim();
+    if (summary && !(isStreamed && data.stream_has_chunks)) {
+        content += `<div class="resposta-direta">${textToHtmlRich(summary)}</div>`;
+    }
+    const tableHtml = renderSemanticTableRows(sc.table || []);
+    if (tableHtml) {
+        content += tableHtml;
+    }
+    const meta = sc.metadata || {};
+    const proveniencia = [];
+    if (meta.capability) proveniencia.push(`Capability: ${String(meta.capability)}`);
+    if (meta.domain) proveniencia.push(`Domínio: ${String(meta.domain)}`);
+    if (meta.period_days) proveniencia.push(`Período: ${String(meta.period_days)} dias`);
+    if (Array.isArray(meta.data_sources) && meta.data_sources.length) {
+        proveniencia.push(`Fontes: ${meta.data_sources.join(', ')}`);
+    }
+    if (meta.truncated) {
+        proveniencia.push(`Dados truncados (${meta.rows_returned || 0}/${meta.rows_total || 0})`);
+    }
+    if (proveniencia.length) {
+        content += `<div class="semantic-provenance" style="margin-top:10px;font-size:12px;color:var(--ai-muted)">
+            ${proveniencia.map((item) => `<div>• ${escapeHtml(String(item))}</div>`).join('')}
+        </div>`;
+    }
+
+    if (Array.isArray(sc.insights) && sc.insights.length > 0) {
+        const insightsHtml = sc.insights
+            .map((insight) => `<li>${escapeHtml(String(insight.title || 'Insight'))}: ${escapeHtml(String(insight.detail || ''))}</li>`)
+            .join('');
+        content += `<div class="semantic-insights-card" style="margin-top:10px">
+            <strong>Insights</strong>
+            <ul style="margin:6px 0 0 16px">${insightsHtml}</ul>
+        </div>`;
+    }
+
+    if (Array.isArray(sc.suggested_actions) && sc.suggested_actions.length > 0) {
+        const actionsHtml = sc.suggested_actions
+            .map((action) => `<button type="button" class="btn btn-ghost" data-semantic-suggested-action="${escapeHtmlAttr(JSON.stringify(action))}">${escapeHtml(String(action.label || 'Ação'))}</button>`)
+            .join('');
+        content += `<div class="semantic-actions" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">${actionsHtml}</div>`;
+    }
+
+    if (sc.printable && typeof sc.printable === 'object') {
+        const title = sc.printable.title || 'Versão imprimível disponível';
+        const printSummary = sc.printable.summary || summary;
+        const printablePayloadEscaped = escapeHtmlAttr(JSON.stringify(sc.printable));
+        content += `<div class="semantic-printable-card" data-testid="semantic-printable-card">
+            <div class="semantic-printable-card__head">
+                <span class="semantic-printable-card__icon" aria-hidden="true">🖨️</span>
+                <div>
+                    <div class="semantic-printable-card__title">${escapeHtml(String(title))}</div>
+                    <div class="semantic-printable-card__sub">${textToHtmlRich(String(printSummary || ''))}</div>
+                </div>
+            </div>
+            <div class="semantic-printable-card__actions">
+                <button type="button" class="btn btn-secondary" data-semantic-print-preview="${printablePayloadEscaped}">Visualizar impressão</button>
+                <button type="button" class="btn btn-primary" data-semantic-print-now="${printablePayloadEscaped}">Imprimir</button>
+                <button type="button" class="btn btn-secondary" data-semantic-export-report="${printablePayloadEscaped}" data-export-format="csv">Exportar CSV</button>
+                <button type="button" class="btn btn-ghost" data-semantic-copy-summary="${escapeHtmlAttr(String(printSummary || summary || ''))}">Copiar resumo</button>
+            </div>
+        </div>`;
+    }
+    return content || (isStreamed ? '' : '<div class="resposta-direta">Resposta semântica recebida.</div>');
+}
+
 function renderAnaliseTexto(dados, isStreamed) {
     let content = '';
 
@@ -636,6 +745,10 @@ function renderAnaliseTexto(dados, isStreamed) {
 
 function formatAIResponse(data, isStreamed = false) {
     let dados = data.dados || data;
+    const semanticContract = (dados && dados.semantic_contract) || data.semantic_contract || null;
+    if (semanticContract && typeof semanticContract === 'object') {
+        return renderSemanticContract(data, semanticContract, isStreamed);
+    }
     let tipoResposta = (data.tipo_resposta && data.tipo_resposta !== 'geral') ? data.tipo_resposta : (dados.tipo || 'geral');
 
     // FIX: Corrige a renderização para respostas de aprovação de orçamento.

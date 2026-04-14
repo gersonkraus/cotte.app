@@ -13,6 +13,97 @@ function getSuggestionIcon(text) {
     return `<span class="sugestao-chip-icon">${SUGGESTION_ICONS.default}</span>`;
 }
 
+function _decodeSemanticPrintablePayload(raw) {
+    if (!raw) return null;
+    try {
+        return JSON.parse(raw);
+    } catch (_) {
+        return null;
+    }
+}
+
+function _buildSemanticPrintableHtml(payload) {
+    const safeTitle = escapeHtml(String(payload?.title || 'Relatório do Assistente'));
+    const safeSummary = textToHtmlRich(String(payload?.summary || ''));
+    const rows = Array.isArray(payload?.rows) ? payload.rows : [];
+    const period = payload?.period_days ? `${escapeHtml(String(payload.period_days))} dias` : 'Não informado';
+    const filters = payload?.filters && typeof payload.filters === 'object'
+        ? escapeHtml(JSON.stringify(payload.filters))
+        : 'Sem filtros';
+    const generatedAt = payload?.generated_at
+        ? escapeHtml(String(payload.generated_at))
+        : new Date().toISOString();
+    let tableHtml = '';
+    if (rows.length > 0) {
+        tableHtml = renderSemanticTableRows(rows);
+    }
+    return `<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>${safeTitle}</title>
+  <style>
+    body { font-family: Inter, Arial, sans-serif; margin: 24px; color: #111827; }
+    h1 { margin: 0 0 8px; font-size: 24px; }
+    .meta { color: #6b7280; font-size: 12px; margin-bottom: 16px; }
+    .summary { margin: 12px 0 18px; line-height: 1.5; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { border: 1px solid #d1d5db; padding: 6px 8px; text-align: left; vertical-align: top; }
+    thead { background: #f3f4f6; }
+  </style>
+</head>
+<body>
+  <h1>${safeTitle}</h1>
+  <div class="meta">Gerado em: ${new Date().toLocaleString('pt-BR')} | Período: ${period}</div>
+  <div class="meta">Filtros: ${filters}</div>
+  <div class="meta">Timestamp fonte: ${generatedAt}</div>
+  <div class="summary">${safeSummary || 'Sem resumo disponível.'}</div>
+  ${tableHtml || '<p>Sem dados tabulares para impressão.</p>'}
+</body>
+</html>`;
+}
+
+function _openSemanticPrintPreview(payload, printNow = false) {
+    const html = _buildSemanticPrintableHtml(payload || {});
+    const printWin = window.open('', '_blank', 'noopener,noreferrer');
+    if (!printWin) return;
+    printWin.document.open();
+    printWin.document.write(html);
+    printWin.document.close();
+    if (printNow) {
+        printWin.focus();
+        setTimeout(() => {
+            try { printWin.print(); } catch (_) { /* noop */ }
+        }, 250);
+    }
+}
+
+async function _exportSemanticReport(payload, format = 'csv') {
+    try {
+        const response = await httpClient.post('/ai/assistente/report/export', {
+            format,
+            printable_payload: payload || {},
+        });
+        const normalized = normalizeAssistenteApiEnvelope(response);
+        const data = normalized?.data || {};
+        const content = data.content || '';
+        const fileName = data.file_name || `relatorio.${format}`;
+        if (!content) return;
+        const mime = data.content_type || 'text/plain;charset=utf-8';
+        const blob = new Blob([content], { type: mime });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    } catch (err) {
+        console.error('Falha ao exportar relatório semântico', err);
+    }
+}
+
 function getOrcamentoFollowupSuggestions(data, parsedSuggestions, tipo) {
     const base = Array.isArray(parsedSuggestions) ? parsedSuggestions : [];
     const dados = data?.dados || data || {};
@@ -681,6 +772,61 @@ function initAssistenteChatDelegation() {
             }
             window._silentNextMessage = true;
             sendQuickMessage(command);
+            return;
+        }
+
+        const semanticPreviewBtn = t.closest('[data-semantic-print-preview]');
+        if (semanticPreviewBtn) {
+            e.preventDefault();
+            const payload = _decodeSemanticPrintablePayload(semanticPreviewBtn.getAttribute('data-semantic-print-preview'));
+            if (payload) _openSemanticPrintPreview(payload, false);
+            return;
+        }
+
+        const semanticPrintBtn = t.closest('[data-semantic-print-now]');
+        if (semanticPrintBtn) {
+            e.preventDefault();
+            const payload = _decodeSemanticPrintablePayload(semanticPrintBtn.getAttribute('data-semantic-print-now'));
+            if (payload) _openSemanticPrintPreview(payload, true);
+            return;
+        }
+
+        const semanticCopySummaryBtn = t.closest('[data-semantic-copy-summary]');
+        if (semanticCopySummaryBtn) {
+            e.preventDefault();
+            const summary = semanticCopySummaryBtn.getAttribute('data-semantic-copy-summary') || '';
+            navigator.clipboard.writeText(summary).then(() => {
+                const original = semanticCopySummaryBtn.textContent;
+                semanticCopySummaryBtn.textContent = 'Resumo copiado';
+                setTimeout(() => { semanticCopySummaryBtn.textContent = original || 'Copiar resumo'; }, 1400);
+            }).catch(() => {});
+            return;
+        }
+
+        const semanticExportBtn = t.closest('[data-semantic-export-report]');
+        if (semanticExportBtn) {
+            e.preventDefault();
+            const payload = _decodeSemanticPrintablePayload(semanticExportBtn.getAttribute('data-semantic-export-report'));
+            const fmt = semanticExportBtn.getAttribute('data-export-format') || 'csv';
+            if (payload) {
+                _exportSemanticReport(payload, fmt);
+            }
+            return;
+        }
+
+        const semanticSuggestedActionBtn = t.closest('[data-semantic-suggested-action]');
+        if (semanticSuggestedActionBtn) {
+            e.preventDefault();
+            const raw = semanticSuggestedActionBtn.getAttribute('data-semantic-suggested-action');
+            try {
+                const parsed = JSON.parse(raw || '{}');
+                const label = String(parsed.label || '').trim();
+                if (label) {
+                    sendQuickMessage(label);
+                }
+            } catch (_) {
+                // noop
+            }
             return;
         }
 

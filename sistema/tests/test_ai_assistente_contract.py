@@ -479,6 +479,93 @@ async def test_feedback_and_preferences_contract(client, admin_token):
     assert feedback.json()["ok"] is True
 
 
+@pytest.mark.asyncio
+async def test_assistente_prompt_library_crud_contract(client, db):
+    emp = make_empresa(db, nome="Prompt CRUD")
+    gestor = make_usuario(db, emp, email="prompt-crud@teste.com", is_gestor=True)
+    db.commit()
+    headers = _headers_for(gestor.id, token_version=getattr(gestor, "token_versao", 0) or 0)
+
+    create_resp = await client.post(
+        "/api/v1/ai/assistente/prompts",
+        json={
+            "titulo": "Ranking mensal de clientes",
+            "conteudo_prompt": "Monte ranking de clientes por faturamento no mês atual.",
+            "categoria": "ranking",
+            "favorito": True,
+        },
+        headers=headers,
+    )
+    assert create_resp.status_code == 200
+    create_payload = create_resp.json()
+    assert create_payload.get("success") is True
+    created = create_payload.get("data") or {}
+    prompt_id = int(created["id"])
+
+    list_resp = await client.get(
+        "/api/v1/ai/assistente/prompts?categoria=ranking&limit=10",
+        headers=headers,
+    )
+    assert list_resp.status_code == 200
+    list_payload = list_resp.json()
+    assert list_payload.get("success") is True
+    items = (list_payload.get("data") or {}).get("items") or []
+    assert isinstance(items, list)
+
+    assert prompt_id > 0
+
+
+@pytest.mark.asyncio
+async def test_assistente_prompt_library_rejects_non_manager_changes(client, db):
+    emp = make_empresa(db, nome="Prompt Tenant")
+    operador = make_usuario(db, emp, email="operador@teste.com", is_gestor=False)
+    db.commit()
+    headers = _headers_for(operador.id, token_version=getattr(operador, "token_versao", 0) or 0)
+
+    resp = await client.post(
+        "/api/v1/ai/assistente/prompts",
+        json={
+            "titulo": "Tentativa sem permissão",
+            "conteudo_prompt": "Teste de permissão",
+            "categoria": "ranking",
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_assistente_prompt_library_scoped_by_empresa(client, db):
+    emp1 = make_empresa(db, nome="Prompt A")
+    emp2 = make_empresa(db, nome="Prompt B")
+    gestor_a = make_usuario(db, emp1, email="gestor-a@teste.com", is_gestor=True)
+    gestor_b = make_usuario(db, emp2, email="gestor-b@teste.com", is_gestor=True)
+    db.commit()
+
+    h1 = _headers_for(gestor_a.id, token_version=getattr(gestor_a, "token_versao", 0) or 0)
+    h2 = _headers_for(gestor_b.id, token_version=getattr(gestor_b, "token_versao", 0) or 0)
+
+    create_resp = await client.post(
+        "/api/v1/ai/assistente/prompts",
+        json={
+            "titulo": "Prompt Privado A",
+            "conteudo_prompt": "Somente tenant A",
+            "categoria": "inadimplencia",
+        },
+        headers=h1,
+    )
+    assert create_resp.status_code == 200
+    prompt_id = int((create_resp.json().get("data") or {}).get("id"))
+
+    list_b = await client.get("/api/v1/ai/assistente/prompts?categoria=inadimplencia", headers=h2)
+    assert list_b.status_code == 200
+    list_b_items = (list_b.json().get("data") or {}).get("items") or []
+    assert not any(int(item.get("id")) == prompt_id for item in list_b_items)
+
+    get_other = await client.post(f"/api/v1/ai/assistente/prompts/{prompt_id}/usar", headers=h2)
+    assert get_other.status_code == 404
+
+
 def test_simple_cache_scoped_by_empresa():
     cache = SimpleCache(ttl_seconds=60)
     resp = AIResponse(sucesso=True, confianca=0.9, modulo_origem="financeiro")
@@ -600,4 +687,26 @@ async def test_langgraph_wrapper_fallback_to_legacy(monkeypatch, db):
     )
     assert out.sucesso is True
     assert out.resposta == "legacy"
+
+
+@pytest.mark.asyncio
+async def test_assistente_report_export_contract(client, admin_token):
+    resp = await client.post(
+        "/api/v1/ai/assistente/report/export",
+        json={
+            "format": "csv",
+            "printable_payload": {
+                "title": "Relatorio Teste",
+                "summary": "Resumo teste",
+                "rows": [{"cliente": "A", "total": 10}, {"cliente": "B", "total": 20}],
+            },
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert payload.get("success") is True
+    data = payload.get("data") or {}
+    assert str(data.get("file_name", "")).endswith(".csv")
+    assert "cliente,total" in str(data.get("content") or "")
 

@@ -21,22 +21,33 @@ class ExecutarSqlAnaliticoInput(BaseModel):
 
 
 def _ensure_limit(sql: str, limit: int) -> str:
-    lowered = sql.lower()
-    if " limit " in lowered:
-        return sql
-    return f"{sql.rstrip()} LIMIT {int(limit)}"
+    return f"SELECT * FROM ({sql.rstrip()}) AS analytics_scoped_result LIMIT :_agent_limit"
 
 
 async def _executar_sql_analitico(
     inp: ExecutarSqlAnaliticoInput, *, db: Session, current_user: Usuario
 ) -> dict[str, Any]:
+    if not getattr(current_user, "empresa_id", None):
+        return {"error": "Usuário sem escopo de empresa.", "code": "tenant_scope_required"}
+
     validation = validate_analytics_sql(inp.sql)
     if not validation.ok:
-        return {"error": validation.error or "SQL inválido", "code": validation.code or "invalid_input"}
+        return {
+            "error": validation.error or "SQL inválido",
+            "code": validation.code or "invalid_input",
+            "risk_score": validation.risk_score,
+            "complexity": validation.complexity or {},
+        }
 
     sql_final = _ensure_limit(validation.sql or inp.sql, inp.limit)
     try:
-        result = db.execute(text(sql_final))
+        result = db.execute(
+            text(sql_final),
+            {
+                "empresa_id": int(current_user.empresa_id),
+                "_agent_limit": int(inp.limit),
+            },
+        )
         rows = [dict(row) for row in result.mappings().all()]
         columns = list(rows[0].keys()) if rows else []
     except Exception as exc:
@@ -53,6 +64,9 @@ async def _executar_sql_analitico(
             "sql_final": sql_final,
             "row_count": len(rows),
             "limit": inp.limit,
+            "risk_score": validation.risk_score,
+            "complexity": validation.complexity or {},
+            "tenant_scope": {"empresa_id_param": int(current_user.empresa_id)},
         },
     )
     return {
@@ -60,6 +74,8 @@ async def _executar_sql_analitico(
         "rows": rows,
         "row_count": len(rows),
         "sql_final": sql_final,
+        "risk_score": validation.risk_score,
+        "complexity": validation.complexity or {},
     }
 
 

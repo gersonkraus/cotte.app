@@ -5,6 +5,8 @@ Exposto em /api/v1/ai/{modulo}
 
 import uuid as _uuid
 import logging
+import csv
+import io
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -142,6 +144,11 @@ class AIAssistenteRequest(BaseModel):
         default=DEFAULT_ENGINE,
         description="Engine alvo da Sprint 3. Default permanece operacional.",
     )
+
+
+class AIReportExportRequest(BaseModel):
+    format: Literal["csv", "txt"] = "csv"
+    printable_payload: dict = Field(default_factory=dict)
 
 
 class AIConfirmarOrcamentoRequest(BaseModel):
@@ -898,6 +905,50 @@ async def assistente_capabilities(
     }
 
 
+@router.post("/assistente/report/export")
+async def assistente_report_export(
+    request: AIReportExportRequest,
+    current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
+):
+    payload = request.printable_payload or {}
+    rows = payload.get("rows") or []
+    title = str(payload.get("title") or "relatorio_assistente").strip().replace(" ", "_")
+    if request.format == "txt":
+        summary = str(payload.get("summary") or "")
+        content = f"{title}\n\n{summary}\n"
+        return {
+            "success": True,
+            "data": {
+                "file_name": f"{title}.txt",
+                "content_type": "text/plain;charset=utf-8",
+                "content": content,
+            },
+        }
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    if isinstance(rows, list) and rows and isinstance(rows[0], dict):
+        headers = list(rows[0].keys())
+        writer.writerow(headers)
+        for row in rows[:500]:
+            writer.writerow([row.get(h, "") for h in headers])
+    else:
+        writer.writerow(["summary"])
+        writer.writerow([str(payload.get("summary") or "")])
+    content = output.getvalue()
+    output.close()
+
+    return {
+        "success": True,
+        "data": {
+            "file_name": f"{title}.csv",
+            "content_type": "text/csv;charset=utf-8",
+            "content": content,
+            "exported_by_user_id": int(getattr(current_user, "id", 0) or 0),
+        },
+    }
+
+
 @router.get("/observabilidade/resumo")
 async def ai_observabilidade_resumo(
     hours: int = Query(default=24, ge=1, le=168),
@@ -1431,6 +1482,37 @@ class AIPreferenciasAssistenteOut(BaseModel):
     playbook_setor: dict = Field(default_factory=dict)
 
 
+class AIPromptEmpresaCreateRequest(BaseModel):
+    titulo: str = Field(..., min_length=3, max_length=120)
+    conteudo_prompt: str = Field(..., min_length=5, max_length=4000)
+    categoria: str = Field(
+        ...,
+        pattern="^(ranking|comissao|inadimplencia|comparativo_mensal)$",
+    )
+    favorito: bool = False
+
+
+class AIPromptEmpresaUpdateRequest(BaseModel):
+    titulo: Optional[str] = Field(default=None, min_length=3, max_length=120)
+    conteudo_prompt: Optional[str] = Field(default=None, min_length=5, max_length=4000)
+    categoria: Optional[str] = Field(
+        default=None,
+        pattern="^(ranking|comissao|inadimplencia|comparativo_mensal)$",
+    )
+    favorito: Optional[bool] = None
+
+
+def _require_assistente_prompt_manage_permission(current_user: Usuario) -> None:
+    if not bool(
+        getattr(current_user, "is_gestor", False)
+        or getattr(current_user, "is_superadmin", False)
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Somente gestor/admin pode gerenciar prompts salvos da empresa.",
+        )
+
+
 @router.get("/assistente/preferencias", response_model=AIPreferenciasAssistenteOut)
 async def obter_preferencias_assistente(
     db: Session = Depends(get_db),
@@ -1511,6 +1593,197 @@ async def atualizar_preferencias_assistente(
         preferencia_visualizacao=contexto.get("preferencia_visualizacao_usuario") or {},
         playbook_setor=contexto.get("playbook_setor") or {},
     )
+
+
+@router.get("/assistente/prompts")
+async def listar_prompts_salvos_assistente(
+    categoria: Optional[str] = Query(default=None),
+    favorito: Optional[bool] = Query(default=None),
+    q: Optional[str] = Query(default=None, max_length=120),
+    limit: int = Query(default=20, ge=1, le=50),
+    cursor: Optional[int] = Query(default=None, ge=1),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
+):
+    from app.services.assistant_prompt_library_service import AssistantPromptLibraryService
+
+    try:
+        AssistantPromptLibraryService.seed_defaults_if_empty(
+            db,
+            empresa_id=int(current_user.empresa_id),
+            usuario_id=int(current_user.id),
+        )
+        data = AssistantPromptLibraryService.list_prompts(
+            db,
+            empresa_id=int(current_user.empresa_id),
+            categoria=categoria,
+            favorito=favorito,
+            q=q,
+            limit=limit,
+            cursor=cursor,
+        )
+    except ValueError as exc:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "success": False,
+                "error": str(exc),
+                "code": "invalid_category",
+            },
+        )
+    return {"success": True, "data": data}
+
+
+@router.post("/assistente/prompts")
+async def criar_prompt_salvo_assistente(
+    request: AIPromptEmpresaCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("ia", "escrita")),
+):
+    from app.services.assistant_prompt_library_service import AssistantPromptLibraryService
+
+    _require_assistente_prompt_manage_permission(current_user)
+    try:
+        data = AssistantPromptLibraryService.create_prompt(
+            db,
+            empresa_id=int(current_user.empresa_id),
+            usuario_id=int(current_user.id),
+            titulo=request.titulo,
+            conteudo_prompt=request.conteudo_prompt,
+            categoria=request.categoria,
+            favorito=bool(request.favorito),
+        )
+    except ValueError as exc:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "success": False,
+                "error": str(exc),
+                "code": "invalid_category",
+            },
+        )
+    return {"success": True, "data": data}
+
+
+@router.patch("/assistente/prompts/{prompt_id}")
+async def atualizar_prompt_salvo_assistente(
+    prompt_id: int,
+    request: AIPromptEmpresaUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("ia", "escrita")),
+):
+    from app.services.assistant_prompt_library_service import AssistantPromptLibraryService
+
+    _require_assistente_prompt_manage_permission(current_user)
+    prompt = AssistantPromptLibraryService.get_prompt_for_empresa(
+        db,
+        empresa_id=int(current_user.empresa_id),
+        prompt_id=int(prompt_id),
+    )
+    if not prompt:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "success": False,
+                "error": "Prompt não encontrado",
+                "code": "prompt_not_found",
+            },
+        )
+    if (
+        request.titulo is None
+        and request.conteudo_prompt is None
+        and request.categoria is None
+        and request.favorito is None
+    ):
+        return JSONResponse(
+            status_code=422,
+            content={
+                "success": False,
+                "error": "Nenhum campo para atualização foi enviado",
+                "code": "invalid_payload",
+            },
+        )
+    try:
+        data = AssistantPromptLibraryService.update_prompt(
+            db,
+            prompt=prompt,
+            usuario_id=int(current_user.id),
+            titulo=request.titulo,
+            conteudo_prompt=request.conteudo_prompt,
+            categoria=request.categoria,
+            favorito=request.favorito,
+        )
+    except ValueError as exc:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "success": False,
+                "error": str(exc),
+                "code": "invalid_category",
+            },
+        )
+    return {"success": True, "data": data}
+
+
+@router.delete("/assistente/prompts/{prompt_id}")
+async def remover_prompt_salvo_assistente(
+    prompt_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("ia", "escrita")),
+):
+    from app.services.assistant_prompt_library_service import AssistantPromptLibraryService
+
+    _require_assistente_prompt_manage_permission(current_user)
+    prompt = AssistantPromptLibraryService.get_prompt_for_empresa(
+        db,
+        empresa_id=int(current_user.empresa_id),
+        prompt_id=int(prompt_id),
+    )
+    if not prompt:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "success": False,
+                "error": "Prompt não encontrado",
+                "code": "prompt_not_found",
+            },
+        )
+    AssistantPromptLibraryService.soft_delete_prompt(
+        db,
+        prompt=prompt,
+        usuario_id=int(current_user.id),
+    )
+    return {"success": True, "data": {"id": int(prompt_id), "deleted": True}}
+
+
+@router.post("/assistente/prompts/{prompt_id}/usar")
+async def registrar_uso_prompt_salvo_assistente(
+    prompt_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
+):
+    from app.services.assistant_prompt_library_service import AssistantPromptLibraryService
+
+    prompt = AssistantPromptLibraryService.get_prompt_for_empresa(
+        db,
+        empresa_id=int(current_user.empresa_id),
+        prompt_id=int(prompt_id),
+    )
+    if not prompt:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "success": False,
+                "error": "Prompt não encontrado",
+                "code": "prompt_not_found",
+            },
+        )
+    data = AssistantPromptLibraryService.register_usage(
+        db,
+        prompt=prompt,
+        usuario_id=int(current_user.id),
+    )
+    return {"success": True, "data": data}
 
 
 @router.post("/feedback", status_code=201)

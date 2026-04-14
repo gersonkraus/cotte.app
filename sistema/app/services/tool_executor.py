@@ -32,6 +32,7 @@ from sqlalchemy.orm import Session
 from app.core.auth import exigir_permissao
 from app.models.models import ToolCallLog, Usuario
 from app.services.ai_tools import REGISTRY
+from app.services.assistant_engine_registry import get_engine_policy
 from app.services.tenant_guard import ensure_scoped_empresa_id
 
 logger = logging.getLogger(__name__)
@@ -483,6 +484,27 @@ async def execute(
         )
         return result
 
+    if engine:
+        policy = get_engine_policy(engine)
+        if name not in set(policy.allowed_tools):
+            result = ToolResult(
+                status="forbidden",
+                error=f"A tool '{name}' não é permitida para a engine '{policy.key}'.",
+                code="engine_tool_not_allowed",
+                latencia_ms=int((time.perf_counter() - t0) * 1000),
+            )
+            _log(
+                db,
+                empresa_id=current_user.empresa_id,
+                usuario_id=current_user.id,
+                sessao_id=sessao_id,
+                request_id=request_id,
+                tool=name,
+                args=None,
+                result=result,
+            )
+            return result
+
     # 2. Parse + validação Pydantic
     try:
         args_dict = json.loads(raw_args) if isinstance(raw_args, str) else (raw_args or {})
@@ -899,6 +921,27 @@ async def execute_pending(
             result=result,
         )
         return result
+
+    if engine:
+        policy = get_engine_policy(engine)
+        if name not in set(policy.allowed_tools):
+            result = ToolResult(
+                status="forbidden",
+                error=f"A tool '{name}' não é permitida para a engine '{policy.key}'.",
+                code="engine_tool_not_allowed",
+                latencia_ms=int((time.perf_counter() - t0) * 1000),
+            )
+            _log(
+                db,
+                empresa_id=current_user.empresa_id,
+                usuario_id=current_user.id,
+                sessao_id=sessao_id,
+                request_id=request_id,
+                tool=name,
+                args=args_dict,
+                result=result,
+            )
+            return result
 
     # Revalida permissão (o token não substitui RBAC).
     if spec.permissao_recurso:
