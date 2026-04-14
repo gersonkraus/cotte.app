@@ -505,18 +505,20 @@ Criar camada analítica explícita e superfície SQL segura.
 
 ### Status
 
-- parcialmente preparada
-- não concluída
+- concluída (escopo de hardening + rollout controlado)
 
 ### O que já existe
 
 - [assistant_langgraph.py](/home/gk/Projeto-izi/sistema/app/services/assistant_langgraph.py)
+- hardening de isolamento de engines e superfície do copiloto interno
+- testes adicionais de contrato/capabilities e bloqueio de engine no stream
+- cobertura específica de policy de tools do registry por flag de SQL Agent
+- trilha consolidada em `docs/arquitetura/v2-sprint8-hardening-rollout.md`
 
 ### O que falta fazer
 
-- decidir onde LangGraph traz valor real
-- manter fallback legado sempre disponível
-- não deixar a aplicação depender exclusivamente dessa camada
+- ampliar adoção de LangGraph por domínio de forma seletiva
+- manter fallback legado sempre disponível em todo rollout incremental
 
 ## Sprint 9 — Observabilidade e rollout controlado
 
@@ -738,15 +740,15 @@ Estas flags devem existir ou ser criadas conforme a implantação:
 
 - [x] Sprint 3 concluída
 - [x] Sprint 4 concluída
-- [ ] Sprint 5 concluída
-- [ ] Sprint 6 concluída
-- [ ] Sprint 7 concluída
-- [ ] Sprint 8 concluída
+- [x] Sprint 5 concluída
+- [x] Sprint 6 concluída
+- [x] Sprint 7 concluída
+- [x] Sprint 8 concluída
 - [ ] Sprint 9 concluída
 - [x] capability flags de frontend implantadas
 - [x] interface separada do copiloto técnico implantada
-- [ ] SQL Agent seguro implantado
-- [ ] Code RAG formalmente separado do RAG empresarial
+- [x] SQL Agent seguro implantado
+- [x] Code RAG formalmente separado do RAG empresarial
 - [ ] dashboards e rollout por capability implantados
 
 ## Critério final de conclusão da V2

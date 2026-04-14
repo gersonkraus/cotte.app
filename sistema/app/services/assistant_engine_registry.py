@@ -205,7 +205,7 @@ def tools_payload_for_engine(engine: str | None) -> list[dict[str, Any]]:
         if (
             resolve_engine(engine) == ENGINE_INTERNAL_COPILOT
             and name == "executar_sql_analitico"
-            and not is_code_rag_enabled()
+            and not is_sql_agent_enabled()
         ):
             continue
         if name and name in allowed:

@@ -92,6 +92,14 @@ async def test_assistente_capabilities_contract(client, admin_token):
     assert "flags" in (payload.get("data") or {})
     assert "engines" in (payload.get("data") or {})
     assert "available_engines" in (payload.get("data") or {})
+    data = payload.get("data") or {}
+    assert isinstance(data.get("flags"), dict)
+    assert isinstance(data.get("engines"), dict)
+    assert isinstance(data.get("components"), dict)
+    assert isinstance(data.get("available_engines"), dict)
+    for key in ("operational", "analytics", "documental", "internal_copilot"):
+        assert key in data["available_engines"]
+        assert isinstance(data["available_engines"][key], bool)
 
 
 @pytest.mark.asyncio
@@ -103,6 +111,28 @@ async def test_assistente_rejeita_engine_internal_no_endpoint_operacional(
         json={
             "mensagem": "teste",
             "sessao_id": "sess-internal-reject",
+            "engine": "internal_copilot",
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 400
+    payload = resp.json()
+    detail = str(payload.get("detail", "")).lower()
+    wrapped_message = str(
+        ((payload.get("error") or {}).get("message")) or ""
+    ).lower()
+    assert "copiloto técnico" in (detail + " " + wrapped_message)
+
+
+@pytest.mark.asyncio
+async def test_assistente_stream_rejeita_engine_internal_no_endpoint_operacional(
+    client, admin_token
+):
+    resp = await client.post(
+        "/api/v1/ai/assistente/stream",
+        json={
+            "mensagem": "teste",
+            "sessao_id": "sess-internal-reject-stream",
             "engine": "internal_copilot",
         },
         headers={"Authorization": f"Bearer {admin_token}"},
