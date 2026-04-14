@@ -35,6 +35,33 @@ const INPUT_MIN_HEIGHT_DESKTOP = 44;
 const DEFAULT_MESSAGE_PLACEHOLDER = 'Pergunte algo ou dê um comando...';
 const MOBILE_MESSAGE_PLACEHOLDER = 'Digite sua mensagem...';
 
+/** Debug na tela: `?debug_ui=1` ou localStorage `cotte_assistente_debug_ui=1`. Não logar tokens. */
+function isAssistenteDebugUiEnabled() {
+    try {
+        if (new URLSearchParams(window.location.search || '').get('debug_ui') === '1') {
+            return true;
+        }
+        return localStorage.getItem('cotte_assistente_debug_ui') === '1';
+    } catch (_) {
+        return false;
+    }
+}
+window.isAssistenteDebugUiEnabled = isAssistenteDebugUiEnabled;
+
+window.enableAssistenteDebugUi = function enableAssistenteDebugUi() {
+    try {
+        localStorage.setItem('cotte_assistente_debug_ui', '1');
+    } catch (_) { /* ignore */ }
+    window.location.reload();
+};
+
+window.disableAssistenteDebugUi = function disableAssistenteDebugUi() {
+    try {
+        localStorage.removeItem('cotte_assistente_debug_ui');
+    } catch (_) { /* ignore */ }
+    window.location.reload();
+};
+
 function hasHttpClient() {
     return !!httpClient && typeof httpClient.get === 'function' && typeof httpClient.post === 'function';
 }
@@ -226,6 +253,21 @@ function isRetryableAssistenteError(err) {
     return false;
 }
 
+function buildAssistenteErrorCard(message, retryable = true) {
+    const safeMsg = escapeHtml(message || 'Não foi possível processar sua solicitação.');
+    const retryAction = retryable
+        ? `<button type="button" class="error-retry-btn" data-assistente-retry="1">Tentar novamente</button>`
+        : '';
+    return `<div class="error-card" data-testid="assistente-error-card">
+        <div class="error-card-header">
+            <span class="error-card-icon" aria-hidden="true">⚠️</span>
+            Falha ao gerar resposta
+        </div>
+        <div class="error-card-body">${safeMsg}</div>
+        ${retryAction}
+    </div>`;
+}
+
 /**
  * Obtém hora atual formatada
  */
@@ -314,8 +356,12 @@ async function sendMessage() {
     let lastError = null;
     currentAbortController = new AbortController();
     const confirmationToken = window._pendingConfirmationToken;
+    let debugUi = false;
 
     try {
+        debugUi = isAssistenteDebugUiEnabled();
+        const debugStreamEvents = [];
+
         if (!sessaoId) {
             sessaoId = (typeof crypto !== 'undefined' && crypto.randomUUID)
                 ? crypto.randomUUID()
@@ -334,20 +380,38 @@ async function sendMessage() {
 
         const baseUrl = typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : (window.location.origin + '/api/v1');
         const fetchUrl = baseUrl + '/ai/assistente/stream';
-        
-        const response = await fetch(fetchUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + token
-            },
-            body: JSON.stringify(requestBody),
-            signal: currentAbortController.signal
-        });
 
-        if (!response.ok) {
-            let errText = await response.text();
-            throw new Error(`Falha no servidor: ${response.status} ${errText}`);
+        const maxRetries = 3;
+        let response = null;
+        let attempt = 0;
+        while (attempt < maxRetries) {
+            attempt += 1;
+            try {
+                response = await fetch(fetchUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify(requestBody),
+                    signal: currentAbortController.signal
+                });
+
+                if (!response.ok) {
+                    let errText = await response.text();
+                    throw new Error(`Erro ${response.status}: ${errText}`);
+                }
+                break;
+            } catch (err) {
+                if (err?.name === 'AbortError') {
+                    throw err;
+                }
+                const canRetry = attempt < maxRetries && isRetryableAssistenteError(err);
+                if (!canRetry) {
+                    throw err;
+                }
+                await sleep(250 * attempt);
+            }
         }
 
         const reader = response.body.getReader();
@@ -384,6 +448,21 @@ async function sendMessage() {
                             const dataObj = JSON.parse(dataStr);
                             if (dataObj.error) throw new Error(dataObj.error);
 
+                            if (debugUi && debugStreamEvents.length < 100) {
+                                const snap = {
+                                    phase: dataObj.phase || null,
+                                    tool: dataObj.tool || null,
+                                    is_final: !!dataObj.is_final,
+                                };
+                                if (dataObj.chunk) {
+                                    snap.chunk_len = String(dataObj.chunk).length;
+                                }
+                                if (dataObj.error) {
+                                    snap.error = String(dataObj.error).slice(0, 500);
+                                }
+                                debugStreamEvents.push(snap);
+                            }
+
                             // ── Evento de fase (thinking / tool_running) ──────
                             if (dataObj.phase === 'tool_running' && dataObj.tool) {
                                 _prepareBubble(); // limpa dots ao primeiro evento real
@@ -395,7 +474,7 @@ async function sendMessage() {
                                         bubbleNode.appendChild(toolBadge);
                                     }
                                     const toolLabel = dataObj.tool.replace(/_/g, ' ');
-                                    toolBadge.innerHTML = `<span class="tool-running-spinner">⚙️</span> Executando: <em>${escapeHtml(toolLabel)}</em>`;
+                                    toolBadge.innerHTML = `<span class="tool-running-dot" aria-hidden="true"></span> Consultando: <em>${escapeHtml(toolLabel)}</em>`;
                                 }
                             }
 
@@ -455,6 +534,18 @@ async function sendMessage() {
            tool_trace: metadata ? (metadata.tool_trace || null) : null,
         };
 
+        if (debugUi) {
+            finalData.debug_ui = {
+                url: fetchUrl,
+                sessao_id: sessaoId,
+                mensagem_preview: message === '__confirmar_acao__'
+                    ? '[confirmacao_silenciosa]'
+                    : String(message || '').slice(0, 240),
+                stream_events: debugStreamEvents,
+                metadata: metadata || null,
+            };
+        }
+
         // CORREÇÃO: Se a ação foi 'aprovar' e o backend respondeu como 'criado' ou 'atualizado',
         // forçamos o tipo para 'aprovado' para renderizar o card correto.
         if (message.toLowerCase().startsWith('aprovar') && ['orcamento_criado', 'orcamento_atualizado', 'operador_resultado'].includes(finalData.tipo_resposta)) {
@@ -469,8 +560,26 @@ async function sendMessage() {
     } catch (error) {
         lastError = error;
         console.error('Error:', error);
-        
-        if (error.name === 'AbortError') {
+
+        if (debugUi) {
+            const snippet = JSON.stringify(
+                {
+                    kind: 'assistente_stream_client_error',
+                    message: String(error && error.message ? error.message : error),
+                    name: error && error.name ? error.name : null,
+                },
+                null,
+                2
+            );
+            const pre = escapeHtml(snippet);
+            addMessage(
+                `<details class="ai-debug-ui" open><summary class="ai-debug-ui__summary">Debug UI (erro no cliente)</summary><pre class="ai-debug-ui__pre" tabindex="0">${pre}</pre><p class="ai-debug-ui__hint">Desative com <code>disableAssistenteDebugUi()</code> no console.</p></details>`,
+                false,
+                false
+            );
+        }
+
+        if (error && error.name === 'AbortError') {
             console.log('Geração de resposta interrompida pelo usuário.');
             if (loadingMessage && loadingMessage.querySelector('.loading-dots')) {
                 loadingMessage.remove(); // Remove apenas se não gerou nada ainda
@@ -502,7 +611,7 @@ async function sendMessage() {
             setAiStatus('error');
         }
 
-        addMessage(errorMessage, false, true);
+        addMessage(buildAssistenteErrorCard(errorMessage, isRetryableAssistenteError(error)), false, true);
         setTimeout(() => setAiStatus('ready'), 4500);
     } finally {
         isLoading = false;
@@ -536,3 +645,5 @@ async function sendMessage() {
 
 // Camada de render/ações vive em assistente-ia-render.js.
 window.sendMessage = sendMessage;
+window.buildAssistenteErrorCard = buildAssistenteErrorCard;
+window.isRetryableAssistenteError = isRetryableAssistenteError;

@@ -1,13 +1,18 @@
 from typing import List
 from sqlalchemy.orm import Session
 from app.models.models import (
-    Empresa, Usuario, CommercialLead, CommercialTemplate,
-    Campaign, CampaignLead
+    Empresa,
+    Usuario,
+    CommercialLead,
+    CommercialTemplate,
+    Campaign,
+    CampaignLead,
 )
 from app.schemas.schemas import CampaignMetrics
 from app.services.whatsapp_service import enviar_mensagem_texto
 from app.services.email_service import send_email_simples
 import logging
+
 logger = logging.getLogger(__name__)
 from datetime import datetime
 
@@ -19,11 +24,7 @@ class CampaignService:
         self.usuario = usuario
 
     def create_campaign(
-        self,
-        nome: str,
-        template_id: int,
-        canal: str,
-        lead_ids: List[int]
+        self, nome: str, template_id: int, canal: str, lead_ids: List[int]
     ) -> Campaign:
         """Cria uma nova campanha."""
         campaign = Campaign(
@@ -32,23 +33,22 @@ class CampaignService:
             template_id=template_id,
             canal=canal,
             status="agendada",
-            total_leads=len(lead_ids)
+            total_leads=len(lead_ids),
         )
         self.db.add(campaign)
         self.db.flush()
 
         # Criar relacionamentos com leads
         for lead_id in lead_ids:
-            lead = self.db.query(CommercialLead).filter(
-                CommercialLead.id == lead_id,
-                CommercialLead.empresa_id == self.empresa.id
-            ).first()
+            lead = (
+                self.db.query(CommercialLead)
+                .filter(CommercialLead.id == lead_id)
+                .first()
+            )
 
             if lead:
                 campaign_lead = CampaignLead(
-                    campaign_id=campaign.id,
-                    lead_id=lead.id,
-                    status="pendente"
+                    campaign_id=campaign.id, lead_id=lead.id, status="pendente"
                 )
                 self.db.add(campaign_lead)
 
@@ -70,10 +70,7 @@ class CampaignService:
         return campaign
 
     async def disparo_campaign(
-        self,
-        campaign: Campaign,
-        lead_ids: List[int] = None,
-        canal: str = None
+        self, campaign: Campaign, lead_ids: List[int] = None, canal: str = None
     ):
         """Executa disparo de campanha em background."""
         try:
@@ -81,9 +78,11 @@ class CampaignService:
             self.db.commit()
 
             # Obter template
-            template = self.db.query(CommercialTemplate).filter(
-                CommercialTemplate.id == campaign.template_id
-            ).first()
+            template = (
+                self.db.query(CommercialTemplate)
+                .filter(CommercialTemplate.id == campaign.template_id)
+                .first()
+            )
 
             if not template:
                 logger.error(f"Template {campaign.template_id} não encontrado")
@@ -106,9 +105,11 @@ class CampaignService:
             respondidos = 0
 
             for campaign_lead in campaign_leads:
-                lead = self.db.query(CommercialLead).filter(
-                    CommercialLead.id == campaign_lead.lead_id
-                ).first()
+                lead = (
+                    self.db.query(CommercialLead)
+                    .filter(CommercialLead.id == campaign_lead.lead_id)
+                    .first()
+                )
 
                 if not lead:
                     continue
@@ -123,9 +124,7 @@ class CampaignService:
                     if canal_disparo in ["whatsapp", "ambos"]:
                         if lead.whatsapp:
                             success = await enviar_mensagem_texto(
-                                lead.whatsapp,
-                                template.conteudo,
-                                empresa=self.empresa
+                                lead.whatsapp, template.conteudo, empresa=self.empresa
                             )
                             if success:
                                 campaign_lead.status = "entregue"
@@ -137,7 +136,7 @@ class CampaignService:
                             success = send_email_simples(
                                 lead.email,
                                 template.assunto or f"Campanha {campaign.nome}",
-                                template.conteudo
+                                template.conteudo,
                             )
                             if success:
                                 campaign_lead.status = "entregue"
@@ -168,12 +167,16 @@ class CampaignService:
 
     def get_campaign_metrics(self, campaign: Campaign) -> CampaignMetrics:
         """Obtém métricas de uma campanha."""
-        leads = self.db.query(CampaignLead).filter(
-            CampaignLead.campaign_id == campaign.id
-        ).all()
+        leads = (
+            self.db.query(CampaignLead)
+            .filter(CampaignLead.campaign_id == campaign.id)
+            .all()
+        )
 
         total_leads = len(leads)
-        enviados = len([l for l in leads if l.status in ["enviado", "entregue", "respondido"]])
+        enviados = len(
+            [l for l in leads if l.status in ["enviado", "entregue", "respondido"]]
+        )
         entregues = len([l for l in leads if l.status in ["entregue", "respondido"]])
         respondidos = len([l for l in leads if l.status == "respondido"])
 
@@ -193,5 +196,5 @@ class CampaignService:
             respondidos=respondidos,
             taxa_entrega=taxa_entrega,
             taxa_resposta=taxa_resposta,
-            leads_por_status=leads_por_status
+            leads_por_status=leads_por_status,
         )

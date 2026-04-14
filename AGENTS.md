@@ -222,6 +222,14 @@ Quando houver dúvida entre suposição e verificação, verificar.
 
 ## Preferências aprendidas (utilizador)
 - Em pedidos de commit, preferir incluir apenas os ficheiros do escopo da alteração, evitando misturar mudanças não relacionadas no mesmo commit.
+- No assistente IA, preferir evolução visual limpa e moderna (menos gradiente chamativo; evitar loading com aparência de “engrenagem” girando).
+- No fluxo do assistente IA, priorizar estabilidade e anti-regressão: contratos claros, testes de regressão e mudanças incrementais antes de refactors amplos.
 
 ## Factos duráveis do workspace
 - No desenvolvimento local, o frontend em `cotte-frontend` costuma ser servido com o prefixo `/app/`; se a UI parecer desatualizada mas o HTML/CSS servido já contiver as mudanças, tratar como problema provável de cache do navegador ou de service worker antes de concluir falha do servidor.
+- Na tool `listar_orcamentos`, perguntas sobre aprovação em dias civis (“ontem”, “hoje”, intervalo) devem usar `aprovado_em_de`/`aprovado_em_ate` (YYYY-MM-DD, dia civil em America/Sao_Paulo); o parâmetro `dias` filtra pela data de criação (`criado_em`).
+- Orçamentos em estado `APROVADO` sem `aprovado_em` preenchido podem não aparecer em listagens filtradas por data de aprovação até correção ou backfill dos dados.
+- O executor de tools normaliza argumentos comuns de `listar_orcamentos` (por exemplo ajusta `dias`/`limit` para intervalos válidos e aceita literais “ontem”/“hoje” convertendo para datas ISO).
+- Em `assistente-ia.html`, na experiência mobile (Android), o cabeçalho do assistente deve permanecer visível/fixado durante o uso, alinhado ao layout do embed.
+- Avisos de consola originados em ficheiros tipo `inspector*.js` (ex.: violações de Permissions-Policy) costumam vir de extensões ou ferramentas do navegador, não necessariamente indicam falha do backend COTTE.
+- Em consultas SQLAlchemy que reutilizam uma query base já ordenada (`ORDER BY`) para fazer agregação (`GROUP BY` / `COUNT`), remover o `ORDER BY` na subquery de agregação (ex.: `order_by(None)` antes de `with_entities`/`group_by`); no PostgreSQL, herdar `ORDER BY` na agregação pode gerar erro de agrupamento (ex.: f405).

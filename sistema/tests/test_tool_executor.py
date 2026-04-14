@@ -187,3 +187,21 @@ def test_handler_exception(db):
     )
     assert res.status == "erro"
     assert res.code == "exception"
+
+
+def test_normalize_listar_orcamentos_dias_limite_e_ontem_hoje():
+    n = tool_executor._normalize_tool_args(
+        "listar_orcamentos",
+        {
+            "dias": 0,
+            "limit": 999,
+            "aprovado_em_de": "ontem",
+            "aprovado_em_ate": "hoje",
+            "status": "aprovado",
+        },
+    )
+    assert n["dias"] == 1
+    assert n["limit"] == 50
+    assert n["status"] == "APROVADO"
+    assert len(str(n["aprovado_em_de"])) == 10
+    assert len(str(n["aprovado_em_ate"])) == 10

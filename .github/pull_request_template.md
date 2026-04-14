@@ -1,3 +1,10 @@
+---
+title: Pull Request Template
+tags:
+  - documentacao
+prioridade: media
+status: documentado
+---
 ## Descrição
 
 <!-- O que mudou e por quê (1–3 frases). -->

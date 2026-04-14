@@ -22,6 +22,37 @@ def _context(quote: Orcamento, event_type: str, user_id: int | None = None) -> d
     }
 
 
+def _normalize_approval_channel(source: str | None) -> str:
+    raw = str(source or "").strip().lower()
+    if not raw:
+        return "manual"
+    if "whatsapp" in raw or raw == "bot":
+        return "whatsapp"
+    if "public" in raw:
+        return "publico"
+    if "assistente" in raw or raw == "ia":
+        return "ia"
+    if "bot_command" in raw or "manual" in raw:
+        return "manual"
+    return raw[:20] or "manual"
+
+
+def ensure_quote_approval_metadata(quote: Orcamento, source: str = "unknown") -> bool:
+    """
+    Garante metadados mínimos de aprovação em qualquer fluxo.
+
+    Retorna True se alterou algo.
+    """
+    changed = False
+    if quote.aprovado_em is None:
+        quote.aprovado_em = quote.aceite_em or datetime.now(timezone.utc)
+        changed = True
+    if not (quote.aprovado_canal or "").strip():
+        quote.aprovado_canal = _normalize_approval_channel(source)
+        changed = True
+    return changed
+
+
 async def handle_quote_status_changed(
     db: Session,
     quote: Orcamento,

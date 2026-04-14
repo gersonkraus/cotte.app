@@ -21,7 +21,13 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
                 ? data.detail
                 : (Array.isArray(data.detail) ? data.detail.map(d => (d && d.msg) || d).join(', ') : errorMessage);
         }
-        addMessage(textToHtmlPlain(String(errorMessage)), false, true);
+        const hasRetry = typeof isRetryableAssistenteError === 'function'
+            ? isRetryableAssistenteError({ message: String(errorMessage) })
+            : true;
+        const errorHtml = typeof buildAssistenteErrorCard === 'function'
+            ? buildAssistenteErrorCard(String(errorMessage), hasRetry)
+            : textToHtmlPlain(String(errorMessage));
+        addMessage(errorHtml, false, true);
         return;
     }
 
@@ -50,7 +56,13 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
     if (Array.isArray(data.tool_trace) && data.tool_trace.length > 0) {
         const items = data.tool_trace.map(t => {
             const ico = t.status === 'ok' ? '✅' : (t.status === 'pending' ? '⏳' : '⚠️');
-            return `<span class="tool-trace-item">${ico} ${escapeHtml(String(t.tool))}</span>`;
+            const rawReason = (typeof t.reason === 'string' && t.reason.trim())
+                ? t.reason.trim()
+                : ((typeof t.code === 'string' && t.code.trim()) ? t.code.trim() : '');
+            const reasonHtml = rawReason
+                ? ` <code class="tool-trace-reason">${escapeHtml(rawReason)}</code>`
+                : '';
+            return `<span class="tool-trace-item">${ico} ${escapeHtml(String(t.tool))}${reasonHtml}</span>`;
         }).join(' ');
         metaTracesHtml += `<div class="tool-trace" style="margin-top:4px;font-size:0.75rem;color:var(--ai-muted)">🛠️ ${items}</div>`;
     }
@@ -146,6 +158,46 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
     // Injeta os metas (tool_trace e formato) apenas na bolha de resposta e NÃO acima dos cards de bloco.
     if (metaTracesHtml) {
         responseContent += metaTracesHtml;
+    }
+
+    // Painel provisório de debug (ativado por ?debug_ui=1 ou enableAssistenteDebugUi)
+    if (data.debug_ui && typeof data.debug_ui === 'object') {
+        const redactDeep = (o) => {
+            if (!o || typeof o !== 'object') return;
+            if (Array.isArray(o)) {
+                o.forEach(redactDeep);
+                return;
+            }
+            for (const k of Object.keys(o)) {
+                const lk = String(k).toLowerCase();
+                if (
+                    lk.includes('token')
+                    || lk.includes('authorization')
+                    || lk.includes('cookie')
+                    || lk === 'password'
+                    || lk === 'senha'
+                ) {
+                    o[k] = '[omitido]';
+                } else {
+                    redactDeep(o[k]);
+                }
+            }
+        };
+        let safe;
+        try {
+            safe = JSON.parse(JSON.stringify(data.debug_ui));
+            redactDeep(safe);
+        } catch (_) {
+            safe = { erro: 'não foi possível clonar debug_ui' };
+        }
+        let preJson;
+        try {
+            preJson = JSON.stringify(safe, null, 2);
+        } catch (_) {
+            preJson = '{"erro":"serialização falhou"}';
+        }
+        const pre = escapeHtml(preJson);
+        responseContent += `<details class="ai-debug-ui" open><summary class="ai-debug-ui__summary">Debug UI (stream / metadata)</summary><pre class="ai-debug-ui__pre" tabindex="0">${pre}</pre><p class="ai-debug-ui__hint">Desative com <code>disableAssistenteDebugUi()</code> no console ou remova <code>?debug_ui=1</code> da URL.</p></details>`;
     }
 
     const tipoSemFeedback = ['onboarding', 'orcamento_preview', 'operador_resultado', 'registro_criado'];

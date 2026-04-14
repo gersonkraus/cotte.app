@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -26,9 +27,11 @@ from app.services.ai_tools.financeiro_tools import (
     _marcar_despesa_paga,
 )
 from app.services.ai_tools.orcamento_tools import (
+    AprovarOrcamentoInput,
     DuplicarOrcamentoInput,
     EditarOrcamentoInput,
     ListarOrcamentosInput,
+    _aprovar_orcamento,
     _duplicar_orcamento,
     _editar_orcamento,
     _listar_orcamentos,
@@ -183,6 +186,249 @@ def test_listar_orcamentos_status_semantico(db, status_input):
     assert res["total"] == 1
     assert len(res["orcamentos"]) == 1
     assert res["orcamentos"][0]["status"] == expected_status
+
+
+def test_listar_orcamentos_total_real_com_limit(db):
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+    cli = make_cliente(db, emp, nome="Cliente Aprovado")
+    ontem = date.today() - timedelta(days=1)
+
+    for i in range(12):
+        orc = make_orcamento(
+            db,
+            emp,
+            cli,
+            user,
+            status=StatusOrcamento.APROVADO,
+            total=100 + i,
+            numero=f"ORC-APR-{i}-26",
+        )
+        orc.criado_em = ontem
+        db.add(orc)
+    db.commit()
+
+    res = _run(
+        _listar_orcamentos(
+            ListarOrcamentosInput(status="APROVADO", dias=2, limit=10),
+            db=db,
+            current_user=user,
+        )
+    )
+
+    assert res["total"] == 12
+    assert len(res["orcamentos"]) == 10
+    assert res["itens_retornados"] == 10
+    assert res["has_more"] is True
+    assert isinstance(res["next_cursor"], str) and res["next_cursor"]
+    assert res["totais_por_status"][StatusOrcamento.APROVADO.value] == 12
+
+
+def test_listar_orcamentos_cursor_pagina_sem_duplicar(db):
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+    cli = make_cliente(db, emp, nome="Cliente Cursor")
+    ontem = date.today() - timedelta(days=1)
+
+    for i in range(12):
+        orc = make_orcamento(
+            db,
+            emp,
+            cli,
+            user,
+            status=StatusOrcamento.APROVADO,
+            total=200 + i,
+            numero=f"ORC-CUR-{i}-26",
+        )
+        orc.criado_em = ontem
+        db.add(orc)
+    db.commit()
+
+    primeira = _run(
+        _listar_orcamentos(
+            ListarOrcamentosInput(status="APROVADO", dias=2, limit=10),
+            db=db,
+            current_user=user,
+        )
+    )
+    segunda = _run(
+        _listar_orcamentos(
+            ListarOrcamentosInput(
+                status="APROVADO",
+                dias=2,
+                limit=10,
+                cursor=primeira["next_cursor"],
+            ),
+            db=db,
+            current_user=user,
+        )
+    )
+
+    assert primeira["has_more"] is True
+    assert len(primeira["orcamentos"]) == 10
+    assert len(segunda["orcamentos"]) == 2
+    assert segunda["has_more"] is False
+    ids_primeira = {o["id"] for o in primeira["orcamentos"]}
+    ids_segunda = {o["id"] for o in segunda["orcamentos"]}
+    assert ids_primeira.isdisjoint(ids_segunda)
+
+
+def test_listar_orcamentos_filtra_por_data_aprovacao_br(db):
+    """Orçamentos aprovados 'ontem' usam aprovado_em, não criado_em."""
+    br = ZoneInfo("America/Sao_Paulo")
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+    cli = make_cliente(db, emp, nome="Cliente Aprovação")
+    ontem = date.today() - timedelta(days=1)
+
+    o_ontem = make_orcamento(
+        db,
+        emp,
+        cli,
+        user,
+        status=StatusOrcamento.APROVADO,
+        total=10.0,
+        numero="ORC-APR-ONTEM-26",
+    )
+    o_ontem.aprovado_em = datetime.combine(ontem, time(14, 30), tzinfo=br)
+    o_ontem.criado_em = datetime.combine(
+        date.today() - timedelta(days=60), time(9, 0), tzinfo=br
+    )
+
+    o_antigo = make_orcamento(
+        db,
+        emp,
+        cli,
+        user,
+        status=StatusOrcamento.APROVADO,
+        total=20.0,
+        numero="ORC-APR-VELHO-26",
+    )
+    o_antigo.aprovado_em = datetime.combine(
+        ontem - timedelta(days=5), time(10, 0), tzinfo=br
+    )
+
+    o_sem_data = make_orcamento(
+        db,
+        emp,
+        cli,
+        user,
+        status=StatusOrcamento.APROVADO,
+        total=30.0,
+        numero="ORC-APR-SEM-26",
+    )
+    o_sem_data.aprovado_em = None
+
+    db.commit()
+
+    res = _run(
+        _listar_orcamentos(
+            ListarOrcamentosInput(
+                status="APROVADO",
+                aprovado_em_de=ontem,
+                aprovado_em_ate=ontem,
+                limit=20,
+            ),
+            db=db,
+            current_user=user,
+        )
+    )
+
+    assert res["total"] == 1
+    assert len(res["orcamentos"]) == 1
+    assert res["orcamentos"][0]["id"] == o_ontem.id
+    assert res["orcamentos"][0].get("aprovado_em")
+
+
+def test_listar_orcamentos_intervalo_ontem_e_hoje_aprovacao(db):
+    br = ZoneInfo("America/Sao_Paulo")
+    hoje = datetime.now(br).date()
+    ontem = hoje - timedelta(days=1)
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+    cli = make_cliente(db, emp, nome="Cliente Intervalo")
+
+    o1 = make_orcamento(
+        db,
+        emp,
+        cli,
+        user,
+        status=StatusOrcamento.APROVADO,
+        total=1.0,
+        numero="ORC-INT-1-26",
+    )
+    o1.aprovado_em = datetime.combine(ontem, time(9, 0), tzinfo=br)
+    o2 = make_orcamento(
+        db,
+        emp,
+        cli,
+        user,
+        status=StatusOrcamento.APROVADO,
+        total=2.0,
+        numero="ORC-INT-2-26",
+    )
+    o2.aprovado_em = datetime.combine(hoje, time(18, 0), tzinfo=br)
+    o3 = make_orcamento(
+        db,
+        emp,
+        cli,
+        user,
+        status=StatusOrcamento.APROVADO,
+        total=3.0,
+        numero="ORC-INT-3-26",
+    )
+    o3.aprovado_em = datetime.combine(ontem - timedelta(days=1), time(12, 0), tzinfo=br)
+    db.commit()
+
+    res = _run(
+        _listar_orcamentos(
+            ListarOrcamentosInput(
+                aprovado_em_de=ontem,
+                aprovado_em_ate=hoje,
+                limit=20,
+            ),
+            db=db,
+            current_user=user,
+        )
+    )
+    ids = {r["id"] for r in res["orcamentos"]}
+    assert ids == {o1.id, o2.id}
+    assert res["total"] == 2
+    assert res["filtros"].get("status_efetivo") == StatusOrcamento.APROVADO.value
+    assert res.get("diagnostico", {}).get("filtro_por_data_aprovacao") is True
+    assert res.get("diagnostico", {}).get("aprovados_sem_data") == 0
+
+
+def test_aprovar_orcamento_preenche_aprovado_em(db, monkeypatch):
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+    cli = make_cliente(db, emp, nome="Cliente Aprovação Tool")
+    orc = make_orcamento(db, emp, cli, user, status=StatusOrcamento.ENVIADO)
+
+    monkeypatch.setattr(
+        "app.services.financeiro_service.criar_contas_receber_aprovacao",
+        lambda *_args, **_kwargs: None,
+    )
+
+    async def _noop_handle_quote_status_changed(**_kwargs):
+        return None
+
+    monkeypatch.setattr(
+        "app.services.quote_notification_service.handle_quote_status_changed",
+        _noop_handle_quote_status_changed,
+    )
+
+    res = _run(
+        _aprovar_orcamento(
+            AprovarOrcamentoInput(orcamento_id=orc.id),
+            db=db,
+            current_user=user,
+        )
+    )
+    assert res["status"] == "aprovado"
+    db.refresh(orc)
+    assert orc.aprovado_em is not None
+    assert orc.aprovado_canal == "assistente_tool"
 
 
 # ── Criar + marcar despesa paga (ciclo completo) ─────────────────────────

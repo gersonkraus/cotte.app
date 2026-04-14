@@ -46,7 +46,10 @@ from app.services.whatsapp_service import (
     enviar_orcamento_completo,
 )
 from app.services.pdf_service import gerar_pdf_orcamento
-from app.services.quote_notification_service import handle_quote_status_changed
+from app.services.quote_notification_service import (
+    ensure_quote_approval_metadata,
+    handle_quote_status_changed,
+)
 from app.services import financeiro_service
 from app.utils.phone import normalize_phone_number
 from app.utils.desconto import (
@@ -599,6 +602,7 @@ async def _confirmar_aceite_pendente(
 
     old_status = orcamento.status
     orcamento.status = StatusOrcamento.APROVADO
+    ensure_quote_approval_metadata(orcamento, source="whatsapp_aceito")
     renomear_numero_aprovado(orcamento, empresa_contexto)
     db.add(
         HistoricoEdicao(
@@ -910,6 +914,7 @@ async def _aprovar_orcamento_via_bot(
         return
     old_status = orc.status
     orc.status = StatusOrcamento.APROVADO
+    ensure_quote_approval_metadata(orc, source="bot_whatsapp")
     renomear_numero_aprovado(orc, empresa_op)
     db.add(
         HistoricoEdicao(

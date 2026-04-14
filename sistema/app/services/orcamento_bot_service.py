@@ -25,7 +25,10 @@ from app.services.pdf_service import gerar_pdf_orcamento
 from app.services.plano_service import exigir_ia_dashboard
 from app.services.ia_service import interpretar_mensagem, interpretar_comando_operador
 from app.services import financeiro_service
-from app.services.quote_notification_service import handle_quote_status_changed
+from app.services.quote_notification_service import (
+    ensure_quote_approval_metadata,
+    handle_quote_status_changed,
+)
 from app.utils.desconto import (
     erro_validacao_desconto,
     resolver_max_percent_desconto,
@@ -228,6 +231,7 @@ async def _acao_aprovar(orc_id: int, usuario, empresa, db: Session) -> dict:
         }
 
     orc.status = StatusOrcamento.APROVADO
+    ensure_quote_approval_metadata(orc, source="bot_command")
     renomear_numero_aprovado(orc, empresa)
     _registrar_mudanca_status(
         db,

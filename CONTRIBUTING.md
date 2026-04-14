@@ -1,3 +1,10 @@
+---
+title: Contributing
+tags:
+  - documentacao
+prioridade: alta
+status: documentado
+---
 # CONTRIBUTING.md
 
 ## Objetivo

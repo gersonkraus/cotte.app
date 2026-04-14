@@ -194,3 +194,28 @@ def test_handle_quote_status_changed_expirado_sem_disparo():
     assert db.commits == 1
     assert len(db.added) == 1
     assert db.added[0].tipo == "expirado"
+
+
+def test_ensure_quote_approval_metadata_preenche_campos_ausentes():
+    quote = _make_quote()
+    quote.aprovado_em = None
+    quote.aprovado_canal = None
+
+    changed = qns.ensure_quote_approval_metadata(quote, source="whatsapp_aceito")
+
+    assert changed is True
+    assert quote.aprovado_em is not None
+    assert quote.aprovado_canal == "whatsapp"
+
+
+def test_ensure_quote_approval_metadata_respeita_campos_existentes():
+    quote = _make_quote()
+    original_dt = datetime(2026, 4, 10, tzinfo=timezone.utc)
+    quote.aprovado_em = original_dt
+    quote.aprovado_canal = "manual"
+
+    changed = qns.ensure_quote_approval_metadata(quote, source="ia")
+
+    assert changed is False
+    assert quote.aprovado_em == original_dt
+    assert quote.aprovado_canal == "manual"

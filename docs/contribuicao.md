@@ -1,3 +1,10 @@
+---
+title: Contribuicao
+tags:
+  - tecnico
+prioridade: media
+status: documentado
+---
 <!-- Gerado por scripts/generate-contribuicao-doc.mjs — não editar manualmente -->
 <!-- Fonte: docs/contribuicao.yaml -->
 

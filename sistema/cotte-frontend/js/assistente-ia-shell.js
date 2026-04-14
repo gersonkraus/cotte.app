@@ -544,6 +544,20 @@ function initAssistenteChatDelegation() {
             return;
         }
 
+        const retryBtn = t.closest('[data-assistente-retry]');
+        if (retryBtn) {
+            e.preventDefault();
+            if (!_ultimaPergunta) return;
+            const ta = document.getElementById('messageInput');
+            if (ta) {
+                ta.value = _ultimaPergunta;
+                resizeMessageInput();
+                _updateVoiceSendToggle(ta);
+            }
+            sendMessage();
+            return;
+        }
+
         const fb = t.closest('.feedback-btn[data-feedback-id]');
         if (fb) {
             e.preventDefault();
@@ -637,6 +651,37 @@ function initAssistenteChatDelegation() {
                     cp.textContent = '✓ Copiado';
                 }).catch(() => {});
             }
+        }
+
+        const loadMoreBtn = t.closest('[data-orcamentos-load-more]');
+        if (loadMoreBtn) {
+            e.preventDefault();
+            const cursor = loadMoreBtn.getAttribute('data-cursor') || '';
+            const status = loadMoreBtn.getAttribute('data-status') || '';
+            const clienteId = loadMoreBtn.getAttribute('data-cliente-id') || '';
+            const dias = loadMoreBtn.getAttribute('data-dias') || '30';
+            const lim = loadMoreBtn.getAttribute('data-limit') || '10';
+            const aprovadoDe = loadMoreBtn.getAttribute('data-aprovado-em-de') || '';
+            const aprovadoAte = loadMoreBtn.getAttribute('data-aprovado-em-ate') || '';
+            if (!cursor) return;
+            let command;
+            if (aprovadoDe || aprovadoAte) {
+                command = `Liste mais orçamentos com cursor "${cursor}", limite ${lim}`;
+                if (aprovadoDe) command += `, aprovado_em_de ${aprovadoDe}`;
+                if (aprovadoAte) command += `, aprovado_em_ate ${aprovadoAte}`;
+                command += '.';
+            } else {
+                command = `Liste mais orçamentos com cursor "${cursor}", dias ${dias}, limite ${lim}.`;
+            }
+            if (status) {
+                command += ` Status ${status}.`;
+            }
+            if (clienteId) {
+                command += ` Cliente ${clienteId}.`;
+            }
+            window._silentNextMessage = true;
+            sendQuickMessage(command);
+            return;
         }
 
         const editBtn = t.closest('[data-editar-orc]');

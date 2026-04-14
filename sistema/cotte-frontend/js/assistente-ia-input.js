@@ -282,10 +282,10 @@ function addMessage(
   if (isLoadingState) {
     messageDiv.innerHTML = `
             <div class="message-bubble ai-loading-bubble" data-time="${time}">
-                <div class="ai-loading-row">
-                    <div class="loading-dots">
-                        <span></span><span></span><span></span>
-                    </div>
+                <div class="ai-loading-row ai-loading-row--skeleton" aria-label="Carregando resposta">
+                    <div class="ai-skeleton-line ai-skeleton-line--w90"></div>
+                    <div class="ai-skeleton-line ai-skeleton-line--w70"></div>
+                    <div class="ai-skeleton-line ai-skeleton-line--w45"></div>
                 </div>
             </div>
         `;

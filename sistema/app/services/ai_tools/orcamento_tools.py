@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta, timezone, tzinfo
 from decimal import Decimal
 from typing import Any, List, Optional
+from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field
+from sqlalchemy import and_, or_, func
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.models import (
@@ -30,47 +32,229 @@ class ListarOrcamentosInput(BaseModel):
     cliente_id: Optional[int] = None
     dias: int = Field(default=30, ge=1, le=365)
     limit: int = Field(default=10, ge=1, le=50)
+    aprovado_em_de: Optional[date] = Field(
+        default=None,
+        description=(
+            "Início (inclusivo) do intervalo por data de aprovação (campo aprovado_em), "
+            "em dia civil America/Sao_Paulo. Ex.: 'orçamentos aprovados ontem' → mesma data em "
+            "aprovado_em_de e aprovado_em_ate."
+        ),
+    )
+    aprovado_em_ate: Optional[date] = Field(
+        default=None,
+        description="Fim (inclusivo) do intervalo por data de aprovação, mesmo fuso que aprovado_em_de.",
+    )
+    cursor: Optional[str] = Field(
+        default=None,
+        description=(
+            "Cursor para próxima página no formato 'ISO_DATETIME|ID'. "
+            "Use o valor retornado em next_cursor."
+        ),
+    )
+
+
+_br_tz_impl: Optional[tzinfo] = None
+
+
+def _get_br_tz() -> tzinfo:
+    """America/Sao_Paulo ou UTC−3 se o banco de fusos não estiver instalado (ex.: imagem mínima)."""
+    global _br_tz_impl
+    if _br_tz_impl is not None:
+        return _br_tz_impl
+    try:
+        _br_tz_impl = ZoneInfo("America/Sao_Paulo")
+    except Exception:
+        _br_tz_impl = timezone(timedelta(hours=-3))
+    return _br_tz_impl
+
+
+def _dia_br_inicio_utc(d: date) -> datetime:
+    return datetime.combine(d, time.min, tzinfo=_get_br_tz()).astimezone(timezone.utc)
+
+
+def _dia_br_fim_exclusivo_utc(d: date) -> datetime:
+    return _dia_br_inicio_utc(d + timedelta(days=1))
+
+
+def _encode_orcamentos_cursor(orcamento: Orcamento, *, ts_col: str) -> Optional[str]:
+    ts = getattr(orcamento, ts_col, None)
+    oid = getattr(orcamento, "id", None)
+    if ts is None or oid is None:
+        return None
+    if isinstance(ts, date) and not isinstance(ts, datetime):
+        ts = datetime.combine(ts, time.min)
+    return f"{ts.isoformat()}|{oid}"
+
+
+def _decode_orcamentos_cursor(cursor: Optional[str]) -> Optional[tuple[datetime, int]]:
+    raw = str(cursor or "").strip()
+    if not raw or "|" not in raw:
+        return None
+    raw_dt, raw_id = raw.rsplit("|", 1)
+    try:
+        dt = datetime.fromisoformat(raw_dt.strip())
+        oid = int(raw_id.strip())
+    except (TypeError, ValueError):
+        return None
+    return dt, oid
+
+
+def _resolver_status_orcamento_listar(status_raw: Optional[str]) -> StatusOrcamento:
+    """Retorna StatusOrcamento ou levanta KeyError/ValueError."""
+    s = str(status_raw or "").strip()
+    if not s:
+        raise ValueError("status vazio")
+    status_key = s.upper()
+    status_aliases = {
+        "PENDENTE": "ENVIADO",
+        "PENDENTES": "ENVIADO",
+        "EM_ABERTO": "ENVIADO",
+        "ABERTO": "ENVIADO",
+        "ABERTOS": "ENVIADO",
+        "A_RECEBER": "APROVADO",
+        "RECEBER": "APROVADO",
+    }
+    status_key = status_aliases.get(status_key, status_key)
+    return StatusOrcamento[status_key]
 
 
 async def _listar_orcamentos(
     inp: ListarOrcamentosInput, *, db: Session, current_user: Usuario
 ) -> dict[str, Any]:
-    desde = date.today() - timedelta(days=inp.dias)
-    q = (
+    use_aprovado_em = inp.aprovado_em_de is not None or inp.aprovado_em_ate is not None
+    if (
+        use_aprovado_em
+        and inp.aprovado_em_de is not None
+        and inp.aprovado_em_ate is not None
+        and inp.aprovado_em_de > inp.aprovado_em_ate
+    ):
+        return {
+            "error": "aprovado_em_de não pode ser maior que aprovado_em_ate",
+            "code": "invalid_input",
+        }
+
+    ts_col_name = "aprovado_em" if use_aprovado_em else "criado_em"
+    ts_sql = Orcamento.aprovado_em if use_aprovado_em else Orcamento.criado_em
+
+    q_base = (
         db.query(Orcamento)
         .options(selectinload(Orcamento.cliente))
-        .filter(
-            Orcamento.empresa_id == current_user.empresa_id,
-            Orcamento.criado_em >= desde,
-        )
-        .order_by(Orcamento.criado_em.desc())
+        .filter(Orcamento.empresa_id == current_user.empresa_id)
+        .order_by(ts_sql.desc(), Orcamento.id.desc())
     )
-    if inp.status:
+
+    if use_aprovado_em:
+        if inp.status:
+            try:
+                st = _resolver_status_orcamento_listar(inp.status)
+            except (KeyError, ValueError):
+                return {"error": f"status inválido: {inp.status}", "code": "invalid_input"}
+            if st != StatusOrcamento.APROVADO:
+                return {
+                    "error": (
+                        "Ao filtrar por data de aprovação (aprovado_em_de/aprovado_em_ate), "
+                        "use status APROVADO ou omita o campo status."
+                    ),
+                    "code": "invalid_input",
+                }
+        q_base = q_base.filter(
+            Orcamento.status == StatusOrcamento.APROVADO,
+            Orcamento.aprovado_em.isnot(None),
+        )
+        if inp.aprovado_em_de is not None:
+            q_base = q_base.filter(Orcamento.aprovado_em >= _dia_br_inicio_utc(inp.aprovado_em_de))
+        if inp.aprovado_em_ate is not None:
+            q_base = q_base.filter(Orcamento.aprovado_em < _dia_br_fim_exclusivo_utc(inp.aprovado_em_ate))
+    else:
+        desde = date.today() - timedelta(days=inp.dias)
+        q_base = q_base.filter(Orcamento.criado_em >= desde)
+
+    if inp.cliente_id:
+        q_base = q_base.filter(Orcamento.cliente_id == inp.cliente_id)
+
+    q = q_base
+    if inp.status and not use_aprovado_em:
         try:
-            status_raw = str(inp.status or "").strip()
-            status_key = status_raw.upper()
-            status_aliases = {
-                "PENDENTE": "ENVIADO",
-                "PENDENTES": "ENVIADO",
-                "EM_ABERTO": "ENVIADO",
-                "ABERTO": "ENVIADO",
-                "ABERTOS": "ENVIADO",
-                "A_RECEBER": "APROVADO",
-                "RECEBER": "APROVADO",
-            }
-            status_key = status_aliases.get(status_key, status_key)
-            status_enum = StatusOrcamento[status_key]
+            status_enum = _resolver_status_orcamento_listar(inp.status)
             q = q.filter(Orcamento.status == status_enum)
         except ValueError:
             return {"error": f"status inválido: {inp.status}", "code": "invalid_input"}
         except KeyError:
             return {"error": f"status inválido: {inp.status}", "code": "invalid_input"}
-    if inp.cliente_id:
-        q = q.filter(Orcamento.cliente_id == inp.cliente_id)
 
-    items = q.limit(inp.limit).all()
+    total = q.count()
+    aprovados_sem_data = None
+    if use_aprovado_em:
+        q_aprovados_sem_data = db.query(func.count(Orcamento.id)).filter(
+            Orcamento.empresa_id == current_user.empresa_id,
+            Orcamento.status == StatusOrcamento.APROVADO,
+            Orcamento.aprovado_em.is_(None),
+        )
+        if inp.cliente_id:
+            q_aprovados_sem_data = q_aprovados_sem_data.filter(
+                Orcamento.cliente_id == inp.cliente_id
+            )
+        aprovados_sem_data = int(q_aprovados_sem_data.scalar() or 0)
+
+    cursor_pair = _decode_orcamentos_cursor(inp.cursor)
+    if inp.cursor and not cursor_pair:
+        return {"error": "cursor inválido", "code": "invalid_input"}
+    if cursor_pair:
+        cursor_dt, cursor_id = cursor_pair
+        q = q.filter(
+            or_(
+                ts_sql < cursor_dt,
+                and_(ts_sql == cursor_dt, Orcamento.id < cursor_id),
+            )
+        )
+
+    rows = q.limit(inp.limit + 1).all()
+    has_more = len(rows) > inp.limit
+    items = rows[: inp.limit]
+    next_cursor = (
+        _encode_orcamentos_cursor(items[-1], ts_col=ts_col_name)
+        if has_more and items
+        else None
+    )
+
+    status_counts = (
+        q_base.order_by(None).with_entities(
+            Orcamento.status,
+            func.count(Orcamento.id).label("quantidade"),
+        )
+        .group_by(Orcamento.status)
+        .all()
+    )
+    totais_por_status = {
+        (row.status.value if row.status else "DESCONHECIDO"): int(row.quantidade or 0)
+        for row in status_counts
+    }
+
     return {
-        "total": len(items),
+        "total": total,
+        "itens_retornados": len(items),
+        "limit": inp.limit,
+        "has_more": has_more,
+        "next_cursor": next_cursor,
+        "filtros": {
+            "status": inp.status,
+            # Quando há aprovado_em_de/ate, o SQL sempre exige APROVADO + aprovado_em preenchido
+            # (mesmo se o modelo não enviar status); evita interpretar status=null como "sem filtro".
+            **(
+                {"status_efetivo": StatusOrcamento.APROVADO.value}
+                if use_aprovado_em
+                else {}
+            ),
+            "cliente_id": inp.cliente_id,
+            "dias": inp.dias,
+            "aprovado_em_de": inp.aprovado_em_de.isoformat() if inp.aprovado_em_de else None,
+            "aprovado_em_ate": inp.aprovado_em_ate.isoformat() if inp.aprovado_em_ate else None,
+        },
+        "totais_por_status": totais_por_status,
+        "diagnostico": {
+            "filtro_por_data_aprovacao": bool(use_aprovado_em),
+            "aprovados_sem_data": aprovados_sem_data,
+        },
         "orcamentos": [
             {
                 "id": o.id,
@@ -80,6 +264,7 @@ async def _listar_orcamentos(
                 "cliente_id": o.cliente_id,
                 "cliente_nome": o.cliente.nome if o.cliente else None,
                 "criado_em": o.criado_em.isoformat() if o.criado_em else None,
+                "aprovado_em": o.aprovado_em.isoformat() if o.aprovado_em else None,
             }
             for o in items
         ],
@@ -90,9 +275,15 @@ listar_orcamentos = ToolSpec(
     name="listar_orcamentos",
     description=(
         "Lista orçamentos da empresa. Filtros: status (RASCUNHO/ENVIADO/APROVADO/RECUSADO), "
-        "cliente_id, dias (janela). Para 'quem está devendo / inadimplentes': "
-        "use status='ENVIADO' (enviado mas não pago). Para 'orçamentos aprovados a receber': "
-        "use status='APROVADO'. CHAME UMA ÚNICA VEZ por consulta — não repita a mesma tool."
+        "cliente_id, dias (janela em criado_em), aprovado_em_de/aprovado_em_ate (dia civil "
+        "America/Sao_Paulo no campo aprovado_em; use para 'aprovados ontem/hoje' com as duas "
+        "datas iguais em YYYY-MM-DD; status APROVADO é aplicado automaticamente ou pode ser "
+        "informado explicitamente. Inclui cursor para paginação. Retorna total, "
+        "has_more, next_cursor e totais_por_status. O campo total é a contagem completa do filtro; "
+        "orcamentos pode ter até `limit` itens — se total > len(orcamentos) ou has_more, há mais páginas. "
+        "Para 'quem está devendo / inadimplentes': "
+        "use status='ENVIADO'. Para 'orçamentos aprovados a receber': status='APROVADO'. "
+        "CHAME UMA ÚNICA VEZ por consulta — não repita a mesma tool."
     ),
     input_model=ListarOrcamentosInput,
     handler=_listar_orcamentos,
@@ -518,6 +709,7 @@ def _build_orcamento_response(orc: Orcamento, extra_fields: dict = None) -> dict
         "numero": orc.numero,
         "status": orc.status.value if orc.status else None,
         "total": float(orc.total or 0),
+        "observacoes": orc.observacoes,
         "cliente_id": orc.cliente_id,
         "cliente_nome": orc.cliente.nome if orc.cliente else "",
         "link_publico": orc.link_publico or "",
@@ -578,7 +770,10 @@ async def _aprovar_orcamento(
     inp: AprovarOrcamentoInput, *, db: Session, current_user: Usuario
 ) -> dict[str, Any]:
     from app.services import financeiro_service
-    from app.services.quote_notification_service import handle_quote_status_changed
+    from app.services.quote_notification_service import (
+        ensure_quote_approval_metadata,
+        handle_quote_status_changed,
+    )
 
     orc = _get_orcamento_da_empresa(db, inp.orcamento_id, current_user.empresa_id)
     if not orc:
@@ -590,6 +785,7 @@ async def _aprovar_orcamento(
 
     old_status = orc.status
     orc.status = StatusOrcamento.APROVADO
+    ensure_quote_approval_metadata(orc, source="assistente_tool")
     try:
         financeiro_service.criar_contas_receber_aprovacao(
             orc, current_user.empresa_id, db

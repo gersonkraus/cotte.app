@@ -38,7 +38,10 @@ from app.services.whatsapp_service import (
 )
 from app.services.otp_service import otp_service
 from app.services.pdf_service import gerar_pdf_orcamento
-from app.services.quote_notification_service import handle_quote_status_changed
+from app.services.quote_notification_service import (
+    ensure_quote_approval_metadata,
+    handle_quote_status_changed,
+)
 from app.services.email_service import (
     enviar_email_confirmacao_aceite,
     email_habilitado,
@@ -612,6 +615,7 @@ async def aceitar_orcamento(
 
     old_status = orc.status
     orc.status = StatusOrcamento.APROVADO
+    ensure_quote_approval_metadata(orc, source="public_link_accept")
     orc.aceite_nome = nome
     orc.aceite_mensagem = (dados.mensagem or "").strip() or None  # E: salva mensagem
     orc.aceite_em = datetime.now(timezone.utc)

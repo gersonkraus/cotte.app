@@ -407,6 +407,80 @@ function renderSaldoRapido(dados) {
     `;
 }
 
+function renderListaOrcamentos(dados) {
+    const itens = Array.isArray(dados.orcamentos) ? dados.orcamentos : [];
+    const total = Number(dados.total || 0);
+    const itensRetornados = Number(dados.itens_retornados || itens.length || 0);
+    const hasMore = !!dados.has_more;
+    const nextCursor = dados.next_cursor || '';
+    const filtros = dados.filtros || {};
+    const statusFiltro = filtros.status || '';
+    const clienteId = filtros.cliente_id || '';
+    const dias = Number(filtros.dias || 30);
+    const limitLista = Number(dados.limit || 10);
+    const aprovadoEmDe = filtros.aprovado_em_de || '';
+    const aprovadoEmAte = filtros.aprovado_em_ate || '';
+
+    const titulo = statusFiltro
+        ? `Orçamentos (${escapeHtml(String(statusFiltro).toUpperCase())})`
+        : 'Orçamentos';
+
+    const listaHtml = itens.length
+        ? itens.map((item) => {
+            const numero = escapeHtml(item.numero || `#${item.id || '—'}`);
+            const cliente = escapeHtml(item.cliente_nome || 'Cliente não informado');
+            const status = escapeHtml(item.status || '—');
+            const criadoEm = item.criado_em
+                ? new Date(item.criado_em).toLocaleDateString('pt-BR')
+                : 'data não informada';
+            const valor = formatValue(item.total || 0);
+            return `<div class="orc-list-card__item">
+                <div>
+                    <div class="orc-list-card__item-title">${numero}</div>
+                    <div class="orc-list-card__item-sub">${cliente} • ${status} • ${criadoEm}</div>
+                </div>
+                <div class="orc-list-card__item-value">${escapeHtml(valor)}</div>
+            </div>`;
+        }).join('')
+        : `<div class="orc-list-empty">Nenhum orçamento encontrado para os filtros selecionados.</div>`;
+
+    const totaisPorStatus = dados.totais_por_status && typeof dados.totais_por_status === 'object'
+        ? Object.entries(dados.totais_por_status)
+        : [];
+    const pillsHtml = totaisPorStatus
+        .slice(0, 5)
+        .map(([status, quantidade]) =>
+            `<span class="orc-list-card__status-pill">${escapeHtml(status)}: ${escapeHtml(String(quantidade || 0))}</span>`,
+        )
+        .join('');
+
+    const loadMoreBtn = hasMore && nextCursor
+        ? `<button type="button"
+            class="orc-list-card__load-more"
+            data-orcamentos-load-more="1"
+            data-cursor="${escapeHtmlAttr(nextCursor)}"
+            data-status="${escapeHtmlAttr(String(statusFiltro || ''))}"
+            data-cliente-id="${escapeHtmlAttr(String(clienteId || ''))}"
+            data-dias="${escapeHtmlAttr(String(dias || 30))}"
+            data-limit="${escapeHtmlAttr(String(limitLista || 10))}"
+            data-aprovado-em-de="${escapeHtmlAttr(String(aprovadoEmDe || ''))}"
+            data-aprovado-em-ate="${escapeHtmlAttr(String(aprovadoEmAte || ''))}"
+        >Carregar mais</button>`
+        : '';
+
+    return `<div class="orc-list-card" data-testid="assistente-orc-list-card">
+        <div class="orc-list-card__header">
+            <h4 class="orc-list-card__title">${titulo}</h4>
+            <div class="orc-list-card__meta">Mostrando ${itensRetornados} de ${total}</div>
+        </div>
+        <div class="orc-list-card__body">${listaHtml}</div>
+        <div class="orc-list-card__footer">
+            <div class="orc-list-card__status-pills">${pillsHtml}</div>
+            ${loadMoreBtn}
+        </div>
+    </div>`;
+}
+
 function renderOnboarding(dados) {
     const progresso = dados.progresso_pct || 0;
     const checklist = dados.checklist || [];
@@ -593,6 +667,10 @@ function formatAIResponse(data, isStreamed = false) {
 
     if (tipoResposta === 'orcamento_atualizado' && dados) {
         return renderOrcamentoAtualizado(dados);
+    }
+
+    if (dados && Array.isArray(dados.orcamentos) && typeof dados.total !== 'undefined') {
+        return renderListaOrcamentos(dados);
     }
 
     if (tipoResposta === 'operador_resultado') {

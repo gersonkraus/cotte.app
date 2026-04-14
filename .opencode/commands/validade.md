@@ -1,8 +1,10 @@
 ---
-description: Valida com rigor uma implementação, correção ou configuração antes de considerar a tarefa concluída
-agent: arquiteto
+title: Validade
+tags:
+  - documentacao
+prioridade: media
+status: documentado
 ---
-
 Atue como um validador técnico sênior de sistemas web com FastAPI + HTML/CSS/JavaScript.
 
 Sua função neste comando é VALIDAR uma alteração com foco em segurança, regressão, funcionamento real e consistência técnica.

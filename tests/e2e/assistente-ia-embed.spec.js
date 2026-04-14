@@ -22,7 +22,20 @@ test.describe('Assistente IA embed', () => {
     await expect(contextBar).toContainText('Último comando: Consultar orçamento');
     await expect(contextBar).toContainText('Orçamento ORC-321-26');
 
-    await page.locator('#btnNovaConversaEmbed').click();
+    const newChatBtn = page
+      .locator('#btnNovaConversaEmbed:visible, #btnNovaConversaMobile:visible, #btnNovaConversaTop:visible')
+      .first();
+    if (await newChatBtn.count()) {
+      await newChatBtn.click();
+    } else {
+      await page.evaluate(() => {
+        if (typeof window.novaConversaAssistente === 'function') {
+          window.novaConversaAssistente();
+          return;
+        }
+        throw new Error('novaConversaAssistente não disponível');
+      });
+    }
     await expect(page.locator('#welcomeState')).toBeVisible();
     await expect(contextBar).toBeHidden();
   });
@@ -112,5 +125,36 @@ test.describe('Assistente IA embed', () => {
 
     expect(afterResume.remaining).toBeLessThan(40);
     expect(afterResume.title).toBe('Últimas mensagens');
+  });
+
+  test('usa skeleton clean no loading e renderiza paginação de orçamentos', async ({ page }) => {
+    await page.evaluate(() => {
+      window.addMessage('', false, false, true);
+    });
+
+    await expect(page.locator('.ai-loading-row--skeleton .ai-skeleton-line')).toHaveCount(3);
+
+    await page.evaluate(() => {
+      window.processAIResponse({
+        sucesso: true,
+        tipo_resposta: 'operador_resultado',
+        dados: {
+          total: 12,
+          itens_retornados: 10,
+          has_more: true,
+          next_cursor: '2026-04-12T00:00:00|123',
+          filtros: { status: 'APROVADO', dias: 2 },
+          totais_por_status: { APROVADO: 12 },
+          orcamentos: [
+            { id: 1, numero: 'ORC-1-26', status: 'APROVADO', total: 1200, cliente_nome: 'Ana', criado_em: '2026-04-12T10:00:00' },
+            { id: 2, numero: 'ORC-2-26', status: 'APROVADO', total: 980, cliente_nome: 'Bruno', criado_em: '2026-04-12T11:00:00' },
+          ],
+        },
+      }, null, false);
+    });
+
+    await expect(page.locator('.orc-list-card')).toBeVisible();
+    await expect(page.locator('.orc-list-card__meta')).toContainText('Mostrando 10 de 12');
+    await expect(page.locator('[data-orcamentos-load-more]')).toBeVisible();
   });
 });

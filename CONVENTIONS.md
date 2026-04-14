@@ -1,3 +1,10 @@
+---
+title: Conventions
+tags:
+  - documentacao
+prioridade: alta
+status: documentado
+---
 # CONVENTIONS.md
 - Responder e explicar em português do Brasil PT-BR. 
 - Identificar a Fonte: Qual ação do usuário ou chamada de API origina os dados? (Ex: aprovar_orcamento).

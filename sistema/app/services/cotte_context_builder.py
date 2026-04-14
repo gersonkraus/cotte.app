@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 # Este dicionário serve apenas como fast-path para evitar queries repetitivas
 # dentro da mesma sessão de servidor. Ao reiniciar, a fonte de verdade é o banco.
 
-_sessions: dict[str, dict] = {}  # cache em RAM para suggessions e hot-path
+_sessions: dict[str, dict] = {}  # cache em RAM para sugestões e hot-path
 SESSION_TTL_MINUTES = 120  # aumentado para 2h
 MAX_MESSAGES_PER_SESSION = 12  # 6 turnos user + 6 assistant (maior contexto)
 _semantic_cache: dict[str, dict[str, Any]] = {}
@@ -54,6 +54,26 @@ class SessionStore:
     MAX_SUGGESTIONS_TRACKED = 50
 
     @staticmethod
+    def _cache_key(sessao_id: str, empresa_id: int = 0, usuario_id: int = 0) -> str:
+        return f"{empresa_id or 0}:{usuario_id or 0}:{sessao_id}"
+
+    @staticmethod
+    def _resolve_cache_key(sessao_id: str, empresa_id: int = 0, usuario_id: int = 0) -> str:
+        scoped = SessionStore._cache_key(sessao_id, empresa_id, usuario_id)
+        if scoped in _sessions:
+            return scoped
+        legacy = sessao_id
+        if legacy in _sessions:
+            return legacy
+        # Compatibilidade: alguns caminhos antigos consultam apenas por sessao_id.
+        # Se houver exatamente um match com sufixo ":sessao_id", reutilizamos.
+        if not empresa_id and not usuario_id:
+            matches = [k for k in _sessions.keys() if k.endswith(f":{sessao_id}")]
+            if len(matches) == 1:
+                return matches[0]
+        return scoped
+
+    @staticmethod
     def get_or_create(sessao_id: str, db: Optional[Session] = None, empresa_id: int = 0, usuario_id: int = 0) -> list[dict]:
         """
         Retorna o histórico de mensagens da sessão.
@@ -62,13 +82,15 @@ class SessionStore:
         """
         _prune_expired()
 
+        cache_key = SessionStore._resolve_cache_key(sessao_id, empresa_id, usuario_id)
+
         # Cache RAM hit — retorna imediatamente sem query
-        if sessao_id in _sessions:
-            _sessions[sessao_id]["last_seen"] = datetime.utcnow()
-            return list(_sessions[sessao_id]["messages"])
+        if cache_key in _sessions:
+            _sessions[cache_key]["last_seen"] = datetime.utcnow()
+            return list(_sessions[cache_key]["messages"])
 
         # Cache miss — inicializa estrutura de dados em RAM
-        _sessions[sessao_id] = {
+        _sessions[cache_key] = {
             "messages": deque(maxlen=MAX_MESSAGES_PER_SESSION),
             "seen_suggestions": deque(maxlen=SessionStore.MAX_SUGGESTIONS_TRACKED),
             "last_seen": datetime.utcnow(),
@@ -80,8 +102,20 @@ class SessionStore:
                 from app.models.models import AIChatSessao, AIChatMensagem
 
                 # Garante que a sessão existe no banco
-                sessao_db = db.query(AIChatSessao).filter(AIChatSessao.id == sessao_id).first()
-                if not sessao_db and empresa_id:
+                sessao_any = (
+                    db.query(AIChatSessao).filter(AIChatSessao.id == sessao_id).first()
+                )
+                if sessao_any and empresa_id and sessao_any.empresa_id != empresa_id:
+                    logger.warning(
+                        "[SessionStore] Sessão %s bloqueada por escopo de empresa (%s != %s)",
+                        sessao_id[:8],
+                        sessao_any.empresa_id,
+                        empresa_id,
+                    )
+                    sessao_db = None
+                else:
+                    sessao_db = sessao_any
+                if not sessao_db and empresa_id and not sessao_any:
                     sessao_db = AIChatSessao(
                         id=sessao_id,
                         empresa_id=empresa_id,
@@ -94,15 +128,20 @@ class SessionStore:
                         db.rollback()
 
                 # Carrega últimas mensagens do banco para o cache RAM
-                msgs_db = (
+                msgs_q = (
                     db.query(AIChatMensagem)
+                    .join(AIChatSessao, AIChatMensagem.sessao_id == AIChatSessao.id)
                     .filter(AIChatMensagem.sessao_id == sessao_id)
-                    .order_by(AIChatMensagem.criado_em.asc())
+                )
+                if empresa_id:
+                    msgs_q = msgs_q.filter(AIChatSessao.empresa_id == empresa_id)
+                msgs_db = (
+                    msgs_q.order_by(AIChatMensagem.criado_em.asc())
                     .limit(MAX_MESSAGES_PER_SESSION)
                     .all()
                 )
                 for m in msgs_db:
-                    _sessions[sessao_id]["messages"].append({"role": m.role, "content": m.content})
+                    _sessions[cache_key]["messages"].append({"role": m.role, "content": m.content})
 
                 if msgs_db:
                     logger.debug(f"[SessionStore] Recovery: {len(msgs_db)} msgs restauradas para sessão {sessao_id[:8]}")
@@ -110,26 +149,61 @@ class SessionStore:
             except Exception as e:
                 logger.warning(f"[SessionStore] Erro ao recuperar sessão do banco: {e}")
 
-        _sessions[sessao_id]["last_seen"] = datetime.utcnow()
-        return list(_sessions[sessao_id]["messages"])
+        _sessions[cache_key]["last_seen"] = datetime.utcnow()
+        return list(_sessions[cache_key]["messages"])
 
     @staticmethod
-    def append(sessao_id: str, role: str, content: str):
+    def append(
+        sessao_id: str,
+        role: str,
+        content: str,
+        empresa_id: int = 0,
+        usuario_id: int = 0,
+    ):
         """Adiciona mensagem ao cache RAM (sem persistência no banco — use append_db para persistir)."""
-        if sessao_id not in _sessions:
-            SessionStore.get_or_create(sessao_id)
-        _sessions[sessao_id]["messages"].append({"role": role, "content": content})
-        _sessions[sessao_id]["last_seen"] = datetime.utcnow()
+        cache_key = SessionStore._resolve_cache_key(sessao_id, empresa_id, usuario_id)
+        if cache_key not in _sessions:
+            SessionStore.get_or_create(
+                sessao_id,
+                empresa_id=empresa_id,
+                usuario_id=usuario_id,
+            )
+        _sessions[cache_key]["messages"].append({"role": role, "content": content})
+        _sessions[cache_key]["last_seen"] = datetime.utcnow()
 
     @staticmethod
-    def append_db(sessao_id: str, role: str, content: str, db: Session):
+    def append_db(
+        sessao_id: str,
+        role: str,
+        content: str,
+        db: Session,
+        empresa_id: int = 0,
+        usuario_id: int = 0,
+    ):
         """
         Adiciona mensagem ao cache RAM E persiste no banco PostgreSQL.
         Usar em todos os fluxos definitivos (assistente_unificado_v2, etc.).
         """
         # Persiste no banco
         try:
-            from app.models.models import AIChatMensagem
+            from app.models.models import AIChatMensagem, AIChatSessao
+            sessao_q = db.query(AIChatSessao).filter(AIChatSessao.id == sessao_id)
+            if empresa_id:
+                sessao_q = sessao_q.filter(AIChatSessao.empresa_id == empresa_id)
+            if not sessao_q.first():
+                logger.warning(
+                    "[SessionStore] Sessão %s não encontrada no escopo empresa=%s; pulando persistência",
+                    sessao_id[:8],
+                    empresa_id,
+                )
+                SessionStore.append(
+                    sessao_id,
+                    role,
+                    content,
+                    empresa_id=empresa_id,
+                    usuario_id=usuario_id,
+                )
+                return
             msg_db = AIChatMensagem(sessao_id=sessao_id, role=role, content=content)
             db.add(msg_db)
             db.commit()
@@ -141,7 +215,13 @@ class SessionStore:
                 pass
 
         # Atualiza cache RAM
-        SessionStore.append(sessao_id, role, content)
+        SessionStore.append(
+            sessao_id,
+            role,
+            content,
+            empresa_id=empresa_id,
+            usuario_id=usuario_id,
+        )
 
     @staticmethod
     def ensure_sessao_db(sessao_id: str, empresa_id: int, usuario_id: int, db: Session) -> None:
@@ -149,6 +229,14 @@ class SessionStore:
         try:
             from app.models.models import AIChatSessao
             existe = db.query(AIChatSessao).filter(AIChatSessao.id == sessao_id).first()
+            if existe and existe.empresa_id != empresa_id:
+                logger.warning(
+                    "[SessionStore] Sessão %s pertence a empresa diferente (%s != %s)",
+                    sessao_id[:8],
+                    existe.empresa_id,
+                    empresa_id,
+                )
+                return
             if not existe:
                 db.add(AIChatSessao(
                     id=sessao_id,
@@ -164,28 +252,49 @@ class SessionStore:
                 pass
 
     @staticmethod
-    def add_seen_suggestions(sessao_id: str, sugestoes: list[str]):
+    def add_seen_suggestions(
+        sessao_id: str,
+        sugestoes: list[str],
+        empresa_id: int = 0,
+        usuario_id: int = 0,
+    ):
         """Registra sugestões já vistas para evitar repetição."""
-        if sessao_id not in _sessions:
-            SessionStore.get_or_create(sessao_id)
+        cache_key = SessionStore._resolve_cache_key(sessao_id, empresa_id, usuario_id)
+        if cache_key not in _sessions:
+            SessionStore.get_or_create(
+                sessao_id,
+                empresa_id=empresa_id,
+                usuario_id=usuario_id,
+            )
         normalized = [s.strip().lower()[:100] for s in sugestoes if s]
-        _sessions[sessao_id]["seen_suggestions"].extend(normalized)
-        _sessions[sessao_id]["last_seen"] = datetime.utcnow()
+        _sessions[cache_key]["seen_suggestions"].extend(normalized)
+        _sessions[cache_key]["last_seen"] = datetime.utcnow()
 
     @staticmethod
-    def filter_new_suggestions(sessao_id: str, sugestoes: list[str]) -> list[str]:
+    def filter_new_suggestions(
+        sessao_id: str,
+        sugestoes: list[str],
+        empresa_id: int = 0,
+        usuario_id: int = 0,
+    ) -> list[str]:
         """Filtra sugestões já vistas, retornando apenas as novas."""
-        if sessao_id not in _sessions:
+        cache_key = SessionStore._resolve_cache_key(sessao_id, empresa_id, usuario_id)
+        if cache_key not in _sessions:
             return sugestoes
-        seen = set(_sessions[sessao_id].get("seen_suggestions", []))
+        seen = set(_sessions[cache_key].get("seen_suggestions", []))
         return [s for s in sugestoes if s.strip().lower()[:100] not in seen]
 
     @staticmethod
-    def get_suggestion_context(sessao_id: str) -> dict:
+    def get_suggestion_context(
+        sessao_id: str,
+        empresa_id: int = 0,
+        usuario_id: int = 0,
+    ) -> dict:
         """Retorna contexto de sugestões da sessão para o prompt."""
-        if sessao_id not in _sessions:
+        cache_key = SessionStore._resolve_cache_key(sessao_id, empresa_id, usuario_id)
+        if cache_key not in _sessions:
             return {"seen_count": 0, "recent": []}
-        seen = list(_sessions[sessao_id].get("seen_suggestions", []))
+        seen = list(_sessions[cache_key].get("seen_suggestions", []))
         return {
             "seen_count": len(seen),
             "recent": seen[-10:] if len(seen) > 10 else seen,
@@ -778,7 +887,10 @@ class ContextBuilder:
                 CommercialLead.status_pipeline,
                 func.count(CommercialLead.id).label("quantidade"),
             )
-            .filter(CommercialLead.ativo == True)
+            .filter(
+                CommercialLead.empresa_id == empresa_id,
+                CommercialLead.ativo == True,
+            )
             .group_by(CommercialLead.status_pipeline)
             .all()
         )
