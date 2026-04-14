@@ -11,7 +11,11 @@ from typing import Any, Optional
 from sqlalchemy.orm import Session
 
 from app.models.models import Usuario
-from app.services.assistant_engine_registry import is_code_rag_enabled, is_sql_agent_enabled
+from app.services.assistant_engine_registry import (
+    ENGINE_INTERNAL_COPILOT,
+    is_code_rag_enabled,
+    is_sql_agent_enabled,
+)
 from app.services.audit_service import registrar_auditoria
 from app.services.code_rag_service import build_code_context
 from app.services.tool_executor import execute as execute_tool
@@ -132,6 +136,7 @@ async def run_internal_technical_flow(
             current_user=current_user,
             sessao_id=sessao_id,
             request_id=request_id,
+            engine=ENGINE_INTERNAL_COPILOT,
         )
         trace.append(
             _build_step_trace(

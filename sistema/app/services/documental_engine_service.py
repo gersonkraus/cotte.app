@@ -145,6 +145,7 @@ async def run_documental_orcamento_flow(
         current_user=current_user,
         sessao_id=sessao_id,
         request_id=request_id,
+        engine=ENGINE_DOCUMENTAL,
     )
     trace.append(
         _build_step_trace(
@@ -213,6 +214,7 @@ async def run_documental_orcamento_flow(
             sessao_id=sessao_id,
             request_id=request_id,
             confirmation_token=confirmation_token,
+            engine=ENGINE_DOCUMENTAL,
         )
         trace.append(
             _build_step_trace(

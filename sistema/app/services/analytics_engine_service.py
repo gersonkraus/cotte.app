@@ -103,6 +103,7 @@ async def run_analytics_flow(
         current_user=current_user,
         sessao_id=sessao_id,
         request_id=request_id,
+        engine=ENGINE_ANALYTICS,
     )
     trace.append(
         _build_step_trace(
@@ -198,6 +199,7 @@ async def run_analytics_sql_query_flow(
         current_user=current_user,
         sessao_id=sessao_id,
         request_id=request_id,
+        engine=ENGINE_ANALYTICS,
     )
     trace.append(
         _build_step_trace(

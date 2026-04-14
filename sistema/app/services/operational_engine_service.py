@@ -146,6 +146,7 @@ async def run_orcamento_operational_flow(
             current_user=current_user,
             sessao_id=sessao_id,
             request_id=request_id,
+            engine=ENGINE_OPERATIONAL,
         )
         trace.append(
             _build_step_trace(
@@ -184,6 +185,7 @@ async def run_orcamento_operational_flow(
             sessao_id=sessao_id,
             request_id=request_id,
             confirmation_token=confirmation_token,
+            engine=ENGINE_OPERATIONAL,
         )
         # cria_orcamento é destrutiva e normalmente gera pending; o fluxo composto deve
         # exigir confirmação explícita fora deste endpoint para preservar segurança.
@@ -272,6 +274,7 @@ async def run_orcamento_operational_flow(
             sessao_id=sessao_id,
             request_id=request_id,
             confirmation_token=confirmation_token,
+            engine=ENGINE_OPERATIONAL,
         )
         trace.append(
             _build_step_trace(
@@ -372,6 +375,7 @@ async def run_financeiro_operational_flow(
         current_user=current_user,
         sessao_id=sessao_id,
         request_id=request_id,
+        engine=ENGINE_OPERATIONAL,
     )
     trace.append(
         _build_step_trace(
@@ -410,6 +414,7 @@ async def run_financeiro_operational_flow(
         sessao_id=sessao_id,
         request_id=request_id,
         confirmation_token=confirmation_token,
+        engine=ENGINE_OPERATIONAL,
     )
     trace.append(
         _build_step_trace(
@@ -519,6 +524,7 @@ async def run_agendamento_operational_flow(
         current_user=current_user,
         sessao_id=sessao_id,
         request_id=request_id,
+        engine=ENGINE_OPERATIONAL,
     )
     trace.append(
         _build_step_trace(
@@ -585,6 +591,7 @@ async def run_agendamento_operational_flow(
         sessao_id=sessao_id,
         request_id=request_id,
         confirmation_token=confirmation_token,
+        engine=ENGINE_OPERATIONAL,
     )
     trace.append(
         _build_step_trace(

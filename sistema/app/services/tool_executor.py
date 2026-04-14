@@ -374,6 +374,11 @@ def _log(
     try:
         args_payload = dict(args or {})
         result_payload = result.to_llm_payload()
+        existing_meta = (
+            args_payload.get("_meta")
+            if isinstance(args_payload.get("_meta"), dict)
+            else {}
+        )
         meta_payload = {
             "request_id": request_id,
             "sessao_id": sessao_id,
@@ -381,9 +386,10 @@ def _log(
         }
         meta_payload = {k: v for k, v in meta_payload.items() if v}
         if meta_payload:
-            args_payload["_meta"] = meta_payload
+            merged_meta = {**existing_meta, **meta_payload}
+            args_payload["_meta"] = merged_meta
             if isinstance(result_payload, dict):
-                result_payload = {**result_payload, "_meta": meta_payload}
+                result_payload = {**result_payload, "_meta": merged_meta}
         rec = ToolCallLog(
             empresa_id=empresa_id,
             usuario_id=usuario_id,
@@ -415,6 +421,7 @@ async def execute(
     sessao_id: Optional[str] = None,
     request_id: Optional[str] = None,
     confirmation_token: Optional[str] = None,
+    engine: Optional[str] = None,
 ) -> ToolResult:
     try:
         ensure_scoped_empresa_id(getattr(current_user, "empresa_id", None))
@@ -499,6 +506,9 @@ async def execute(
         return result
 
     args_dict = _normalize_tool_args(name, args_dict)
+    if engine:
+        meta = args_dict.get("_meta") if isinstance(args_dict.get("_meta"), dict) else {}
+        args_dict["_meta"] = {**meta, "engine": str(engine).strip().lower()}
 
     if name in _SEND_TOOLS:
         replay = _send_idempotency_get(current_user.empresa_id, name, args_dict)
@@ -747,6 +757,7 @@ async def execute_pending(
     sessao_id: Optional[str] = None,
     request_id: Optional[str] = None,
     override_args: Optional[dict[str, Any]] = None,
+    engine: Optional[str] = None,
 ) -> ToolResult:
     try:
         ensure_scoped_empresa_id(getattr(current_user, "empresa_id", None))
@@ -840,6 +851,9 @@ async def execute_pending(
             if k in allowed:
                 args_dict[k] = v
     args_dict = _normalize_tool_args(name, args_dict)
+    if engine:
+        meta = args_dict.get("_meta") if isinstance(args_dict.get("_meta"), dict) else {}
+        args_dict["_meta"] = {**meta, "engine": str(engine).strip().lower()}
 
     # Replays de envios críticos também devem ser idempotentes no caminho
     # de confirmação direta por token (evita duplo envio com tokens duplicados).

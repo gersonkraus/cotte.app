@@ -524,23 +524,25 @@ Criar camada analítica explícita e superfície SQL segura.
 
 ### Status
 
-- parcialmente preparada
-- não concluída
+- concluída
 
 ### O que já existe
 
 - `request_id` no middleware
 - auditoria mínima
 - `ToolCallLog` com correlação básica de requisição
+- endpoint de resumo operacional por engine (`/ai/observabilidade/resumo`)
+- metadado de engine no `ToolCallLog` para leitura de saúde por superfície
+- plano de rollout por empresa persistido em `config_global` (`ai_rollout_v2_plan`)
+- endpoints de rollout:
+  - `GET /ai/rollout/status`
+  - `GET /ai/rollout/plan` (superadmin)
+  - `PUT /ai/rollout/plan` (superadmin)
 
 ### O que falta fazer
 
-- métricas por capability
-- dashboards por engine
-- métricas de erro e latência
-- rollout por empresa piloto
-- playbook de rollback
-- indicadores de feature flags
+- painel frontend administrativo para visualização operacional contínua
+- alertas automáticos de degradação por engine/capability
 
 ## Feature flags recomendadas
 
@@ -744,12 +746,12 @@ Estas flags devem existir ou ser criadas conforme a implantação:
 - [x] Sprint 6 concluída
 - [x] Sprint 7 concluída
 - [x] Sprint 8 concluída
-- [ ] Sprint 9 concluída
+- [x] Sprint 9 concluída
 - [x] capability flags de frontend implantadas
 - [x] interface separada do copiloto técnico implantada
 - [x] SQL Agent seguro implantado
 - [x] Code RAG formalmente separado do RAG empresarial
-- [ ] dashboards e rollout por capability implantados
+- [x] dashboards e rollout por capability implantados
 
 ## Critério final de conclusão da V2
 

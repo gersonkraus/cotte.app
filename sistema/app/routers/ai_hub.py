@@ -45,6 +45,14 @@ from app.services.internal_copilot_service import (
     can_use_internal_copilot,
     run_internal_technical_flow,
 )
+from app.services.audit_service import registrar_auditoria
+from app.services.ai_observability_service import build_ai_health_summary
+from app.services.ai_rollout_service import (
+    build_rollout_plan_from_payload,
+    get_rollout_for_empresa,
+    get_rollout_plan,
+    save_rollout_plan,
+)
 
 router = APIRouter(prefix="/ai", tags=["AI"], dependencies=[Depends(exigir_modulo("ia"))])
 
@@ -55,6 +63,11 @@ def _request_id_from_http(request: Request) -> str | None:
     if request_id:
         return str(request_id)
     return request.headers.get("x-request-id")
+
+
+def _require_superadmin(current_user: Usuario) -> None:
+    if not bool(getattr(current_user, "is_superadmin", False)):
+        raise HTTPException(status_code=403, detail="Acesso restrito a superadmin.")
 
 
 # ── Schemas de Requisição ───────────────────────────────────────────────────
@@ -271,6 +284,20 @@ class AnalyticsSqlAgentRequest(BaseModel):
     sessao_id: str = Field(default_factory=lambda: str(_uuid.uuid4()))
     sql: str = Field(min_length=5, max_length=4000)
     limit: int = Field(default=50, ge=1, le=200)
+
+
+class AIRolloutCompanyConfigRequest(BaseModel):
+    empresa_id: int = Field(gt=0)
+    phase: Literal["disabled", "pilot", "ga"] = "pilot"
+    enabled_engines: list[
+        Literal["operational", "analytics", "documental", "internal_copilot"]
+    ] = Field(default_factory=list)
+    notes: Optional[str] = Field(default=None, max_length=500)
+
+
+class AIRolloutPlanUpdateRequest(BaseModel):
+    default_phase: Literal["disabled", "pilot", "ga"] = "disabled"
+    companies: list[AIRolloutCompanyConfigRequest] = Field(default_factory=list)
 
 
 # ── Endpoints Principais ────────────────────────────────────────────────────
@@ -869,6 +896,94 @@ async def assistente_capabilities(
             "available_engines": available_engines,
         },
     }
+
+
+@router.get("/observabilidade/resumo")
+async def ai_observabilidade_resumo(
+    hours: int = Query(default=24, ge=1, le=168),
+    engine: Optional[Literal["operational", "analytics", "documental", "internal_copilot"]] = Query(default=None),
+    empresa_id: Optional[int] = Query(default=None, ge=1),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
+):
+    target_empresa_id = int(current_user.empresa_id)
+    if empresa_id is not None and int(empresa_id) != int(current_user.empresa_id):
+        _require_superadmin(current_user)
+        target_empresa_id = int(empresa_id)
+
+    data = build_ai_health_summary(
+        db=db,
+        empresa_id=target_empresa_id,
+        hours=hours,
+        engine_filter=str(engine) if engine else None,
+    )
+    return {"success": True, "data": data}
+
+
+@router.get("/rollout/status")
+async def ai_rollout_status(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
+):
+    rollout = get_rollout_for_empresa(db, int(current_user.empresa_id))
+    capabilities = list_capabilities()
+    available_engines = {
+        engine_key: is_engine_available_for_user(
+            engine_key,
+            is_superadmin=bool(getattr(current_user, "is_superadmin", False)),
+            is_gestor=bool(getattr(current_user, "is_gestor", False)),
+        )
+        for engine_key in capabilities.get("engines", {}).keys()
+    }
+    rollout_enabled = set(rollout.get("enabled_engines") or [])
+    effective_available = {
+        key: bool(available_engines.get(key)) and bool(key in rollout_enabled)
+        for key in available_engines.keys()
+    }
+    return {
+        "success": True,
+        "data": {
+            "rollout": rollout,
+            "available_engines": available_engines,
+            "effective_available_engines": effective_available,
+        },
+    }
+
+
+@router.get("/rollout/plan")
+async def ai_rollout_plan(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
+):
+    _require_superadmin(current_user)
+    return {"success": True, "data": get_rollout_plan(db)}
+
+
+@router.put("/rollout/plan")
+async def ai_rollout_plan_update(
+    request: AIRolloutPlanUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
+):
+    _require_superadmin(current_user)
+    plan = build_rollout_plan_from_payload(
+        default_phase=request.default_phase,
+        companies=[item.model_dump() for item in request.companies],
+        updated_by=getattr(current_user, "id", None),
+    )
+    saved = save_rollout_plan(db, plan)
+    registrar_auditoria(
+        db=db,
+        usuario=current_user,
+        acao="ai_rollout_plan_update",
+        recurso="ai_rollout_v2",
+        recurso_id=str(getattr(current_user, "empresa_id", "")),
+        detalhes={
+            "default_phase": saved.get("default_phase"),
+            "companies_total": len(saved.get("companies") or {}),
+        },
+    )
+    return {"success": True, "data": saved}
 
 
 @router.post("/copiloto-interno", response_model=AIResponse)

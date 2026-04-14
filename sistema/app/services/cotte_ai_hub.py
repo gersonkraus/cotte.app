@@ -1944,6 +1944,7 @@ async def assistente_v2_stream_core(
                 sessao_id=sessao_id,
                 request_id=request_id,
                 override_args=override_args or {},
+                engine=engine,
             )
         except Exception as exc:
             logger.exception("[stream_v2] Erro no fast-path de confirmação")
@@ -2232,6 +2233,7 @@ async def assistente_v2_stream_core(
                     sessao_id=sessao_id,
                     request_id=request_id,
                     confirmation_token=None,
+                    engine=engine,
                 )
                 result = await _autopaginate_listar_orcamentos(
                     mensagem=mensagem,
@@ -2243,6 +2245,7 @@ async def assistente_v2_stream_core(
                     sessao_id=sessao_id,
                     request_id=request_id,
                     confirmation_token=None,
+                    engine=engine,
                 )
                 t_status = result.status if hasattr(result, "status") else "ok"
                 t_latencia = result.latencia_ms if hasattr(result, "latencia_ms") else 0
@@ -3426,6 +3429,7 @@ async def _autopaginate_listar_orcamentos(
     sessao_id: str,
     request_id: Optional[str],
     confirmation_token: Optional[str],
+    engine: str = DEFAULT_ENGINE,
 ) -> Any:
     tool_name = ((tc.get("function") or {}).get("name") or "").strip()
     if tool_name != "listar_orcamentos":
@@ -3472,6 +3476,7 @@ async def _autopaginate_listar_orcamentos(
             sessao_id=sessao_id,
             request_id=request_id,
             confirmation_token=confirmation_token,
+            engine=engine,
         )
         lat_extra += int(getattr(prox_result, "latencia_ms", 0) or 0)
         if getattr(prox_result, "status", None) != "ok":
@@ -3600,6 +3605,7 @@ async def _assistente_unificado_v2_legacy(
             current_user=current_user,
             sessao_id=sessao_id,
             request_id=request_id,
+            engine=resolved_engine,
         )
         res_saldo = await tool_execute(
             tc_saldo,
@@ -3607,6 +3613,7 @@ async def _assistente_unificado_v2_legacy(
             current_user=current_user,
             sessao_id=sessao_id,
             request_id=request_id,
+            engine=resolved_engine,
         )
         movs = (
             (res_mov.data or {}).get("movimentacoes", [])
@@ -3676,6 +3683,7 @@ async def _assistente_unificado_v2_legacy(
                 sessao_id=sessao_id,
                 request_id=request_id,
                 override_args=override_args,
+                engine=resolved_engine,
             )
             if result.status == "ok":
                 orc_data = result.data or {}
@@ -4040,6 +4048,7 @@ async def _assistente_unificado_v2_legacy(
                     sessao_id=sessao_id,
                     request_id=request_id,
                     confirmation_token=confirmation_token,
+                    engine=resolved_engine,
                 )
                 result = await _autopaginate_listar_orcamentos(
                     mensagem=mensagem,
@@ -4051,6 +4060,7 @@ async def _assistente_unificado_v2_legacy(
                     sessao_id=sessao_id,
                     request_id=request_id,
                     confirmation_token=confirmation_token,
+                    engine=resolved_engine,
                 )
                 t_status = result.status
                 t_code = result.code
