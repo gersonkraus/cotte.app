@@ -301,6 +301,16 @@ const SUGGESTION_ICONS = {
 async function sendMessage() {
     const isSilent = window._silentNextMessage;
     window._silentNextMessage = false;
+
+    if (
+        window.CapabilityFlagsService &&
+        typeof window.CapabilityFlagsService.isEnabledSync === 'function' &&
+        !window.CapabilityFlagsService.isEnabledSync('assistente_operacional')
+    ) {
+        addMessage('O assistente operacional está temporariamente indisponível para esta conta.', false, true);
+        return;
+    }
+
     if (!hasHttpClient()) {
         addMessage('Serviço de API indisponível. Recarregue a página e tente novamente.', false, true);
         return;

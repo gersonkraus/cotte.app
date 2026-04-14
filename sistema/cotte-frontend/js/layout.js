@@ -13,7 +13,7 @@
  *
  * Chaves válidas: dashboard | orcamentos | clientes | catalogo |
  *                 documentos | relatorios | financeiro | agendamentos |
- *                 assistente-ia | usuarios | configuracoes |
+ *                 assistente-ia | copiloto-tecnico | usuarios | configuracoes |
  *                 comercial | admin | admin-planos | admin-config
  * (whatsapp.html usa admin-config para destacar Config Admin no menu)
  */
@@ -126,6 +126,16 @@ const _SIDEBAR_HTML = `
         </svg>
       </span>
       Assistente IA
+    </a>
+    <a class="nav-item nav-ia-link" data-page="copiloto-tecnico" href="copiloto-tecnico.html" id="nav-copiloto" style="display:none">
+      <span class="nav-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2 3 7v10l9 5 9-5V7z"/>
+          <path d="M9 12h6"/>
+          <path d="M12 9v6"/>
+        </svg>
+      </span>
+      Copiloto Técnico
     </a>
 
     <div style="margin-top:auto;padding-top:8px">
@@ -281,6 +291,7 @@ function inicializarLayout(pageKey, opts = {}) {
       if (!p.pode('financeiro')) document.getElementById('nav-financeiro')?.remove();
       if (!p.pode('agendamentos')) document.getElementById('nav-agendamentos')?.remove();
       if (!p.pode('ia'))         document.getElementById('nav-ia')?.remove();
+      if (!p.pode('ia'))         document.getElementById('nav-copiloto')?.remove();
       if (!p.pode('equipe'))     document.getElementById('nav-equipe')?.remove();
       if (!p.pode('configuracoes')) document.getElementById('nav-config')?.remove();
       
@@ -291,6 +302,32 @@ function inicializarLayout(pageKey, opts = {}) {
         document.getElementById('nav-admin-config-link').style.display = 'flex';
       }
     }
+
+    // Capability flags de IA (Sprint 3): controla visibilidade do copiloto interno.
+    (function aplicarCapabilitiesIA() {
+      const navCopiloto = document.getElementById('nav-copiloto');
+      if (!navCopiloto) return;
+
+      const client = window.ApiService || window.api;
+      if (!client || typeof client.get !== 'function') return;
+
+      client.get('/ai/assistente/capabilities')
+        .then((resp) => {
+          const data = (resp && resp.data) ? resp.data : resp;
+          const components = (data && data.components) ? data.components : {};
+          const availableEngines = (data && data.available_engines) ? data.available_engines : {};
+          const canShowComponent = !!components['nav.copiloto_interno'];
+          const canUseEngine = !!availableEngines['internal_copilot'];
+          if (canShowComponent && canUseEngine) {
+            navCopiloto.style.display = 'flex';
+          } else {
+            navCopiloto.remove();
+          }
+        })
+        .catch(() => {
+          navCopiloto.remove();
+        });
+    })();
 
     // Agendamentos não aparece no painel admin (fora do bloco de permissões)
     if (typeof pageKey === 'string' && pageKey.startsWith('admin')) {
