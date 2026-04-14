@@ -16,6 +16,11 @@ from starlette.types import ASGIApp
 from app.core.config import settings
 from app.core.logging_config import get_logger
 
+try:
+    import redis
+except (ImportError, ModuleNotFoundError):  # pragma: no cover - fallback sem dependência
+    redis = None
+
 logger = get_logger(__name__)
 
 
@@ -109,6 +114,23 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         # IPs bloqueados temporariamente
         self.blocked_ips: Dict[str, datetime] = {}
         self.block_duration = 300  # 5 minutos
+        self._redis_client = self._build_redis_client()
+
+    def _build_redis_client(self):
+        if not redis or not (settings.REDIS_URL or "").strip():
+            return None
+        try:
+            client = redis.from_url(
+                settings.REDIS_URL.strip(),
+                decode_responses=True,
+                socket_timeout=1.0,
+                socket_connect_timeout=1.0,
+            )
+            client.ping()
+            return client
+        except redis.RedisError as exc:
+            logger.warning("Redis indisponível para SecurityMiddleware, fallback em memória", extra={"erro": str(exc)})
+            return None
 
     @staticmethod
     def _is_rate_limit_exempt_path(path: str) -> bool:
@@ -156,7 +178,7 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         
         # Rate limiting (exceto assets estáticos — ver _is_rate_limit_exempt_path)
         if not self._is_rate_limit_exempt_path(path):
-            if not self._check_rate_limit(client_ip):
+            if not self._check_rate_limit(client_ip, path):
                 logger.warning(
                     "Rate limit exceeded",
                     extra={
@@ -164,6 +186,7 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                         "path": path,
                         "user_agent": user_agent,
                         "reason": "Rate limit exceeded",
+                        "rate_limit_mode": "redis" if self._redis_client else "memory",
                     },
                 )
                 self._block_ip(client_ip)
@@ -253,8 +276,26 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                 return True
         return False
     
-    def _check_rate_limit(self, client_ip: str) -> bool:
+    def _check_rate_limit(self, client_ip: str, path: str) -> bool:
         """Verifica rate limiting para um IP."""
+        if self._redis_client:
+            key_suffix = f"{client_ip}:{path}"
+            counter_key = f"sec:cnt:{key_suffix}"
+            block_key = f"sec:blk:{client_ip}"
+            try:
+                ttl_block = self._redis_client.ttl(block_key)
+                if ttl_block and ttl_block > 0:
+                    return False
+
+                count = self._redis_client.incr(counter_key)
+                if count == 1:
+                    self._redis_client.expire(counter_key, self.rate_limit_window)
+
+                return count <= self.rate_limit_max
+            except redis.RedisError as exc:
+                logger.warning("Falha no Redis do SecurityMiddleware, fallback em memória", extra={"erro": str(exc)})
+                self._redis_client = None
+
         now = time.time()
         
         # Limpa requisições antigas
@@ -271,10 +312,25 @@ class SecurityMiddleware(BaseHTTPMiddleware):
     
     def _block_ip(self, client_ip: str) -> None:
         """Bloqueia um IP temporariamente."""
+        if self._redis_client:
+            try:
+                self._redis_client.setex(f"sec:blk:{client_ip}", self.block_duration, "1")
+                return
+            except redis.RedisError as exc:
+                logger.warning("Falha ao bloquear IP no Redis, fallback memória", extra={"erro": str(exc)})
+                self._redis_client = None
         self.blocked_ips[client_ip] = datetime.now()
     
     def _is_ip_blocked(self, client_ip: str) -> bool:
         """Verifica se um IP está bloqueado."""
+        if self._redis_client:
+            try:
+                ttl_block = self._redis_client.ttl(f"sec:blk:{client_ip}")
+                return bool(ttl_block and ttl_block > 0)
+            except redis.RedisError as exc:
+                logger.warning("Falha ao consultar bloqueio no Redis, fallback memória", extra={"erro": str(exc)})
+                self._redis_client = None
+
         if client_ip not in self.blocked_ips:
             return False
         

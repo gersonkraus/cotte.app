@@ -1802,6 +1802,34 @@ async def assistente_v2_stream_core(
     def _enc(d):
         return f"data: {json.dumps(d, ensure_ascii=False, default=str)}\n\n"
 
+    def _to_semantic_chart(grafico: dict | None) -> dict | None:
+        if not isinstance(grafico, dict):
+            return None
+        dados = grafico.get("dados") or {}
+        if not isinstance(dados, dict):
+            return None
+        return {
+            "type": grafico.get("tipo") or "bar",
+            "labels": list(dados.get("labels") or []),
+            "datasets": list(dados.get("datasets") or []),
+        }
+
+    def _build_semantic_contract(
+        *,
+        summary: str,
+        table: list[dict] | None = None,
+        chart: dict | None = None,
+        printable: dict | None = None,
+        metadata_extra: dict | None = None,
+    ) -> dict:
+        return {
+            "summary": summary or "",
+            "table": list(table or []),
+            "chart": chart,
+            "printable": printable,
+            "metadata": metadata_extra or {},
+        }
+
     resolved_engine = resolve_engine(engine)
     engine_policy = get_engine_policy(resolved_engine)
 
@@ -1827,7 +1855,44 @@ async def assistente_v2_stream_core(
                 "final_text": final_text,
                 "metadata": {
                     "final_text": final_text,
-                    "dados": {"capability": "excel_nao_suportado"},
+                    "dados": {
+                        "capability": "excel_nao_suportado",
+                        "semantic_contract": _build_semantic_contract(
+                            summary=final_text,
+                            metadata_extra={"capability": "excel_nao_suportado"},
+                        ),
+                    },
+                    "tipo": "geral",
+                },
+            }
+        )
+        return
+
+    if _v2_is_customer_revenue_ranking_unavailable_request(mensagem):
+        final_text = _v2_customer_revenue_ranking_unavailable_response()
+        SessionStore.append_db(
+            sessao_id,
+            "assistant",
+            final_text,
+            db,
+            empresa_id=getattr(current_user, "empresa_id", 0),
+            usuario_id=getattr(current_user, "id", 0),
+        )
+        yield _enc({"phase": "thinking"})
+        yield _enc({"chunk": final_text})
+        yield _enc(
+            {
+                "is_final": True,
+                "final_text": final_text,
+                "metadata": {
+                    "final_text": final_text,
+                    "dados": {
+                        "capability": "ranking_clientes_indisponivel",
+                        "semantic_contract": _build_semantic_contract(
+                            summary=final_text,
+                            metadata_extra={"capability": "ranking_clientes_indisponivel"},
+                        ),
+                    },
                     "tipo": "geral",
                 },
             }
@@ -1914,6 +1979,29 @@ async def assistente_v2_stream_core(
                         "dias": dias,
                         "movimentacoes_total": qtd,
                         "saldo_atual": saldo_atual,
+                        "semantic_contract": _build_semantic_contract(
+                            summary=final_text,
+                            table=[
+                                {
+                                    "data": mov.get("data"),
+                                    "descricao": mov.get("descricao"),
+                                    "tipo": mov.get("tipo"),
+                                    "valor": mov.get("valor"),
+                                }
+                                for mov in list(movs or [])[:100]
+                                if isinstance(mov, dict)
+                            ],
+                            chart=_to_semantic_chart(grafico),
+                            printable={
+                                "title": f"Resumo financeiro ({dias} dias)",
+                                "summary": final_text,
+                            },
+                            metadata_extra={
+                                "capability": "GenerateAnalyticsReport",
+                                "domain": "analytics",
+                                "period_days": dias,
+                            },
+                        ),
                     },
                     "grafico": grafico,
                     "tool_trace": [
@@ -2003,7 +2091,21 @@ async def assistente_v2_stream_core(
                 "metadata": {
                     "final_text": final_text,
                     "tipo": tipo_resp,
-                    "dados": resp_dados,
+                    "dados": {
+                        **resp_dados,
+                        "semantic_contract": _build_semantic_contract(
+                            summary=final_text,
+                            table=[resp_dados] if isinstance(resp_dados, dict) and resp_dados else [],
+                            printable={
+                                "title": "Resultado de ação confirmada",
+                                "summary": final_text,
+                            },
+                            metadata_extra={
+                                "capability": "PrepareQuotePackage",
+                                "domain": "quote_ops",
+                            },
+                        ),
+                    },
                     "tool_trace": tool_trace_fpath,
                     "sugestoes": sugs,
                     "pending_action": None,
@@ -2387,7 +2489,38 @@ async def assistente_v2_stream_core(
             "metadata": {
                 "final_text": final_text,
                 "tipo": tipo_resp,
-                "dados": {**adaptive_meta, **resp_dados},
+                "dados": {
+                    **adaptive_meta,
+                    **resp_dados,
+                    "semantic_contract": _build_semantic_contract(
+                        summary=final_text,
+                        table=(
+                            (resp_dados.get("rows") if isinstance(resp_dados, dict) else None)
+                            or (
+                                [
+                                    {
+                                        "tool": t.get("tool"),
+                                        "status": t.get("status"),
+                                        "latencia_ms": t.get("latencia_ms"),
+                                    }
+                                    for t in list(tool_trace or [])[:100]
+                                ]
+                                if tool_trace
+                                else []
+                            )
+                        ),
+                        chart=_to_semantic_chart(grafico_data),
+                        printable={
+                            "title": "Resumo do assistente",
+                            "summary": final_text,
+                        },
+                        metadata_extra={
+                            "capability": "GenerateAnalyticsReport" if tipo_resp == "financeiro" else "UnknownCapability",
+                            "domain": "analytics" if tipo_resp == "financeiro" else "unknown",
+                            "tipo_resposta_inferida": tipo_resp,
+                        },
+                    ),
+                },
                 "grafico": grafico_data,
                 "pending_action": pending_action,
                 "tool_trace": tool_trace or None,
@@ -3300,6 +3433,41 @@ def _v2_is_financial_chart_request(mensagem: str) -> bool:
     return has_chart and has_financial_scope
 
 
+def _v2_is_customer_revenue_ranking_unavailable_request(mensagem: str) -> bool:
+    msg = (mensagem or "").lower()
+    if not msg:
+        return False
+    has_client_scope = "cliente" in msg or "clientes" in msg
+    has_revenue_scope = any(
+        token in msg
+        for token in (
+            "faturamento",
+            "ticket medio",
+            "ticket médio",
+            "mês anterior",
+            "mes anterior",
+        )
+    )
+    has_ranking_scope = "ranking" in msg and "10" in msg
+    has_current_month_scope = "mês atual" in msg or "mes atual" in msg
+    return (
+        has_client_scope
+        and has_revenue_scope
+        and has_ranking_scope
+        and has_current_month_scope
+    )
+
+
+def _v2_customer_revenue_ranking_unavailable_response() -> str:
+    return (
+        "Atualmente, não há uma ferramenta disponível para gerar um ranking dos clientes "
+        "com maior faturamento diretamente. Para isso, você precisaria acessar os dados "
+        "de faturamento e calcular o ticket médio e a variação em relação ao mês anterior manualmente.\n\n"
+        "Se precisar de ajuda para encontrar esses dados ou orientações sobre como realizar "
+        "esses cálculos, estou aqui para ajudar!"
+    )
+
+
 def _v2_extract_days_window(mensagem: str, default_days: int = 30) -> int:
     m = re.search(r"(\d{1,3})\s*dias?", (mensagem or "").lower())
     if not m:
@@ -3516,6 +3684,27 @@ async def assistente_unificado_v2(
 ) -> AIResponse:
     """Wrapper de orquestração (LangGraph opcional com fallback legado)."""
     from app.services.assistant_langgraph import langgraph_enabled, run_assistant_graph
+    from app.services.assistant_autonomy import (
+        semantic_autonomy_enabled,
+        try_handle_semantic_autonomy,
+    )
+
+    if semantic_autonomy_enabled():
+        try:
+            semantic_payload = await try_handle_semantic_autonomy(
+                mensagem=mensagem,
+                sessao_id=sessao_id,
+                db=db,
+                current_user=current_user,
+                engine=engine,
+                request_id=request_id,
+                confirmation_token=confirmation_token,
+                override_args=override_args,
+            )
+            if isinstance(semantic_payload, dict) and semantic_payload:
+                return AIResponse(**semantic_payload)
+        except Exception as exc:
+            logger.warning("Falha no runtime semântico, fallback para fluxo legado: %s", exc)
 
     payload = {
         "mensagem": mensagem,
@@ -3580,6 +3769,24 @@ async def _assistente_unificado_v2_legacy(
             confianca=0.98,
             modulo_origem="assistente_v2",
             dados={"capability": "excel_nao_suportado"},
+        )
+
+    if _v2_is_customer_revenue_ranking_unavailable_request(mensagem):
+        resposta = _v2_customer_revenue_ranking_unavailable_response()
+        SessionStore.append_db(
+            sessao_id,
+            "assistant",
+            resposta,
+            db,
+            empresa_id=getattr(current_user, "empresa_id", 0),
+            usuario_id=getattr(current_user, "id", 0),
+        )
+        return AIResponse(
+            sucesso=True,
+            resposta=resposta,
+            confianca=0.98,
+            modulo_origem="assistente_v2",
+            dados={"capability": "ranking_clientes_indisponivel"},
         )
 
     if _v2_is_financial_chart_request(mensagem):

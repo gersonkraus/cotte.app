@@ -6,8 +6,19 @@ import os
 from typing import Any, Awaitable, Callable
 
 
+def _env_enabled(name: str, *, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return str(raw).strip().lower() in {"1", "true", "yes", "on"}
+
+
 def langgraph_enabled() -> bool:
-    return os.getenv("USE_LANGGRAPH_ASSISTANT", "false").lower() == "true"
+    # Flag nova da Sprint V2 (capability oficial)
+    if _env_enabled("V2_LANGGRAPH_ORCHESTRATION", default=False):
+        return True
+    # Compatibilidade retroativa com flag legada
+    return _env_enabled("USE_LANGGRAPH_ASSISTANT", default=False)
 
 
 async def run_assistant_graph(

@@ -235,6 +235,61 @@
                         <textarea id="assistenteInstrucoesInput" rows="3" placeholder="Ex.: sempre responder com foco em margem, evitar termos técnicos para equipe de campo."></textarea>
                     </label>
                 </div>
+                <section class="assistente-prompts-library" aria-label="Biblioteca de prompts salvos">
+                    <div class="assistente-prompts-library-header">
+                        <h3>Prompts salvos da empresa</h3>
+                        <button type="button" class="btn btn-ghost btn-xs" id="btnAssistenteRefreshPrompts">Atualizar</button>
+                    </div>
+                    <div class="assistente-prompts-filters">
+                        <label class="assistente-preferencias-field">
+                            <span>Categoria</span>
+                            <select id="assistentePromptCategoriaFiltro">
+                                <option value="">Todas</option>
+                                <option value="ranking">Ranking</option>
+                                <option value="comissao">Comissão</option>
+                                <option value="inadimplencia">Inadimplência</option>
+                                <option value="comparativo_mensal">Comparativo mensal</option>
+                            </select>
+                        </label>
+                        <label class="assistente-preferencias-field">
+                            <span>Buscar prompt</span>
+                            <input type="text" id="assistentePromptBusca" maxlength="120" placeholder="Ex.: comissão vendedores" />
+                        </label>
+                    </div>
+                    <div class="assistente-prompts-list" id="assistentePromptsList" role="list"></div>
+                    <div class="assistente-prompts-load-more-wrap">
+                        <button type="button" class="btn btn-secondary btn-xs" id="btnAssistentePromptsLoadMore" style="display:none;">Carregar mais</button>
+                    </div>
+                    <small id="assistentePromptsNotice"></small>
+                    <div class="assistente-prompts-editor" id="assistentePromptsEditor">
+                        <h4>Novo prompt salvo</h4>
+                        <label class="assistente-preferencias-field">
+                            <span>Título</span>
+                            <input type="text" id="assistentePromptTituloInput" maxlength="120" placeholder="Ex.: Ranking por faturamento" />
+                        </label>
+                        <label class="assistente-preferencias-field">
+                            <span>Categoria</span>
+                            <select id="assistentePromptCategoriaInput">
+                                <option value="ranking">Ranking</option>
+                                <option value="comissao">Comissão</option>
+                                <option value="inadimplencia">Inadimplência</option>
+                                <option value="comparativo_mensal">Comparativo mensal</option>
+                            </select>
+                        </label>
+                        <label class="assistente-preferencias-field">
+                            <span>Prompt</span>
+                            <textarea id="assistentePromptConteudoInput" rows="3" maxlength="4000" placeholder="Escreva o prompt que será reutilizado no assistente."></textarea>
+                        </label>
+                        <label class="assistente-prompts-favorite-toggle">
+                            <input type="checkbox" id="assistentePromptFavoritoInput" />
+                            <span>Marcar como favorito</span>
+                        </label>
+                        <div class="assistente-prompts-editor-actions">
+                            <button type="button" class="btn btn-secondary" id="btnAssistentePromptLimpar">Limpar</button>
+                            <button type="button" class="btn btn-primary" id="btnAssistentePromptSalvar">Salvar prompt</button>
+                        </div>
+                    </div>
+                </section>
                 <div class="assistente-preferencias-actions">
                     <small id="assistenteInstrucoesPermissaoHint"></small>
                     <button type="button" class="btn btn-primary" id="btnSalvarPreferenciasAssistente">Salvar preferências</button>

@@ -32,6 +32,10 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
     }
 
     let responseContent = formatAIResponse(data, isStreamed);
+    const isSemanticResponse = !!(
+        (data && data.semantic_contract)
+        || (data && data.dados && data.dados.semantic_contract)
+    );
     const actionStatusMap = {
         saldo_caixa: 'Saldo consultado',
         resumo_financeiro: 'Resumo financeiro gerado',
@@ -44,7 +48,7 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
     const actionStatusLabel = actionStatusMap[data.tipo_resposta];
     // orcamento_criado e orcamento_atualizado já têm banner próprio no card
     const tiposComBannerProprio = ['orcamento_criado', 'orcamento_atualizado'];
-    if (actionStatusLabel && !tiposComBannerProprio.includes(data.tipo_resposta)) {
+    if (!isSemanticResponse && actionStatusLabel && !tiposComBannerProprio.includes(data.tipo_resposta)) {
         responseContent = `<div class="action-status-chip">✓ ${escapeHtml(actionStatusLabel)}</div>${responseContent}`;
     }
     let metaTracesHtml = '';
@@ -132,7 +136,7 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
     }
 
     const tipoResp = (data.tipo_resposta && data.tipo_resposta !== 'geral') ? data.tipo_resposta : ((data.dados && data.dados.tipo) || 'geral');
-    if (tipoResp === 'orcamento_criado' || tipoResp === 'orcamento_atualizado') {
+    if (!isSemanticResponse && (tipoResp === 'orcamento_criado' || tipoResp === 'orcamento_atualizado')) {
         sugestoes = getOrcamentoFollowupSuggestions(data, sugestoes, tipoResp);
     }
 
@@ -148,7 +152,10 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
     }
 
     // Se o backend não mandou texto e também não é um dos cards ricos estruturados:
-    const ehCardRico = ['orcamento_criado', 'orcamento_atualizado', 'orcamento_preview', 'onboarding', 'registro_criado', 'saldo_caixa', 'resumo_financeiro'].includes(tipoResp) || data.pending_action || (responseContent && responseContent.includes('opr-card'));
+    const ehCardRico = isSemanticResponse
+        || ['orcamento_criado', 'orcamento_atualizado', 'orcamento_preview', 'onboarding', 'registro_criado', 'saldo_caixa', 'resumo_financeiro'].includes(tipoResp)
+        || data.pending_action
+        || (responseContent && responseContent.includes('opr-card'));
     const responseHasText = (responseContent && responseContent.replace(/<[^>]*>/g, '').trim().length > 0) || (isStreamed && data.stream_has_chunks);
 
     if (!responseHasText && !ehCardRico) {

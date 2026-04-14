@@ -134,6 +134,7 @@ CAPABILITY_FLAGS = {
     "code_rag_tecnico": "V2_CODE_RAG",
     "sql_agent": "V2_SQL_AGENT",
     "langgraph_orchestration": "V2_LANGGRAPH_ORCHESTRATION",
+    "semantic_autonomy": "V2_SEMANTIC_AUTONOMY",
 }
 
 COMPONENT_CAPABILITIES = {
@@ -145,6 +146,7 @@ COMPONENT_CAPABILITIES = {
     "engine.documental": "engine_documental",
     "engine.sql_agent": "sql_agent",
     "engine.code_rag_tecnico": "code_rag_tecnico",
+    "engine.semantic_autonomy": "semantic_autonomy",
 }
 
 

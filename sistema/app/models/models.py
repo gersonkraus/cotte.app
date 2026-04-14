@@ -1804,6 +1804,34 @@ class AssistentePreferenciaUsuario(TenantScopedMixin, Base):
     )
 
 
+class AssistentePromptEmpresa(TenantScopedMixin, Base):
+    """Biblioteca de prompts salvos por empresa para o Assistente IA."""
+
+    __tablename__ = "assistente_prompts_empresa"
+
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False, index=True)
+    titulo = Column(String(120), nullable=False)
+    conteudo_prompt = Column(Text, nullable=False)
+    categoria = Column(String(40), nullable=False)
+    favorito = Column(Boolean, nullable=False, default=False)
+    uso_count = Column(Integer, nullable=False, default=0)
+    ativo = Column(Boolean, nullable=False, default=True)
+    criado_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    atualizado_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    criado_em = Column(DateTime(timezone=True), server_default=func.now())
+    atualizado_em = Column(DateTime(timezone=True), onupdate=func.now())
+
+    empresa = relationship("Empresa")
+    criado_por = relationship("Usuario", foreign_keys=[criado_por_id])
+    atualizado_por = relationship("Usuario", foreign_keys=[atualizado_por_id])
+
+    __table_args__ = (
+        Index("ix_assistente_prompts_empresa_categoria", "empresa_id", "categoria"),
+        Index("ix_assistente_prompts_empresa_favorito_ativo", "empresa_id", "favorito", "ativo"),
+    )
+
+
 # ── BROADCAST (mensagens do admin para todas as empresas) ─────────────────────
 
 

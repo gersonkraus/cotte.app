@@ -32,6 +32,51 @@
     sendBtn.textContent = sending ? "Enviando..." : "Enviar";
   }
 
+  function _firstNonEmptyString(values) {
+    for (var i = 0; i < values.length; i += 1) {
+      if (typeof values[i] === "string" && values[i].trim()) {
+        return values[i].trim();
+      }
+    }
+    return "";
+  }
+
+  function resolveCopilotReply(payload) {
+    if (!payload || typeof payload !== "object") {
+      return "";
+    }
+
+    var nestedData = payload.data && typeof payload.data === "object" ? payload.data : null;
+    var nestedDados = payload.dados && typeof payload.dados === "object" ? payload.dados : null;
+    var semanticFromData =
+      nestedData &&
+      nestedData.semantic_contract &&
+      typeof nestedData.semantic_contract === "object"
+        ? nestedData.semantic_contract
+        : null;
+    var semanticFromDados =
+      nestedDados &&
+      nestedDados.semantic_contract &&
+      typeof nestedDados.semantic_contract === "object"
+        ? nestedDados.semantic_contract
+        : null;
+
+    return _firstNonEmptyString([
+      payload.resposta,
+      payload.mensagem,
+      payload.message,
+      payload.error,
+      nestedData && nestedData.resposta,
+      nestedData && nestedData.mensagem,
+      nestedData && nestedData.message,
+      nestedDados && nestedDados.resposta,
+      nestedDados && nestedDados.mensagem,
+      nestedDados && nestedDados.message,
+      semanticFromData && semanticFromData.summary,
+      semanticFromDados && semanticFromDados.summary,
+    ]);
+  }
+
   async function sendMessage() {
     if (sending || !inputEl) return;
     var raw = (inputEl.value || "").trim();
@@ -52,7 +97,8 @@
         sessao_id: ensureSessionId(),
       });
       var payload = res && res.data ? res.data : res;
-      addMessage((payload && payload.resposta) || "Sem resposta do copiloto.", "bot");
+      var botReply = resolveCopilotReply(payload);
+      addMessage(botReply || "Sem resposta do copiloto.", "bot");
     } catch (err) {
       addMessage((err && err.message) || "Falha ao consultar o copiloto interno.", "bot");
     } finally {

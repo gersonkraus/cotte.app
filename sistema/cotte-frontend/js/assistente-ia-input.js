@@ -644,6 +644,67 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  const refreshPromptsBtn = document.getElementById("btnAssistenteRefreshPrompts");
+  if (refreshPromptsBtn && typeof loadAssistentePromptLibrary === "function") {
+    refreshPromptsBtn.addEventListener("click", () => {
+      loadAssistentePromptLibrary({ append: false });
+    });
+  }
+
+  const loadMorePromptsBtn = document.getElementById("btnAssistentePromptsLoadMore");
+  if (loadMorePromptsBtn && typeof loadAssistentePromptLibrary === "function") {
+    loadMorePromptsBtn.addEventListener("click", () => {
+      loadAssistentePromptLibrary({ append: true });
+    });
+  }
+
+  const savePromptBtn = document.getElementById("btnAssistentePromptSalvar");
+  if (savePromptBtn && typeof saveAssistentePromptLibraryItem === "function") {
+    savePromptBtn.addEventListener("click", () => {
+      saveAssistentePromptLibraryItem();
+    });
+  }
+
+  const clearPromptBtn = document.getElementById("btnAssistentePromptLimpar");
+  if (clearPromptBtn && typeof clearAssistentePromptEditor === "function") {
+    clearPromptBtn.addEventListener("click", () => {
+      clearAssistentePromptEditor();
+    });
+  }
+
+  const promptFilterCategoria = document.getElementById("assistentePromptCategoriaFiltro");
+  if (promptFilterCategoria && typeof loadAssistentePromptLibrary === "function") {
+    promptFilterCategoria.addEventListener("change", () => {
+      loadAssistentePromptLibrary({ append: false });
+    });
+  }
+
+  const promptBusca = document.getElementById("assistentePromptBusca");
+  if (promptBusca && typeof loadAssistentePromptLibrary === "function") {
+    let promptBuscaTimer = null;
+    promptBusca.addEventListener("input", () => {
+      if (promptBuscaTimer) window.clearTimeout(promptBuscaTimer);
+      promptBuscaTimer = window.setTimeout(() => {
+        loadAssistentePromptLibrary({ append: false });
+      }, 260);
+    });
+  }
+
+  const promptList = document.getElementById("assistentePromptsList");
+  if (promptList && typeof handleAssistentePromptLibraryAction === "function") {
+    promptList.addEventListener("click", (event) => {
+      const actionEl = event.target.closest("[data-assistente-prompt-action]");
+      if (!actionEl) return;
+      const action = actionEl.getAttribute("data-assistente-prompt-action") || "";
+      const promptId = Number(actionEl.getAttribute("data-prompt-id") || 0);
+      if (!action || !promptId) return;
+      event.preventDefault();
+      handleAssistentePromptLibraryAction(action, promptId, {
+        nextFavorito: actionEl.getAttribute("data-next-favorito"),
+      });
+    });
+  }
+
   const scrollBtn = document.getElementById("chatScrollBottomBtn");
   if (scrollBtn) {
     scrollBtn.addEventListener("click", () =>

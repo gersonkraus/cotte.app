@@ -14,6 +14,19 @@ let speechRecognition = null; // Para entrada por voz
 let isRecording = false;
 let slashCommandIndex = -1; // Índice atual da lista de slash commands
 let _assistentePrefsCache = null;
+let _assistentePromptDraftId = null;
+let _assistentePromptCache = [];
+const _assistentePromptListState = {
+    nextCursor: null,
+    hasMore: false,
+    limit: 20,
+};
+const ASSISTENTE_PROMPT_CATEGORIA_LABEL = {
+    ranking: 'Ranking',
+    comissao: 'Comissão',
+    inadimplencia: 'Inadimplência',
+    comparativo_mensal: 'Comparativo mensal',
+};
 
 const SLASH_COMMANDS = [
     { cmd: '/caixa', desc: 'Ver saldo atual disponível', icon: '💰' },
@@ -109,6 +122,282 @@ function syncAssistenteGearSavedBadge(prefData) {
     if (mobileBtn) mobileBtn.setAttribute('aria-label', label);
 }
 
+function normalizeAssistenteApiEnvelope(payload) {
+    if (payload && typeof payload.success === 'boolean') return payload;
+    return { success: true, data: payload };
+}
+
+function getPromptCategoriaLabel(categoria) {
+    return ASSISTENTE_PROMPT_CATEGORIA_LABEL[String(categoria || '').trim()] || 'Categoria';
+}
+
+function canManageAssistentePrompts() {
+    return !!(_assistentePrefsCache && _assistentePrefsCache.pode_editar_instrucoes);
+}
+
+function showAssistentePromptsNotice(msg, isError = false) {
+    const el = document.getElementById('assistentePromptsNotice');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.style.color = isError ? '#ef4444' : '';
+}
+
+function setAssistentePromptsLoading(isLoadingState) {
+    const refreshBtn = document.getElementById('btnAssistenteRefreshPrompts');
+    const loadMoreBtn = document.getElementById('btnAssistentePromptsLoadMore');
+    if (refreshBtn) refreshBtn.disabled = !!isLoadingState;
+    if (loadMoreBtn) loadMoreBtn.disabled = !!isLoadingState;
+}
+
+function renderAssistentePromptListItems(items) {
+    const list = document.getElementById('assistentePromptsList');
+    if (!list) return;
+    const rows = Array.isArray(items) ? items : [];
+    const canManage = canManageAssistentePrompts();
+    if (!rows.length) {
+        list.innerHTML = '<div class="assistente-prompt-empty">Nenhum prompt salvo encontrado para este filtro.</div>';
+        return;
+    }
+    list.innerHTML = rows.map((item) => {
+        const id = Number(item?.id || 0);
+        const titulo = escapeHtml(String(item?.titulo || 'Prompt sem título'));
+        const conteudo = escapeHtml(String(item?.conteudo_prompt || ''));
+        const categoria = escapeHtml(getPromptCategoriaLabel(item?.categoria));
+        const favorito = !!item?.favorito;
+        const uso = Number(item?.uso_count || 0);
+        const btnFavLabel = favorito ? 'Desfavoritar' : 'Favoritar';
+        return `
+            <article class="assistente-prompt-item" role="listitem">
+                <div class="assistente-prompt-item-top">
+                    <span class="assistente-prompt-item-title">${titulo}</span>
+                    <span class="assistente-prompt-item-chip">${categoria}</span>
+                </div>
+                <p class="assistente-prompt-item-body">${conteudo}</p>
+                <div class="assistente-prompt-item-footer">
+                    <small>Uso: ${uso}</small>
+                    <div class="assistente-prompt-item-actions">
+                        <button type="button" class="btn btn-secondary btn-xs" data-assistente-prompt-action="usar" data-prompt-id="${id}">Usar</button>
+                        <button type="button" class="btn btn-ghost btn-xs" data-assistente-prompt-action="favoritar" data-prompt-id="${id}" data-next-favorito="${favorito ? '0' : '1'}">${btnFavLabel}</button>
+                        ${canManage ? `<button type="button" class="btn btn-ghost btn-xs" data-assistente-prompt-action="editar" data-prompt-id="${id}">Editar</button>` : ''}
+                        ${canManage ? `<button type="button" class="btn btn-ghost btn-xs btn-danger-text" data-assistente-prompt-action="excluir" data-prompt-id="${id}">Excluir</button>` : ''}
+                    </div>
+                </div>
+            </article>
+        `;
+    }).join('');
+}
+
+function syncAssistentePromptEditorVisibility() {
+    const editor = document.getElementById('assistentePromptsEditor');
+    if (editor) editor.style.display = canManageAssistentePrompts() ? '' : 'none';
+}
+
+function clearAssistentePromptEditor() {
+    _assistentePromptDraftId = null;
+    const titulo = document.getElementById('assistentePromptTituloInput');
+    const categoria = document.getElementById('assistentePromptCategoriaInput');
+    const conteudo = document.getElementById('assistentePromptConteudoInput');
+    const favorito = document.getElementById('assistentePromptFavoritoInput');
+    const saveBtn = document.getElementById('btnAssistentePromptSalvar');
+    if (titulo) titulo.value = '';
+    if (categoria) categoria.value = 'ranking';
+    if (conteudo) conteudo.value = '';
+    if (favorito) favorito.checked = false;
+    if (saveBtn) saveBtn.textContent = 'Salvar prompt';
+}
+
+function fillAssistentePromptEditor(item) {
+    if (!item) return;
+    _assistentePromptDraftId = Number(item.id);
+    const titulo = document.getElementById('assistentePromptTituloInput');
+    const categoria = document.getElementById('assistentePromptCategoriaInput');
+    const conteudo = document.getElementById('assistentePromptConteudoInput');
+    const favorito = document.getElementById('assistentePromptFavoritoInput');
+    const saveBtn = document.getElementById('btnAssistentePromptSalvar');
+    if (titulo) titulo.value = item.titulo || '';
+    if (categoria) categoria.value = item.categoria || 'ranking';
+    if (conteudo) conteudo.value = item.conteudo_prompt || '';
+    if (favorito) favorito.checked = !!item.favorito;
+    if (saveBtn) saveBtn.textContent = 'Atualizar prompt';
+}
+
+function getAssistentePromptFilters() {
+    const categoria = document.getElementById('assistentePromptCategoriaFiltro')?.value || '';
+    const q = document.getElementById('assistentePromptBusca')?.value || '';
+    return { categoria: categoria.trim(), q: q.trim() };
+}
+
+function buildAssistentePromptQuery(params = {}) {
+    const usp = new URLSearchParams();
+    const categoria = String(params.categoria || '').trim();
+    const q = String(params.q || '').trim();
+    if (categoria) usp.set('categoria', categoria);
+    if (q) usp.set('q', q);
+    if (params.cursor) usp.set('cursor', String(params.cursor));
+    usp.set('limit', String(params.limit || _assistentePromptListState.limit || 20));
+    return usp.toString();
+}
+
+async function loadAssistentePromptLibrary(options = {}) {
+    if (!hasHttpClient() || typeof httpClient.get !== 'function') return;
+    const append = !!options.append;
+    const filters = getAssistentePromptFilters();
+    const query = buildAssistentePromptQuery({
+        categoria: filters.categoria,
+        q: filters.q,
+        cursor: append ? _assistentePromptListState.nextCursor : null,
+        limit: _assistentePromptListState.limit,
+    });
+    setAssistentePromptsLoading(true);
+    showAssistentePromptsNotice(append ? 'Carregando mais prompts...' : 'Carregando prompts...');
+    try {
+        const response = normalizeAssistenteApiEnvelope(await httpClient.get(`/ai/assistente/prompts?${query}`));
+        if (!response.success) {
+            throw new Error(response.error || 'Não foi possível carregar os prompts.');
+        }
+        const data = response.data || {};
+        const incomingItems = Array.isArray(data.items) ? data.items : [];
+        const currentItems = append ? _assistentePromptCache : [];
+        const mergedItems = append ? [...currentItems, ...incomingItems] : incomingItems;
+        _assistentePromptCache = mergedItems;
+        renderAssistentePromptListItems(mergedItems);
+        _assistentePromptListState.hasMore = !!data.has_more;
+        _assistentePromptListState.nextCursor = data.next_cursor || null;
+        const loadMoreBtn = document.getElementById('btnAssistentePromptsLoadMore');
+        if (loadMoreBtn) {
+            loadMoreBtn.style.display = _assistentePromptListState.hasMore ? '' : 'none';
+        }
+        showAssistentePromptsNotice(`${mergedItems.length} prompt(s) carregado(s).`);
+    } catch (e) {
+        showAssistentePromptsNotice(e.message || 'Falha ao carregar prompts.', true);
+    } finally {
+        setAssistentePromptsLoading(false);
+    }
+}
+
+function getAssistentePromptById(promptId) {
+    return _assistentePromptCache.find((item) => Number(item?.id) === Number(promptId)) || null;
+}
+
+async function saveAssistentePromptLibraryItem() {
+    if (!hasHttpClient()) return;
+    if (!canManageAssistentePrompts()) {
+        showAssistentePromptsNotice('Somente gestor/admin pode salvar prompts.', true);
+        return;
+    }
+    const titulo = document.getElementById('assistentePromptTituloInput')?.value || '';
+    const categoria = document.getElementById('assistentePromptCategoriaInput')?.value || '';
+    const conteudo = document.getElementById('assistentePromptConteudoInput')?.value || '';
+    const favorito = !!document.getElementById('assistentePromptFavoritoInput')?.checked;
+    const payload = {
+        titulo: titulo.trim(),
+        categoria: categoria.trim(),
+        conteudo_prompt: conteudo.trim(),
+        favorito,
+    };
+    if (!payload.titulo || !payload.conteudo_prompt || !payload.categoria) {
+        showAssistentePromptsNotice('Preencha título, categoria e prompt.', true);
+        return;
+    }
+    const saveBtn = document.getElementById('btnAssistentePromptSalvar');
+    if (saveBtn) saveBtn.disabled = true;
+    showAssistentePromptsNotice(_assistentePromptDraftId ? 'Atualizando prompt...' : 'Salvando prompt...');
+    try {
+        const endpoint = _assistentePromptDraftId
+            ? `/ai/assistente/prompts/${_assistentePromptDraftId}`
+            : '/ai/assistente/prompts';
+        const method = _assistentePromptDraftId ? 'patch' : 'post';
+        const response = normalizeAssistenteApiEnvelope(await httpClient[method](endpoint, payload));
+        if (!response.success) throw new Error(response.error || 'Falha ao salvar prompt.');
+        clearAssistentePromptEditor();
+        await loadAssistentePromptLibrary({ append: false });
+        showAssistentePromptsNotice('Prompt salvo com sucesso.');
+    } catch (e) {
+        showAssistentePromptsNotice(e.message || 'Falha ao salvar prompt.', true);
+    } finally {
+        if (saveBtn) saveBtn.disabled = false;
+    }
+}
+
+async function deleteAssistentePromptLibraryItem(promptId) {
+    if (!hasHttpClient()) return;
+    if (!canManageAssistentePrompts()) {
+        showAssistentePromptsNotice('Somente gestor/admin pode excluir prompts.', true);
+        return;
+    }
+    try {
+        const response = normalizeAssistenteApiEnvelope(await httpClient.delete(`/ai/assistente/prompts/${promptId}`));
+        if (!response.success) throw new Error(response.error || 'Falha ao excluir prompt.');
+        if (_assistentePromptDraftId && Number(_assistentePromptDraftId) === Number(promptId)) {
+            clearAssistentePromptEditor();
+        }
+        await loadAssistentePromptLibrary({ append: false });
+        showAssistentePromptsNotice('Prompt removido com sucesso.');
+    } catch (e) {
+        showAssistentePromptsNotice(e.message || 'Falha ao excluir prompt.', true);
+    }
+}
+
+async function toggleAssistentePromptFavorite(promptId, nextFavorito) {
+    if (!hasHttpClient()) return;
+    const response = normalizeAssistenteApiEnvelope(await httpClient.patch(`/ai/assistente/prompts/${promptId}`, {
+        favorito: !!Number(nextFavorito),
+    }));
+    if (!response.success) {
+        throw new Error(response.error || 'Falha ao atualizar favorito.');
+    }
+    await loadAssistentePromptLibrary({ append: false });
+}
+
+async function useAssistentePromptLibraryItem(promptId) {
+    const prompt = getAssistentePromptById(promptId);
+    if (!prompt) {
+        showAssistentePromptsNotice('Prompt não encontrado.', true);
+        return;
+    }
+    const input = document.getElementById('messageInput');
+    if (input) {
+        input.value = prompt.conteudo_prompt || '';
+        resizeMessageInput();
+        input.focus();
+    }
+    try {
+        if (hasHttpClient() && typeof httpClient.post === 'function') {
+            await httpClient.post(`/ai/assistente/prompts/${promptId}/usar`, {});
+        }
+    } catch (_) {
+        // Não bloquear uso do prompt por falha de telemetria.
+    }
+    showAssistentePromptsNotice('Prompt aplicado no campo de mensagem.');
+}
+
+async function handleAssistentePromptLibraryAction(action, promptId, extra = {}) {
+    if (!action) return;
+    if (action === 'usar') {
+        await useAssistentePromptLibraryItem(promptId);
+        return;
+    }
+    if (action === 'editar') {
+        const prompt = getAssistentePromptById(promptId);
+        if (!prompt) return;
+        fillAssistentePromptEditor(prompt);
+        showAssistentePromptsNotice('Modo de edição ativo.');
+        return;
+    }
+    if (action === 'excluir') {
+        await deleteAssistentePromptLibraryItem(promptId);
+        return;
+    }
+    if (action === 'favoritar') {
+        try {
+            await toggleAssistentePromptFavorite(promptId, extra.nextFavorito);
+            showAssistentePromptsNotice('Favorito atualizado.');
+        } catch (e) {
+            showAssistentePromptsNotice(e.message || 'Falha ao atualizar favorito.', true);
+        }
+    }
+}
+
 function renderAssistentePreferencesCard(prefData) {
     const resumo = document.getElementById('assistentePreferenciasResumo');
     const setorTag = document.getElementById('assistenteSetorTag');
@@ -137,6 +426,7 @@ function renderAssistentePreferencesCard(prefData) {
             : 'Somente gestor/admin pode editar instruções da empresa.'
     );
     syncAssistenteGearSavedBadge(prefData || {});
+    syncAssistentePromptEditorVisibility();
 }
 
 async function loadAssistentePreferences() {
@@ -144,8 +434,10 @@ async function loadAssistentePreferences() {
     try {
         const data = await httpClient.get('/ai/assistente/preferencias');
         renderAssistentePreferencesCard(data || {});
+        await loadAssistentePromptLibrary({ append: false });
     } catch (e) {
         showAssistentePrefNotice('Não foi possível carregar preferências agora.', true);
+        showAssistentePromptsNotice('Não foi possível carregar prompts agora.', true);
     }
 }
 
@@ -544,6 +836,36 @@ async function sendMessage() {
            tool_trace: metadata ? (metadata.tool_trace || null) : null,
         };
 
+        const semanticContract = (
+            (metadata && metadata.dados && metadata.dados.semantic_contract)
+            || (metadata && metadata.semantic_contract)
+            || null
+        );
+        if (semanticContract && typeof semanticContract === 'object') {
+            finalData.semantic_contract = semanticContract;
+            if ((!finalData.resposta || !String(finalData.resposta).trim()) && semanticContract.summary) {
+                finalData.resposta = String(semanticContract.summary);
+            }
+            if (
+                !finalData.grafico
+                && semanticContract.chart
+                && Array.isArray(semanticContract.chart.labels)
+                && Array.isArray(semanticContract.chart.datasets)
+            ) {
+                finalData.grafico = {
+                    tipo: semanticContract.chart.type || 'bar',
+                    dados: {
+                        labels: semanticContract.chart.labels,
+                        datasets: semanticContract.chart.datasets,
+                    },
+                };
+            }
+            finalData.dados = {
+                ...(finalData.dados || {}),
+                semantic_contract: semanticContract,
+            };
+        }
+
         if (debugUi) {
             finalData.debug_ui = {
                 url: fetchUrl,
@@ -657,3 +979,7 @@ async function sendMessage() {
 window.sendMessage = sendMessage;
 window.buildAssistenteErrorCard = buildAssistenteErrorCard;
 window.isRetryableAssistenteError = isRetryableAssistenteError;
+window.loadAssistentePromptLibrary = loadAssistentePromptLibrary;
+window.clearAssistentePromptEditor = clearAssistentePromptEditor;
+window.saveAssistentePromptLibraryItem = saveAssistentePromptLibraryItem;
+window.handleAssistentePromptLibraryAction = handleAssistentePromptLibraryAction;

@@ -5,6 +5,7 @@ import asyncio
 import json
 import sys
 import types
+from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 
@@ -24,6 +25,7 @@ if "litellm" not in sys.modules:
     sys.modules["litellm"] = litellm_stub
 
 from app.services import cotte_ai_hub, ia_service as ia_service_module
+from app.services import assistant_engine_registry
 from app.services.ai_tools import REGISTRY
 from app.services.ai_tools._base import ToolSpec
 from app.services.cotte_context_builder import SessionStore
@@ -82,6 +84,19 @@ def _run_stream(coro):
     return asyncio.get_event_loop().run_until_complete(_collect())
 
 
+def _allow_mock_tools(monkeypatch, *tool_names: str):
+    policy = assistant_engine_registry.ENGINE_POLICIES[assistant_engine_registry.ENGINE_OPERATIONAL]
+    updated = replace(
+        policy,
+        allowed_tools=tuple(dict.fromkeys(policy.allowed_tools + tuple(tool_names))),
+    )
+    monkeypatch.setitem(
+        assistant_engine_registry.ENGINE_POLICIES,
+        assistant_engine_registry.ENGINE_OPERATIONAL,
+        updated,
+    )
+
+
 def _fake_response(*, content=None, tool_calls=None, finish="stop"):
     return {
         "choices": [
@@ -138,6 +153,7 @@ def test_loop_com_tool_call_e_resposta_final(db, monkeypatch):
         return _fake_response(content="resultado: ping", finish="stop")
 
     monkeypatch.setattr(ia_service_module.ia_service, "chat", fake_chat)
+    _allow_mock_tools(monkeypatch, "mock_echo")
 
     out = _run(
         cotte_ai_hub.assistente_unificado_v2(
@@ -179,6 +195,7 @@ def test_loop_pending_action_interrompe(db, monkeypatch):
             )
 
         monkeypatch.setattr(ia_service_module.ia_service, "chat", fake_chat)
+        _allow_mock_tools(monkeypatch, "mock_destr")
 
         out = _run(
             cotte_ai_hub.assistente_unificado_v2(
@@ -257,6 +274,10 @@ def test_stream_evento_final_exige_final_text(db, monkeypatch):
         assert evt["final_text"].strip() != ""
         metadata = evt.get("metadata") or {}
         assert metadata.get("final_text") == evt["final_text"]
+        dados = metadata.get("dados") or {}
+        semantic = dados.get("semantic_contract") or {}
+        assert semantic.get("summary") == evt["final_text"]
+        assert "table" in semantic
 
 
 def test_v2_excel_chart_capability_fallback_sem_llm(db, monkeypatch):
@@ -279,6 +300,32 @@ def test_v2_excel_chart_capability_fallback_sem_llm(db, monkeypatch):
     assert out.sucesso is True
     assert "não gero arquivo Excel" in (out.resposta or "")
     assert (out.dados or {}).get("capability") == "excel_nao_suportado"
+
+
+def test_v2_ranking_clientes_capability_fallback_sem_llm(db, monkeypatch):
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+
+    async def fake_chat(*args, **kwargs):
+        raise AssertionError("LLM não deve ser chamado no fallback de ranking de clientes")
+
+    monkeypatch.setattr(ia_service_module.ia_service, "chat", fake_chat)
+
+    out = _run(
+        cotte_ai_hub.assistente_unificado_v2(
+            mensagem=(
+                "Monte um ranking dos 10 clientes com maior faturamento no mês atual, "
+                "com ticket médio e variação vs mês anterior."
+            ),
+            sessao_id="sess-capability-ranking-clientes",
+            db=db,
+            current_user=user,
+        )
+    )
+    assert out.sucesso is True
+    assert "Atualmente, não há uma ferramenta disponível" in (out.resposta or "")
+    assert "ticket médio e a variação em relação ao mês anterior manualmente" in (out.resposta or "")
+    assert (out.dados or {}).get("capability") == "ranking_clientes_indisponivel"
 
 
 def test_stream_grafico_financeiro_retorna_metadata_grafico(db, monkeypatch):
@@ -338,6 +385,10 @@ def test_stream_grafico_financeiro_retorna_metadata_grafico(db, monkeypatch):
     assert metadata.get("tipo") == "financeiro"
     assert metadata.get("grafico") is not None
     assert (metadata.get("grafico") or {}).get("dados")
+    semantic = (metadata.get("dados") or {}).get("semantic_contract") or {}
+    assert semantic.get("summary")
+    assert isinstance(semantic.get("table"), list)
+    assert isinstance((semantic.get("chart") or {}).get("datasets", []), list)
     tools = metadata.get("tool_trace") or []
     tool_names = [t.get("tool") for t in tools]
     assert "listar_movimentacoes_financeiras" in tool_names
