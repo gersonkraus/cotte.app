@@ -189,6 +189,46 @@ def pop_pending(token: str) -> Optional[dict[str, Any]]:
 _TOOL_CACHE: dict[tuple[int, str, str], tuple[dict[str, Any], datetime]] = {}
 _CACHE_MAX_ENTRIES = 512  # soft cap — evita crescimento indefinido
 
+# ── Idempotência de envios críticos ───────────────────────────────────────
+# Protege contra reenvio duplicado acidental (ex.: retry/duplo clique no fluxo).
+_SEND_TOOLS = {"enviar_orcamento_whatsapp", "enviar_orcamento_email"}
+_SEND_IDEMPOTENCY: dict[tuple[int, str, str], tuple[dict[str, Any], datetime]] = {}
+
+
+def _send_idempotency_ttl() -> int:
+    try:
+        return max(30, int(os.getenv("TOOL_SEND_IDEMPOTENCY_TTL_SECONDS", "300")))
+    except Exception:
+        return 300
+
+
+def _send_idempotency_get(
+    empresa_id: Optional[int], tool_name: str, args: dict[str, Any]
+) -> Optional[dict[str, Any]]:
+    if empresa_id is None:
+        return None
+    key = (empresa_id, tool_name, _args_hash(args))
+    rec = _SEND_IDEMPOTENCY.get(key)
+    if rec is None:
+        return None
+    data, exp = rec
+    if exp < datetime.now(timezone.utc):
+        _SEND_IDEMPOTENCY.pop(key, None)
+        return None
+    return data
+
+
+def _send_idempotency_put(
+    empresa_id: Optional[int], tool_name: str, args: dict[str, Any], data: dict[str, Any]
+) -> None:
+    if empresa_id is None:
+        return
+    key = (empresa_id, tool_name, _args_hash(args))
+    _SEND_IDEMPOTENCY[key] = (
+        data,
+        datetime.now(timezone.utc) + timedelta(seconds=_send_idempotency_ttl()),
+    )
+
 
 def _cache_prune() -> None:
     now = datetime.now(timezone.utc)
@@ -460,6 +500,30 @@ async def execute(
 
     args_dict = _normalize_tool_args(name, args_dict)
 
+    if name in _SEND_TOOLS:
+        replay = _send_idempotency_get(current_user.empresa_id, name, args_dict)
+        if replay is not None:
+            payload = dict(replay)
+            payload["idempotent_replay"] = True
+            result = ToolResult(
+                status="ok",
+                data=payload,
+                code="idempotent_replay",
+                latencia_ms=int((time.perf_counter() - t0) * 1000),
+                tool_name=name,
+            )
+            _log(
+                db,
+                empresa_id=current_user.empresa_id,
+                usuario_id=current_user.id,
+                sessao_id=sessao_id,
+                request_id=request_id,
+                tool=name,
+                args=args_dict,
+                result=result,
+            )
+            return result
+
     try:
         validated = spec.input_model(**args_dict)
     except ValidationError as e:
@@ -491,6 +555,30 @@ async def execute(
                 status="forbidden",
                 error=str(e.detail),
                 code="forbidden",
+                latencia_ms=int((time.perf_counter() - t0) * 1000),
+            )
+            _log(
+                db,
+                empresa_id=current_user.empresa_id,
+                usuario_id=current_user.id,
+                sessao_id=sessao_id,
+                request_id=request_id,
+                tool=name,
+                args=args_dict,
+                result=result,
+            )
+            return result
+
+    # 3.1 Idempotência para envios críticos (retorna replay sem reexecutar)
+    if name in _SEND_TOOLS:
+        replay = _send_idempotency_get(current_user.empresa_id, name, args_dict)
+        if replay is not None:
+            payload = dict(replay)
+            payload["idempotent_replay"] = True
+            result = ToolResult(
+                status="ok",
+                data=payload,
+                code="idempotent_replay",
                 latencia_ms=int((time.perf_counter() - t0) * 1000),
             )
             _log(
@@ -559,6 +647,13 @@ async def execute(
                     "args": args_dict,
                     "description": spec.description,
                     "confirmation_token": token,
+                    "confirmation_required": True,
+                    "action_category": (
+                        "envio" if name in _SEND_TOOLS else "mutacao"
+                    ),
+                    "idempotency_window_seconds": (
+                        _send_idempotency_ttl() if name in _SEND_TOOLS else None
+                    ),
                     "extras": extras,
                 },
                 latencia_ms=int((time.perf_counter() - t0) * 1000),
@@ -605,6 +700,10 @@ async def execute(
                     args_dict,
                     result.data,
                     spec.cacheable_ttl,
+                )
+            if name in _SEND_TOOLS and isinstance(result.data, dict):
+                _send_idempotency_put(
+                    current_user.empresa_id, name, args_dict, result.data
                 )
     except HTTPException as e:
         result = ToolResult(
@@ -742,6 +841,32 @@ async def execute_pending(
                 args_dict[k] = v
     args_dict = _normalize_tool_args(name, args_dict)
 
+    # Replays de envios críticos também devem ser idempotentes no caminho
+    # de confirmação direta por token (evita duplo envio com tokens duplicados).
+    if name in _SEND_TOOLS:
+        replay = _send_idempotency_get(current_user.empresa_id, name, args_dict)
+        if replay is not None:
+            payload = dict(replay)
+            payload["idempotent_replay"] = True
+            result = ToolResult(
+                status="ok",
+                data=payload,
+                code="idempotent_replay",
+                latencia_ms=int((time.perf_counter() - t0) * 1000),
+                tool_name=name,
+            )
+            _log(
+                db,
+                empresa_id=current_user.empresa_id,
+                usuario_id=current_user.id,
+                sessao_id=sessao_id,
+                request_id=request_id,
+                tool=name,
+                args=args_dict,
+                result=result,
+            )
+            return result
+
     spec = REGISTRY.get(name)
     if spec is None:
         result = ToolResult(
@@ -803,6 +928,10 @@ async def execute_pending(
                 latencia_ms=int((time.perf_counter() - t0) * 1000),
                 tool_name=name,
             )
+            if name in _SEND_TOOLS and isinstance(result.data, dict):
+                _send_idempotency_put(
+                    current_user.empresa_id, name, args_dict, result.data
+                )
     except HTTPException as e:
         result = ToolResult(
             status="forbidden" if e.status_code == 403 else "erro",

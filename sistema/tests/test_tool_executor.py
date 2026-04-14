@@ -18,7 +18,12 @@ class _PingInput(BaseModel):
     msg: str = Field(min_length=1, max_length=50)
 
 
+_PING_CALLS = 0
+
+
 async def _ping_handler(inp: _PingInput, *, db, current_user):
+    global _PING_CALLS
+    _PING_CALLS += 1
     return {"pong": inp.msg, "user": current_user.id}
 
 
@@ -136,6 +141,8 @@ def test_destrutiva_sem_token_emite_pending(db):
     )
     assert res.status == "pending"
     assert res.pending_action and res.pending_action.get("confirmation_token")
+    assert res.pending_action.get("confirmation_required") is True
+    assert res.pending_action.get("action_category") == "mutacao"
 
 
 def test_destrutiva_com_token_executa(db):
@@ -205,3 +212,65 @@ def test_normalize_listar_orcamentos_dias_limite_e_ontem_hoje():
     assert n["status"] == "APROVADO"
     assert len(str(n["aprovado_em_de"])) == 10
     assert len(str(n["aprovado_em_ate"])) == 10
+
+
+def test_idempotencia_envio_replay_sem_reexecutar(db):
+    user = _make_user(db)
+    tool_executor._SEND_TOOLS.add("mock_write")
+    try:
+        args = {"msg": "dup"}
+        first = _run(tool_executor.execute(_tc("mock_write", args), db=db, current_user=user))
+        token = first.pending_action["confirmation_token"]
+        second = _run(
+            tool_executor.execute(
+                _tc("mock_write", args),
+                db=db,
+                current_user=user,
+                confirmation_token=token,
+            )
+        )
+        assert second.status == "ok"
+        third = _run(tool_executor.execute(_tc("mock_write", args), db=db, current_user=user))
+        assert third.status == "ok"
+        assert third.data.get("idempotent_replay") is True
+        assert third.code == "idempotent_replay"
+    finally:
+        tool_executor._SEND_TOOLS.discard("mock_write")
+
+
+def test_execute_pending_idempotencia_envio_com_tokens_duplicados(db):
+    user = _make_user(db)
+    tool_executor._SEND_TOOLS.add("mock_write")
+    global _PING_CALLS
+    _PING_CALLS = 0
+    try:
+        args = {"msg": "dup-pending"}
+        pending_a = _run(tool_executor.execute(_tc("mock_write", args), db=db, current_user=user))
+        pending_b = _run(tool_executor.execute(_tc("mock_write", args), db=db, current_user=user))
+        assert pending_a.status == "pending"
+        assert pending_b.status == "pending"
+
+        token_a = pending_a.pending_action["confirmation_token"]
+        token_b = pending_b.pending_action["confirmation_token"]
+
+        first_confirm = _run(
+            tool_executor.execute_pending(
+                token_a,
+                db=db,
+                current_user=user,
+            )
+        )
+        second_confirm = _run(
+            tool_executor.execute_pending(
+                token_b,
+                db=db,
+                current_user=user,
+            )
+        )
+        assert first_confirm.status == "ok"
+        assert second_confirm.status == "ok"
+        assert second_confirm.code == "idempotent_replay"
+        assert second_confirm.data.get("idempotent_replay") is True
+        assert _PING_CALLS == 1
+    finally:
+        tool_executor._SEND_TOOLS.discard("mock_write")

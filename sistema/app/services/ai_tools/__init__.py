@@ -11,7 +11,7 @@ Uso típico no loop do assistente_unificado_v2:
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Iterable
 
 from ._base import ToolSpec
 from .agendamento_tools import (
@@ -38,6 +38,7 @@ from .financeiro_tools import (
     registrar_pagamento_recebivel,
 )
 from .log_tools import analisar_tool_logs
+from .sql_analytics_tools import executar_sql_analitico
 from .orcamento_tools import (
     anexar_documento_orcamento,
     aprovar_orcamento,
@@ -52,10 +53,52 @@ from .orcamento_tools import (
     recusar_orcamento,
 )
 
+TOOL_DOMAIN_MAP: dict[str, str] = {
+    # orcamentos
+    "listar_orcamentos": "orcamentos",
+    "obter_orcamento": "orcamentos",
+    "criar_orcamento": "orcamentos",
+    "duplicar_orcamento": "orcamentos",
+    "editar_orcamento": "orcamentos",
+    "editar_item_orcamento": "orcamentos",
+    "aprovar_orcamento": "orcamentos",
+    "recusar_orcamento": "orcamentos",
+    "enviar_orcamento_whatsapp": "orcamentos",
+    "enviar_orcamento_email": "orcamentos",
+    "anexar_documento_orcamento": "orcamentos",
+    # financeiro
+    "obter_saldo_caixa": "financeiro",
+    "listar_movimentacoes_financeiras": "financeiro",
+    "criar_movimentacao_financeira": "financeiro",
+    "registrar_pagamento_recebivel": "financeiro",
+    "listar_despesas": "financeiro",
+    "criar_despesa": "financeiro",
+    "marcar_despesa_paga": "financeiro",
+    "criar_parcelamento": "financeiro",
+    # clientes
+    "listar_clientes": "clientes",
+    "criar_cliente": "clientes",
+    "editar_cliente": "clientes",
+    "excluir_cliente": "clientes",
+    # catalogo
+    "listar_materiais": "catalogo",
+    "cadastrar_material": "catalogo",
+    # agendamentos
+    "listar_agendamentos": "agendamentos",
+    "criar_agendamento": "agendamentos",
+    "cancelar_agendamento": "agendamentos",
+    "remarcar_agendamento": "agendamentos",
+    # auditoria
+    "analisar_tool_logs": "auditoria",
+    # analitica
+    "executar_sql_analitico": "analitica",
+}
+
 # Ordem importa apenas para introspecção/debug.
 _ALL_TOOLS: list[ToolSpec] = [
     # leitura
     analisar_tool_logs,
+    executar_sql_analitico,
     obter_saldo_caixa,
     listar_movimentacoes_financeiras,
     listar_orcamentos,
@@ -96,8 +139,35 @@ def openai_tools_payload() -> list[dict[str, Any]]:
     return [t.openai_schema() for t in _ALL_TOOLS]
 
 
+def operational_tool_catalog(
+    *, allowed_tools: Iterable[str] | None = None
+) -> dict[str, list[dict[str, Any]]]:
+    """Agrupa tools por domínio operacional para catálogo auditável.
+
+    Quando `allowed_tools` é informado, limita o catálogo a esse subconjunto.
+    """
+    allowed = {name for name in (allowed_tools or []) if name}
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for tool in _ALL_TOOLS:
+        if allowed and tool.name not in allowed:
+            continue
+        domain = TOOL_DOMAIN_MAP.get(tool.name, "outros")
+        grouped.setdefault(domain, []).append(
+            {
+                "name": tool.name,
+                "description": tool.description,
+                "destrutiva": bool(tool.destrutiva),
+                "permissao_recurso": tool.permissao_recurso,
+                "permissao_acao": tool.permissao_acao,
+            }
+        )
+    return grouped
+
+
 __all__ = [
     "REGISTRY",
     "ToolSpec",
     "openai_tools_payload",
+    "operational_tool_catalog",
+    "TOOL_DOMAIN_MAP",
 ]
