@@ -14,7 +14,7 @@ import re
 import hashlib
 import logging
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from typing import Optional, Any, Literal
 
@@ -122,13 +122,17 @@ class SimpleCache:
         self._cache = {}
         self._ttl = ttl_seconds
 
-    def _generate_key(self, modulo: str, mensagem: str) -> str:
+    def _generate_key(
+        self, modulo: str, mensagem: str, empresa_id: Optional[int] = None
+    ) -> str:
         """Gera chave única baseada no conteúdo"""
-        content = f"{modulo}:{mensagem.lower().strip()}"
+        content = f"{empresa_id or 0}:{modulo}:{mensagem.lower().strip()}"
         return hashlib.md5(content.encode()).hexdigest()
 
-    def get(self, modulo: str, mensagem: str) -> Optional[AIResponse]:
-        key = self._generate_key(modulo, mensagem)
+    def get(
+        self, modulo: str, mensagem: str, empresa_id: Optional[int] = None
+    ) -> Optional[AIResponse]:
+        key = self._generate_key(modulo, mensagem, empresa_id)
         if key in self._cache:
             entry = self._cache[key]
             if datetime.now() < entry["expires_at"]:
@@ -137,8 +141,14 @@ class SimpleCache:
             del self._cache[key]
         return None
 
-    def set(self, modulo: str, mensagem: str, response: AIResponse):
-        key = self._generate_key(modulo, mensagem)
+    def set(
+        self,
+        modulo: str,
+        mensagem: str,
+        response: AIResponse,
+        empresa_id: Optional[int] = None,
+    ):
+        key = self._generate_key(modulo, mensagem, empresa_id)
         self._cache[key] = {
             "data": response,
             "expires_at": datetime.now() + timedelta(seconds=self._ttl),
@@ -852,8 +862,12 @@ class CotteAIHub:
             )
 
         # ── Verificar Cache ─────────────────────────────────────────────────
+        empresa_id_ctx = None
+        if isinstance(contexto, dict):
+            empresa_id_ctx = contexto.get("empresa_id")
+
         if usar_cache:
-            cached = self.cache.get(modulo, mensagem_limpa)
+            cached = self.cache.get(modulo, mensagem_limpa, empresa_id=empresa_id_ctx)
             if cached:
                 return cached
 
@@ -967,7 +981,9 @@ class CotteAIHub:
 
         # ── Salvar no Cache ─────────────────────────────────────────────────
         if usar_cache and sucesso and confianca_final >= 0.7:
-            self.cache.set(modulo, mensagem_limpa, resultado)
+            self.cache.set(
+                modulo, mensagem_limpa, resultado, empresa_id=empresa_id_ctx
+            )
 
         # Log do processamento
         logger.info(
@@ -1171,7 +1187,10 @@ async def executar_comando_operador_ia(
     from app.models.models import Orcamento, StatusOrcamento, HistoricoEdicao
     from app.services.ia_service import interpretar_comando_operador
     from app.services import financeiro_service
-    from app.services.quote_notification_service import handle_quote_status_changed
+    from app.services.quote_notification_service import (
+        ensure_quote_approval_metadata,
+        handle_quote_status_changed,
+    )
     import sqlalchemy as _sa
 
     cmd = await interpretar_comando_operador(mensagem)
@@ -1289,6 +1308,7 @@ async def executar_comando_operador_ia(
             )
         old_status = orc.status
         orc.status = StatusOrcamento.APROVADO
+        ensure_quote_approval_metadata(orc, source="ia")
         from app.utils.orcamento_utils import renomear_numero_aprovado
 
         renomear_numero_aprovado(orc)
@@ -1690,14 +1710,30 @@ async def assistente_unificado(
 
         # Filtrar sugestões já vistas para evitar repetição
         sugestoes_novas = SessionStore.filter_new_suggestions(
-            sessao_id, sugestoes_originais
+            sessao_id,
+            sugestoes_originais,
+            empresa_id=empresa_id,
+            usuario_id=usuario_id,
         )
         if sugestoes_novas:
-            SessionStore.add_seen_suggestions(sessao_id, sugestoes_novas)
+            SessionStore.add_seen_suggestions(
+                sessao_id,
+                sugestoes_novas,
+                empresa_id=empresa_id,
+                usuario_id=usuario_id,
+            )
 
         # 6. Persistir turno (mensagem limpa, sem o bloco de dados)
-        SessionStore.append(sessao_id, "user", mensagem)
-        SessionStore.append(sessao_id, "assistant", resposta_texto)
+        SessionStore.append(
+            sessao_id, "user", mensagem, empresa_id=empresa_id, usuario_id=usuario_id
+        )
+        SessionStore.append(
+            sessao_id,
+            "assistant",
+            resposta_texto,
+            empresa_id=empresa_id,
+            usuario_id=usuario_id,
+        )
 
         return AIResponse(
             sucesso=True,
@@ -1729,6 +1765,7 @@ async def assistente_v2_stream_core(
     sessao_id: str,
     db,
     current_user,
+    request_id: str | None = None,
     confirmation_token: str | None = None,
     override_args: dict | None = None,
 ):
@@ -1762,7 +1799,14 @@ async def assistente_v2_stream_core(
             "Consigo te entregar os dados e o gráfico financeiro aqui no assistente, "
             "e você exporta para planilha com segurança."
         )
-        SessionStore.append_db(sessao_id, "assistant", final_text, db)
+        SessionStore.append_db(
+            sessao_id,
+            "assistant",
+            final_text,
+            db,
+            empresa_id=getattr(current_user, "empresa_id", 0),
+            usuario_id=getattr(current_user, "id", 0),
+        )
         yield _enc({"phase": "thinking"})
         yield _enc({"chunk": final_text})
         yield _enc(
@@ -1838,7 +1882,14 @@ async def assistente_v2_stream_core(
                 final_text += f" Saldo atual: R$ {float(saldo_atual):,.2f}."
         else:
             final_text = f"Não encontrei movimentações suficientes para montar o gráfico dos últimos {dias} dias."
-        SessionStore.append_db(sessao_id, "assistant", final_text, db)
+        SessionStore.append_db(
+            sessao_id,
+            "assistant",
+            final_text,
+            db,
+            empresa_id=getattr(current_user, "empresa_id", 0),
+            usuario_id=getattr(current_user, "id", 0),
+        )
         yield _enc({"chunk": final_text})
         yield _enc(
             {
@@ -1879,6 +1930,7 @@ async def assistente_v2_stream_core(
                 db=db,
                 current_user=current_user,
                 sessao_id=sessao_id,
+                request_id=request_id,
                 override_args=override_args or {},
             )
         except Exception as exc:
@@ -1923,7 +1975,14 @@ async def assistente_v2_stream_core(
         tool_trace_fpath = [{"tool": "(confirmação)", "status": status}]
         for word in final_text.split(" "):
             yield _enc({"chunk": word + " "})
-        SessionStore.append_db(sessao_id, "assistant", final_text, db)
+        SessionStore.append_db(
+            sessao_id,
+            "assistant",
+            final_text,
+            db,
+            empresa_id=getattr(current_user, "empresa_id", 0),
+            usuario_id=getattr(current_user, "id", 0),
+        )
         yield _enc(
             {
                 "is_final": True,
@@ -1959,10 +2018,18 @@ async def assistente_v2_stream_core(
         empresa_id=empresa_id,
         usuario_id=usuario_id,
     )
-    SessionStore.append_db(sessao_id, "user", mensagem, db)
+    SessionStore.append_db(
+        sessao_id,
+        "user",
+        mensagem,
+        db,
+        empresa_id=empresa_id,
+        usuario_id=usuario_id,
+    )
 
     kb_snippet = _v2_load_kb_snippet()
     system_prompt = f"{_V2_SYSTEM_PROMPT}\n\nData/hora atual: {agora}."
+    system_prompt += _v2_prompt_listar_orcamentos_datas_br()
     if kb_snippet:
         system_prompt += (
             "\n\n## Manual funcional do sistema (fonte de verdade para 'como fazer')\n"
@@ -1975,6 +2042,17 @@ async def assistente_v2_stream_core(
         mensagem=mensagem,
         usuario_id=getattr(current_user, "id", 0),
     )
+    try:
+        from app.services.rag import TenantRAGService
+
+        rag_ctx = TenantRAGService.build_prompt_context(
+            db=db,
+            empresa_id=empresa_id,
+            query=mensagem,
+            top_k=4,
+        )
+    except Exception:
+        rag_ctx = {}
     adaptive_ctx = AssistantPreferencesService.get_context_for_prompt(
         db=db,
         empresa_id=empresa_id,
@@ -2000,6 +2078,17 @@ async def assistente_v2_stream_core(
                 "content": (
                     "## Memória semântica da empresa (use para reduzir repetição e aumentar precisão)\n"
                     + json.dumps(semantic_ctx, ensure_ascii=False, default=str)
+                ),
+            }
+        )
+    if rag_ctx and rag_ctx.get("context"):
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    "## Contexto RAG por tenant (usar somente como apoio factual)\n"
+                    f"Fontes: {', '.join(rag_ctx.get('sources') or [])}\n\n"
+                    + (rag_ctx.get("context") or "")
                 ),
             }
         )
@@ -2123,15 +2212,35 @@ async def assistente_v2_stream_core(
                     db=db,
                     current_user=current_user,
                     sessao_id=sessao_id,
+                    request_id=request_id,
+                    confirmation_token=None,
+                )
+                result = await _autopaginate_listar_orcamentos(
+                    mensagem=mensagem,
+                    tc=tc,
+                    result=result,
+                    tool_execute=tool_execute,
+                    db=db,
+                    current_user=current_user,
+                    sessao_id=sessao_id,
+                    request_id=request_id,
                     confirmation_token=None,
                 )
                 t_status = result.status if hasattr(result, "status") else "ok"
                 t_latencia = result.latencia_ms if hasattr(result, "latencia_ms") else 0
+                t_code = result.code if hasattr(result, "code") else None
+                t_error = result.error if hasattr(result, "error") else None
                 tool_trace.append(
                     {
                         "tool": tool_name,
                         "status": t_status,
                         "latencia_ms": t_latencia,
+                        "code": t_code,
+                        "reason": _tool_trace_reason(
+                            status=t_status,
+                            code=t_code,
+                            error=t_error,
+                        ),
                         "data": result.data if hasattr(result, "data") else None,
                     }
                 )
@@ -2241,7 +2350,14 @@ async def assistente_v2_stream_core(
             final_text = "Não consegui montar a resposta completa agora. Tente novamente em alguns segundos."
 
     if final_text.strip():
-        SessionStore.append_db(sessao_id, "assistant", final_text, db)
+        SessionStore.append_db(
+            sessao_id,
+            "assistant",
+            final_text,
+            db,
+            empresa_id=empresa_id,
+            usuario_id=usuario_id,
+        )
 
     yield _enc(
         {
@@ -2265,6 +2381,7 @@ async def assistente_unificado_stream(
     sessao_id: str,
     db,
     current_user,
+    request_id: str | None = None,
     confirmation_token: str | None = None,
     override_args: dict | None = None,
 ):
@@ -2281,6 +2398,7 @@ async def assistente_unificado_stream(
             sessao_id=sessao_id,
             db=db,
             current_user=current_user,
+            request_id=request_id,
             confirmation_token=confirmation_token,
             override_args=override_args,
         ):
@@ -3038,6 +3156,24 @@ Importe-as diretamente:
 # Assistente Unificado v2 — Tool Use nativo (Fase 1)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
+def _v2_prompt_listar_orcamentos_datas_br() -> str:
+    """Datas civis BR + exemplo de intervalo (reduz erro de parâmetro no LLM)."""
+    hoje = datetime.now(_TZ_BR).date()
+    ontem = hoje - timedelta(days=1)
+    return (
+        "\n\n## listar_orcamentos — datas (America/Sao_Paulo)\n"
+        f"- Hoje: `{hoje.isoformat()}` | Ontem: `{ontem.isoformat()}`\n"
+        f"- Só ontem: `aprovado_em_de` e `aprovado_em_ate` = `{ontem.isoformat()}`.\n"
+        f"- Ontem **e** hoje (uma chamada): `aprovado_em_de=\"{ontem.isoformat()}\"`, "
+        f"`aprovado_em_ate=\"{hoje.isoformat()}\"` (status APROVADO ou omita).\n"
+        "- Para listar **todos** os itens de um intervalo curto no card (até o teto do sistema), "
+        "use `limit=50` ou peça \"lista completa\" / \"todos os orçamentos\" na mensagem.\n"
+        "- Não dispare várias `listar_orcamentos` em paralelo para dias vizinhos — "
+        "use um único intervalo.\n"
+    )
+
+
 _V2_SYSTEM_PROMPT = (
     "Você é o **Assistente COTTE**, um parceiro inteligente de gestão para pequenas empresas. "
     "Responda sempre em português, de forma direta e amigável. Máximo de 3 parágrafos. "
@@ -3061,7 +3197,18 @@ _V2_SYSTEM_PROMPT = (
     "EXPLIQUE o motivo e sugira alternativas (ex: 'Não encontrei O-103 — os recentes são X e Y'). "
     "NUNCA diga 'Comando DESCONHECIDO' ou retorne um erro técnico cru. \n"
     "7. **Inteligente mas humilde**: se não tiver certeza, pergunte ao usuário uma "
-    "coisa de cada vez, sem listas de perguntas. "
+    "coisa de cada vez, sem listas de perguntas. \n"
+    "8. **`listar_orcamentos` e datas**: o parâmetro `dias` filtra pela **data de criação** "
+    "(criado_em). Para **aprovação** (ex.: \"aprovados ontem\", \"ontem e hoje\"), use "
+    "`aprovado_em_de` e `aprovado_em_ate` em YYYY-MM-DD (intervalo inclusivo; **um dia** = "
+    "mesma data nas duas chaves). `status=\"APROVADO\"` ou omita. Ver bloco fixo de datas "
+    "no system prompt. \n"
+    "9. **`listar_orcamentos` e paginação**: o JSON da tool traz `total` (quantos batem com o filtro), "
+    "`itens_retornados` (ou o tamanho de `orcamentos`), `has_more` e `limit`. Se `total` for maior "
+    "que a quantidade listada ou `has_more` for true, diga na resposta quantos existem no total e "
+    "quantos foram mostrados (ex.: \"Há 16 no período; abaixo os 10 mais recentes\"); mencione "
+    "o botão Carregar mais no card, se existir. Não dê a entender que a tabela é a lista completa "
+    "quando houver paginação. \n"
 )
 
 _V2_MAX_ITER = 5
@@ -3188,12 +3335,187 @@ def _v2_build_financial_chart_payload(movimentacoes: list[dict]) -> dict | None:
     }
 
 
+def _tool_trace_reason(
+    *,
+    status: str | None,
+    code: str | None,
+    error: str | None,
+) -> str | None:
+    """Retorna um motivo curto e estável para renderização no trace."""
+    if status == "ok":
+        return None
+    if status == "pending":
+        return "requires_confirmation"
+    code_norm = str(code or "").strip().lower()
+    err_norm = str(error or "").strip().lower()
+    if code_norm:
+        if code_norm == "exception":
+            if "sqlalche.me/e/20/f405" in err_norm or (
+                "group by" in err_norm and "order by" in err_norm
+            ):
+                return "group_by_order_by_conflict"
+        return code_norm
+    if "sqlalche.me/e/20/f405" in err_norm or (
+        "group by" in err_norm and "order by" in err_norm
+    ):
+        return "group_by_order_by_conflict"
+    if status:
+        return str(status).strip().lower()
+    return "unknown_error"
+
+
+def _wants_all_orcamentos(mensagem: str) -> bool:
+    txt = str(mensagem or "").lower()
+    # "orçamentos" (ç) não contém o substring "orcament"; cobrir PT-BR e ASCII.
+    if "orcament" not in txt and "orçament" not in txt:
+        return False
+    if bool(re.search(r"\b(todos|todas|tudo|completo|inteiro)\b", txt)):
+        return True
+    if "lista completa" in txt or "sem limite" in txt or "sem limites" in txt:
+        return True
+    if re.search(r"\btodos os or[cç]amentos\b", txt):
+        return True
+    return False
+
+
+def _tool_call_args(tc: dict[str, Any]) -> dict[str, Any]:
+    fn = tc.get("function") or {}
+    raw = fn.get("arguments")
+    if isinstance(raw, dict):
+        return dict(raw)
+    if isinstance(raw, str):
+        s = raw.strip()
+        if not s:
+            return {}
+        try:
+            parsed = json.loads(s)
+            return parsed if isinstance(parsed, dict) else {}
+        except Exception:
+            return {}
+    return {}
+
+
+async def _autopaginate_listar_orcamentos(
+    *,
+    mensagem: str,
+    tc: dict[str, Any],
+    result: Any,
+    tool_execute: Any,
+    db: Session,
+    current_user: Any,
+    sessao_id: str,
+    request_id: Optional[str],
+    confirmation_token: Optional[str],
+) -> Any:
+    tool_name = ((tc.get("function") or {}).get("name") or "").strip()
+    if tool_name != "listar_orcamentos":
+        return result
+    if not _wants_all_orcamentos(mensagem):
+        return result
+    if not result or getattr(result, "status", None) != "ok":
+        return result
+    data = getattr(result, "data", None)
+    if not isinstance(data, dict):
+        return result
+    if not data.get("has_more") or not data.get("next_cursor"):
+        return result
+
+    args_base = _tool_call_args(tc)
+    if not args_base:
+        return result
+
+    itens = list(data.get("orcamentos") or [])
+    cursor = data.get("next_cursor")
+    max_items = 50
+    max_paginas = 6
+    paginas = 0
+    lat_extra = 0
+
+    while cursor and paginas < max_paginas and len(itens) < max_items:
+        prox_args = dict(args_base)
+        prox_args["cursor"] = cursor
+        if "limit" not in prox_args:
+            prox_args["limit"] = data.get("limit") or 10
+
+        tc_prox = {
+            "id": tc.get("id"),
+            "type": "function",
+            "function": {
+                "name": "listar_orcamentos",
+                "arguments": json.dumps(prox_args, ensure_ascii=False),
+            },
+        }
+        prox_result = await tool_execute(
+            tc_prox,
+            db=db,
+            current_user=current_user,
+            sessao_id=sessao_id,
+            request_id=request_id,
+            confirmation_token=confirmation_token,
+        )
+        lat_extra += int(getattr(prox_result, "latencia_ms", 0) or 0)
+        if getattr(prox_result, "status", None) != "ok":
+            break
+        prox_data = getattr(prox_result, "data", None)
+        if not isinstance(prox_data, dict):
+            break
+
+        itens.extend(list(prox_data.get("orcamentos") or []))
+        cursor = prox_data.get("next_cursor")
+        data["has_more"] = bool(prox_data.get("has_more"))
+        data["next_cursor"] = cursor
+        paginas += 1
+        if not prox_data.get("has_more"):
+            break
+
+    if paginas > 0:
+        data["orcamentos"] = itens[:max_items]
+        data["itens_retornados"] = len(data["orcamentos"])
+        data["auto_paginated"] = True
+        data["auto_paginated_paginas"] = paginas
+        result.data = data
+        result.latencia_ms = int(getattr(result, "latencia_ms", 0) or 0) + lat_extra
+    return result
+
+
 async def assistente_unificado_v2(
     *,
     mensagem: str,
     sessao_id: str,
     db: Session,
     current_user: Any,  # Usuario; importado lazy para evitar ciclo
+    request_id: Optional[str] = None,
+    confirmation_token: Optional[str] = None,
+    override_args: Optional[dict] = None,
+) -> AIResponse:
+    """Wrapper de orquestração (LangGraph opcional com fallback legado)."""
+    from app.services.assistant_langgraph import langgraph_enabled, run_assistant_graph
+
+    payload = {
+        "mensagem": mensagem,
+        "sessao_id": sessao_id,
+        "db": db,
+        "current_user": current_user,
+        "request_id": request_id,
+        "confirmation_token": confirmation_token,
+        "override_args": override_args,
+    }
+    if not langgraph_enabled():
+        return await _assistente_unificado_v2_legacy(**payload)
+
+    async def _legacy_runner(state: dict[str, Any]) -> AIResponse:
+        return await _assistente_unificado_v2_legacy(**state)
+
+    return await run_assistant_graph(payload=payload, legacy_runner=_legacy_runner)
+
+
+async def _assistente_unificado_v2_legacy(
+    *,
+    mensagem: str,
+    sessao_id: str,
+    db: Session,
+    current_user: Any,  # Usuario; importado lazy para evitar ciclo
+    request_id: Optional[str] = None,
     confirmation_token: Optional[str] = None,
     override_args: Optional[dict] = None,
 ) -> AIResponse:
@@ -3214,7 +3536,14 @@ async def assistente_unificado_v2(
             "Consigo te entregar os dados e o gráfico financeiro aqui no assistente, "
             "e você exporta para planilha com segurança."
         )
-        SessionStore.append_db(sessao_id, "assistant", resposta_excel, db)
+        SessionStore.append_db(
+            sessao_id,
+            "assistant",
+            resposta_excel,
+            db,
+            empresa_id=getattr(current_user, "empresa_id", 0),
+            usuario_id=getattr(current_user, "id", 0),
+        )
         return AIResponse(
             sucesso=True,
             resposta=resposta_excel,
@@ -3241,10 +3570,18 @@ async def assistente_unificado_v2(
             "function": {"name": "obter_saldo_caixa", "arguments": "{}"},
         }
         res_mov = await tool_execute(
-            tc_mov, db=db, current_user=current_user, sessao_id=sessao_id
+            tc_mov,
+            db=db,
+            current_user=current_user,
+            sessao_id=sessao_id,
+            request_id=request_id,
         )
         res_saldo = await tool_execute(
-            tc_saldo, db=db, current_user=current_user, sessao_id=sessao_id
+            tc_saldo,
+            db=db,
+            current_user=current_user,
+            sessao_id=sessao_id,
+            request_id=request_id,
         )
         movs = (
             (res_mov.data or {}).get("movimentacoes", [])
@@ -3267,7 +3604,14 @@ async def assistente_unificado_v2(
                 final_text += f" Saldo atual: R$ {float(saldo_atual):,.2f}."
         else:
             final_text = f"Não encontrei movimentações suficientes para montar o gráfico dos últimos {dias} dias."
-        SessionStore.append_db(sessao_id, "assistant", final_text, db)
+        SessionStore.append_db(
+            sessao_id,
+            "assistant",
+            final_text,
+            db,
+            empresa_id=getattr(current_user, "empresa_id", 0),
+            usuario_id=getattr(current_user, "id", 0),
+        )
         return AIResponse(
             sucesso=True,
             resposta=final_text,
@@ -3305,6 +3649,7 @@ async def assistente_unificado_v2(
                 db=db,
                 current_user=current_user,
                 sessao_id=sessao_id,
+                request_id=request_id,
                 override_args=override_args,
             )
             if result.status == "ok":
@@ -3368,7 +3713,13 @@ async def assistente_unificado_v2(
             acao_sug = None
             resp_dados = {"input_tokens": 0, "output_tokens": 0}
 
-        SessionStore.append(sessao_id, "assistant", final_text)
+        SessionStore.append(
+            sessao_id,
+            "assistant",
+            final_text,
+            empresa_id=getattr(current_user, "empresa_id", 0),
+            usuario_id=getattr(current_user, "id", 0),
+        )
         return AIResponse(
             sucesso=True,
             resposta=final_text,
@@ -3399,6 +3750,7 @@ async def assistente_unificado_v2(
 
     kb_snippet = _v2_load_kb_snippet()
     system_prompt = f"{_V2_SYSTEM_PROMPT}\n\nData/hora atual: {now}."
+    system_prompt += _v2_prompt_listar_orcamentos_datas_br()
     if kb_snippet:
         system_prompt += (
             "\n\n## Manual funcional do sistema (fonte de verdade para 'como fazer')\n"
@@ -3411,6 +3763,17 @@ async def assistente_unificado_v2(
         mensagem=mensagem,
         usuario_id=getattr(current_user, "id", 0),
     )
+    try:
+        from app.services.rag import TenantRAGService
+
+        rag_ctx = TenantRAGService.build_prompt_context(
+            db=db,
+            empresa_id=getattr(current_user, "empresa_id", 0),
+            query=mensagem,
+            top_k=4,
+        )
+    except Exception:
+        rag_ctx = {}
     adaptive_ctx = AssistantPreferencesService.get_context_for_prompt(
         db=db,
         empresa_id=getattr(current_user, "empresa_id", 0),
@@ -3436,6 +3799,17 @@ async def assistente_unificado_v2(
                 "content": (
                     "## Memória semântica da empresa (use para reduzir repetição e aumentar precisão)\n"
                     + json.dumps(semantic_ctx, ensure_ascii=False, default=str)
+                ),
+            }
+        )
+    if rag_ctx and rag_ctx.get("context"):
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    "## Contexto RAG por tenant (usar somente como apoio factual)\n"
+                    f"Fontes: {', '.join(rag_ctx.get('sources') or [])}\n\n"
+                    + (rag_ctx.get("context") or "")
                 ),
             }
         )
@@ -3467,7 +3841,14 @@ async def assistente_unificado_v2(
     messages.append({"role": "user", "content": mensagem})
 
     # Persiste mensagem do usuário no banco
-    SessionStore.append_db(sessao_id, "user", mensagem, db)
+    SessionStore.append_db(
+        sessao_id,
+        "user",
+        mensagem,
+        db,
+        empresa_id=getattr(current_user, "empresa_id", 0),
+        usuario_id=getattr(current_user, "id", 0),
+    )
 
     tools_payload = openai_tools_payload()
     tool_trace: list[dict] = []
@@ -3602,13 +3983,34 @@ async def assistente_unificado_v2(
                     db=db,
                     current_user=current_user,
                     sessao_id=sessao_id,
+                    request_id=request_id,
                     confirmation_token=confirmation_token,
                 )
+                result = await _autopaginate_listar_orcamentos(
+                    mensagem=mensagem,
+                    tc=tc_dict,
+                    result=result,
+                    tool_execute=tool_execute,
+                    db=db,
+                    current_user=current_user,
+                    sessao_id=sessao_id,
+                    request_id=request_id,
+                    confirmation_token=confirmation_token,
+                )
+                t_status = result.status
+                t_code = result.code
+                t_error = result.error
                 tool_trace.append(
                     {
                         "tool": (tc_dict.get("function") or {}).get("name"),
-                        "status": result.status,
+                        "status": t_status,
                         "latencia_ms": result.latencia_ms,
+                        "code": t_code,
+                        "reason": _tool_trace_reason(
+                            status=t_status,
+                            code=t_code,
+                            error=t_error,
+                        ),
                     }
                 )
                 payload = result.to_llm_payload()
@@ -3642,7 +4044,14 @@ async def assistente_unificado_v2(
 
     if final_text:
         # Persiste resposta do assistente no banco
-        SessionStore.append_db(sessao_id, "assistant", final_text, db)
+        SessionStore.append_db(
+            sessao_id,
+            "assistant",
+            final_text,
+            db,
+            empresa_id=getattr(current_user, "empresa_id", 0),
+            usuario_id=getattr(current_user, "id", 0),
+        )
 
     if pending_action:
         dados_out = {

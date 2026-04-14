@@ -69,6 +69,7 @@ from app.services.whatsapp_service import (
 from app.services.email_service import email_habilitado, enviar_orcamento_por_email
 from app.services.ia_service import interpretar_mensagem, interpretar_comando_operador
 from app.services.quote_notification_service import (
+    ensure_quote_approval_metadata,
     handle_quote_status_changed,
     notify_quote_expired,
 )
@@ -1028,6 +1029,7 @@ def sincronizar_documento_viculado(
 def remover_documento_do_orcamento(
     orcamento_id: int,
     orcamento_documento_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(exigir_permissao("orcamentos", "escrita")),
 ):
@@ -1054,8 +1056,23 @@ def remover_documento_do_orcamento(
     if not vinc:
         raise HTTPException(status_code=404, detail="Vínculo não encontrado")
 
+    detalhes = {
+        "orcamento_numero": orc.numero,
+        "documento_id": vinc.documento_id,
+        "documento_nome": vinc.documento_nome,
+        "documento_tipo": vinc.documento_tipo,
+    }
     db.delete(vinc)
     db.commit()
+    registrar_auditoria(
+        db=db,
+        usuario=usuario,
+        acao="orcamento_documento_removido",
+        recurso="orcamento_documento",
+        recurso_id=str(orcamento_documento_id),
+        detalhes=detalhes,
+        request=request,
+    )
     return None
 
 
@@ -1334,6 +1351,7 @@ async def atualizar_status(
     # Cria contas a receber ao aprovar (idempotente)
     # A exceção PROPAGA — se falhar, o orçamento NÃO deve ser aprovado sem parcelas.
     if novo_status == StatusOrcamento.APROVADO:
+        ensure_quote_approval_metadata(orc, source="manual_status_update")
         financeiro_service.criar_contas_receber_aprovacao(orc, usuario.empresa_id, db)
         try:
             from app.services.agendamento_auto_service import (

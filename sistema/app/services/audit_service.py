@@ -27,6 +27,7 @@ from typing import Optional, Any
 from fastapi import Request
 from sqlalchemy.orm import Session
 
+from app.core.database import SessionLocal
 from app.models.models import AuditLog, Usuario
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,39 @@ def _extrair_ip(request: Optional[Request]) -> Optional[str]:
     return request.client.host if request.client else None
 
 
+def _extrair_request_id(request: Optional[Request]) -> Optional[str]:
+    if not request:
+        return None
+    log_context = getattr(getattr(request, "state", None), "log_context", None)
+    request_id = getattr(log_context, "request_id", None)
+    if request_id:
+        return str(request_id)
+    return request.headers.get("x-request-id")
+
+
+def _enriquecer_detalhes(
+    detalhes: Optional[Any],
+    request: Optional[Request],
+) -> Optional[Any]:
+    request_id = _extrair_request_id(request)
+    if not request and not request_id:
+        return detalhes
+
+    request_data = {
+        "request_id": request_id,
+        "request_method": request.method if request else None,
+        "request_path": request.url.path if request else None,
+    }
+    request_data = {k: v for k, v in request_data.items() if v is not None}
+    if not request_data:
+        return detalhes
+    if detalhes is None:
+        return request_data
+    if isinstance(detalhes, dict):
+        return {**request_data, **detalhes}
+    return {"request": request_data, "payload": detalhes}
+
+
 def registrar_auditoria(
     db: Session,
     usuario: Optional[Usuario],
@@ -55,7 +89,10 @@ def registrar_auditoria(
     Insere um registro de auditoria. Falhas são logadas mas nunca propagadas —
     o fluxo principal nunca deve ser interrompido por uma falha de log.
     """
+    audit_db: Optional[Session] = None
     try:
+        audit_db = SessionLocal()
+        detalhes = _enriquecer_detalhes(detalhes, request)
         detalhes_str = json.dumps(detalhes, ensure_ascii=False, default=str) if detalhes else None
         log = AuditLog(
             empresa_id=usuario.empresa_id if usuario else None,
@@ -67,7 +104,15 @@ def registrar_auditoria(
             detalhes=detalhes_str,
             ip=_extrair_ip(request),
         )
-        db.add(log)
-        db.flush()  # persiste junto com o commit do chamador
+        audit_db.add(log)
+        audit_db.commit()
     except Exception:
         logger.exception("Falha ao registrar auditoria: acao=%s recurso=%s id=%s", acao, recurso, recurso_id)
+        if audit_db is not None:
+            try:
+                audit_db.rollback()
+            except Exception:
+                pass
+    finally:
+        if audit_db is not None:
+            audit_db.close()

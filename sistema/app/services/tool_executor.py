@@ -21,7 +21,7 @@ import secrets
 import time
 import unicodedata
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional
 
 from fastapi import HTTPException
@@ -32,6 +32,7 @@ from sqlalchemy.orm import Session
 from app.core.auth import exigir_permissao
 from app.models.models import ToolCallLog, Usuario
 from app.services.ai_tools import REGISTRY
+from app.services.tenant_guard import ensure_scoped_empresa_id
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +79,46 @@ def _normalize_tool_args(tool_name: str, args: dict[str, Any]) -> dict[str, Any]
             }
             status_key = _semantic_key(status_raw)
             normalized["status"] = aliases.get(status_key, status_key)
+
+        # Evita ValidationError comum do LLM (dias=0, limit>50, etc.)
+        if normalized.get("dias") is not None:
+            try:
+                d_int = int(float(normalized["dias"]))
+                normalized["dias"] = max(1, min(365, d_int))
+            except (TypeError, ValueError):
+                normalized.pop("dias", None)
+        if normalized.get("limit") is not None:
+            try:
+                lim_int = int(float(normalized["limit"]))
+                normalized["limit"] = max(1, min(50, lim_int))
+            except (TypeError, ValueError):
+                normalized.pop("limit", None)
+
+        try:
+            from zoneinfo import ZoneInfo
+
+            br_tz = ZoneInfo("America/Sao_Paulo")
+        except Exception:
+            br_tz = timezone(timedelta(hours=-3))
+        hoje_br = datetime.now(br_tz).date()
+        ontem_br = hoje_br - timedelta(days=1)
+
+        for _key in ("aprovado_em_de", "aprovado_em_ate"):
+            v = normalized.get(_key)
+            if v is None or isinstance(v, (date, datetime)):
+                continue
+            if isinstance(v, str):
+                s = v.strip()
+                if not s:
+                    normalized.pop(_key, None)
+                    continue
+                low = s.lower()
+                if low in ("ontem", "yesterday"):
+                    normalized[_key] = ontem_br.isoformat()
+                elif low in ("hoje", "today"):
+                    normalized[_key] = hoje_br.isoformat()
+                elif "T" in s:
+                    normalized[_key] = s.split("T", 1)[0].strip()
 
     return normalized
 
@@ -283,6 +324,7 @@ def _log(
     empresa_id: Optional[int],
     usuario_id: Optional[int],
     sessao_id: Optional[str],
+    request_id: Optional[str],
     tool: str,
     args: dict[str, Any] | None,
     result: ToolResult,
@@ -290,13 +332,25 @@ def _log(
     output_tokens: Optional[int] = None,
 ) -> None:
     try:
+        args_payload = dict(args or {})
+        result_payload = result.to_llm_payload()
+        meta_payload = {
+            "request_id": request_id,
+            "sessao_id": sessao_id,
+            "tool": tool,
+        }
+        meta_payload = {k: v for k, v in meta_payload.items() if v}
+        if meta_payload:
+            args_payload["_meta"] = meta_payload
+            if isinstance(result_payload, dict):
+                result_payload = {**result_payload, "_meta": meta_payload}
         rec = ToolCallLog(
             empresa_id=empresa_id,
             usuario_id=usuario_id,
             sessao_id=sessao_id,
             tool=tool,
-            args_json=args or {},
-            resultado_json=result.to_llm_payload(),
+            args_json=args_payload,
+            resultado_json=result_payload,
             status=result.status,
             latencia_ms=result.latencia_ms,
             input_tokens=input_tokens,
@@ -319,8 +373,18 @@ async def execute(
     db: Session,
     current_user: Usuario,
     sessao_id: Optional[str] = None,
+    request_id: Optional[str] = None,
     confirmation_token: Optional[str] = None,
 ) -> ToolResult:
+    try:
+        ensure_scoped_empresa_id(getattr(current_user, "empresa_id", None))
+    except Exception:
+        return ToolResult(
+            status="forbidden",
+            error="Usuário sem escopo de empresa para executar tools",
+            code="tenant_scope_required",
+        )
+
     """Executa uma tool_call no formato OpenAI/LiteLLM.
 
     `tool_call` segue: `{"id": "...", "function": {"name": "...", "arguments": "<json>"}}`.
@@ -344,6 +408,7 @@ async def execute(
             empresa_id=current_user.empresa_id,
             usuario_id=current_user.id,
             sessao_id=sessao_id,
+            request_id=request_id,
             tool=name or "?",
             args=None,
             result=result,
@@ -364,6 +429,7 @@ async def execute(
             empresa_id=current_user.empresa_id,
             usuario_id=current_user.id,
             sessao_id=sessao_id,
+            request_id=request_id,
             tool=name or "?",
             args=None,
             result=result,
@@ -385,6 +451,7 @@ async def execute(
             empresa_id=current_user.empresa_id,
             usuario_id=current_user.id,
             sessao_id=sessao_id,
+            request_id=request_id,
             tool=name,
             args=None,
             result=result,
@@ -407,6 +474,7 @@ async def execute(
             empresa_id=current_user.empresa_id,
             usuario_id=current_user.id,
             sessao_id=sessao_id,
+            request_id=request_id,
             tool=name,
             args=args_dict,
             result=result,
@@ -430,6 +498,7 @@ async def execute(
                 empresa_id=current_user.empresa_id,
                 usuario_id=current_user.id,
                 sessao_id=sessao_id,
+                request_id=request_id,
                 tool=name,
                 args=args_dict,
                 result=result,
@@ -454,6 +523,7 @@ async def execute(
                 empresa_id=current_user.empresa_id,
                 usuario_id=current_user.id,
                 sessao_id=sessao_id,
+                request_id=request_id,
                 tool=name,
                 args=args_dict,
                 result=result,
@@ -498,6 +568,7 @@ async def execute(
                 empresa_id=current_user.empresa_id,
                 usuario_id=current_user.id,
                 sessao_id=sessao_id,
+                request_id=request_id,
                 tool=name,
                 args=args_dict,
                 result=result,
@@ -560,6 +631,7 @@ async def execute(
         empresa_id=current_user.empresa_id,
         usuario_id=current_user.id,
         sessao_id=sessao_id,
+        request_id=request_id,
         tool=name,
         args=args_dict,
         result=result,
@@ -574,8 +646,18 @@ async def execute_pending(
     db: Session,
     current_user: Usuario,
     sessao_id: Optional[str] = None,
+    request_id: Optional[str] = None,
     override_args: Optional[dict[str, Any]] = None,
 ) -> ToolResult:
+    try:
+        ensure_scoped_empresa_id(getattr(current_user, "empresa_id", None))
+    except Exception:
+        return ToolResult(
+            status="forbidden",
+            error="Usuário sem escopo de empresa para confirmar ação",
+            code="tenant_scope_required",
+        )
+
     """Executa uma ação destrutiva diretamente a partir do token, sem LLM.
 
     Esse caminho é usado quando o usuário clica "Confirmar" no card do frontend.
@@ -599,6 +681,7 @@ async def execute_pending(
             empresa_id=current_user.empresa_id,
             usuario_id=current_user.id,
             sessao_id=sessao_id,
+            request_id=request_id,
             tool="?",
             args=None,
             result=result,
@@ -618,6 +701,7 @@ async def execute_pending(
             empresa_id=current_user.empresa_id,
             usuario_id=current_user.id,
             sessao_id=sessao_id,
+            request_id=request_id,
             tool="?",
             args=None,
             result=result,
@@ -637,6 +721,7 @@ async def execute_pending(
             empresa_id=current_user.empresa_id,
             usuario_id=current_user.id,
             sessao_id=sessao_id,
+            request_id=request_id,
             tool=rec["tool_name"],
             args=None,
             result=result,
@@ -693,6 +778,7 @@ async def execute_pending(
                 empresa_id=current_user.empresa_id,
                 usuario_id=current_user.id,
                 sessao_id=sessao_id,
+                request_id=request_id,
                 tool=name,
                 args=args_dict,
                 result=result,
@@ -742,6 +828,7 @@ async def execute_pending(
         empresa_id=current_user.empresa_id,
         usuario_id=current_user.id,
         sessao_id=sessao_id,
+        request_id=request_id,
         tool=name,
         args=args_dict,
         result=result,

@@ -5,7 +5,7 @@ Exposto em /api/v1/ai/{modulo}
 
 import uuid as _uuid
 import logging
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from typing import Optional, Literal
 from pydantic import BaseModel, Field
@@ -18,6 +18,14 @@ from app.core.auth import get_usuario_atual as get_current_user, exigir_permissa
 from app.models.models import Usuario, HistoricoEdicao, Empresa
 
 router = APIRouter(prefix="/ai", tags=["AI"], dependencies=[Depends(exigir_modulo("ia"))])
+
+
+def _request_id_from_http(request: Request) -> str | None:
+    log_context = getattr(getattr(request, "state", None), "log_context", None)
+    request_id = getattr(log_context, "request_id", None)
+    if request_id:
+        return str(request_id)
+    return request.headers.get("x-request-id")
 
 
 # ── Schemas de Requisição ───────────────────────────────────────────────────
@@ -571,6 +579,7 @@ async def sugestao_precos_endpoint(
 @router.post("/assistente/stream")
 async def assistente_universal_stream(
     request: AIAssistenteRequest,
+    http_request: Request,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
 ):
@@ -589,6 +598,7 @@ async def assistente_universal_stream(
             sessao_id=request.sessao_id,
             db=db,
             current_user=current_user,
+            request_id=_request_id_from_http(http_request),
             confirmation_token=getattr(request, "confirmation_token", None),
             override_args=getattr(request, "override_args", None),
         ),
@@ -599,6 +609,7 @@ async def assistente_universal_stream(
 @router.post("/assistente", response_model=AIResponse)
 async def assistente_universal(
     request: AIAssistenteRequest,
+    http_request: Request,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
 ):
@@ -630,6 +641,7 @@ async def assistente_universal(
             sessao_id=request.sessao_id,
             db=db,
             current_user=current_user,
+            request_id=_request_id_from_http(http_request),
             confirmation_token=request.confirmation_token,
             override_args=request.override_args,
         )
@@ -880,10 +892,14 @@ async def processar_ia(
         ) + 1
         db.commit()
 
-    # Adicionar contexto do usuário
-    contexto = request.contexto or {}
-    contexto["usuario_id"] = current_user.id
-    contexto["empresa_id"] = current_user.empresa_id
+    # Adicionar contexto do usuário com guard multi-tenant.
+    from app.services.tenant_guard import sanitize_context_with_tenant
+
+    contexto = sanitize_context_with_tenant(
+        request.contexto,
+        empresa_id=current_user.empresa_id,
+        usuario_id=current_user.id,
+    )
 
     resultado = await ai_hub.processar(
         modulo=modulo,

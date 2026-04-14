@@ -11,7 +11,7 @@ import random
 import logging
 import string
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Body, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Body, Request, status
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, or_
 
@@ -48,6 +48,7 @@ from app.schemas.schemas import (
 from app.services.whatsapp_service import enviar_mensagem_texto
 from app.services.email_service import send_email_simples, enviar_email_boas_vindas
 from app.services.ia_service import analisar_leads
+from app.services.audit_service import registrar_auditoria
 from app.routers.comercial_helpers import (
     _validar_contato_lead,
     _lead_to_out,
@@ -564,6 +565,7 @@ def update_lead(
 @router.delete("/leads/{lead_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_lead(
     lead_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     usuario=Depends(exigir_permissao("comercial", "exclusao")),
 ):
@@ -572,13 +574,29 @@ def delete_lead(
         db.query(CommercialLead)
         .filter(
             CommercialLead.id == lead_id,
-            (CommercialLead.empresa_id == usuario.empresa_id)
-            | (CommercialLead.empresa_id.is_(None)),
+            CommercialLead.empresa_id == usuario.empresa_id,
         )
         .first()
     )
     if not lead:
         return None
+
+    resumo = {
+        "nome_empresa": lead.nome_empresa,
+        "nome_responsavel": lead.nome_responsavel,
+        "campaign_links_removidos": db.query(CampaignLead).filter(
+            CampaignLead.lead_id == lead_id
+        ).count(),
+        "itens_importacao_removidos": db.query(LeadImportacaoItem).filter(
+            LeadImportacaoItem.lead_id == lead_id
+        ).count(),
+        "interacoes_removidas": db.query(CommercialInteraction).filter(
+            CommercialInteraction.lead_id == lead_id
+        ).count(),
+        "lembretes_removidos": db.query(CommercialReminder).filter(
+            CommercialReminder.lead_id == lead_id
+        ).count(),
+    }
 
     db.query(CampaignLead).filter(CampaignLead.lead_id == lead_id).delete(
         synchronize_session=False
@@ -595,6 +613,15 @@ def delete_lead(
 
     db.delete(lead)
     db.commit()
+    registrar_auditoria(
+        db=db,
+        usuario=usuario,
+        acao="comercial_lead_excluido",
+        recurso="commercial_lead",
+        recurso_id=str(lead_id),
+        detalhes=resumo,
+        request=request,
+    )
     return None
 
 

@@ -210,6 +210,7 @@ def set_padrao(
 @router.delete("/formas-pagamento/{forma_id}", status_code=204)
 def desativar_forma(
     forma_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(exigir_permissao("financeiro", "admin")),
 ):
@@ -227,6 +228,15 @@ def desativar_forma(
     if forma.padrao:
         forma.padrao = False
     db.commit()
+    registrar_auditoria(
+        db=db,
+        usuario=usuario,
+        acao="financeiro_forma_pagamento_desativada",
+        recurso="forma_pagamento",
+        recurso_id=str(forma.id),
+        detalhes={"nome": forma.nome, "slug": forma.slug},
+        request=request,
+    )
 
 
 # ── PAGAMENTOS ────────────────────────────────────────────────────────────────
@@ -465,6 +475,7 @@ def atualizar_conta(
 @router.delete("/contas/{conta_id}", status_code=204)
 def excluir_conta(
     conta_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(exigir_permissao("financeiro", "admin")),
 ):
@@ -476,10 +487,25 @@ def excluir_conta(
     )
     if not conta:
         raise HTTPException(status_code=404, detail="Conta não encontrada.")
+    detalhes = {
+        "descricao": conta.descricao,
+        "valor": str(conta.valor),
+        "status": str(conta.status),
+        "orcamento_id": conta.orcamento_id,
+    }
     try:
         with db.begin_nested():
             svc.excluir_conta(conta, db)
         db.commit()
+        registrar_auditoria(
+            db=db,
+            usuario=usuario,
+            acao="financeiro_conta_excluida",
+            recurso="conta_financeira",
+            recurso_id=str(conta_id),
+            detalhes=detalhes,
+            request=request,
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -850,6 +876,7 @@ def atualizar_categoria(
 @router.delete("/categorias/{categoria_id}", status_code=204)
 def excluir_categoria(
     categoria_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(exigir_permissao("financeiro", "admin")),
 ):
@@ -859,10 +886,24 @@ def excluir_categoria(
     )
     if not categoria:
         raise HTTPException(status_code=404, detail="Categoria não encontrada.")
+    detalhes = {
+        "nome": categoria.nome,
+        "tipo": str(categoria.tipo),
+        "ativo": bool(categoria.ativo),
+    }
 
     with db.begin_nested():
         svc.excluir_categoria_financeira(categoria, db)
     db.commit()
+    registrar_auditoria(
+        db=db,
+        usuario=usuario,
+        acao="financeiro_categoria_excluida",
+        recurso="categoria_financeira",
+        recurso_id=str(categoria_id),
+        detalhes=detalhes,
+        request=request,
+    )
 
 
 # ── CONFIGURAÇÕES FINANCEIRAS ──────────────────────────────────────────────────
@@ -1072,6 +1113,7 @@ def cancelar_conta(
 def excluir_conta_soft(
     conta_id: int,
     body: ExcluirContaRequest,
+    request: Request,
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(exigir_permissao("financeiro", "admin")),
 ):
@@ -1094,6 +1136,19 @@ def excluir_conta_soft(
         conta.status = StatusConta.CANCELADO
 
     db.commit()
+    registrar_auditoria(
+        db=db,
+        usuario=usuario,
+        acao="financeiro_conta_soft_delete",
+        recurso="conta_financeira",
+        recurso_id=str(conta.id),
+        detalhes={
+            "descricao": conta.descricao,
+            "valor": str(conta.valor),
+            "motivo_exclusao": body.motivo,
+        },
+        request=request,
+    )
 
 
 # ── SPRINT 1.3: SALDO DETALHADO ────────────────────────────────────────────────
@@ -1205,6 +1260,7 @@ def registrar_saida_caixa(
 @router.delete("/caixa/movimentacoes/{movimentacao_id}", status_code=204)
 def excluir_movimentacao_caixa(
     movimentacao_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(exigir_permissao("financeiro", "admin")),
 ):
@@ -1219,8 +1275,23 @@ def excluir_movimentacao_caixa(
     )
     if not mov:
         raise HTTPException(status_code=404, detail="Movimentação não encontrada")
+    detalhes = {
+        "tipo": mov.tipo,
+        "valor": str(mov.valor),
+        "descricao": mov.descricao,
+        "categoria": mov.categoria,
+    }
     db.delete(mov)
     db.commit()
+    registrar_auditoria(
+        db=db,
+        usuario=usuario,
+        acao="financeiro_movimentacao_excluida",
+        recurso="movimentacao_caixa",
+        recurso_id=str(movimentacao_id),
+        detalhes=detalhes,
+        request=request,
+    )
 
 
 @router.get("/caixa/saldo", response_model=SaldoCaixaOut)
