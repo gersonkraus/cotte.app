@@ -77,6 +77,79 @@
     ]);
   }
 
+  function _stringifyTechnicalRow(row) {
+    if (!row || typeof row !== "object") return "";
+    return Object.keys(row)
+      .slice(0, 5)
+      .map(function (key) {
+        return String(key) + ": " + String(row[key]);
+      })
+      .join(" | ");
+  }
+
+  function buildTechnicalFallbackReply(payload) {
+    if (!payload || typeof payload !== "object") return "";
+
+    var data = payload.data && typeof payload.data === "object" ? payload.data : payload;
+    var codeContext =
+      data && data.code_context && typeof data.code_context === "object" ? data.code_context : {};
+    var sqlResult =
+      data && data.sql_result && typeof data.sql_result === "object" ? data.sql_result : {};
+    var metrics =
+      payload.metrics && typeof payload.metrics === "object"
+        ? payload.metrics
+        : data && data.metrics && typeof data.metrics === "object"
+          ? data.metrics
+          : {};
+    var trace = Array.isArray(payload.trace)
+      ? payload.trace
+      : data && Array.isArray(data.trace)
+        ? data.trace
+        : [];
+
+    var parts = [];
+    if (typeof payload.error === "string" && payload.error.trim()) {
+      parts.push(payload.error.trim());
+    }
+    if (Array.isArray(codeContext.sources) && codeContext.sources.length) {
+      parts.push("Fontes encontradas:\n- " + codeContext.sources.join("\n- "));
+    }
+    if (typeof codeContext.context === "string" && codeContext.context.trim()) {
+      parts.push("Trechos relevantes:\n" + codeContext.context.trim().slice(0, 3200));
+    }
+    if (Array.isArray(sqlResult.rows) && sqlResult.rows.length) {
+      var previewRows = sqlResult.rows.slice(0, 3).map(_stringifyTechnicalRow).filter(Boolean);
+      if (previewRows.length) {
+        parts.push("Prévia SQL:\n- " + previewRows.join("\n- "));
+      }
+    } else if (typeof sqlResult.row_count === "number") {
+      parts.push("Consulta SQL executada com " + String(sqlResult.row_count) + " linha(s).");
+    }
+    if (typeof metrics.total_steps === "number" && metrics.total_steps > 0) {
+      parts.push(
+        "Fluxo técnico concluído em " +
+          String(metrics.total_steps) +
+          " passo(s)" +
+          (typeof metrics.total_duration_ms === "number"
+            ? " e " + String(metrics.total_duration_ms) + " ms."
+            : ".")
+      );
+    }
+    if (!parts.length && trace.length) {
+      parts.push(
+        "Etapas executadas:\n- " +
+          trace
+            .slice(0, 5)
+            .map(function (step) {
+              return String(step.step || "etapa") + " (" + String(step.status || "ok") + ")";
+            })
+            .join("\n- ")
+      );
+    }
+
+    return parts.join("\n\n").trim();
+  }
+
   async function sendMessage() {
     if (sending || !inputEl) return;
     var raw = (inputEl.value || "").trim();
@@ -92,12 +165,24 @@
     inputEl.value = "";
     setSending(true);
     try {
-      var res = await api.post("/ai/copiloto-interno", {
+      var res = await api.post("/ai/copiloto-interno/consulta-tecnica", {
         mensagem: raw,
         sessao_id: ensureSessionId(),
+        include_code_context: true,
       });
-      var payload = res && res.data ? res.data : res;
+      var payload = res || {};
       var botReply = resolveCopilotReply(payload);
+      if (!botReply) {
+        botReply = buildTechnicalFallbackReply(payload);
+      }
+      if (!botReply) {
+        var legacyRes = await api.post("/ai/copiloto-interno", {
+          mensagem: raw,
+          sessao_id: ensureSessionId(),
+        });
+        var legacyPayload = legacyRes || {};
+        botReply = resolveCopilotReply(legacyPayload);
+      }
       addMessage(botReply || "Sem resposta do copiloto.", "bot");
     } catch (err) {
       addMessage((err && err.message) || "Falha ao consultar o copiloto interno.", "bot");

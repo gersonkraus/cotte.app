@@ -16,9 +16,20 @@ def test_sql_guard_bloqueia_multi_statement():
 
 
 def test_sql_guard_bloqueia_source_fora_whitelist():
-    out = validate_analytics_sql("SELECT * FROM usuarios WHERE empresa_id = :empresa_id")
+    out = validate_analytics_sql("SELECT * FROM empresas WHERE id = :empresa_id")
     assert out.ok is False
     assert out.code == "sql_not_allowed_source"
+
+
+def test_sql_guard_aceita_join_com_usuarios_e_itens_orcamento_quando_tenant_scoped():
+    out = validate_analytics_sql(
+        "SELECT o.id, u.nome, i.descricao "
+        "FROM orcamentos o "
+        "LEFT JOIN usuarios u ON u.id = o.criado_por_id AND u.empresa_id = :empresa_id "
+        "LEFT JOIN itens_orcamento i ON i.orcamento_id = o.id "
+        "WHERE o.empresa_id = :empresa_id"
+    )
+    assert out.ok is True
 
 
 def test_sql_guard_aceita_select_simples():

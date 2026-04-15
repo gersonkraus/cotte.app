@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 
 import pytest
@@ -710,3 +711,51 @@ async def test_assistente_report_export_contract(client, admin_token):
     assert str(data.get("file_name", "")).endswith(".csv")
     assert "cliente,total" in str(data.get("content") or "")
 
+
+@pytest.mark.asyncio
+async def test_assistente_report_export_html_contract(client, admin_token):
+    resp = await client.post(
+        "/api/v1/ai/assistente/report/export",
+        json={
+            "format": "html",
+            "printable_payload": {
+                "title": "Relatorio HTML",
+                "summary": "Resumo html",
+                "rows": [{"cliente": "A", "total": 10}],
+                "theme": {"accent_color": "#1d4ed8"},
+            },
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    payload = resp.json()
+    data = payload.get("data") or {}
+    assert str(data.get("file_name", "")).endswith(".html")
+    assert "<html" in str(data.get("content") or "").lower()
+
+
+@pytest.mark.asyncio
+async def test_assistente_report_export_pdf_contract(client, admin_token, monkeypatch):
+    monkeypatch.setattr(
+        ai_hub_router,
+        "render_semantic_report_pdf",
+        lambda payload: b"%PDF-1.4 fake semantic report",
+    )
+    resp = await client.post(
+        "/api/v1/ai/assistente/report/export",
+        json={
+            "format": "pdf",
+            "printable_payload": {
+                "title": "Relatorio PDF",
+                "summary": "Resumo pdf",
+                "rows": [{"cliente": "A", "total": 10}],
+            },
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    payload = resp.json()
+    data = payload.get("data") or {}
+    assert str(data.get("file_name", "")).endswith(".pdf")
+    assert data.get("content_encoding") == "base64"
+    assert base64.b64decode(data.get("content_base64") or b"").startswith(b"%PDF")

@@ -41,7 +41,10 @@ def _balanced_parentheses(sql: str) -> bool:
 def _allowed_sources() -> set[str]:
     raw = os.getenv(
         "ANALYTICS_SQL_ALLOWED_SOURCES",
-        "orcamentos,clientes,movimentacoes_caixa,contas_financeiras,agendamentos,tool_call_log,tool_call_logs",
+        (
+            "orcamentos,clientes,movimentacoes_caixa,contas_financeiras,agendamentos,"
+            "tool_call_log,tool_call_logs,usuarios,itens_orcamento,commercial_leads"
+        ),
     )
     return {
         part.strip().lower()

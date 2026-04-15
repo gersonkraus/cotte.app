@@ -32,6 +32,18 @@ def test_build_semantic_plan_extracts_structured_filters():
     assert filters.get("seller_name")
     assert filters.get("commission_pct") == 8.0
     assert filters.get("categories") == ["X", "Y", "Z"]
+    assert filters.get("detail_level") == "detailed"
+
+
+def test_build_semantic_plan_extracts_layout_preferences_and_top_n():
+    plan = build_semantic_plan(
+        "Me mostre top 5 clientes que mais compraram e personalize o layout profissional em azul"
+    )
+    filters = plan.request.entity_filters
+    layout = filters.get("layout_preferences") or {}
+    assert filters.get("top_n") == 5
+    assert layout.get("variant") == "executive"
+    assert layout.get("accent_color") == "#1d4ed8"
 
 
 def test_build_semantic_plan_routes_composite_flow():

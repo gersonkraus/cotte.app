@@ -54,22 +54,17 @@ def _engine_health(total: int, erros: int, p95_ms: int) -> str:
 def build_ai_health_summary(
     *,
     db: Session,
-    empresa_id: int,
+    empresa_id: Optional[int],
     hours: int,
     engine_filter: Optional[str] = None,
 ) -> dict[str, Any]:
     window_hours = max(1, min(168, _safe_int(hours, default=24)))
     dt_from = datetime.now(timezone.utc) - timedelta(hours=window_hours)
 
-    logs = (
-        db.query(ToolCallLog)
-        .filter(
-            ToolCallLog.empresa_id == empresa_id,
-            ToolCallLog.criado_em >= dt_from,
-        )
-        .order_by(ToolCallLog.criado_em.desc())
-        .all()
-    )
+    logs_query = db.query(ToolCallLog).filter(ToolCallLog.criado_em >= dt_from)
+    if empresa_id is not None:
+        logs_query = logs_query.filter(ToolCallLog.empresa_id == empresa_id)
+    logs = logs_query.order_by(ToolCallLog.criado_em.desc()).all()
 
     by_engine: dict[str, dict[str, Any]] = {}
     for row in logs:
@@ -132,25 +127,23 @@ def build_ai_health_summary(
             ],
         }
 
-    audit_events = (
-        db.query(AuditLog)
-        .filter(
-            AuditLog.empresa_id == empresa_id,
-            AuditLog.criado_em >= dt_from,
-            AuditLog.acao.in_(
-                (
-                    "fluxo_orcamento_operacional",
-                    "fluxo_financeiro_operacional",
-                    "fluxo_agendamento_operacional",
-                    "fluxo_documental_orcamento",
-                    "fluxo_analytics_operacional",
-                    "fluxo_copiloto_tecnico",
-                    "ai_rollout_plan_update",
-                )
-            ),
-        )
-        .count()
+    audit_query = db.query(AuditLog).filter(
+        AuditLog.criado_em >= dt_from,
+        AuditLog.acao.in_(
+            (
+                "fluxo_orcamento_operacional",
+                "fluxo_financeiro_operacional",
+                "fluxo_agendamento_operacional",
+                "fluxo_documental_orcamento",
+                "fluxo_analytics_operacional",
+                "fluxo_copiloto_tecnico",
+                "ai_rollout_plan_update",
+            )
+        ),
     )
+    if empresa_id is not None:
+        audit_query = audit_query.filter(AuditLog.empresa_id == empresa_id)
+    audit_events = audit_query.count()
 
     overview = {
         "window_hours": window_hours,

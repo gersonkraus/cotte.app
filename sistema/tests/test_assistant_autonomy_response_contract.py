@@ -37,6 +37,8 @@ def test_response_contract_contains_standard_metadata_and_printable():
     assert "filters" in contract.metadata
     assert "data_sources" in contract.metadata
     assert contract.printable_payload is not None
+    assert "pdf" in (contract.printable_payload or {}).get("export_formats", [])
+    assert (contract.printable_payload or {}).get("theme")
     assert isinstance(contract.insights, list)
     assert isinstance(contract.suggested_actions, list)
 
@@ -52,3 +54,12 @@ def test_to_ai_response_payload_embeds_semantic_contract():
     assert isinstance(semantic_contract["insights"], list)
     assert isinstance(semantic_contract["suggested_actions"], list)
     assert "metadata" in semantic_contract
+
+
+def test_to_ai_response_payload_keeps_pending_action():
+    plan = build_semantic_plan("crie um orçamento para cliente Joao")
+    execution = _execution_ok()
+    execution.pending_action = {"tool": "criar_orcamento", "confirmation_token": "tok-1"}
+    contract = compose_response_contract(plan, execution)
+    payload = to_ai_response_payload(contract=contract, execution=execution)
+    assert (payload.get("pending_action") or {}).get("confirmation_token") == "tok-1"

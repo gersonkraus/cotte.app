@@ -7,6 +7,7 @@ import uuid as _uuid
 import logging
 import csv
 import io
+import base64
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -54,6 +55,11 @@ from app.services.ai_rollout_service import (
     get_rollout_for_empresa,
     get_rollout_plan,
     save_rollout_plan,
+)
+from app.services.semantic_report_service import (
+    build_semantic_report_filename,
+    render_semantic_report_html,
+    render_semantic_report_pdf,
 )
 
 router = APIRouter(prefix="/ai", tags=["AI"], dependencies=[Depends(exigir_modulo("ia"))])
@@ -147,7 +153,7 @@ class AIAssistenteRequest(BaseModel):
 
 
 class AIReportExportRequest(BaseModel):
-    format: Literal["csv", "txt"] = "csv"
+    format: Literal["csv", "txt", "html", "pdf"] = "csv"
     printable_payload: dict = Field(default_factory=dict)
 
 
@@ -925,6 +931,29 @@ async def assistente_report_export(
             },
         }
 
+    if request.format == "html":
+        content = render_semantic_report_html(payload)
+        return {
+            "success": True,
+            "data": {
+                "file_name": build_semantic_report_filename(payload, "html"),
+                "content_type": "text/html;charset=utf-8",
+                "content": content,
+            },
+        }
+
+    if request.format == "pdf":
+        pdf_bytes = render_semantic_report_pdf(payload)
+        return {
+            "success": True,
+            "data": {
+                "file_name": build_semantic_report_filename(payload, "pdf"),
+                "content_type": "application/pdf",
+                "content_base64": base64.b64encode(pdf_bytes).decode("ascii"),
+                "content_encoding": "base64",
+            },
+        }
+
     output = io.StringIO()
     writer = csv.writer(output)
     if isinstance(rows, list) and rows and isinstance(rows[0], dict):
@@ -957,8 +986,12 @@ async def ai_observabilidade_resumo(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
 ):
-    target_empresa_id = int(current_user.empresa_id)
-    if empresa_id is not None and int(empresa_id) != int(current_user.empresa_id):
+    current_empresa_id_raw = getattr(current_user, "empresa_id", None)
+    current_empresa_id = int(current_empresa_id_raw) if current_empresa_id_raw else None
+    target_empresa_id: Optional[int] = current_empresa_id
+    if bool(getattr(current_user, "is_superadmin", False)) and empresa_id is None:
+        target_empresa_id = None
+    if empresa_id is not None and (current_empresa_id is None or int(empresa_id) != current_empresa_id):
         _require_superadmin(current_user)
         target_empresa_id = int(empresa_id)
 

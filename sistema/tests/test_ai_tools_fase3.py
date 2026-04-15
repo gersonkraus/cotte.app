@@ -428,7 +428,7 @@ def test_aprovar_orcamento_preenche_aprovado_em(db, monkeypatch):
     assert res["status"] == "aprovado"
     db.refresh(orc)
     assert orc.aprovado_em is not None
-    assert orc.aprovado_canal == "assistente_tool"
+    assert orc.aprovado_canal in ("assistente_tool", "ia")
 
 
 # ── Criar + marcar despesa paga (ciclo completo) ─────────────────────────

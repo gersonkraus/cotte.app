@@ -22,7 +22,29 @@ function _decodeSemanticPrintablePayload(raw) {
     }
 }
 
+function _sanitizePrintableColor(value, fallback) {
+    const raw = String(value || '').trim();
+    return /^#[0-9a-fA-F]{6}$/.test(raw) ? raw : fallback;
+}
+
+function _base64ToUint8Array(base64Value) {
+    const binary = atob(String(base64Value || ''));
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i += 1) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+}
+
 function _buildSemanticPrintableHtml(payload) {
+    const theme = payload?.theme && typeof payload.theme === 'object' ? payload.theme : {};
+    const accentColor = _sanitizePrintableColor(theme.accent_color, '#0f766e');
+    const accentSoft = _sanitizePrintableColor(theme.accent_soft, '#ecfdf5');
+    const textColor = _sanitizePrintableColor(theme.text_color, '#111827');
+    const mutedColor = _sanitizePrintableColor(theme.muted_color, '#4b5563');
+    const borderColor = _sanitizePrintableColor(theme.border_color, '#d1d5db');
+    const brandName = escapeHtml(String(theme.brand_name || payload?.brand?.name || 'Assistente COTTE'));
     const safeTitle = escapeHtml(String(payload?.title || 'Relatório do Assistente'));
     const safeSummary = textToHtmlRich(String(payload?.summary || ''));
     const rows = Array.isArray(payload?.rows) ? payload.rows : [];
@@ -43,17 +65,22 @@ function _buildSemanticPrintableHtml(payload) {
   <meta charset="utf-8">
   <title>${safeTitle}</title>
   <style>
-    body { font-family: Inter, Arial, sans-serif; margin: 24px; color: #111827; }
+    body { font-family: "Segoe UI", Arial, sans-serif; margin: 28px; color: ${textColor}; }
+    .cover { border: 1px solid ${borderColor}; border-left: 8px solid ${accentColor}; border-radius: 18px; padding: 22px 24px; background: linear-gradient(135deg, ${accentSoft}, #fff 72%); margin-bottom: 18px; }
+    .brand { display:inline-block; margin-bottom:10px; padding:6px 10px; border-radius:999px; background:${accentSoft}; color:${accentColor}; font-size:12px; font-weight:700; }
     h1 { margin: 0 0 8px; font-size: 24px; }
-    .meta { color: #6b7280; font-size: 12px; margin-bottom: 16px; }
-    .summary { margin: 12px 0 18px; line-height: 1.5; }
+    .meta { color: ${mutedColor}; font-size: 12px; margin-bottom: 12px; }
+    .summary { margin: 12px 0 18px; line-height: 1.6; border:1px solid ${borderColor}; border-radius:14px; padding:16px; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    th, td { border: 1px solid #d1d5db; padding: 6px 8px; text-align: left; vertical-align: top; }
-    thead { background: #f3f4f6; }
+    th, td { border: 1px solid ${borderColor}; padding: 6px 8px; text-align: left; vertical-align: top; }
+    thead { background: ${accentSoft}; color:${accentColor}; }
   </style>
 </head>
 <body>
-  <h1>${safeTitle}</h1>
+  <div class="cover">
+    <div class="brand">${brandName}</div>
+    <h1>${safeTitle}</h1>
+  </div>
   <div class="meta">Gerado em: ${new Date().toLocaleString('pt-BR')} | Período: ${period}</div>
   <div class="meta">Filtros: ${filters}</div>
   <div class="meta">Timestamp fonte: ${generatedAt}</div>
@@ -116,9 +143,14 @@ async function _exportSemanticReport(payload, format = 'csv') {
         const data = normalized?.data || {};
         const content = data.content || '';
         const fileName = data.file_name || `relatorio.${format}`;
-        if (!content) return;
         const mime = data.content_type || 'text/plain;charset=utf-8';
-        const blob = new Blob([content], { type: mime });
+        let blob;
+        if (data.content_base64) {
+            blob = new Blob([_base64ToUint8Array(data.content_base64)], { type: mime });
+        } else {
+            if (!content) return;
+            blob = new Blob([content], { type: mime });
+        }
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;

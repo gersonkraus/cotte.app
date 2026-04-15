@@ -130,3 +130,4 @@ async def test_rollout_plan_superadmin_update_and_read(client):
     assert get_resp.status_code == 200
     get_data = get_resp.json().get("data") or {}
     assert get_data.get("default_phase") == "pilot"
+

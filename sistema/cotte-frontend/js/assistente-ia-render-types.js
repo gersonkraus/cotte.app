@@ -682,6 +682,8 @@ function renderSemanticContract(data, semanticContract, isStreamed) {
     if (shouldShowPrintable) {
         const title = sc.printable.title || 'Versão imprimível disponível';
         const printSummary = printableSummary;
+        const theme = sc.printable.theme && typeof sc.printable.theme === 'object' ? sc.printable.theme : {};
+        const variant = String(theme.variant || 'professional');
         const printablePayloadEscaped = escapeHtmlAttr(JSON.stringify(sc.printable));
         content += `<div class="semantic-printable-card" data-testid="semantic-printable-card">
             <div class="semantic-printable-card__head">
@@ -689,12 +691,15 @@ function renderSemanticContract(data, semanticContract, isStreamed) {
                 <div>
                     <div class="semantic-printable-card__title">${escapeHtml(String(title))}</div>
                     <div class="semantic-printable-card__sub">${textToHtmlRich(String(printSummary || ''))}</div>
+                    <div class="semantic-printable-card__sub" style="margin-top:6px;font-size:12px;color:var(--ai-muted)">Tema: ${escapeHtml(variant)}</div>
                 </div>
             </div>
             <div class="semantic-printable-card__actions">
                 <button type="button" class="btn btn-secondary" data-semantic-print-preview="${printablePayloadEscaped}">Visualizar impressão</button>
                 <button type="button" class="btn btn-primary" data-semantic-print-now="${printablePayloadEscaped}">Imprimir</button>
                 <button type="button" class="btn btn-secondary" data-semantic-export-report="${printablePayloadEscaped}" data-export-format="csv">Exportar CSV</button>
+                <button type="button" class="btn btn-secondary" data-semantic-export-report="${printablePayloadEscaped}" data-export-format="html">Exportar HTML</button>
+                <button type="button" class="btn btn-secondary" data-semantic-export-report="${printablePayloadEscaped}" data-export-format="pdf">Exportar PDF</button>
                 <button type="button" class="btn btn-ghost" data-semantic-copy-summary="${escapeHtmlAttr(String(printSummary || summary || ''))}">Copiar resumo</button>
             </div>
         </div>`;
