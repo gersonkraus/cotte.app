@@ -71,6 +71,14 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
         metaTracesHtml += `<div class="tool-trace" style="margin-top:4px;font-size:0.75rem;color:var(--ai-muted)">🛠️ ${items}</div>`;
     }
 
+    const tIn = data.input_tokens;
+    const tOut = data.output_tokens;
+    if ((tIn != null && tIn > 0) || (tOut != null && tOut > 0)) {
+        const tin = tIn || 0;
+        const tout = tOut || 0;
+        metaTracesHtml += `<div class="token-usage-badge" title="Tokens consumidos nesta resposta">🔢 ${tin + tout} tokens (↑${tin} ↓${tout})</div>`;
+    }
+
     if (data.tipo_resposta === 'registro_criado' && data.dados) {
         const dados = data.dados;
         const registroTipo = dados.tipo_registro || 'Registro';

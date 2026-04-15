@@ -2299,6 +2299,9 @@ async def assistente_v2_stream_core(
         else None
     )
 
+    total_in = 0
+    total_out = 0
+
     for _iter in range(_V2_MAX_ITER):
         try:
             resp = await ia_service.chat(
@@ -2314,6 +2317,16 @@ async def assistente_v2_stream_core(
             )
             yield _enc({"error": f"Erro ao consultar assistente: {exc}"})
             return
+
+        _usage = (
+            resp.get("usage", {}) if isinstance(resp, dict)
+            else getattr(resp, "usage", {}) or {}
+        )
+        try:
+            total_in += int(_usage.get("prompt_tokens", 0) or 0)
+            total_out += int(_usage.get("completion_tokens", 0) or 0)
+        except Exception:
+            pass
 
         # Normalizar resposta (dict ou objeto LiteLLM)
         choices = (
@@ -2531,6 +2544,26 @@ async def assistente_v2_stream_core(
             usuario_id=usuario_id,
         )
 
+    # Persiste resumo de tokens da sessão no ToolCallLog para observabilidade
+    if (total_in > 0 or total_out > 0) and db is not None:
+        try:
+            from app.models.models import ToolCallLog as _ToolCallLog
+            _token_row = _ToolCallLog(
+                empresa_id=int(empresa_id) if empresa_id else None,
+                usuario_id=int(usuario_id) if usuario_id else None,
+                sessao_id=str(sessao_id) if sessao_id else None,
+                tool="llm_turn",
+                args_json={"_meta": {"engine": resolved_engine}},
+                resultado_json=None,
+                status="ok",
+                input_tokens=int(total_in),
+                output_tokens=int(total_out),
+            )
+            db.add(_token_row)
+            db.commit()
+        except Exception:
+            pass  # não bloqueia a resposta se falhar
+
     yield _enc(
         {
             "is_final": True,
@@ -2571,6 +2604,8 @@ async def assistente_v2_stream_core(
                 "pending_action": pending_action,
                 "tool_trace": tool_trace or None,
                 "sugestoes": sugs or None,
+                "input_tokens": total_in,
+                "output_tokens": total_out,
             },
         }
     )

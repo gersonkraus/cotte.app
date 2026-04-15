@@ -160,3 +160,72 @@ def build_ai_health_summary(
         "engines": engines_out,
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
+
+
+# Custo estimado por token (Claude Sonnet pricing blended)
+_COST_INPUT_PER_M = 3.0    # USD por 1M input tokens
+_COST_OUTPUT_PER_M = 15.0  # USD por 1M output tokens
+
+
+def build_token_chart_data(
+    *,
+    db: Session,
+    hours: int,
+    empresa_id: Optional[int] = None,
+) -> dict[str, Any]:
+    """Agrega consumo de tokens do ToolCallLog por dia e por engine."""
+    window_hours = max(1, min(168, _safe_int(hours, default=24)))
+    dt_from = datetime.now(timezone.utc) - timedelta(hours=window_hours)
+
+    query = db.query(ToolCallLog).filter(
+        ToolCallLog.criado_em >= dt_from,
+        ToolCallLog.input_tokens.isnot(None),
+    )
+    if empresa_id is not None:
+        query = query.filter(ToolCallLog.empresa_id == empresa_id)
+    logs = query.all()
+
+    total_in = 0
+    total_out = 0
+    by_engine: dict[str, dict] = {}
+    # keyed by "YYYY-MM-DD" → {engine: tokens}
+    daily: dict[str, dict[str, int]] = {}
+
+    for row in logs:
+        t_in = _safe_int(row.input_tokens)
+        t_out = _safe_int(row.output_tokens)
+        if t_in == 0 and t_out == 0:
+            continue
+        total_in += t_in
+        total_out += t_out
+        tokens = t_in + t_out
+
+        engine = _extract_engine_from_log(row)
+        bucket = by_engine.setdefault(engine, {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0})
+        bucket["input_tokens"] += t_in
+        bucket["output_tokens"] += t_out
+        bucket["total_tokens"] += tokens
+
+        day_key = row.criado_em.strftime("%Y-%m-%d") if row.criado_em else "unknown"
+        day_bucket = daily.setdefault(day_key, {})
+        day_bucket[engine] = day_bucket.get(engine, 0) + tokens
+
+    # Custo estimado
+    cost_usd = (total_in * _COST_INPUT_PER_M + total_out * _COST_OUTPUT_PER_M) / 1_000_000
+
+    # Série diária ordenada
+    daily_series = [
+        {"date": day, **engines_tokens}
+        for day, engines_tokens in sorted(daily.items())
+    ]
+
+    return {
+        "total_tokens": total_in + total_out,
+        "total_input_tokens": total_in,
+        "total_output_tokens": total_out,
+        "cost_usd": round(cost_usd, 6),
+        "by_engine": by_engine,
+        "daily": daily_series,
+        "window_hours": window_hours,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }

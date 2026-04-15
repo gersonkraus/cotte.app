@@ -31,7 +31,7 @@ function scrollToBottom() {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-function addMessage(role, content, steps = []) {
+function addMessage(role, content, steps = [], tokens = null) {
   const isUser = role === 'user';
   const msgDiv = document.createElement('div');
   msgDiv.className = `message ${isUser ? 'msg-user' : 'msg-ai'}`;
@@ -78,6 +78,15 @@ ${observationStr}
       <p>${safeContent}</p>
     </div>
   `;
+
+  if (!isUser && tokens && (tokens.input_tokens > 0 || tokens.output_tokens > 0)) {
+    const tin = tokens.input_tokens || 0;
+    const tout = tokens.output_tokens || 0;
+    const badge = document.createElement('div');
+    badge.className = 'token-usage-badge';
+    badge.textContent = `🔢 ${tin + tout} tokens (↑${tin} ↓${tout})`;
+    msgDiv.querySelector('.msg-content').appendChild(badge);
+  }
 
   chatMessages.appendChild(msgDiv);
   scrollToBottom();
@@ -147,7 +156,10 @@ chatForm.addEventListener('submit', async (e) => {
     // Limita histórico a últimas 10 mensagens
     if (chatHistory.length > 20) chatHistory = chatHistory.slice(-20);
 
-    addMessage('ai', data.answer, data.intermediate_steps);
+    addMessage('ai', data.answer, data.intermediate_steps, {
+      input_tokens: data.input_tokens,
+      output_tokens: data.output_tokens,
+    });
 
   } catch (error) {
     hideLoading(loadingEl);

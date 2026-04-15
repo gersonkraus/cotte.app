@@ -94,6 +94,16 @@ def process_monitor_query(
         if messages and isinstance(messages[-1], AIMessage):
             output = messages[-1].content
 
+        # Extrair uso de tokens do último AIMessage
+        input_tokens = 0
+        output_tokens = 0
+        last_ai = next((m for m in reversed(messages) if isinstance(m, AIMessage)), None)
+        if last_ai:
+            _meta = getattr(last_ai, "response_metadata", {}) or {}
+            _usage = _meta.get("token_usage") or _meta.get("usage") or {}
+            input_tokens = int(_usage.get("prompt_tokens", 0) or _usage.get("input_tokens", 0) or 0)
+            output_tokens = int(_usage.get("completion_tokens", 0) or _usage.get("output_tokens", 0) or 0)
+
         # Processar os tool calls como intermediate_steps
         steps = []
         for msg in messages:
@@ -114,10 +124,34 @@ def process_monitor_query(
                         step["observation"] = str(msg.content)[:2000]
                         break
 
+        # Persiste resumo de tokens no ToolCallLog para observabilidade
+        if input_tokens > 0 or output_tokens > 0:
+            try:
+                from app.core.database import get_db as _get_db
+                from app.models.models import ToolCallLog as _ToolCallLog
+                _db = next(_get_db())
+                try:
+                    _token_row = _ToolCallLog(
+                        tool="llm_turn",
+                        args_json={"_meta": {"engine": "monitor"}},
+                        resultado_json=None,
+                        status="ok",
+                        input_tokens=int(input_tokens),
+                        output_tokens=int(output_tokens),
+                    )
+                    _db.add(_token_row)
+                    _db.commit()
+                finally:
+                    _db.close()
+            except Exception:
+                pass  # não bloqueia resposta se falhar
+
         return {
             "success": True,
             "answer": output or "Sem resposta gerada.",
             "intermediate_steps": steps,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
         }
 
     except Exception as e:

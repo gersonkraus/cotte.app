@@ -4330,3 +4330,13 @@ body.embed-mode .chat-header-new-btn {
     padding: 4px 6px !important;
   }
 }
+
+/* Token usage badge */
+.token-usage-badge {
+  font-size: 0.68rem;
+  color: var(--ai-muted, #9ca3af);
+  margin-top: 4px;
+  display: block;
+  opacity: 0.7;
+  letter-spacing: 0.02em;
+}

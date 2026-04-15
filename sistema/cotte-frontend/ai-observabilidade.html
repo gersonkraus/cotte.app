@@ -207,6 +207,19 @@
           <div class="obs-card-label">Saude geral</div>
           <div id="obs-kpi-health" class="obs-card-value">-</div>
         </div>
+        <div class="obs-card">
+          <div class="obs-card-label">Total tokens</div>
+          <div id="obs-kpi-tokens" class="obs-card-value">-</div>
+        </div>
+        <div class="obs-card">
+          <div class="obs-card-label">Custo est. (USD)</div>
+          <div id="obs-kpi-cost" class="obs-card-value">-</div>
+        </div>
+      </div>
+
+      <div class="obs-table-wrap" style="padding:16px">
+        <div class="obs-card-label" style="margin-bottom:10px">Tokens por dia / engine</div>
+        <canvas id="obs-token-chart" height="80"></canvas>
       </div>
 
       <div class="obs-table-wrap">
@@ -235,10 +248,11 @@
     </section>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="js/utils.js?v=1"></script>
   <script src="js/api.js?v=17"></script>
   <script src="js/services/ApiService.js?v=2"></script>
   <script src="js/layout.js?v=5"></script>
-  <script src="js/ai-observabilidade.js?v=1"></script>
+  <script src="js/ai-observabilidade.js?v=2"></script>
 </body>
 </html>

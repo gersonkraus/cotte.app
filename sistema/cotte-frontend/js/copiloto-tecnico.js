@@ -203,6 +203,14 @@
         botReply = buildTechnicalFallbackReply(payload);
       }
       addMessage(botReply || "Sem resposta do copiloto.", "bot");
+      var tIn = payload.input_tokens;
+      var tOut = payload.output_tokens;
+      if ((tIn > 0 || tOut > 0) && messagesEl && messagesEl.lastElementChild) {
+        var badge = document.createElement("div");
+        badge.className = "token-usage-badge";
+        badge.textContent = "\uD83D\uDD22 " + ((tIn || 0) + (tOut || 0)) + " tokens (\u2191" + (tIn || 0) + " \u2193" + (tOut || 0) + ")";
+        messagesEl.lastElementChild.appendChild(badge);
+      }
     } catch (err) {
       addMessage((err && err.message) || "Falha ao consultar o copiloto interno.", "bot");
     } finally {

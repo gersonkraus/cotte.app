@@ -910,6 +910,8 @@ async function sendMessage() {
            sugestoes: metadata ? (metadata.sugestoes || null) : null,
            pending_action: metadata ? (metadata.pending_action || null) : null,
            tool_trace: metadata ? (metadata.tool_trace || null) : null,
+           input_tokens: (metadata && metadata.input_tokens != null) ? metadata.input_tokens : null,
+           output_tokens: (metadata && metadata.output_tokens != null) ? metadata.output_tokens : null,
         };
 
         const semanticContract = (

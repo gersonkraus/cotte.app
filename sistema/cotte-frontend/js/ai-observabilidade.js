@@ -9,6 +9,92 @@
   var metaEl = null;
   var intervalId = null;
   var loading = false;
+  var tokenChart = null;
+
+  var ENGINE_COLORS = {
+    operational: "#3b82f6",
+    internal_copilot: "#10b981",
+    monitor: "#f59e0b",
+    analytics: "#8b5cf6",
+    documental: "#ec4899",
+    unknown: "#9ca3af",
+  };
+
+  function engineColor(name) {
+    return ENGINE_COLORS[String(name).toLowerCase()] || "#9ca3af";
+  }
+
+  function formatTokens(n) {
+    if (typeof n !== "number") return "-";
+    if (n >= 1000000) return (n / 1000000).toFixed(2) + "M";
+    if (n >= 1000) return (n / 1000).toFixed(1) + "k";
+    return String(n);
+  }
+
+  function renderTokenChart(daily, engines) {
+    var canvas = document.getElementById("obs-token-chart");
+    if (!canvas || typeof Chart === "undefined") return;
+
+    var allEngines = Array.from(
+      new Set(daily.flatMap(function (d) { return Object.keys(d).filter(function (k) { return k !== "date"; }); }))
+    );
+
+    var labels = daily.map(function (d) { return d.date; });
+    var datasets = allEngines.map(function (eng) {
+      return {
+        label: eng,
+        data: daily.map(function (d) { return d[eng] || 0; }),
+        borderColor: engineColor(eng),
+        backgroundColor: engineColor(eng) + "22",
+        fill: true,
+        tension: 0.35,
+        pointRadius: 3,
+      };
+    });
+
+    if (tokenChart) {
+      tokenChart.destroy();
+      tokenChart = null;
+    }
+
+    tokenChart = new Chart(canvas, {
+      type: "line",
+      data: { labels: labels, datasets: datasets },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: "top", labels: { boxWidth: 12, font: { size: 12 } } },
+          tooltip: { mode: "index", intersect: false },
+        },
+        scales: {
+          y: { beginAtZero: true, ticks: { callback: function (v) { return formatTokens(v); } } },
+        },
+      },
+    });
+  }
+
+  async function carregarTokenStats() {
+    var client = getClient();
+    if (!client || typeof client.get !== "function") return;
+    var hours = hoursEl && hoursEl.value ? hoursEl.value : "24";
+    try {
+      var resp = await client.get("/api/superadmin/monitor-ai/stats?hours=" + hours);
+      var payload = resp && resp.data ? resp.data : resp;
+      var data = (payload && payload.data) ? payload.data : null;
+      if (!data) return;
+
+      var tokEl = document.getElementById("obs-kpi-tokens");
+      var costEl = document.getElementById("obs-kpi-cost");
+      if (tokEl) tokEl.textContent = formatTokens(data.total_tokens || 0);
+      if (costEl) costEl.textContent = "$" + (data.cost_usd || 0).toFixed(4);
+
+      if (Array.isArray(data.daily) && data.daily.length > 0) {
+        renderTokenChart(data.daily, data.by_engine || {});
+      }
+    } catch (err) {
+      console.warn("[obs] Falha ao carregar token stats:", err && err.message);
+    }
+  }
 
   function getClient() {
     return window.ApiService || window.api;
@@ -147,8 +233,8 @@
   }
 
   function bindEvents() {
-    refreshBtn.addEventListener("click", carregarResumo);
-    hoursEl.addEventListener("change", carregarResumo);
+    refreshBtn.addEventListener("click", function () { carregarResumo(); carregarTokenStats(); });
+    hoursEl.addEventListener("change", function () { carregarResumo(); carregarTokenStats(); });
     engineEl.addEventListener("change", carregarResumo);
     companyEl.addEventListener("change", carregarResumo);
     autoRefreshEl.addEventListener("change", configureAutoRefresh);
@@ -178,6 +264,7 @@
     bindEvents();
     configureAutoRefresh();
     carregarResumo();
+    carregarTokenStats();
   }
 
   document.addEventListener("DOMContentLoaded", init);
