@@ -1,3 +1,10 @@
+---
+title: 2026 04 14 Assistente Preview Orcamento Design
+tags:
+  - tecnico
+prioridade: media
+status: documentado
+---
 # Design Spec: Preview Completo de Orçamento no Assistente
 
 ## 1. Objetivo
