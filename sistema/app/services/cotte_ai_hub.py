@@ -990,9 +990,7 @@ class CotteAIHub:
 
         # ── Salvar no Cache ─────────────────────────────────────────────────
         if usar_cache and sucesso and confianca_final >= 0.7:
-            self.cache.set(
-                modulo, mensagem_limpa, resultado, empresa_id=empresa_id_ctx
-            )
+            self.cache.set(modulo, mensagem_limpa, resultado, empresa_id=empresa_id_ctx)
 
         # Log do processamento
         logger.info(
@@ -1890,7 +1888,9 @@ async def assistente_v2_stream_core(
                         "capability": "ranking_clientes_indisponivel",
                         "semantic_contract": _build_semantic_contract(
                             summary=final_text,
-                            metadata_extra={"capability": "ranking_clientes_indisponivel"},
+                            metadata_extra={
+                                "capability": "ranking_clientes_indisponivel"
+                            },
                         ),
                     },
                     "tipo": "geral",
@@ -2095,7 +2095,9 @@ async def assistente_v2_stream_core(
                         **resp_dados,
                         "semantic_contract": _build_semantic_contract(
                             summary=final_text,
-                            table=[resp_dados] if isinstance(resp_dados, dict) and resp_dados else [],
+                            table=[resp_dados]
+                            if isinstance(resp_dados, dict) and resp_dados
+                            else [],
                             printable={
                                 "title": "Resultado de ação confirmada",
                                 "summary": final_text,
@@ -2495,19 +2497,12 @@ async def assistente_v2_stream_core(
                     "semantic_contract": _build_semantic_contract(
                         summary=final_text,
                         table=(
-                            (resp_dados.get("rows") if isinstance(resp_dados, dict) else None)
-                            or (
-                                [
-                                    {
-                                        "tool": t.get("tool"),
-                                        "status": t.get("status"),
-                                        "latencia_ms": t.get("latencia_ms"),
-                                    }
-                                    for t in list(tool_trace or [])[:100]
-                                ]
-                                if tool_trace
-                                else []
+                            (
+                                resp_dados.get("rows")
+                                if isinstance(resp_dados, dict)
+                                else None
                             )
+                            or []
                         ),
                         chart=_to_semantic_chart(grafico_data),
                         printable={
@@ -2515,8 +2510,12 @@ async def assistente_v2_stream_core(
                             "summary": final_text,
                         },
                         metadata_extra={
-                            "capability": "GenerateAnalyticsReport" if tipo_resp == "financeiro" else "UnknownCapability",
-                            "domain": "analytics" if tipo_resp == "financeiro" else "unknown",
+                            "capability": "GenerateAnalyticsReport"
+                            if tipo_resp == "financeiro"
+                            else "UnknownCapability",
+                            "domain": "analytics"
+                            if tipo_resp == "financeiro"
+                            else "unknown",
                             "tipo_resposta_inferida": tipo_resp,
                         },
                     ),
@@ -3321,10 +3320,10 @@ def _v2_prompt_listar_orcamentos_datas_br() -> str:
         "\n\n## listar_orcamentos — datas (America/Sao_Paulo)\n"
         f"- Hoje: `{hoje.isoformat()}` | Ontem: `{ontem.isoformat()}`\n"
         f"- Só ontem: `aprovado_em_de` e `aprovado_em_ate` = `{ontem.isoformat()}`.\n"
-        f"- Ontem **e** hoje (uma chamada): `aprovado_em_de=\"{ontem.isoformat()}\"`, "
-        f"`aprovado_em_ate=\"{hoje.isoformat()}\"` (status APROVADO ou omita).\n"
+        f'- Ontem **e** hoje (uma chamada): `aprovado_em_de="{ontem.isoformat()}"`, '
+        f'`aprovado_em_ate="{hoje.isoformat()}"` (status APROVADO ou omita).\n'
         "- Para listar **todos** os itens de um intervalo curto no card (até o teto do sistema), "
-        "use `limit=50` ou peça \"lista completa\" / \"todos os orçamentos\" na mensagem.\n"
+        'use `limit=50` ou peça "lista completa" / "todos os orçamentos" na mensagem.\n'
         "- Não dispare várias `listar_orcamentos` em paralelo para dias vizinhos — "
         "use um único intervalo.\n"
     )
@@ -3357,14 +3356,14 @@ _V2_SYSTEM_PROMPT = (
     "7. **Inteligente mas humilde**: se não tiver certeza, pergunte ao usuário uma "
     "coisa de cada vez, sem listas de perguntas. \n"
     "8. **`listar_orcamentos` e datas**: o parâmetro `dias` filtra pela **data de criação** "
-    "(criado_em). Para **aprovação** (ex.: \"aprovados ontem\", \"ontem e hoje\"), use "
+    '(criado_em). Para **aprovação** (ex.: "aprovados ontem", "ontem e hoje"), use '
     "`aprovado_em_de` e `aprovado_em_ate` em YYYY-MM-DD (intervalo inclusivo; **um dia** = "
-    "mesma data nas duas chaves). `status=\"APROVADO\"` ou omita. Ver bloco fixo de datas "
+    'mesma data nas duas chaves). `status="APROVADO"` ou omita. Ver bloco fixo de datas '
     "no system prompt. \n"
     "9. **`listar_orcamentos` e paginação**: o JSON da tool traz `total` (quantos batem com o filtro), "
     "`itens_retornados` (ou o tamanho de `orcamentos`), `has_more` e `limit`. Se `total` for maior "
     "que a quantidade listada ou `has_more` for true, diga na resposta quantos existem no total e "
-    "quantos foram mostrados (ex.: \"Há 16 no período; abaixo os 10 mais recentes\"); mencione "
+    'quantos foram mostrados (ex.: "Há 16 no período; abaixo os 10 mais recentes"); mencione '
     "o botão Carregar mais no card, se existir. Não dê a entender que a tabela é a lista completa "
     "quando houver paginação. \n"
 )
@@ -3706,7 +3705,9 @@ async def assistente_unificado_v2(
             if isinstance(semantic_payload, dict) and semantic_payload:
                 return AIResponse(**semantic_payload)
         except Exception as exc:
-            logger.warning("Falha no runtime semântico, fallback para fluxo legado: %s", exc)
+            logger.warning(
+                "Falha no runtime semântico, fallback para fluxo legado: %s", exc
+            )
 
     payload = {
         "mensagem": mensagem,

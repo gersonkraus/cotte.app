@@ -634,8 +634,8 @@ function renderSemanticContract(data, semanticContract, isStreamed) {
     }
     const meta = sc.metadata || {};
     const proveniencia = [];
-    if (meta.capability) proveniencia.push(`Capability: ${String(meta.capability)}`);
-    if (meta.domain) proveniencia.push(`Domínio: ${String(meta.domain)}`);
+    if (meta.capability && meta.capability !== 'UnknownCapability') proveniencia.push(`Capability: ${String(meta.capability)}`);
+    if (meta.domain && meta.domain !== 'unknown') proveniencia.push(`Domínio: ${String(meta.domain)}`);
     if (meta.period_days) proveniencia.push(`Período: ${String(meta.period_days)} dias`);
     if (Array.isArray(meta.data_sources) && meta.data_sources.length) {
         proveniencia.push(`Fontes: ${meta.data_sources.join(', ')}`);
