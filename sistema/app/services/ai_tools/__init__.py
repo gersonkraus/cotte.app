@@ -39,6 +39,7 @@ from .financeiro_tools import (
 )
 from .log_tools import analisar_tool_logs
 from .sql_analytics_tools import executar_sql_analitico
+from .code_tools import ler_arquivo_repositorio, buscar_codigo_repositorio
 from .orcamento_tools import (
     anexar_documento_orcamento,
     aprovar_orcamento,
@@ -92,11 +93,16 @@ TOOL_DOMAIN_MAP: dict[str, str] = {
     "analisar_tool_logs": "auditoria",
     # analitica
     "executar_sql_analitico": "analitica",
+    # code
+    "ler_arquivo_repositorio": "code",
+    "buscar_codigo_repositorio": "code",
 }
 
 # Ordem importa apenas para introspecção/debug.
 _ALL_TOOLS: list[ToolSpec] = [
     # leitura
+    ler_arquivo_repositorio,
+    buscar_codigo_repositorio,
     analisar_tool_logs,
     executar_sql_analitico,
     obter_saldo_caixa,

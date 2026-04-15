@@ -118,7 +118,12 @@ ENGINE_POLICIES: dict[str, EnginePolicy] = {
         key=ENGINE_INTERNAL_COPILOT,
         label="Copiloto Tecnico Interno",
         description="Canal interno tecnico, separado do assistente operacional.",
-        allowed_tools=("analisar_tool_logs", "executar_sql_analitico"),
+        allowed_tools=(
+            "analisar_tool_logs", 
+            "executar_sql_analitico", 
+            "ler_arquivo_repositorio", 
+            "buscar_codigo_repositorio"
+        ),
         allow_tenant_rag=False,
         allow_business_context=False,
         allow_code_context=True,

@@ -1263,41 +1263,36 @@ async def executar_comando_operador_ia(
 
     # ── VER ──
     if acao == "VER":
-        itens_txt = (
-            "\n".join(
-                f"  {i + 1}. {it.descricao} — R$ {it.total:.2f}"
-                for i, it in enumerate(orc.itens)
-            )
-            if orc.itens
-            else "  (sem itens)"
-        )
-        desc_txt = ""
-        if orc.desconto and orc.desconto > 0:
-            sufixo = "%" if orc.desconto_tipo == "percentual" else " R$"
-            desc_txt = f" · Desconto: {orc.desconto:.0f}{sufixo}"
         return AIResponse(
             sucesso=True,
             resposta=f"Orçamento {orc.numero} — {orc.cliente.nome if orc.cliente else '?'} — R$ {orc.total:.2f} — {orc.status.value}",
-            tipo_resposta="operador_resultado",
+            tipo_resposta="orcamento_card_unificado",
             dados={
-                "acao": "VER",
-                "numero": orc.numero,
-                "cliente": orc.cliente.nome if orc.cliente else "—",
-                "total": float(orc.total or 0),
-                "status": orc.status.value,
                 "id": orc.id,
-                "itens": [
-                    {"descricao": it.descricao, "total": float(it.total)}
-                    for it in orc.itens
-                ],
+                "numero": orc.numero,
+                "cliente_nome": orc.cliente.nome if orc.cliente else "—",
+                "cliente_id": orc.cliente_id,
+                "total": float(orc.total or 0),
+                "desconto": float(orc.desconto or 0),
+                "desconto_tipo": orc.desconto_tipo or "percentual",
+                "status": orc.status.value if orc.status else "",
                 "forma_pagamento": orc.forma_pagamento.value
-                if orc.forma_pagamento
-                else "",
+                if hasattr(orc.forma_pagamento, "value")
+                else (orc.forma_pagamento or ""),
                 "validade_dias": orc.validade_dias or 0,
                 "observacoes": orc.observacoes or "",
                 "link_publico": orc.link_publico or "",
                 "tem_telefone": bool(orc.cliente and orc.cliente.telefone),
                 "tem_email": bool(orc.cliente and orc.cliente.email),
+                "itens": [
+                    {
+                        "descricao": it.descricao,
+                        "quantidade": float(it.quantidade or 0),
+                        "valor_unit": float(it.valor_unit or 0),
+                        "total": float(it.total or 0),
+                    }
+                    for it in orc.itens
+                ],
             },
             confianca=1.0,
             modulo_origem="operador",
@@ -2145,8 +2140,11 @@ async def assistente_v2_stream_core(
     )
 
     kb_snippet = _v2_load_kb_snippet()
-    system_prompt = f"{_V2_SYSTEM_PROMPT}\n\nData/hora atual: {agora}."
-    system_prompt += _v2_prompt_listar_orcamentos_datas_br()
+    if resolved_engine == ENGINE_INTERNAL_COPILOT:
+        system_prompt = f"{_V2_TECHNICAL_COPILOT_PROMPT}\n\nData/hora atual: {agora}."
+    else:
+        system_prompt = f"{_V2_SYSTEM_PROMPT}\n\nData/hora atual: {agora}."
+        system_prompt += _v2_prompt_listar_orcamentos_datas_br()
     system_prompt += "\n\n" + build_engine_guardrails(resolved_engine)
     if resolved_engine == ENGINE_INTERNAL_COPILOT:
         system_prompt += (
@@ -2159,34 +2157,64 @@ async def assistente_v2_stream_core(
             f"{kb_snippet}"
         )
 
-    semantic_ctx = SemanticMemoryStore.build_context(
-        db=db,
-        empresa_id=getattr(current_user, "empresa_id", 0),
-        mensagem=mensagem,
-        usuario_id=getattr(current_user, "id", 0),
-    )
-    try:
-        from app.services.rag import TenantRAGService
-
-        rag_ctx = TenantRAGService.build_prompt_context(
+    semantic_ctx = {}
+    rag_ctx = {}
+    adaptive_ctx = {}
+    if engine_policy.allow_business_context:
+        semantic_ctx = SemanticMemoryStore.build_context(
+            db=db,
+            empresa_id=getattr(current_user, "empresa_id", 0),
+            mensagem=mensagem,
+            usuario_id=getattr(current_user, "id", 0),
+        )
+        adaptive_ctx = AssistantPreferencesService.get_context_for_prompt(
             db=db,
             empresa_id=empresa_id,
-            query=mensagem,
-            top_k=4,
+            usuario_id=usuario_id,
+            mensagem=mensagem,
         )
-    except Exception:
-        rag_ctx = {}
-    adaptive_ctx = AssistantPreferencesService.get_context_for_prompt(
-        db=db,
-        empresa_id=empresa_id,
-        usuario_id=usuario_id,
-        mensagem=mensagem,
-    )
+    if engine_policy.allow_tenant_rag:
+        try:
+            from app.services.rag import TenantRAGService
+
+            rag_ctx = TenantRAGService.build_prompt_context(
+                db=db,
+                empresa_id=empresa_id,
+                query=mensagem,
+                top_k=4,
+            )
+        except Exception:
+            rag_ctx = {}
+    code_ctx = {}
+    if resolved_engine == ENGINE_INTERNAL_COPILOT and is_code_rag_enabled():
+        try:
+            from app.services.code_rag_service import build_code_context
+
+            code_ctx = build_code_context(query=mensagem, top_k=4)
+        except Exception:
+            code_ctx = {}
     adaptive_meta = {
         "visualizacao_recomendada": adaptive_ctx.get("preferencia_visualizacao_usuario")
         or {},
         "playbook_setor": adaptive_ctx.get("playbook_setor") or {},
     }
+
+    _modulos = adaptive_ctx.get("modulos_ativos") or {}
+    _nomes_modulos = {
+        "clientes": "Clientes",
+        "financeiro": "Financeiro",
+        "catalogo": "Catálogo de Serviços",
+        "orcamentos": "Orçamentos",
+    }
+    _linhas_modulos = [
+        f"- {label}: {'habilitado' if _modulos.get(key, True) else 'DESABILITADO pelo usuário'}"
+        for key, label in _nomes_modulos.items()
+    ]
+    system_prompt += (
+        "\n\n## Módulos com acesso autorizado pelo usuário\n"
+        + "\n".join(_linhas_modulos)
+        + "\nRespeite estritamente: não busque, exiba nem infira dados de módulos DESABILITADOS."
+    )
 
     messages: list[dict] = [
         {
@@ -2212,6 +2240,17 @@ async def assistente_v2_stream_core(
                     "## Contexto RAG por tenant (usar somente como apoio factual)\n"
                     f"Fontes: {', '.join(rag_ctx.get('sources') or [])}\n\n"
                     + (rag_ctx.get("context") or "")
+                ),
+            }
+        )
+    if code_ctx and code_ctx.get("context"):
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    "## Code RAG técnico interno (usar apenas para suporte técnico interno)\n"
+                    f"Fontes: {', '.join(code_ctx.get('sources') or [])}\n\n"
+                    + (code_ctx.get("context") or "")
                 ),
             }
         )
@@ -3368,6 +3407,14 @@ _V2_SYSTEM_PROMPT = (
     "quando houver paginação. \n"
 )
 
+_V2_TECHNICAL_COPILOT_PROMPT = (
+    "Você é o **Copiloto Técnico Interno** do sistema. "
+    "Você é focado em engenharia de software e suporte técnico para o superadmin. "
+    "Você tem acesso de leitura ao repositório de código fonte do projeto. "
+    "Seu papel é auxiliar no entendimento da arquitetura, debug de código, "
+    "boas práticas e manutenção do sistema. Seja técnico, preciso e vá direto ao ponto."
+)
+
 _V2_MAX_ITER = 5
 _V2_KB_SNIPPET_CACHE: Optional[str] = None
 
@@ -3992,8 +4039,11 @@ async def _assistente_unificado_v2_legacy(
     )
 
     kb_snippet = _v2_load_kb_snippet()
-    system_prompt = f"{_V2_SYSTEM_PROMPT}\n\nData/hora atual: {now}."
-    system_prompt += _v2_prompt_listar_orcamentos_datas_br()
+    if resolved_engine == ENGINE_INTERNAL_COPILOT:
+        system_prompt = f"{_V2_TECHNICAL_COPILOT_PROMPT}\n\nData/hora atual: {now}."
+    else:
+        system_prompt = f"{_V2_SYSTEM_PROMPT}\n\nData/hora atual: {now}."
+        system_prompt += _v2_prompt_listar_orcamentos_datas_br()
     system_prompt += "\n\n" + build_engine_guardrails(resolved_engine)
     if resolved_engine == ENGINE_INTERNAL_COPILOT:
         system_prompt += (
