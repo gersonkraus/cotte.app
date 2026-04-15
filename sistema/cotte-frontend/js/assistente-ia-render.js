@@ -218,7 +218,7 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
             </div>`;
         window._feedbackData = window._feedbackData || {};
         window._feedbackData[fbId] = {
-            pergunta: _ultimaPergunta,
+            pergunta: (typeof _ultimaPergunta !== 'undefined') ? _ultimaPergunta : '',
             resposta: data.resposta || '',
             modulo_origem: data.modulo_origem || tipoResp || 'geral',
         };
