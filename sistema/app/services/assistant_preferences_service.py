@@ -46,6 +46,8 @@ class AssistantPreferencesService:
             return "comercial"
         return "geral"
 
+    _MODULOS_PADRAO = {"clientes": True, "financeiro": True, "catalogo": True, "orcamentos": True}
+
     @classmethod
     def upsert_preferencia_visualizacao(
         cls,
@@ -55,6 +57,7 @@ class AssistantPreferencesService:
         usuario_id: int,
         formato_preferido: str,
         dominio: str = "geral",
+        modulos_ativos: Optional[dict] = None,
     ) -> dict:
         from app.models.models import AssistentePreferenciaUsuario
 
@@ -77,18 +80,93 @@ class AssistantPreferencesService:
                 dominio=dom,
                 formato_preferido=formato,
                 confianca=0.7 if formato != "auto" else 0.5,
+                modulos_ativos=cls._validar_modulos(modulos_ativos),
             )
             db.add(pref)
         else:
             pref.formato_preferido = formato
             pref.confianca = min(1.0, float(pref.confianca or 0.5) + 0.1) if formato != "auto" else 0.5
+            if modulos_ativos is not None:
+                pref.modulos_ativos = cls._validar_modulos(modulos_ativos)
         db.commit()
         db.refresh(pref)
         return {
             "dominio": pref.dominio,
             "formato_preferido": pref.formato_preferido,
             "confianca": round(float(pref.confianca or 0.5), 2),
+            "modulos_ativos": pref.modulos_ativos or cls._MODULOS_PADRAO,
         }
+
+    @classmethod
+    def _validar_modulos(cls, modulos: Optional[dict]) -> dict:
+        """Mescla com padrão, mantendo apenas chaves conhecidas e valores booleanos."""
+        result = dict(cls._MODULOS_PADRAO)
+        if modulos:
+            for k in cls._MODULOS_PADRAO:
+                if k in modulos:
+                    result[k] = bool(modulos[k])
+        return result
+
+    @classmethod
+    def upsert_modulos_ativos(
+        cls,
+        db: Session,
+        *,
+        empresa_id: int,
+        usuario_id: int,
+        modulos_ativos: dict,
+    ) -> dict:
+        """Persiste apenas modulos_ativos, sem alterar formato_preferido."""
+        from app.models.models import AssistentePreferenciaUsuario
+
+        pref = (
+            db.query(AssistentePreferenciaUsuario)
+            .filter(
+                AssistentePreferenciaUsuario.empresa_id == empresa_id,
+                AssistentePreferenciaUsuario.usuario_id == usuario_id,
+                AssistentePreferenciaUsuario.dominio == "geral",
+            )
+            .first()
+        )
+        modulos = cls._validar_modulos(modulos_ativos)
+        if not pref:
+            pref = AssistentePreferenciaUsuario(
+                empresa_id=empresa_id,
+                usuario_id=usuario_id,
+                dominio="geral",
+                formato_preferido="auto",
+                confianca=0.5,
+                modulos_ativos=modulos,
+            )
+            db.add(pref)
+        else:
+            pref.modulos_ativos = modulos
+        db.commit()
+        db.refresh(pref)
+        return pref.modulos_ativos or cls._MODULOS_PADRAO
+
+    @classmethod
+    def get_modulos_ativos(
+        cls,
+        db: Session,
+        *,
+        empresa_id: int,
+        usuario_id: int,
+    ) -> dict:
+        from app.models.models import AssistentePreferenciaUsuario
+
+        pref = (
+            db.query(AssistentePreferenciaUsuario)
+            .filter(
+                AssistentePreferenciaUsuario.empresa_id == empresa_id,
+                AssistentePreferenciaUsuario.usuario_id == usuario_id,
+                AssistentePreferenciaUsuario.dominio == "geral",
+            )
+            .first()
+        )
+        if not pref:
+            return dict(cls._MODULOS_PADRAO)
+        return pref.modulos_ativos or dict(cls._MODULOS_PADRAO)
 
     @classmethod
     def obter_preferencia_visualizacao(
@@ -267,11 +345,13 @@ class AssistantPreferencesService:
             empresa_id=empresa_id,
             usuario_id=usuario_id,
         )
+        modulos = cls.get_modulos_ativos(db, empresa_id=empresa_id, usuario_id=usuario_id)
         return {
             "dominio_contextual": dominio,
             "instrucoes_empresa": (empresa.assistente_instrucoes if empresa else None) or "",
             "preferencia_visualizacao_usuario": pref,
             "playbook_setor": playbook,
+            "modulos_ativos": modulos,
             "regra_hibrida": (
                 "Instruções da empresa são guardrails obrigatórios; "
                 "preferência do usuário ajusta formato e ordem dentro desses limites."

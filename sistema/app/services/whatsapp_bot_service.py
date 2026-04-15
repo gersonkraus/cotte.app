@@ -1391,103 +1391,50 @@ async def _criar_orcamento_via_bot(
 
     desconto = interpretado.desconto or 0.0
     desconto_tipo = interpretado.desconto_tipo or "percentual"
-    if desconto > 0:
-        max_pct = resolver_max_percent_desconto(usuario_criador, empresa)
-        err_desconto = erro_validacao_desconto(
-            subtotal, desconto, desconto_tipo, max_pct
-        )
-        if err_desconto:
-            await enviar_mensagem_texto(telefone, err_desconto, empresa=empresa)
-            return {"status": "desconto_invalido", "erro": err_desconto}
-    total_calc = float(
-        aplicar_desconto(
-            _Decimal(str(subtotal)), _Decimal(str(desconto)), desconto_tipo
-        )
-    )
 
-    checar_limite_orcamentos(db, empresa)
+    from app.services.orcamento_core_service import criar_orcamento_core
 
-    from app.models.models import ModoAgendamentoOrcamento
+    itens = [
+        {
+            "servico_id": servico_match.id if servico_match else None,
+            "descricao": servico_match.nome if servico_match else interpretado.servico,
+            "quantidade": 1,
+            "valor_unit": subtotal,
+        }
+    ]
 
-    agendamento_modo_ia = ModoAgendamentoOrcamento.NAO_USA
-    if empresa and getattr(empresa, "agendamento_modo_padrao", None):
-        agendamento_modo_ia = empresa.agendamento_modo_padrao
-    if empresa and getattr(empresa, "agendamento_escolha_obrigatoria", False):
-        agendamento_modo_ia = ModoAgendamentoOrcamento.NAO_USA
-
-    orcamento = None
-    for tentativa in range(3):
-        if tentativa > 0:
-            db.rollback()
-            if _cliente_novo_dados:
-                cliente = Cliente(**_cliente_novo_dados)
-                db.add(cliente)
-                db.flush()
-
-        _numero, _seq = gerar_numero(empresa, db, offset=tentativa)
-        orcamento = Orcamento(
-            empresa_id=empresa.id,
+    try:
+        orcamento = criar_orcamento_core(
+            db=db,
+            empresa=empresa,
+            usuario_criador=usuario_criador,
             cliente_id=cliente.id,
-            criado_por_id=usuario_criador.id,
-            numero=_numero,
-            sequencial_numero=_seq,
-            total=total_calc,
+            itens=itens,
+            origem="WhatsApp",
+            forma_pagamento="pix",
+            observacoes=interpretado.observacoes,
             desconto=desconto,
             desconto_tipo=desconto_tipo,
-            observacoes=interpretado.observacoes,
-            link_publico=secrets.token_urlsafe(12),
-            origem_whatsapp=True,
             mensagem_ia=mensagem,
-            agendamento_modo=agendamento_modo_ia,
         )
-        db.add(orcamento)
-        try:
-            db.flush()
-            break
-        except Exception as e:
-            orig = str(getattr(e, "orig", e))
-            if any(
-                k in orig
-                for k in ("orcamentos_numero", "uq_orcamentos", "ix_orcamentos")
-            ):
-                logger.warning(
-                    "Colisao de numero de orcamento via WhatsApp (tentativa %d)",
-                    tentativa + 1,
-                )
-                continue
-            raise
-    else:
+        db.commit()
+        db.refresh(orcamento)
+    except ValueError as e:
+        db.rollback()
+        await enviar_mensagem_texto(telefone, str(e), empresa=empresa)
+        return {"status": "erro_validacao", "erro": str(e)}
+    except Exception as e:
+        db.rollback()
         await enviar_mensagem_texto(
             telefone,
             "Nao foi possivel gerar o orcamento agora. Tente novamente.",
             empresa=empresa,
         )
-        return {"status": "numero_indisponivel"}
+        logger.error(f"Erro ao criar orcamento por WhatsApp: {e}")
+        return {"status": "erro_interno"}
 
     numero = orcamento.numero
     descricao_item = servico_match.nome if servico_match else interpretado.servico
-
-    item = ItemOrcamento(
-        orcamento_id=orcamento.id,
-        servico_id=servico_match.id if servico_match else None,
-        descricao=descricao_item,
-        quantidade=1,
-        valor_unit=subtotal,
-        total=subtotal,
-    )
-    db.add(item)
-
-    forma_padrao = (
-        db.query(FormaPagamentoConfig)
-        .filter_by(empresa_id=empresa.id, padrao=True, ativo=True)
-        .first()
-    )
-    if forma_padrao:
-        orcamento.regra_pagamento_id = forma_padrao.id
-        financeiro_service.aplicar_regra_no_orcamento(orcamento, db)
-
-    db.commit()
-    db.refresh(orcamento)
 
     empresa_dict = {
         "nome": empresa.nome,
@@ -1496,11 +1443,11 @@ async def _criar_orcamento_via_bot(
     }
     orc_dict = {
         "numero": numero,
-        "total": total_calc,
+        "total": float(orcamento.total or 0),
         "subtotal": subtotal,
         "desconto": desconto,
         "desconto_tipo": desconto_tipo,
-        "validade_dias": 7,
+        "validade_dias": orcamento.validade_dias or 7,
         "observacoes": interpretado.observacoes,
         "forma_pagamento": "pix",
         "cliente": {"nome": cliente_nome, "telefone": None},

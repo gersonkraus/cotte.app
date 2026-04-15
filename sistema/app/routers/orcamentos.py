@@ -195,6 +195,9 @@ def _resolver_agendamento_modo_criacao(
     return ModoAgendamentoOrcamento.NAO_USA
 
 
+from app.services.orcamento_core_service import criar_orcamento_core
+
+
 @router.post("/", response_model=OrcamentoOut, status_code=status.HTTP_201_CREATED)
 async def criar_orcamento(
     dados: OrcamentoCreate,
@@ -202,108 +205,37 @@ async def criar_orcamento(
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(exigir_permissao("orcamentos", "escrita")),
 ):
-    """Cria um novo orçamento com itens e desconto."""
-    # Limite por plano: quantidade máxima de orçamentos
-    if usuario.empresa:
-        checar_limite_orcamentos(db, usuario.empresa)
-    # Valida cliente
-    cliente = (
-        db.query(Cliente)
-        .filter(
-            Cliente.id == dados.cliente_id, Cliente.empresa_id == usuario.empresa_id
-        )
-        .first()
-    )
-    if not cliente:
-        raise HTTPException(status_code=404, detail="Cliente não encontrado")
-
-    empresa_ctx = usuario.empresa
-    if empresa_ctx is None:
-        empresa_ctx = db.query(Empresa).filter(Empresa.id == usuario.empresa_id).first()
-    modo_agendamento = _resolver_agendamento_modo_criacao(
-        dados.agendamento_modo, empresa_ctx
+    """Cria um novo orçamento com itens e desconto usando o core centralizado."""
+    empresa_ctx = (
+        usuario.empresa
+        or db.query(Empresa).filter(Empresa.id == usuario.empresa_id).first()
     )
 
-    # Calcula total com desconto
-    subtotal = sum(item.quantidade * item.valor_unit for item in dados.itens)
-    max_pct = resolver_max_percent_desconto(usuario, usuario.empresa)
-    err_desconto = erro_validacao_desconto(
-        subtotal, dados.desconto, dados.desconto_tipo, max_pct
-    )
-    if err_desconto:
-        raise HTTPException(status_code=400, detail=err_desconto)
-    total = aplicar_desconto(subtotal, dados.desconto, dados.desconto_tipo)
-
-    # Cria orçamento — tenta até 3x em caso de colisão de número (race condition)
-    orcamento = None
-    for tentativa in range(3):
-        db.rollback() if tentativa > 0 else None
-        _numero, _seq = gerar_numero(usuario.empresa, db, offset=tentativa)
-        orcamento = Orcamento(
-            empresa_id=usuario.empresa_id,
+    try:
+        orcamento = criar_orcamento_core(
+            db=db,
+            empresa=empresa_ctx,
+            usuario_criador=usuario,
             cliente_id=dados.cliente_id,
-            criado_por_id=usuario.id,
-            numero=_numero,
-            sequencial_numero=_seq,
-            forma_pagamento=dados.forma_pagamento,
+            itens=dados.itens,
+            origem="Manual",
+            forma_pagamento=dados.forma_pagamento.value
+            if hasattr(dados.forma_pagamento, "value")
+            else dados.forma_pagamento,
             validade_dias=dados.validade_dias,
             observacoes=dados.observacoes,
             desconto=dados.desconto,
             desconto_tipo=dados.desconto_tipo,
-            total=total,
-            link_publico=secrets.token_urlsafe(24),
-            agendamento_modo=modo_agendamento,
+            agendamento_modo=dados.agendamento_modo,
+            regra_pagamento_id=dados.regra_pagamento_id,
         )
-        db.add(orcamento)
-        try:
-            db.flush()  # pega o ID antes do commit; levanta IntegrityError se número duplicado
-            break
-        except IntegrityError as e:
-            if "ix_orcamentos" in str(e.orig) or "orcamentos_numero" in str(e.orig):
-                logger.warning(
-                    "Colisão de número de orçamento (tentativa %d): %s",
-                    tentativa + 1,
-                    e,
-                )
-                db.rollback()
-                continue
-            raise
-    else:
-        raise HTTPException(
-            status_code=500,
-            detail="Não foi possível gerar número de orçamento único. Tente novamente.",
-        )
-
-    # Cria itens
-    for item_data in dados.itens:
-        item = ItemOrcamento(
-            orcamento_id=orcamento.id,
-            servico_id=getattr(item_data, "servico_id", None),
-            descricao=item_data.descricao,
-            quantidade=item_data.quantidade,
-            valor_unit=item_data.valor_unit,
-            total=item_data.quantidade * item_data.valor_unit,
-        )
-        db.add(item)
-
-    # Aplicar regra de pagamento (f002)
-    _aplicar_regra_pagamento(
-        orcamento, dados.regra_pagamento_id, usuario.empresa_id, db
-    )
-
-    # Registro inicial no histórico
-    db.add(
-        HistoricoEdicao(
-            orcamento_id=orcamento.id,
-            editado_por_id=usuario.id,
-            descricao=f"Orçamento criado via painel (Total: R$ {total:.2f}).",
-        )
-    )
-
-    db.commit()
-    db.refresh(orcamento)
-
-    return orcamento
+        db.commit()
+        db.refresh(orcamento)
+        return orcamento
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.put("/{orcamento_id}", response_model=OrcamentoOut)

@@ -122,7 +122,8 @@ ENGINE_POLICIES: dict[str, EnginePolicy] = {
             "analisar_tool_logs", 
             "executar_sql_analitico", 
             "ler_arquivo_repositorio", 
-            "buscar_codigo_repositorio"
+            "buscar_codigo_repositorio",
+            "analisar_estrutura_html"
         ),
         allow_tenant_rag=False,
         allow_business_context=False,

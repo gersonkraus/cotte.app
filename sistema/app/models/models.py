@@ -1788,6 +1788,12 @@ class AssistentePreferenciaUsuario(TenantScopedMixin, Base):
         String(20), nullable=False, default="auto"
     )  # auto|resumo|tabela
     confianca = Column(Float, nullable=False, default=0.5)
+    modulos_ativos = Column(
+        JSON,
+        nullable=False,
+        default=lambda: {"clientes": True, "financeiro": True, "catalogo": True, "orcamentos": True},
+        server_default='{"clientes":true,"financeiro":true,"catalogo":true,"orcamentos":true}',
+    )
     criado_em = Column(DateTime(timezone=True), server_default=func.now())
     atualizado_em = Column(DateTime(timezone=True), onupdate=func.now())
 

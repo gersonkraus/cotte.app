@@ -10,9 +10,9 @@ from typing import Any, Optional
 
 _DEFAULT_CODE_RAG_PATHS = (
     "sistema/app",
-    "sistema/cotte-frontend/js",
+    "sistema/cotte-frontend",
 )
-_ALLOWED_EXTENSIONS = {".py", ".js", ".ts", ".tsx", ".html", ".md"}
+_ALLOWED_EXTENSIONS = {".py", ".js", ".ts", ".tsx", ".html", ".md", ".css", ".json", ".yaml", ".yml"}
 _SKIP_PARTS = {
     ".git",
     "node_modules",

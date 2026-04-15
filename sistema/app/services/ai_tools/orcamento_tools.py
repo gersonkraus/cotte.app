@@ -148,7 +148,10 @@ async def _listar_orcamentos(
             try:
                 st = _resolver_status_orcamento_listar(inp.status)
             except (KeyError, ValueError):
-                return {"error": f"status inválido: {inp.status}", "code": "invalid_input"}
+                return {
+                    "error": f"status inválido: {inp.status}",
+                    "code": "invalid_input",
+                }
             if st != StatusOrcamento.APROVADO:
                 return {
                     "error": (
@@ -162,9 +165,13 @@ async def _listar_orcamentos(
             Orcamento.aprovado_em.isnot(None),
         )
         if inp.aprovado_em_de is not None:
-            q_base = q_base.filter(Orcamento.aprovado_em >= _dia_br_inicio_utc(inp.aprovado_em_de))
+            q_base = q_base.filter(
+                Orcamento.aprovado_em >= _dia_br_inicio_utc(inp.aprovado_em_de)
+            )
         if inp.aprovado_em_ate is not None:
-            q_base = q_base.filter(Orcamento.aprovado_em < _dia_br_fim_exclusivo_utc(inp.aprovado_em_ate))
+            q_base = q_base.filter(
+                Orcamento.aprovado_em < _dia_br_fim_exclusivo_utc(inp.aprovado_em_ate)
+            )
     else:
         desde = date.today() - timedelta(days=inp.dias)
         q_base = q_base.filter(Orcamento.criado_em >= desde)
@@ -218,7 +225,8 @@ async def _listar_orcamentos(
     )
 
     status_counts = (
-        q_base.order_by(None).with_entities(
+        q_base.order_by(None)
+        .with_entities(
             Orcamento.status,
             func.count(Orcamento.id).label("quantidade"),
         )
@@ -247,8 +255,12 @@ async def _listar_orcamentos(
             ),
             "cliente_id": inp.cliente_id,
             "dias": inp.dias,
-            "aprovado_em_de": inp.aprovado_em_de.isoformat() if inp.aprovado_em_de else None,
-            "aprovado_em_ate": inp.aprovado_em_ate.isoformat() if inp.aprovado_em_ate else None,
+            "aprovado_em_de": inp.aprovado_em_de.isoformat()
+            if inp.aprovado_em_de
+            else None,
+            "aprovado_em_ate": inp.aprovado_em_ate.isoformat()
+            if inp.aprovado_em_ate
+            else None,
         },
         "totais_por_status": totais_por_status,
         "diagnostico": {
@@ -499,9 +511,7 @@ def _resolver_itens(inp: "CriarOrcamentoInput", db: Session, current_user: Usuar
 async def _criar_orcamento(
     inp: CriarOrcamentoInput, *, db: Session, current_user: Usuario
 ) -> dict[str, Any]:
-    import secrets
-    from sqlalchemy.exc import IntegrityError
-    from app.utils.orcamento_utils import gerar_numero
+    from app.services.orcamento_core_service import criar_orcamento_core
 
     cliente, cliente_auto_criado, err = _resolver_cliente(inp, db, current_user)
     if err:
@@ -527,60 +537,49 @@ async def _criar_orcamento(
                     ir["servico_id"] = novo_svc.id
                     break
 
-    total = Decimal("0")
-    for ir in itens_resolvidos:
-        qtd = Decimal(str(ir["quantidade"]))
-        vu = Decimal(str(ir["valor_unit"]))
-        total += (qtd * vu).quantize(Decimal("0.01"))
-
-    from app.models.models import ModoAgendamentoOrcamento
-
-    empresa = current_user.empresa
-    agendamento_modo_ia = ModoAgendamentoOrcamento.NAO_USA
-    if empresa and getattr(empresa, "agendamento_modo_padrao", None):
-        agendamento_modo_ia = empresa.agendamento_modo_padrao
-    if empresa and getattr(empresa, "agendamento_escolha_obrigatoria", False):
-        agendamento_modo_ia = ModoAgendamentoOrcamento.NAO_USA
-
-    orc = None
-    for tentativa in range(3):
-        if tentativa > 0:
-            db.rollback()
-        _numero, _seq = gerar_numero(current_user.empresa, db, offset=tentativa)
-        orc = Orcamento(
-            empresa_id=current_user.empresa_id,
+    try:
+        orcamento = criar_orcamento_core(
+            db=db,
+            empresa=current_user.empresa
+            or db.query(Empresa).filter(Empresa.id == current_user.empresa_id).first(),
+            usuario_criador=current_user,
             cliente_id=cliente.id,
-            criado_por_id=current_user.id,
-            numero=_numero,
-            sequencial_numero=_seq,
-            status=StatusOrcamento.RASCUNHO,
-            total=total,
+            itens=itens_resolvidos,
+            origem="Assistente IA",
+            forma_pagamento="pix",
             observacoes=inp.observacoes,
-            link_publico=secrets.token_urlsafe(24),
-            agendamento_modo=agendamento_modo_ia,
         )
-        db.add(orc)
-        try:
-            db.flush()
-            break
-        except IntegrityError as e:
-            if any(
-                k in str(e.orig)
-                for k in (
-                    "ix_orcamentos",
-                    "orcamentos_numero",
-                    "uq_orcamentos_empresa_numero",
-                    "numero",
-                )
-            ):
-                db.rollback()
-                continue
-            raise
-    else:
-        return {
-            "error": "Não foi possível gerar número único",
-            "code": "numero_conflict",
-        }
+        db.commit()
+        db.refresh(orcamento)
+    except ValueError as e:
+        db.rollback()
+        return {"error": str(e), "code": "validation_error"}
+    except Exception as e:
+        db.rollback()
+        return {"error": str(e), "code": "internal_error"}
+
+    return {
+        "id": orcamento.id,
+        "numero": orcamento.numero,
+        "status": orcamento.status.value if orcamento.status else None,
+        "total": float(orcamento.total or 0),
+        "cliente_nome": cliente.nome,
+        "cliente_id": cliente.id,
+        "cliente_auto_criado": cliente_auto_criado,
+        "observacoes": orcamento.observacoes,
+        "materiais_novos_cadastrados": len(materiais_novos)
+        if inp.cadastrar_materiais_novos
+        else 0,
+        "itens": [
+            {
+                "descricao": i.descricao,
+                "quantidade": float(i.quantidade or 0),
+                "valor_unit": float(i.valor_unit or 0),
+                "total": float(i.total or 0),
+            }
+            for i in (orcamento.itens or [])
+        ],
+    }
 
     for ir in itens_resolvidos:
         qtd = Decimal(str(ir["quantidade"]))
@@ -876,17 +875,20 @@ async def _recusar_orcamento(
         )
     except Exception:
         pass
-    return _build_orcamento_response(orc, {
-        "status": "recusado",
-        "impacto_financeiro": {
-            "contas_pendentes_removidas": qtd_pendentes,
-            "valor_total_pendente_removido": valor_pendente,
-            "observacao": (
-                "Ao sair de APROVADO, contas a receber pendentes sem pagamento são removidas; "
-                "contas com pagamento permanecem para preservar histórico."
-            ),
+    return _build_orcamento_response(
+        orc,
+        {
+            "status": "recusado",
+            "impacto_financeiro": {
+                "contas_pendentes_removidas": qtd_pendentes,
+                "valor_total_pendente_removido": valor_pendente,
+                "observacao": (
+                    "Ao sair de APROVADO, contas a receber pendentes sem pagamento são removidas; "
+                    "contas com pagamento permanecem para preservar histórico."
+                ),
+            },
         },
-    })
+    )
 
 
 recusar_orcamento = ToolSpec(

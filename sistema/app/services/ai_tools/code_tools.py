@@ -45,6 +45,71 @@ async def handler_ler_arquivo_repositorio(input_data: LerArquivoInput, **kwargs:
     except Exception as e:
         return {"error": f"Erro ao ler arquivo: {str(e)}"}
 
+from html.parser import HTMLParser
+from collections import Counter
+
+class LinterHTML(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.tags = []
+        self.ids = []
+        self.classes = []
+        self.errors = []
+        
+    def handle_starttag(self, tag, attrs):
+        self.tags.append(tag)
+        for attr, value in attrs:
+            if attr == 'id' and value:
+                self.ids.append(value)
+            if attr == 'class' and value:
+                self.classes.extend(value.split())
+
+    def check(self):
+        id_counts = Counter(self.ids)
+        dups = {k: v for k, v in id_counts.items() if v > 1}
+        if dups:
+            self.errors.append(f"IDs duplicados encontrados: {list(dups.keys())}")
+        return {
+            "tags_totais": len(self.tags),
+            "ids_unicos": len(set(self.ids)),
+            "ids_duplicados": list(dups.keys()),
+            "erros": self.errors
+        }
+
+class AnalisarHtmlInput(BaseModel):
+    path: str = Field(..., description="Caminho relativo ou absoluto do arquivo HTML no repositório.")
+
+async def handler_analisar_estrutura_html(input_data: AnalisarHtmlInput, **kwargs: Any) -> dict[str, Any]:
+    """Analisa a estrutura de um arquivo HTML buscando erros básicos como IDs duplicados."""
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
+    file_path = os.path.abspath(os.path.join(base_dir, input_data.path))
+    
+    if not file_path.startswith(base_dir) or not file_path.endswith('.html'):
+        return {"error": "Acesso negado: Path inválido ou não é HTML."}
+    
+    if not os.path.isfile(file_path):
+        return {"error": f"Arquivo HTML não encontrado: {file_path}"}
+        
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+            
+        parser = LinterHTML()
+        parser.feed(content)
+        resultado = parser.check()
+        resultado["path"] = input_data.path
+        return resultado
+    except Exception as e:
+        return {"error": f"Erro ao analisar HTML: {str(e)}"}
+
+analisar_estrutura_html = ToolSpec(
+    name="analisar_estrutura_html",
+    description="Analisa a estrutura DOM de um arquivo HTML, identificando tags e verificando IDs duplicados e possíveis erros.",
+    input_model=AnalisarHtmlInput,
+    handler=handler_analisar_estrutura_html,
+    destrutiva=False,
+    permissao_acao="leitura"
+)
 class BuscarCodigoInput(BaseModel):
     termo: str = Field(..., description="Termo de busca ou regex (grep-like).")
     path: str = Field(".", description="Diretório ou arquivo para buscar (relativo ao repositório).")

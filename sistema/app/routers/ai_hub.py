@@ -1504,6 +1504,10 @@ class AIPreferenciasAssistenteUpdateRequest(BaseModel):
         default="geral",
         description="Domínio da preferência (geral, financeiro, orcamentos, etc.).",
     )
+    modulos_ativos: Optional[dict] = Field(
+        default=None,
+        description="Módulos habilitados: {clientes, financeiro, catalogo, orcamentos}.",
+    )
 
 
 class AIPreferenciasAssistenteOut(BaseModel):
@@ -1513,6 +1517,11 @@ class AIPreferenciasAssistenteOut(BaseModel):
     pode_editar_instrucoes: bool = False
     preferencia_visualizacao: dict = Field(default_factory=dict)
     playbook_setor: dict = Field(default_factory=dict)
+    modulos_ativos: dict = Field(
+        default_factory=lambda: {
+            "clientes": True, "financeiro": True, "catalogo": True, "orcamentos": True
+        }
+    )
 
 
 class AIPromptEmpresaCreateRequest(BaseModel):
@@ -1573,6 +1582,7 @@ async def obter_preferencias_assistente(
         ),
         preferencia_visualizacao=contexto.get("preferencia_visualizacao_usuario") or {},
         playbook_setor=contexto.get("playbook_setor") or {},
+        modulos_ativos=contexto.get("modulos_ativos") or {},
     )
 
 
@@ -1612,6 +1622,14 @@ async def atualizar_preferencias_assistente(
             usuario_id=current_user.id,
             formato_preferido=request.formato_preferido,
             dominio=request.dominio or "geral",
+            modulos_ativos=request.modulos_ativos,
+        )
+    elif request.modulos_ativos is not None:
+        AssistantPreferencesService.upsert_modulos_ativos(
+            db,
+            empresa_id=current_user.empresa_id,
+            usuario_id=current_user.id,
+            modulos_ativos=request.modulos_ativos,
         )
 
     contexto = AssistantPreferencesService.get_context_for_prompt(
@@ -1625,6 +1643,7 @@ async def atualizar_preferencias_assistente(
         pode_editar_instrucoes=pode_editar_instrucoes,
         preferencia_visualizacao=contexto.get("preferencia_visualizacao_usuario") or {},
         playbook_setor=contexto.get("playbook_setor") or {},
+        modulos_ativos=contexto.get("modulos_ativos") or {},
     )
 
 
