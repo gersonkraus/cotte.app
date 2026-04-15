@@ -526,7 +526,6 @@ function _hideQuickReplyChips() {
 }
 
 function _updateVoiceSendToggle(ta) {
-    if (window.innerWidth > 768) return;
     const group = ta ? ta.closest('.input-group') : document.querySelector('.input-group');
     if (!group) return;
     if (ta && ta.value.trim().length > 0) {
