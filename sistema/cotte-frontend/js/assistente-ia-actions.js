@@ -215,3 +215,42 @@ function cancelarAcaoIA(btnEl) {
     const input = document.getElementById('messageInput');
     if (input) input.focus();
 }
+
+// --- Aliases para o modal de orcamento-detalhes.js ---
+window.api = window.httpClient; // O modal usa api.get()
+
+// Como o assistente não usa cache local persistente de orçamentos da mesma forma que a listagem,
+// declaramos um array vazio global que o orcamento-detalhes pode tentar usar se quiser (evita crash).
+window.orcamentosCache = []; 
+
+window.enviarWhatsapp = async function(id) {
+    // O modal chama fecharDetalhes() antes. Redirecionamos para a função nativa do assistente.
+    await enviarPorWhatsapp(id, null, null);
+};
+
+window.enviarEmail = async function(id) {
+    await enviarPorEmail(id, null, null);
+};
+
+window.abrirModalEditarOrcamento = function(id) {
+    window.location.href = `orcamentos.html?editar=${id}`;
+};
+
+window.duplicarOrcamento = function(id) {
+    window.location.href = `orcamentos.html?duplicar=${id}`;
+};
+
+window.abrirTimeline = function(id, num) {
+    window.location.href = `orcamentos.html?timeline=${id}`;
+};
+
+window.aprovarOrcamento = function(id, num) {
+    // Envia o comando de aprovação direto no chat de forma silenciosa
+    const aprovarCmd = `aprovar ${num}`;
+    window._silentNextMessage = true;
+    sendQuickMessage(aprovarCmd);
+};
+
+window.abrirModalDocsOrcamento = function(id) {
+    window.location.href = `orcamentos.html?docs=${id}`;
+};
