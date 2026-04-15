@@ -56,15 +56,70 @@ def _extract_comparison_mode(message: str) -> str:
 def _extract_categories(message: str) -> list[str]:
     text = (message or "")
     lower = text.lower()
-    if "categoria" not in lower:
+    if "categoria" not in lower and "caracterias" not in lower:
         return []
-    m = re.search(r"categorias?\s+(.+?)(?:\s+no\s+periodo|\s+no\s+período|$)", text, flags=re.IGNORECASE)
+    m = re.search(
+        r"(?:categorias?|caracterias)\s+(.+?)(?:\s+no\s+periodo|\s+no\s+período|$)",
+        text,
+        flags=re.IGNORECASE,
+    )
     if not m:
         return []
     raw = m.group(1).strip(" .")
     parts = re.split(r",| e |/|\|", raw)
     cleaned = [p.strip(" .") for p in parts if p and p.strip(" .")]
     return cleaned[:8]
+
+
+def _extract_top_n(message: str) -> int | None:
+    text = (message or "").lower()
+    m = re.search(r"\btop\s+(\d{1,2})\b", text)
+    if m:
+        return max(1, min(50, int(m.group(1))))
+    m = re.search(
+        r"\b(\d{1,2})\s+(?:clientes|vendedores|vendas|orcamentos|orçamentos)\b",
+        text,
+    )
+    if m:
+        return max(1, min(50, int(m.group(1))))
+    return None
+
+
+def _extract_detail_level(message: str) -> str | None:
+    text = (message or "").lower()
+    if any(token in text for token in ("todas as vendas", "lista completa", "detalhado", "detalhadas")):
+        return "detailed"
+    if any(token in text for token in ("resumo", "consolidado", "executivo")):
+        return "summary"
+    return None
+
+
+def _extract_layout_preferences(message: str) -> dict[str, Any]:
+    text = (message or "").lower()
+    preferences: dict[str, Any] = {}
+    if any(token in text for token in ("profissional", "professional", "executivo", "executiva")):
+        preferences["variant"] = "executive"
+
+    color_aliases = {
+        "azul": "#1d4ed8",
+        "verde": "#0f766e",
+        "laranja": "#ea580c",
+        "vermelho": "#b91c1c",
+        "cinza": "#374151",
+        "preto": "#111827",
+    }
+    for color_name, hex_value in color_aliases.items():
+        if color_name in text:
+            preferences["accent_color"] = hex_value
+            break
+
+    hex_match = re.search(r"(#[0-9a-fA-F]{6})\b", message or "")
+    if hex_match:
+        preferences["accent_color"] = hex_match.group(1)
+
+    if "layout" in text:
+        preferences["custom_layout_requested"] = True
+    return preferences
 
 
 def _extract_seller_name(message: str) -> str | None:
@@ -128,6 +183,18 @@ def _extract_entity_filters(message: str) -> dict[str, Any]:
     channels = _extract_channels(message)
     if channels["whatsapp"] or channels["email"]:
         filters["channels"] = channels
+
+    top_n = _extract_top_n(message)
+    if top_n is not None:
+        filters["top_n"] = top_n
+
+    detail_level = _extract_detail_level(message)
+    if detail_level:
+        filters["detail_level"] = detail_level
+
+    layout_preferences = _extract_layout_preferences(message)
+    if layout_preferences:
+        filters["layout_preferences"] = layout_preferences
 
     return filters
 

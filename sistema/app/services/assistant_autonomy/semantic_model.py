@@ -21,6 +21,12 @@ class DimensionDefinition:
 
 
 METRICS_CATALOG: dict[str, MetricDefinition] = {
+    "financial_performance": MetricDefinition(
+        key="financial_performance",
+        label="Desempenho financeiro",
+        description="Visão consolidada de entradas, saídas e saldo operacional no período.",
+        aliases=("desempenho financeiro", "financeiro", "resultado financeiro", "saude financeira"),
+    ),
     "revenue_total": MetricDefinition(
         key="revenue_total",
         label="Faturamento total",
@@ -68,6 +74,36 @@ METRICS_CATALOG: dict[str, MetricDefinition] = {
         label="Comissão de vendedores",
         description="Estimativa de comissão por vendedor com base em percentual informado.",
         aliases=("comissao", "comissão", "percentual", "8%", "10%"),
+    ),
+    "sales_detail": MetricDefinition(
+        key="sales_detail",
+        label="Detalhamento de vendas",
+        description="Lista individual de vendas/orçamentos aprovados com cliente, data e valor.",
+        aliases=("todas as vendas", "vendas detalhadas", "lista de vendas", "detalhado"),
+    ),
+    "average_ticket": MetricDefinition(
+        key="average_ticket",
+        label="Ticket médio",
+        description="Valor médio por venda/orçamento aprovado no período.",
+        aliases=("ticket medio", "ticket médio", "valor medio", "valor médio"),
+    ),
+    "expense_total": MetricDefinition(
+        key="expense_total",
+        label="Despesas",
+        description="Total de despesas e saídas por categoria no período.",
+        aliases=("despesas", "gastos", "saidas", "saídas"),
+    ),
+    "sales_by_category": MetricDefinition(
+        key="sales_by_category",
+        label="Vendas por categoria",
+        description="Desempenho agregado por categoria solicitada no relatório.",
+        aliases=("categorias", "por categoria", "categoria x", "categoria y"),
+    ),
+    "receivable_aging": MetricDefinition(
+        key="receivable_aging",
+        label="Aging de recebíveis",
+        description="Faixas de atraso e valor pendente das contas a receber.",
+        aliases=("aging", "faixa de atraso", "atrasadas", "recebiveis vencidos", "recebíveis vencidos"),
     ),
     "document_generation": MetricDefinition(
         key="document_generation",
@@ -118,6 +154,16 @@ DIMENSIONS_CATALOG: dict[str, DimensionDefinition] = {
         key="category",
         label="Categoria",
         aliases=("categoria", "categorias", "classe"),
+    ),
+    "period": DimensionDefinition(
+        key="period",
+        label="Período",
+        aliases=("periodo", "período", "intervalo", "janela"),
+    ),
+    "day": DimensionDefinition(
+        key="day",
+        label="Dia",
+        aliases=("dia", "diario", "diário"),
     ),
 }
 

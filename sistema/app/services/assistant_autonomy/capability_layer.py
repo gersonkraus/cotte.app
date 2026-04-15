@@ -28,7 +28,7 @@ def _clamp_int(value: Any, default: int, min_value: int, max_value: int) -> int:
         return default
 
 
-def _analytics_sql_top_customers(period_days: int) -> str:
+def _analytics_sql_top_customers(period_days: int, top_n: int = 10) -> str:
     return (
         "SELECT c.id, c.nome, COALESCE(SUM(o.total),0) AS total_comprado, "
         "COUNT(o.id) AS total_orcamentos "
@@ -38,7 +38,7 @@ def _analytics_sql_top_customers(period_days: int) -> str:
         "AND o.empresa_id = :empresa_id "
         f"AND o.aprovado_em >= (CURRENT_DATE - INTERVAL '{period_days} days') "
         "GROUP BY c.id, c.nome "
-        "ORDER BY total_comprado DESC"
+        f"ORDER BY total_comprado DESC LIMIT {top_n}"
     )
 
 
@@ -49,7 +49,7 @@ def _analytics_sql_overdue_receivables() -> str:
         "WHERE empresa_id = :empresa_id "
         "AND tipo = 'RECEBER' "
         "AND status = 'PENDENTE' "
-        "AND vencimento < CURRENT_DATE"
+        "AND data_vencimento < CURRENT_DATE"
     )
 
 
@@ -66,7 +66,9 @@ def _analytics_sql_month_comparison(period_days: int) -> str:
     )
 
 
-def _analytics_sql_seller_ranking(period_days: int, seller_name: str | None = None) -> str:
+def _analytics_sql_seller_ranking(
+    period_days: int, seller_name: str | None = None, top_n: int = 20
+) -> str:
     seller_filter = ""
     if seller_name:
         seller_filter = f" AND u.nome ILIKE '%{_escape_sql_literal(seller_name)}%' "
@@ -75,16 +77,21 @@ def _analytics_sql_seller_ranking(period_days: int, seller_name: str | None = No
         "COUNT(o.id) AS total_orcamentos, "
         "COALESCE(SUM(o.total),0) AS total_vendas "
         "FROM orcamentos o "
-        "LEFT JOIN usuarios u ON u.id = o.criado_por_id "
+        "LEFT JOIN usuarios u ON u.id = o.criado_por_id AND u.empresa_id = :empresa_id "
         "WHERE o.empresa_id = :empresa_id "
         f"AND o.aprovado_em >= (CURRENT_DATE - INTERVAL '{period_days} days') "
         f"{seller_filter}"
         "GROUP BY COALESCE(u.nome, 'Sem vendedor') "
-        "ORDER BY total_vendas DESC"
+        f"ORDER BY total_vendas DESC LIMIT {top_n}"
     )
 
 
-def _analytics_sql_commission_report(period_days: int, commission_pct: float, seller_name: str | None = None) -> str:
+def _analytics_sql_commission_report(
+    period_days: int,
+    commission_pct: float,
+    seller_name: str | None = None,
+    top_n: int = 20,
+) -> str:
     pct = max(0.0, min(100.0, float(commission_pct or 0.0)))
     seller_filter = ""
     if seller_name:
@@ -95,16 +102,48 @@ def _analytics_sql_commission_report(period_days: int, commission_pct: float, se
         f"ROUND(COALESCE(SUM(o.total),0) * ({pct} / 100.0), 2) AS comissao_estimada, "
         f"{pct}::numeric AS percentual_comissao "
         "FROM orcamentos o "
-        "LEFT JOIN usuarios u ON u.id = o.criado_por_id "
+        "LEFT JOIN usuarios u ON u.id = o.criado_por_id AND u.empresa_id = :empresa_id "
         "WHERE o.empresa_id = :empresa_id "
         f"AND o.aprovado_em >= (CURRENT_DATE - INTERVAL '{period_days} days') "
         f"{seller_filter}"
         "GROUP BY COALESCE(u.nome, 'Sem vendedor') "
-        "ORDER BY comissao_estimada DESC"
+        f"ORDER BY comissao_estimada DESC LIMIT {top_n}"
     )
 
 
-def _analytics_sql_by_categories(period_days: int, categories: list[str]) -> str:
+def _analytics_sql_seller_sales_detail(
+    period_days: int,
+    commission_pct: float,
+    seller_name: str | None = None,
+    top_n: int = 120,
+) -> str:
+    pct = max(0.0, min(100.0, float(commission_pct or 0.0)))
+    seller_filter = ""
+    if seller_name:
+        seller_filter = f" AND u.nome ILIKE '%{_escape_sql_literal(seller_name)}%' "
+    return (
+        "SELECT "
+        "o.id AS orcamento_id, "
+        "o.numero AS numero_orcamento, "
+        "DATE(o.aprovado_em) AS data_venda, "
+        "COALESCE(c.nome, 'Cliente não informado') AS cliente, "
+        "COALESCE(u.nome, 'Sem vendedor') AS vendedor, "
+        "COALESCE(o.total, 0) AS valor_venda, "
+        f"{pct}::numeric AS percentual_comissao, "
+        f"ROUND(COALESCE(o.total, 0) * ({pct} / 100.0), 2) AS valor_comissao "
+        "FROM orcamentos o "
+        "LEFT JOIN clientes c ON c.id = o.cliente_id AND c.empresa_id = :empresa_id "
+        "LEFT JOIN usuarios u ON u.id = o.criado_por_id AND u.empresa_id = :empresa_id "
+        "WHERE o.empresa_id = :empresa_id "
+        "AND o.aprovado_em IS NOT NULL "
+        f"AND o.aprovado_em >= (CURRENT_DATE - INTERVAL '{period_days} days') "
+        f"{seller_filter}"
+        "ORDER BY o.aprovado_em DESC "
+        f"LIMIT {top_n}"
+    )
+
+
+def _analytics_sql_quote_categories(period_days: int, categories: list[str], top_n: int = 20) -> str:
     values = ",".join(f"'{_escape_sql_literal(cat)}'" for cat in categories)
     return (
         "SELECT i.descricao AS categoria, "
@@ -116,7 +155,24 @@ def _analytics_sql_by_categories(period_days: int, categories: list[str]) -> str
         f"AND o.aprovado_em >= (CURRENT_DATE - INTERVAL '{period_days} days') "
         f"AND i.descricao IN ({values}) "
         "GROUP BY i.descricao "
-        "ORDER BY total_categoria DESC"
+        f"ORDER BY total_categoria DESC LIMIT {top_n}"
+    )
+
+
+def _analytics_sql_financial_categories(period_days: int, categories: list[str], top_n: int = 20) -> str:
+    values = ",".join(f"'{_escape_sql_literal(cat)}'" for cat in categories)
+    return (
+        "SELECT "
+        "COALESCE(m.categoria, 'sem_categoria') AS categoria, "
+        "m.tipo AS tipo_movimentacao, "
+        "COALESCE(SUM(m.valor),0) AS total_movimentado, "
+        "COUNT(m.id) AS total_lancamentos "
+        "FROM movimentacoes_caixa m "
+        "WHERE m.empresa_id = :empresa_id "
+        f"AND m.data >= (CURRENT_DATE - INTERVAL '{period_days} days') "
+        f"AND m.categoria IN ({values}) "
+        "GROUP BY COALESCE(m.categoria, 'sem_categoria'), m.tipo "
+        f"ORDER BY total_movimentado DESC LIMIT {top_n}"
     )
 
 
@@ -140,17 +196,32 @@ def _analytics_sql_from_plan(plan: SemanticPlan) -> str:
     seller_name = filters.get("seller_name")
     commission_pct = filters.get("commission_pct")
     categories = filters.get("categories") or []
+    top_n = _clamp_int(filters.get("top_n"), 20, 1, 200)
+    detail_level = str(filters.get("detail_level") or "").strip().lower()
 
     if categories:
-        return _analytics_sql_by_categories(period_days, categories)
+        if any(token in text for token in ("financeiro", "moviment", "despes", "gasto", "caixa")):
+            return _analytics_sql_financial_categories(period_days, categories, top_n=top_n)
+        return _analytics_sql_quote_categories(period_days, categories, top_n=top_n)
+    if detail_level == "detailed" and (
+        "vendedor" in text or "comiss" in text or "vendas" in text
+    ):
+        return _analytics_sql_seller_sales_detail(
+            period_days,
+            commission_pct or 0.0,
+            seller_name,
+            top_n=max(top_n, 50),
+        )
     if "clientes" in text and "compr" in text:
-        return _analytics_sql_top_customers(period_days)
+        return _analytics_sql_top_customers(period_days, top_n=top_n)
     if "vencid" in text and "receber" in text:
         return _analytics_sql_overdue_receivables()
     if "comiss" in text or commission_pct is not None:
-        return _analytics_sql_commission_report(period_days, commission_pct or 0.0, seller_name)
+        return _analytics_sql_commission_report(
+            period_days, commission_pct or 0.0, seller_name, top_n=top_n
+        )
     if "vendedor" in text or "ranking" in text:
-        return _analytics_sql_seller_ranking(period_days, seller_name)
+        return _analytics_sql_seller_ranking(period_days, seller_name, top_n=top_n)
     if "compar" in text and ("mes" in text or "mês" in text or "trimestre" in text):
         return _analytics_sql_month_comparison(period_days)
     hybrid = plan_sql_hybrid(plan)

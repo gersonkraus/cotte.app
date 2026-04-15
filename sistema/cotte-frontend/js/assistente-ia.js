@@ -369,6 +369,19 @@ async function useAssistentePromptLibraryItem(promptId) {
         // Não bloquear uso do prompt por falha de telemetria.
     }
     showAssistentePromptsNotice('Prompt aplicado no campo de mensagem.');
+    
+    // Auto-envia a mensagem (macro execution) e sinaliza alta analise
+    if (input && typeof sendMessage === 'function') {
+        const btnClose = document.getElementById('btnFecharPreferenciasAssistente');
+        if (btnClose) btnClose.click();
+        
+        // Timeout para dar tempo de renderizar o fechar do modal
+        setTimeout(() => {
+            const ev = new Event('submit', { bubbles: true, cancelable: true });
+            const form = document.getElementById('chatForm');
+            if (form) form.dispatchEvent(ev);
+        }, 100);
+    }
 }
 
 async function handleAssistentePromptLibraryAction(action, promptId, extra = {}) {

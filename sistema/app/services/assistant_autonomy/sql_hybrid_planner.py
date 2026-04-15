@@ -82,9 +82,9 @@ def _sql_receivables_aging() -> str:
     return (
         "SELECT "
         "CASE "
-        "WHEN (CURRENT_DATE - c.vencimento) BETWEEN 1 AND 7 THEN '1-7 dias' "
-        "WHEN (CURRENT_DATE - c.vencimento) BETWEEN 8 AND 30 THEN '8-30 dias' "
-        "WHEN (CURRENT_DATE - c.vencimento) > 30 THEN '31+ dias' "
+        "WHEN (CURRENT_DATE - c.data_vencimento) BETWEEN 1 AND 7 THEN '1-7 dias' "
+        "WHEN (CURRENT_DATE - c.data_vencimento) BETWEEN 8 AND 30 THEN '8-30 dias' "
+        "WHEN (CURRENT_DATE - c.data_vencimento) > 30 THEN '31+ dias' "
         "ELSE 'em dia' END AS faixa_atraso, "
         "COUNT(c.id) AS total_titulos, "
         "COALESCE(SUM(c.valor - COALESCE(c.valor_pago,0)),0) AS valor_pendente "
@@ -92,6 +92,7 @@ def _sql_receivables_aging() -> str:
         "WHERE c.empresa_id = :empresa_id "
         "AND c.tipo = 'RECEBER' "
         "AND c.status = 'PENDENTE' "
+        "AND c.data_vencimento IS NOT NULL "
         "GROUP BY faixa_atraso "
         "ORDER BY total_titulos DESC"
     )

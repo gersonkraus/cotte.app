@@ -12,7 +12,8 @@ _ANALYTICS_RE = re.compile(
     r"relatorio|resumo|desempenho|compare|comparar|vendas|financeiro|clientes|"
     r"ranking|comparativo|comissao|comissão|indicador|metricas|métricas|"
     r"contas a receber|inadimpl|trimestre|mes|mês|funil|pipeline|leads|"
-    r"produtividade|agendamento|operacao|operação|ticket medio|ticket médio"
+    r"produtividade|agendamento|operacao|operação|ticket medio|ticket médio|"
+    r"valor|comprou|gastou|pagou|faturamento|compra|quem|cada um|destes"
     r")\b",
     flags=re.IGNORECASE,
 )

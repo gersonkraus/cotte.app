@@ -34,6 +34,21 @@ async def run_execution_graph(
     started = time.perf_counter()
     outputs: dict[str, Any] = {"plan": plan.rationale, "tools": []}
     total_rows = 0
+    pending_action: dict[str, Any] | None = None
+
+    def _metrics_snapshot() -> dict[str, Any]:
+        return {
+            "total_steps": len(trace),
+            "total_duration_ms": int((time.perf_counter() - started) * 1000),
+            "tools_total": len(tool_calls),
+            "tools_ok": len([t for t in outputs["tools"] if t.get("status") == "ok"]),
+            "tools_failed": len(
+                [t for t in outputs["tools"] if t.get("status") not in {"ok", "pending"}]
+            ),
+            "tools_pending": len([t for t in outputs["tools"] if t.get("status") == "pending"]),
+            "rows_total": total_rows,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+        }
 
     for step in plan.steps:
         t0 = time.perf_counter()
@@ -82,6 +97,7 @@ async def run_execution_graph(
                 "data": getattr(result, "data", None),
                 "error": getattr(result, "error", None),
                 "code": getattr(result, "code", None),
+                "pending_action": getattr(result, "pending_action", None),
             }
         )
         data_payload = getattr(result, "data", None)
@@ -89,21 +105,25 @@ async def run_execution_graph(
             rows = data_payload.get("rows")
             if isinstance(rows, list):
                 total_rows += len(rows)
+        if status == "pending":
+            pending_action = getattr(result, "pending_action", None)
+            outputs["pending_action"] = pending_action
+            return ExecutionResult(
+                success=True,
+                capability=plan.capability,
+                trace=trace,
+                outputs=outputs,
+                metrics=_metrics_snapshot(),
+                pending_action=pending_action,
+                code="pending_confirmation",
+            )
         if status != "ok":
             return ExecutionResult(
                 success=False,
                 capability=plan.capability,
                 trace=trace,
                 outputs=outputs,
-                metrics={
-                    "total_steps": len(trace),
-                    "total_duration_ms": int((time.perf_counter() - started) * 1000),
-                    "tools_total": len(tool_calls),
-                    "tools_ok": len([t for t in outputs["tools"] if t.get("status") == "ok"]),
-                    "tools_failed": len([t for t in outputs["tools"] if t.get("status") != "ok"]),
-                    "rows_total": total_rows,
-                    "generated_at": datetime.now(timezone.utc).isoformat(),
-                },
+                metrics=_metrics_snapshot(),
                 error=getattr(result, "error", "Falha de execução semântica."),
                 code=getattr(result, "code", "semantic_execution_error"),
             )
@@ -113,13 +133,6 @@ async def run_execution_graph(
         capability=plan.capability,
         trace=trace,
         outputs=outputs,
-        metrics={
-            "total_steps": len(trace),
-            "total_duration_ms": int((time.perf_counter() - started) * 1000),
-            "tools_total": len(tool_calls),
-            "tools_ok": len([t for t in outputs["tools"] if t.get("status") == "ok"]),
-            "tools_failed": len([t for t in outputs["tools"] if t.get("status") != "ok"]),
-            "rows_total": total_rows,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-        },
+        metrics=_metrics_snapshot(),
+        pending_action=pending_action,
     )

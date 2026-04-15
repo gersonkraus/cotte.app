@@ -25,13 +25,13 @@ def llm_sql_planner_enabled() -> bool:
     }
 
 
-async def try_generate_sql_from_llm(message: str, *, period_days: int) -> LLMSqlPlan:
+async def try_generate_sql_from_llm(message: str, *, period_days: int, historico: str = "") -> LLMSqlPlan:
     if not llm_sql_planner_enabled():
         return LLMSqlPlan(sql=None, rationale="LLM SQL planner desabilitado.", used=False)
     prompt = (
         "Gere APENAS SQL PostgreSQL read-only (SELECT/CTE), com filtro obrigatório "
         "empresa_id = :empresa_id, sem ; no final, sem UNION e sem subqueries EXISTS/IN. "
-        f"Período padrão: {period_days} dias. Pedido do usuário: {message!r}. "
+        f"Período padrão: {period_days} dias. Histórico da conversa (se houver): {historico!r}. Pedido do usuário: {message!r}. "
         "Retorne JSON: {\"sql\": \"...\", \"rationale\": \"...\"}."
     )
     try:

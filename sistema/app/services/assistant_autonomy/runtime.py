@@ -19,6 +19,8 @@ from app.services.assistant_autonomy.semantic_planner import build_semantic_plan
 from app.services.assistant_autonomy.telemetry import record_semantic_audit
 from app.services.assistant_autonomy.token_governance import evaluate_token_budget
 from app.services.tool_executor import execute as tool_execute
+from app.services.assistant_preferences_service import AssistantPreferencesService
+from app.services.cotte_context_builder import SemanticMemoryStore
 
 
 def semantic_autonomy_enabled() -> bool:
@@ -68,7 +70,26 @@ def _cache_put(key: str, payload: dict[str, Any]) -> None:
     )
 
 
-def _build_policy_degradation_payload(*, reasons: list[str], capability: str) -> dict[str, Any]:
+def _serialize_policy(decision: Any) -> dict[str, Any]:
+    return {
+        "allowed": bool(getattr(decision, "allowed", False)),
+        "reasons": list(getattr(decision, "reasons", []) or []),
+        "risk_level": getattr(decision, "risk_level", "low"),
+        "requires_confirmation": bool(
+            getattr(decision, "requires_confirmation", False)
+        ),
+        "governance_mode": getattr(decision, "governance_mode", "read_only"),
+        "recommended_engine": getattr(decision, "recommended_engine", None),
+        "allowed_export_formats": list(
+            getattr(decision, "allowed_export_formats", []) or []
+        ),
+        "limits": dict(getattr(decision, "limits", {}) or {}),
+    }
+
+
+def _build_policy_degradation_payload(
+    *, reasons: list[str], capability: str, policy: dict[str, Any]
+) -> dict[str, Any]:
     reason_text = "; ".join([str(r) for r in reasons if r]) or "Política não satisfeita."
     return {
         "sucesso": True,
@@ -82,6 +103,7 @@ def _build_policy_degradation_payload(*, reasons: list[str], capability: str) ->
             "capability": capability,
             "policy_degraded": True,
             "policy_reasons": reasons,
+            "policy": policy,
             "semantic_contract": {
                 "summary": (
                     "Fluxo semântico degradado por política. "
@@ -90,10 +112,13 @@ def _build_policy_degradation_payload(*, reasons: list[str], capability: str) ->
                 "table": [],
                 "chart": None,
                 "printable": None,
+                "insights": [],
+                "suggested_actions": [],
                 "metadata": {
                     "capability": capability,
                     "policy_degraded": True,
                     "policy_reasons": reasons,
+                    "policy": policy,
                 },
             },
         },
@@ -111,6 +136,36 @@ async def try_handle_semantic_autonomy(
     confirmation_token: Optional[str],
     override_args: Optional[dict],
 ) -> Optional[dict[str, Any]]:
+    # Injetar preferencias do usuario no override_args
+    if override_args is None:
+        override_args = {}
+    if "preferencias" not in override_args:
+        try:
+            prefs = AssistantPreferencesService.get_context_for_prompt(
+                db=db,
+                empresa_id=getattr(current_user, "empresa_id", 0),
+                usuario_id=getattr(current_user, "id", 0),
+                mensagem=mensagem
+            )
+            override_args["preferencias"] = prefs
+        except Exception:
+            pass
+
+    # Injetar as ultimas mensagens se for uma pergunta curta (follow-up)
+    if len(mensagem.split()) <= 8 and "historico" not in override_args:
+        try:
+            historico = SemanticMemoryStore.build_context(
+                db=db,
+                empresa_id=getattr(current_user, "empresa_id", 0),
+                usuario_id=getattr(current_user, "id", 0),
+                mensagem=mensagem
+            )
+            # Se a query anterior era sql_analytics, anexar ao override
+            if historico:
+                override_args["historico"] = historico
+        except Exception:
+            pass
+
     if not semantic_autonomy_enabled():
         return None
 
@@ -146,14 +201,28 @@ async def try_handle_semantic_autonomy(
         cached["dados"] = cached_dados
         return cached
 
+        
+    # Se for um follow-up com historico
+    is_follow_up = "historico" in override_args and len(mensagem.split()) <= 15
     plan = build_semantic_plan(mensagem)
+    
+    # Se plano falhou mas tem historico analitico
+    if is_follow_up and plan.capability == "UnknownCapability":
+        historico = override_args.get("historico", "")
+        if isinstance(historico, str) and ("sql" in historico.lower() or "relatório" in historico.lower()):
+            plan.capability = "GenerateAnalyticsReport"
+            plan.request.domain = "analytics"
+            plan.request.output_formats.append("table")
+
     decision = evaluate_policy(plan=plan, current_user=current_user, engine=engine)
+    policy_payload = _serialize_policy(decision)
     if not decision.allowed:
         if plan.capability == "UnknownCapability":
             return None
         return _build_policy_degradation_payload(
             reasons=decision.reasons,
             capability=plan.capability,
+            policy=policy_payload,
         )
 
     merged_overrides = dict(override_args or {})
@@ -161,6 +230,7 @@ async def try_handle_semantic_autonomy(
         llm_sql = await try_generate_sql_from_llm(
             plan.request.raw_message,
             period_days=int(plan.request.period_days or 30),
+            historico=str(merged_overrides.get("historico", "")),
         )
         if llm_sql.used and llm_sql.sql:
             merged_overrides["sql_candidate"] = llm_sql.sql
@@ -197,7 +267,8 @@ async def try_handle_semantic_autonomy(
         engine=engine,
         confirmation_token=confirmation_token,
     )
-    contract = compose_response_contract(plan, execution)
+    execution.policy_snapshot = policy_payload
+    contract = compose_response_contract(plan, execution, override_args)
     record_semantic_audit(
         db=db,
         current_user=current_user,
@@ -205,6 +276,7 @@ async def try_handle_semantic_autonomy(
         sessao_id=sessao_id,
         plan=plan,
         execution=execution,
+        policy_decision=decision,
     )
     payload = to_ai_response_payload(contract=contract, execution=execution)
     dados = dict(payload.get("dados") or {})
@@ -215,7 +287,8 @@ async def try_handle_semantic_autonomy(
     }
     if merged_overrides.get("llm_sql_rationale"):
         dados["llm_sql_rationale"] = merged_overrides.get("llm_sql_rationale")
+    dados["policy"] = policy_payload
     payload["dados"] = dados
-    if payload.get("sucesso"):
+    if payload.get("sucesso") and not payload.get("pending_action"):
         _cache_put(cache_key, payload)
     return payload

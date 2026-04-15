@@ -27,6 +27,8 @@ CapabilityName = Literal[
 ]
 
 OutputFormat = Literal["text", "table", "chart", "printable"]
+RiskLevel = Literal["low", "medium", "high"]
+GovernanceMode = Literal["read_only", "mixed_by_risk"]
 
 
 @dataclass
@@ -63,7 +65,11 @@ class SemanticPlan:
 class PolicyDecision:
     allowed: bool
     reasons: list[str] = field(default_factory=list)
-    risk_level: Literal["low", "medium", "high"] = "low"
+    risk_level: RiskLevel = "low"
+    requires_confirmation: bool = False
+    governance_mode: GovernanceMode = "read_only"
+    recommended_engine: str | None = None
+    allowed_export_formats: list[str] = field(default_factory=list)
     limits: dict[str, Any] = field(default_factory=dict)
 
 
@@ -85,6 +91,8 @@ class ExecutionResult:
     trace: list[ExecutionStepResult]
     outputs: dict[str, Any]
     metrics: dict[str, Any]
+    pending_action: dict[str, Any] | None = None
+    policy_snapshot: dict[str, Any] = field(default_factory=dict)
     error: str | None = None
     code: str | None = None
 
