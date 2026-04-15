@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monitor AI | COTTE Superadmin</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+  
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/monitor-ai.css">
+</head>
+<body class="theme-light monitor-ai-layout">
+  <!-- Layout Split View -->
+  <div class="monitor-container">
+    
+    <!-- Sidebar: Dashboard de Status -->
+    <aside class="monitor-sidebar">
+      <header class="sidebar-header">
+        <img src="favicon.svg" alt="Logo Cotte" class="logo">
+        <h2>Monitor AI</h2>
+        <span class="badge badge-superadmin">Superadmin</span>
+      </header>
+
+      <div class="status-dashboard">
+        <h3>Status do Sistema</h3>
+        <div class="metric-grid">
+          <div class="metric-card">
+            <i class="bi bi-exclamation-triangle metric-icon text-danger"></i>
+            <div class="metric-info">
+              <span class="metric-value" id="val-erros">--</span>
+              <span class="metric-label">Erros 24h</span>
+            </div>
+          </div>
+          
+          <div class="metric-card">
+            <i class="bi bi-cpu metric-icon text-primary"></i>
+            <div class="metric-info">
+              <span class="metric-value" id="val-cpu">--</span>
+              <span class="metric-label">Uso CPU</span>
+            </div>
+          </div>
+          
+          <div class="metric-card">
+            <i class="bi bi-database metric-icon text-success"></i>
+            <div class="metric-info">
+              <span class="metric-value" id="val-db">--</span>
+              <span class="metric-label">Banco de Dados</span>
+            </div>
+          </div>
+          
+          <div class="metric-card">
+            <i class="bi bi-clock-history metric-icon text-warning"></i>
+            <div class="metric-info">
+              <span class="metric-value" id="val-jobs">--</span>
+              <span class="metric-label">Jobs Pendentes</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="actions-area mt-4">
+          <a href="/app/admin.html" class="btn btn-outline btn-block">Voltar ao Admin</a>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main: Chat Interface -->
+    <main class="monitor-main">
+      <div class="chat-header">
+        <h1>Agente de Manutenção e Diagnóstico</h1>
+        <p class="text-muted">Acesso a SQL, Logs e Código (RAG)</p>
+      </div>
+
+      <div class="chat-messages" id="chat-messages">
+        <!-- Mensagem Inicial -->
+        <div class="message msg-ai">
+          <div class="msg-avatar"><i class="bi bi-robot"></i></div>
+          <div class="msg-content">
+            <p>Olá, Superadmin. Sou o Monitor AI. Posso ajudar a diagnosticar problemas lendo logs, inspecionando o banco de dados ou analisando trechos de código do sistema. O que você gostaria de investigar hoje?</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-input-area">
+        <form id="chat-form" class="chat-form">
+          <textarea 
+            id="chat-input" 
+            placeholder="Ex: Quais as colunas da tabela usuarios? ou Procure por erros no log..." 
+            rows="1" 
+            required></textarea>
+          <button type="submit" class="btn btn-primary btn-icon" id="btn-send">
+            <i class="bi bi-send-fill"></i>
+          </button>
+        </form>
+      </div>
+    </main>
+    
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/monitor-ai.js"></script>
+</body>
+</html>

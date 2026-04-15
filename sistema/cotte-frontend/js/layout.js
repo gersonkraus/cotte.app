@@ -198,6 +198,16 @@ const _SIDEBAR_HTML = `
         </span>
         Observabilidade IA
       </a>
+      <a id="nav-monitor-ai-link" class="nav-item nav-monitor-ai-link" data-page="monitor-ai" href="monitor-ai.html" style="display:none">
+        <span class="nav-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+        </span>
+        Monitor AI
+      </a>
       <a id="nav-comercial-link" class="nav-item nav-comercial-link" data-page="comercial" href="comercial.html" style="display:none">
         <span class="nav-icon">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -312,6 +322,7 @@ function inicializarLayout(pageKey, opts = {}) {
         document.getElementById('nav-admin-planos-link').style.display = 'flex';
         document.getElementById('nav-admin-config-link').style.display = 'flex';
         document.getElementById('nav-ai-observabilidade-link').style.display = 'flex';
+        document.getElementById('nav-monitor-ai-link').style.display = 'flex';
       }
     }
 

@@ -50,6 +50,7 @@ from app.routers.orcamentos import router as orcamentos_router
 from app.routers.whatsapp import router as whatsapp_router
 from app.routers.empresa import router as empresa_router
 from app.routers.admin import router as admin_router
+from app.routers.monitor_ai import router as monitor_ai_router
 from app.routers.catalogo import router as catalogo_router
 from app.routers.relatorios import router as relatorios_router
 from app.routers.notificacoes import router as notificacoes_router
@@ -265,6 +266,7 @@ def include_routers(app: FastAPI):
         (whatsapp_router, "/api/v1"),
         (empresa_router, "/api/v1"),
         (admin_router, "/api/v1"),
+        (monitor_ai_router, "/api/superadmin/monitor-ai"),
         (catalogo_router, "/api/v1"),
         (relatorios_router, "/api/v1"),
         (notificacoes_router, "/api/v1"),
