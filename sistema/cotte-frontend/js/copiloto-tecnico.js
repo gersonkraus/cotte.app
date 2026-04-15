@@ -165,23 +165,14 @@
     inputEl.value = "";
     setSending(true);
     try {
-      var res = await api.post("/ai/copiloto-interno/consulta-tecnica", {
+      var res = await api.post("/ai/copiloto-interno", {
         mensagem: raw,
         sessao_id: ensureSessionId(),
-        include_code_context: true,
       });
       var payload = res || {};
       var botReply = resolveCopilotReply(payload);
       if (!botReply) {
         botReply = buildTechnicalFallbackReply(payload);
-      }
-      if (!botReply) {
-        var legacyRes = await api.post("/ai/copiloto-interno", {
-          mensagem: raw,
-          sessao_id: ensureSessionId(),
-        });
-        var legacyPayload = legacyRes || {};
-        botReply = resolveCopilotReply(legacyPayload);
       }
       addMessage(botReply || "Sem resposta do copiloto.", "bot");
     } catch (err) {
