@@ -210,89 +210,147 @@
             </div>
 
             <div class="pref-backdrop" id="prefBackdrop"></div>
-            <section class="assistente-preferencias-card" id="assistentePreferenciasCard" aria-label="Preferências do assistente" role="dialog" aria-modal="true">
+            <section class="assistente-preferencias-card" id="assistentePreferenciasCard" role="dialog" aria-modal="true" aria-label="Configurações do assistente">
+
+                <!-- Cabeçalho -->
                 <div class="assistente-preferencias-header">
-                    <div>
-                        <h2>Preferências do Assistente</h2>
-                        <p id="assistentePreferenciasResumo">Carregando preferências...</p>
+                    <div class="assistente-preferencias-header-info">
+                        <div class="assistente-preferencias-header-icon" aria-hidden="true">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                        </div>
+                        <div>
+                            <h2>Configurações do Assistente</h2>
+                            <p id="assistentePreferenciasResumo">Carregando preferências...</p>
+                        </div>
                     </div>
                     <div class="assistente-preferencias-header-actions">
                         <span class="assistente-preferencias-tag" id="assistenteSetorTag">Setor: --</span>
-                        <button type="button" class="assistente-preferencias-close" id="btnFecharPreferenciasAssistente" aria-label="Fechar preferências">✕</button>
+                        <button type="button" class="assistente-preferencias-close" id="btnFecharPreferenciasAssistente" aria-label="Fechar configurações">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
                     </div>
                 </div>
-                <div class="assistente-preferencias-grid">
-                    <label class="assistente-preferencias-field">
-                        <span>Formato preferido de resposta</span>
-                        <select id="assistenteFormatoSelect">
-                            <option value="auto">Automático por contexto</option>
-                            <option value="resumo">Resumo executivo</option>
-                            <option value="tabela">Tabela detalhada</option>
-                        </select>
-                    </label>
-                    <label class="assistente-preferencias-field">
-                        <span>Instruções da empresa (guardrails)</span>
-                        <textarea id="assistenteInstrucoesInput" rows="3" placeholder="Ex.: sempre responder com foco em margem, evitar termos técnicos para equipe de campo."></textarea>
-                    </label>
+
+                <!-- Abas de navegação -->
+                <div class="assistente-pref-tabs" role="tablist" aria-label="Seções de configuração">
+                    <button type="button" class="assistente-pref-tab-btn active" data-pref-tab="prefs"
+                            role="tab" aria-selected="true" aria-controls="pref-panel-prefs" id="pref-tab-btn-prefs">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+                        Preferências
+                    </button>
+                    <button type="button" class="assistente-pref-tab-btn" data-pref-tab="prompts"
+                            role="tab" aria-selected="false" aria-controls="pref-panel-prompts" id="pref-tab-btn-prompts">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                        Prompts
+                    </button>
                 </div>
-                <section class="assistente-prompts-library" aria-label="Biblioteca de prompts salvos">
-                    <div class="assistente-prompts-library-header">
-                        <h3>Prompts salvos da empresa</h3>
-                        <button type="button" class="btn btn-ghost btn-xs" id="btnAssistenteRefreshPrompts">Atualizar</button>
-                    </div>
-                    <div class="assistente-prompts-filters">
+
+                <!-- Painel: Preferências Gerais -->
+                <div class="assistente-pref-panel active" data-pref-panel="prefs"
+                     role="tabpanel" id="pref-panel-prefs" aria-labelledby="pref-tab-btn-prefs">
+
+                    <div class="pref-section-card">
+                        <p class="pref-section-card-title">Formato de Resposta</p>
                         <label class="assistente-preferencias-field">
-                            <span>Categoria</span>
-                            <select id="assistentePromptCategoriaFiltro">
-                                <option value="">Todas</option>
-                                <option value="ranking">Ranking</option>
-                                <option value="comissao">Comissão</option>
-                                <option value="inadimplencia">Inadimplência</option>
-                                <option value="comparativo_mensal">Comparativo mensal</option>
+                            <span>Como o assistente deve estruturar as respostas?</span>
+                            <select id="assistenteFormatoSelect">
+                                <option value="auto">Automático por contexto</option>
+                                <option value="resumo">Resumo executivo</option>
+                                <option value="tabela">Tabela detalhada</option>
                             </select>
                         </label>
-                        <label class="assistente-preferencias-field">
-                            <span>Buscar prompt</span>
-                            <input type="text" id="assistentePromptBusca" maxlength="120" placeholder="Ex.: comissão vendedores" />
-                        </label>
                     </div>
-                    <div class="assistente-prompts-list" id="assistentePromptsList" role="list"></div>
-                    <div class="assistente-prompts-load-more-wrap">
-                        <button type="button" class="btn btn-secondary btn-xs" id="btnAssistentePromptsLoadMore" style="display:none;">Carregar mais</button>
+
+                    <div class="pref-section-card">
+                        <p class="pref-section-card-title">Instruções da Empresa</p>
+                        <label class="assistente-preferencias-field">
+                            <span>Regras e guardrails para o assistente seguir</span>
+                            <textarea id="assistenteInstrucoesInput" rows="4" placeholder="Ex.: sempre responder com foco em margem, evitar termos técnicos para equipe de campo."></textarea>
+                        </label>
+                        <small id="assistenteInstrucoesPermissaoHint" class="pref-hint"></small>
                     </div>
-                    <small id="assistentePromptsNotice"></small>
-                    <div class="assistente-prompts-editor" id="assistentePromptsEditor">
-                        <h4>Novo prompt salvo</h4>
-                        <label class="assistente-preferencias-field">
-                            <span>Título</span>
-                            <input type="text" id="assistentePromptTituloInput" maxlength="120" placeholder="Ex.: Ranking por faturamento" />
-                        </label>
-                        <label class="assistente-preferencias-field">
-                            <span>Categoria</span>
-                            <select id="assistentePromptCategoriaInput">
-                                <option value="ranking">Ranking</option>
-                                <option value="comissao">Comissão</option>
-                                <option value="inadimplencia">Inadimplência</option>
-                                <option value="comparativo_mensal">Comparativo mensal</option>
-                            </select>
-                        </label>
-                        <label class="assistente-preferencias-field">
-                            <span>Prompt</span>
-                            <textarea id="assistentePromptConteudoInput" rows="3" maxlength="4000" placeholder="Escreva o prompt que será reutilizado no assistente."></textarea>
-                        </label>
-                        <label class="assistente-prompts-favorite-toggle">
-                            <input type="checkbox" id="assistentePromptFavoritoInput" />
-                            <span>Marcar como favorito</span>
-                        </label>
-                        <div class="assistente-prompts-editor-actions">
-                            <button type="button" class="btn btn-secondary" id="btnAssistentePromptLimpar">Limpar</button>
-                            <button type="button" class="btn btn-primary" id="btnAssistentePromptSalvar">Salvar prompt</button>
+
+                    <div class="assistente-preferencias-actions">
+                        <button type="button" class="btn btn-primary" id="btnSalvarPreferenciasAssistente">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                            Salvar preferências
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Painel: Biblioteca de Prompts -->
+                <div class="assistente-pref-panel" data-pref-panel="prompts"
+                     role="tabpanel" id="pref-panel-prompts" aria-labelledby="pref-tab-btn-prompts">
+                    <section class="assistente-prompts-library" aria-label="Biblioteca de prompts salvos">
+
+                        <div class="assistente-prompts-library-header">
+                            <h3>Prompts da empresa</h3>
+                            <button type="button" class="btn btn-ghost btn-xs" id="btnAssistenteRefreshPrompts" aria-label="Atualizar lista de prompts">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                                Atualizar
+                            </button>
                         </div>
-                    </div>
-                </section>
-                <div class="assistente-preferencias-actions">
-                    <small id="assistenteInstrucoesPermissaoHint"></small>
-                    <button type="button" class="btn btn-primary" id="btnSalvarPreferenciasAssistente">Salvar preferências</button>
+
+                        <div class="assistente-prompts-filters">
+                            <label class="assistente-preferencias-field">
+                                <span>Categoria</span>
+                                <select id="assistentePromptCategoriaFiltro">
+                                    <option value="">Todas</option>
+                                    <option value="ranking">Ranking</option>
+                                    <option value="comissao">Comissão</option>
+                                    <option value="inadimplencia">Inadimplência</option>
+                                    <option value="comparativo_mensal">Comparativo mensal</option>
+                                </select>
+                            </label>
+                            <label class="assistente-preferencias-field">
+                                <span>Buscar</span>
+                                <input type="text" id="assistentePromptBusca" maxlength="120" placeholder="Ex.: comissão vendedores" />
+                            </label>
+                        </div>
+
+                        <div class="assistente-prompts-list" id="assistentePromptsList" role="list"></div>
+
+                        <div class="assistente-prompts-load-more-wrap">
+                            <button type="button" class="btn btn-secondary btn-xs" id="btnAssistentePromptsLoadMore" style="display:none;">Carregar mais</button>
+                        </div>
+                        <small id="assistentePromptsNotice"></small>
+
+                        <div class="assistente-prompts-editor" id="assistentePromptsEditor">
+                            <h4>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                Novo prompt
+                            </h4>
+                            <div class="assistente-prompts-editor-grid">
+                                <label class="assistente-preferencias-field">
+                                    <span>Título</span>
+                                    <input type="text" id="assistentePromptTituloInput" maxlength="120" placeholder="Ex.: Ranking por faturamento" />
+                                </label>
+                                <label class="assistente-preferencias-field">
+                                    <span>Categoria</span>
+                                    <select id="assistentePromptCategoriaInput">
+                                        <option value="ranking">Ranking</option>
+                                        <option value="comissao">Comissão</option>
+                                        <option value="inadimplencia">Inadimplência</option>
+                                        <option value="comparativo_mensal">Comparativo mensal</option>
+                                    </select>
+                                </label>
+                            </div>
+                            <label class="assistente-preferencias-field">
+                                <span>Prompt</span>
+                                <textarea id="assistentePromptConteudoInput" rows="3" maxlength="4000" placeholder="Escreva o prompt que será reutilizado no assistente."></textarea>
+                            </label>
+                            <div class="assistente-prompts-editor-footer">
+                                <label class="assistente-prompts-favorite-toggle">
+                                    <input type="checkbox" id="assistentePromptFavoritoInput" />
+                                    <span>Marcar como favorito</span>
+                                </label>
+                                <div class="assistente-prompts-editor-actions">
+                                    <button type="button" class="btn btn-secondary" id="btnAssistentePromptLimpar">Limpar</button>
+                                    <button type="button" class="btn btn-primary" id="btnAssistentePromptSalvar">Salvar prompt</button>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
                 </div>
             </section>
             <script>
@@ -305,6 +363,21 @@
                 if (!bd || !card) return;
                 document.body.appendChild(bd);
                 document.body.appendChild(card);
+
+                /* Controle de abas do modal de configurações */
+                card.addEventListener('click', function (e) {
+                    var btn = e.target.closest('[data-pref-tab]');
+                    if (!btn) return;
+                    var tab = btn.dataset.prefTab;
+                    card.querySelectorAll('[data-pref-tab]').forEach(function (b) {
+                        var active = b.dataset.prefTab === tab;
+                        b.classList.toggle('active', active);
+                        b.setAttribute('aria-selected', active ? 'true' : 'false');
+                    });
+                    card.querySelectorAll('[data-pref-panel]').forEach(function (p) {
+                        p.classList.toggle('active', p.dataset.prefPanel === tab);
+                    });
+                });
             })();
             </script>
 
