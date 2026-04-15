@@ -128,9 +128,9 @@
     }
 
     .orc-card-v2__icon-btn {
-        width: 40px;
+        min-width: 40px;
         height: 40px;
-        font-size: 1rem;
+        font-size: 0.85rem;
     }
 
     .orc-card-v2__aprovar-btn {

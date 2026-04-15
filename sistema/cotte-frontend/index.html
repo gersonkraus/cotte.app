@@ -1098,12 +1098,23 @@
           const color = _TL_COLORS[ev.tipo] || 'var(--muted)';
           const ts = ev.timestamp ? new Date(ev.timestamp).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
           const detalheRaw = (ev.detalhe || '').toString().slice(0, 60);
-          const detalhe = escapeHtml(detalheRaw);
+          let detalhe = escapeHtml(detalheRaw);
+          let badges = '';
+          if (detalheRaw.includes('[IA]')) {
+              badges = '<span style="font-style:normal;margin-right:4px;" title="Assistente IA">🤖</span>';
+              detalhe = detalhe.replace('[IA]', '').trim();
+          } else if (detalheRaw.includes('[WhatsApp]')) {
+              badges = '<span style="font-style:normal;margin-right:4px;" title="WhatsApp Bot">💬</span>';
+              detalhe = detalhe.replace('[WhatsApp]', '').trim();
+          } else if (detalheRaw.includes('[Manual]')) {
+              badges = '<span style="font-style:normal;margin-right:4px;" title="Manual">👤</span>';
+              detalhe = detalhe.replace('[Manual]', '').trim();
+          }
           return '<div class="activity-item timeline-event-item" onclick="abrirTimeline(' + ev.orcamentoId + ',\'' + (ev.orcamentoNumero || '').replace(/'/g, "\\'") + '\')" style="cursor:pointer">' +
             '<div class="activity-dot" style="background:' + color + ';width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;margin-top:0">' + icon + '</div>' +
             '<div style="flex:1;min-width:0">' +
             '<div class="activity-text">' + escapeHtml((ev.titulo || ev.tipo) || '') + ' · <strong>' + escapeHtml((ev.orcamentoNumero || ('#' + ev.orcamentoId)) || '') + '</strong></div>' +
-            (detalhe ? '<div class="activity-time" style="font-style:italic;margin-top:2px">' + (detalheRaw.length >= 60 ? detalhe + '…' : detalhe) + '</div>' : '') +
+            (detalhe ? '<div class="activity-time" style="font-style:italic;margin-top:2px;display:flex;align-items:center;">' + badges + (detalheRaw.length >= 60 ? detalhe + '…' : detalhe) + '</div>' : '') +
             '<div class="activity-time">' + ts + '</div>' +
             '</div></div>';
         }).join('');
@@ -1131,7 +1142,21 @@
           const isLast = idx === eventos.length - 1;
           let sub = '';
           if (ev.autor) sub += '<div style="font-size:11px;color:var(--muted);margin-top:2px">Por: ' + escapeHtml(ev.autor) + '</div>';
-          if (ev.detalhe) sub += '<div style="font-size:12px;color:var(--muted);margin-top:3px;font-style:italic">"' + escapeHtml(ev.detalhe) + '"</div>';
+          if (ev.detalhe) {
+            let detalheTxt = escapeHtml(ev.detalhe);
+            let badges = '';
+            if (ev.detalhe.includes('[IA]')) {
+                badges = '<span style="font-style:normal;margin-right:4px;" title="Assistente IA">🤖</span>';
+                detalheTxt = detalheTxt.replace('[IA]', '').trim();
+            } else if (ev.detalhe.includes('[WhatsApp]')) {
+                badges = '<span style="font-style:normal;margin-right:4px;" title="WhatsApp Bot">💬</span>';
+                detalheTxt = detalheTxt.replace('[WhatsApp]', '').trim();
+            } else if (ev.detalhe.includes('[Manual]')) {
+                badges = '<span style="font-style:normal;margin-right:4px;" title="Manual">👤</span>';
+                detalheTxt = detalheTxt.replace('[Manual]', '').trim();
+            }
+            sub += '<div style="font-size:12px;color:var(--muted);margin-top:3px;font-style:italic;display:flex;align-items:center;">' + badges + '"' + detalheTxt + '"</div>';
+          }
           if (ev.indicador) sub += '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + escapeHtml(ev.indicador) + '</div>';
           const ts = ev.timestamp ? new Date(ev.timestamp).toLocaleString('pt-BR') : '';
           return '<div style="display:flex;gap:14px;padding-bottom:' + (isLast ? 0 : 18) + 'px">' +

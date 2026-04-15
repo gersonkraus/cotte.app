@@ -746,6 +746,66 @@ html:not([data-theme="dark"]) .page-assistente-ia {
   gap: 8px;
 }
 
+/* ── Toggles de módulos ativos ── */
+
+.pref-modulos-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.pref-modulo-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--ai-border);
+  border-radius: 10px;
+  background: var(--ai-bg);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.pref-modulo-toggle:hover {
+  border-color: var(--ai-accent);
+}
+
+.pref-modulo-toggle.is-off {
+  opacity: 0.55;
+}
+
+.pref-modulo-toggle-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pref-modulo-toggle-label {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--ai-text);
+}
+
+.pref-modulo-toggle-status {
+  font-size: 0.7rem;
+  color: var(--ai-muted);
+}
+
+.pref-modulo-checkbox {
+  width: 40px;
+  height: 22px;
+  cursor: pointer;
+  flex-shrink: 0;
+  accent-color: var(--ai-accent);
+}
+
+@media (max-width: 520px) {
+  .pref-modulos-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .btn-xs {
   padding: 5px 8px;
   font-size: 0.72rem;
@@ -4057,18 +4117,23 @@ body.embed-mode .chat-header-new-btn {
 }
 
 .orc-card-v2__icon-btn {
-  width: 42px;
+  min-width: 42px;
   height: 42px;
-  border-radius: 50%;
+  border-radius: 21px;
+  padding: 0 12px;
   background: color-mix(in srgb, var(--ai-border) 40%, var(--ai-card) 60%);
   border: 1px solid var(--ai-border);
-  font-size: 1.05rem;
+  font-size: 0.85rem;
+  font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s, transform 0.15s;
-  line-height: 1;
+  transition: all 0.2s ease;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .orc-card-v2__icon-btn:hover:not(:disabled) {

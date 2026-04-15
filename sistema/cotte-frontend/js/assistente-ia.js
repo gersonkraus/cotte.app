@@ -411,6 +411,41 @@ async function handleAssistentePromptLibraryAction(action, promptId, extra = {})
     }
 }
 
+const _MODULOS_CONFIG = [
+    { key: 'clientes',    label: 'Clientes',             icon: '👥' },
+    { key: 'financeiro',  label: 'Financeiro',            icon: '💰' },
+    { key: 'catalogo',    label: 'Catálogo de Serviços',  icon: '📦' },
+    { key: 'orcamentos',  label: 'Orçamentos',            icon: '📋' },
+];
+
+function renderModulosAtivos(modulos) {
+    const grid = document.getElementById('prefModulosGrid');
+    if (!grid) return;
+    const m = modulos || {};
+    grid.innerHTML = _MODULOS_CONFIG.map(({ key, label }) => {
+        const ativo = m[key] !== false;
+        return `<label class="pref-modulo-toggle${ativo ? '' : ' is-off'}" data-modulo="${escapeHtml(key)}">
+            <div class="pref-modulo-toggle-info">
+                <span class="pref-modulo-toggle-label">${escapeHtml(label)}</span>
+                <span class="pref-modulo-toggle-status">${ativo ? 'Habilitado' : 'Desabilitado'}</span>
+            </div>
+            <input type="checkbox" class="pref-modulo-checkbox" data-modulo="${escapeHtml(key)}"${ativo ? ' checked' : ''}
+                   aria-label="${escapeHtml(label)}" />
+        </label>`;
+    }).join('');
+    grid.querySelectorAll('.pref-modulo-checkbox').forEach(cb => {
+        cb.addEventListener('change', () => {
+            const lbl = cb.closest('.pref-modulo-toggle');
+            const ativo = cb.checked;
+            if (lbl) {
+                lbl.classList.toggle('is-off', !ativo);
+                const st = lbl.querySelector('.pref-modulo-toggle-status');
+                if (st) st.textContent = ativo ? 'Habilitado' : 'Desabilitado';
+            }
+        });
+    });
+}
+
 function renderAssistentePreferencesCard(prefData) {
     const resumo = document.getElementById('assistentePreferenciasResumo');
     const setorTag = document.getElementById('assistenteSetorTag');
@@ -440,6 +475,34 @@ function renderAssistentePreferencesCard(prefData) {
     );
     syncAssistenteGearSavedBadge(prefData || {});
     syncAssistentePromptEditorVisibility();
+
+    renderModulosAtivos(prefData?.modulos_ativos || null);
+    const engineLabel = document.getElementById('prefEngineLabel');
+    if (engineLabel) {
+        const eng = prefData?.engine_ativa || null;
+        engineLabel.textContent = eng ? eng : 'Definida automaticamente pela conversa';
+    }
+}
+
+async function saveAssistenteContexto() {
+    if (!hasHttpClient() || typeof httpClient.patch !== 'function') return;
+    const grid = document.getElementById('prefModulosGrid');
+    const btn = document.getElementById('btnSalvarContextoAssistente');
+    if (!grid || !btn) return;
+    const modulos = {};
+    grid.querySelectorAll('.pref-modulo-checkbox').forEach(cb => {
+        modulos[cb.dataset.modulo] = cb.checked;
+    });
+    btn.disabled = true;
+    try {
+        const out = await httpClient.patch('/ai/assistente/preferencias', { modulos_ativos: modulos });
+        renderAssistentePreferencesCard(out || {});
+        showAssistentePrefNotice('Contexto salvo com sucesso.');
+    } catch (e) {
+        showAssistentePrefNotice('Falha ao salvar contexto.', true);
+    } finally {
+        btn.disabled = false;
+    }
 }
 
 async function loadAssistentePreferences() {
@@ -996,3 +1059,4 @@ window.loadAssistentePromptLibrary = loadAssistentePromptLibrary;
 window.clearAssistentePromptEditor = clearAssistentePromptEditor;
 window.saveAssistentePromptLibraryItem = saveAssistentePromptLibraryItem;
 window.handleAssistentePromptLibraryAction = handleAssistentePromptLibraryAction;
+window.saveAssistenteContexto = saveAssistenteContexto;

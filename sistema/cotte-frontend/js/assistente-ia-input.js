@@ -644,6 +644,13 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  const saveContextoBtn = document.getElementById("btnSalvarContextoAssistente");
+  if (saveContextoBtn && typeof saveAssistenteContexto === "function") {
+    saveContextoBtn.addEventListener("click", () => {
+      saveAssistenteContexto();
+    });
+  }
+
   const refreshPromptsBtn = document.getElementById("btnAssistenteRefreshPrompts");
   if (refreshPromptsBtn && typeof loadAssistentePromptLibrary === "function") {
     refreshPromptsBtn.addEventListener("click", () => {

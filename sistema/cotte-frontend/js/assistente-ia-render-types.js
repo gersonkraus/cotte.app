@@ -31,10 +31,12 @@ function renderOrcamentoCardUnificado(dados) {
     let bannerIcon = '📋';
     let bannerText = 'Detalhes do Orçamento';
     let bannerColor = ''; // default
+    let bannerClass = 'orc-card-v2__banner';
     if (statusKey === 'aprovado') {
         bannerIcon = '✅';
         bannerText = 'Orçamento Aprovado';
-        bannerColor = 'background:var(--ai-accent);color:white;';
+        bannerColor = 'background:var(--ai-green, #10b981);color:white;';
+        bannerClass += ' st-current';
     } else if (statusKey === 'recusado') {
         bannerIcon = '❌';
         bannerText = 'Orçamento Recusado';
@@ -84,7 +86,7 @@ function renderOrcamentoCardUnificado(dados) {
          `;
     }
     return `<div class="orc-card-v2">
-        <div class="orc-card-v2__banner" style="${bannerColor}">
+        <div class="${bannerClass}" style="${bannerColor}">
             <span class="orc-card-v2__banner-icon" aria-hidden="true">${bannerIcon}</span>
             ${bannerText}
         </div>

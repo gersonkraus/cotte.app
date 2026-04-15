@@ -15,11 +15,39 @@
     return sessaoId;
   }
 
+  function parseMarkdown(text) {
+    if (!text) return "";
+    var html = text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+    
+    // Code blocks: ```language ... ```
+    html = html.replace(/```([a-z0-9]*)\n([\s\S]*?)```/gi, function(match, lang, code) {
+      return '<pre class="code-block" data-lang="' + (lang || 'code') + '"><code>' + code + '</code></pre>';
+    });
+    
+    // Inline code: `code`
+    html = html.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
+    
+    // Bold: **text**
+    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    
+    // Line breaks
+    html = html.replace(/\n/g, '<br>');
+    
+    return html;
+  }
+
   function addMessage(text, role) {
     if (!messagesEl) return;
     var node = document.createElement("div");
     node.className = "cop-msg " + (role === "user" ? "user" : "bot");
-    node.textContent = text || "";
+    if (role === "bot") {
+      node.innerHTML = parseMarkdown(text || "");
+    } else {
+      node.textContent = text || "";
+    }
     messagesEl.appendChild(node);
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
