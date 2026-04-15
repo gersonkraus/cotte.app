@@ -54,8 +54,9 @@ class Settings(BaseSettings):
     # ANTHROPIC_API_KEY: str
 
     # === IA - LiteLLM + GPT-4o-mini ===
-    AI_PROVIDER: str = "openai"
-    AI_MODEL: str = "gpt-4o-mini"
+    AI_PROVIDER: str = "openrouter"
+    AI_MODEL: str = "openai/gpt-4o-mini"
+    AI_TECHNICAL_MODEL: str = "anthropic/claude-3.5-sonnet"
     AI_API_KEY: Optional[str] = None
 
     # ── Provider WhatsApp ─────────────────────────────────────────────────────

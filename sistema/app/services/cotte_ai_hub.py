@@ -2293,6 +2293,12 @@ async def assistente_v2_stream_core(
     sugs: list = []
     final_text: str = ""
 
+    modelo_injetado = (
+        settings.AI_TECHNICAL_MODEL
+        if resolved_engine == ENGINE_INTERNAL_COPILOT
+        else None
+    )
+
     for _iter in range(_V2_MAX_ITER):
         try:
             resp = await ia_service.chat(
@@ -2300,6 +2306,7 @@ async def assistente_v2_stream_core(
                 tools=tools_payload,
                 temperature=0.3,
                 max_tokens=1024,
+                model_override=modelo_injetado,
             )
         except Exception as exc:
             logger.exception(
@@ -2446,6 +2453,7 @@ async def assistente_v2_stream_core(
                 messages=list(messages),
                 temperature=0.3,
                 max_tokens=1024,
+                model_override=modelo_injetado,
             ):
                 final_text += token
                 yield _enc({"chunk": token})
@@ -3410,9 +3418,11 @@ _V2_SYSTEM_PROMPT = (
 _V2_TECHNICAL_COPILOT_PROMPT = (
     "Você é o **Copiloto Técnico Interno** do sistema. "
     "Você é focado em engenharia de software e suporte técnico para o superadmin. "
-    "Você tem acesso de leitura ao repositório de código fonte do projeto. "
-    "Seu papel é auxiliar no entendimento da arquitetura, debug de código, "
-    "boas práticas e manutenção do sistema. Seja técnico, preciso e vá direto ao ponto."
+    "Seu papel é auxiliar no entendimento da arquitetura, debug de código, boas práticas e manutenção. "
+    "IMPORTANTE: Você tem acesso de leitura ao repositório! Use as ferramentas (tools) `ler_arquivo_repositorio`, "
+    "`buscar_codigo_repositorio` e `analisar_estrutura_html` para inspecionar ativamente arquivos como HTML, JS, CSS e Python quando o usuário relatar um bug. "
+    "Nunca diga que não tem acesso a arquivos. Se não encontrar algo, use a busca para localizar. "
+    "Retorne suas análises e correções com blocos de código markdown (```html, ```js, etc)."
 )
 
 _V2_MAX_ITER = 5
@@ -3737,7 +3747,10 @@ async def assistente_unificado_v2(
         try_handle_semantic_autonomy,
     )
 
-    if semantic_autonomy_enabled():
+    if (
+        semantic_autonomy_enabled()
+        and resolve_engine(engine) != ENGINE_INTERNAL_COPILOT
+    ):
         try:
             semantic_payload = await try_handle_semantic_autonomy(
                 mensagem=mensagem,
@@ -4180,6 +4193,12 @@ async def _assistente_unificado_v2_legacy(
     total_out = 0
     final_text: Optional[str] = None
 
+    modelo_injetado = (
+        settings.AI_TECHNICAL_MODEL
+        if resolved_engine == ENGINE_INTERNAL_COPILOT
+        else None
+    )
+
     for _iter in range(_V2_MAX_ITER):
         try:
             resp = await ia_service.chat(
@@ -4187,6 +4206,7 @@ async def _assistente_unificado_v2_legacy(
                 tools=tools_payload,
                 temperature=0.3,
                 max_tokens=1024,
+                model_override=modelo_injetado,
             )
         except Exception as e:
             logger.exception("Falha na chamada ia_service.chat (v2)")

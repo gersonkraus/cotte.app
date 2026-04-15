@@ -12,12 +12,16 @@ from typing import List, Dict, Any, Optional
 
 try:
     from litellm import acompletion, completion
-except ModuleNotFoundError:  # pragma: no cover - fallback para ambiente de teste/local sem dependência opcional
+except (
+    ModuleNotFoundError
+):  # pragma: no cover - fallback para ambiente de teste/local sem dependência opcional
+
     async def acompletion(*args, **kwargs):
         raise RuntimeError("litellm não está instalado no ambiente atual")
 
     def completion(*args, **kwargs):
         raise RuntimeError("litellm não está instalado no ambiente atual")
+
 
 from app.core.config import settings
 from app.schemas.schemas import IAInterpretacaoOut
@@ -30,7 +34,9 @@ class IAService:
         self.provider = settings.AI_PROVIDER or "openai"
         self.model = settings.AI_MODEL or "gpt-4o-mini"
         self.api_key = settings.AI_API_KEY
-        logger.info(f"🚀 IA Service iniciado → {self.provider} / {self.model} (Tool Use ativado)")
+        logger.info(
+            f"🚀 IA Service iniciado → {self.provider} / {self.model} (Tool Use ativado)"
+        )
 
     async def chat(
         self,
@@ -39,11 +45,13 @@ class IAService:
         temperature: float = 0.3,
         max_tokens: int = 4000,
         stream: bool = False,
+        model_override: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Chat unificado com suporte completo a Tool Use / Function Calling"""
         try:
+            modelo_final = model_override if model_override else self.model
             response = await acompletion(
-                model=self.model,
+                model=modelo_final,
                 messages=messages,
                 tools=tools,
                 temperature=temperature,
@@ -55,10 +63,10 @@ class IAService:
             usage = response.get("usage", {})
             input_t = usage.get("prompt_tokens", 0)
             output_t = usage.get("completion_tokens", 0)
-            cost = self._calculate_cost(input_t, output_t)
+            cost = self._calculate_cost(input_t, output_t, modelo_final)
 
             logger.info(
-                f"IA → {self.model} | Tokens: {input_t} in / {output_t} out | "
+                f"IA → {modelo_final} | Tokens: {input_t} in / {output_t} out | "
                 f"Custo ≈ ${cost:.5f}"
             )
             return response
@@ -72,6 +80,7 @@ class IAService:
         messages: List[Dict[str, str]],
         temperature: float = 0.3,
         max_tokens: int = 2048,
+        model_override: Optional[str] = None,
     ):
         """Streaming real de tokens (sem tool calling).
 
@@ -80,8 +89,9 @@ class IAService:
         usar `chat()` normal.
         """
         try:
+            modelo_final = model_override if model_override else self.model
             response = await acompletion(
-                model=self.model,
+                model=modelo_final,
                 messages=messages,
                 temperature=temperature,
                 max_tokens=max_tokens,
@@ -93,9 +103,13 @@ class IAService:
                 try:
                     choices = getattr(chunk, "choices", None) or chunk.get("choices")
                     if choices:
-                        msg = getattr(choices[0], "delta", None) or choices[0].get("delta")
+                        msg = getattr(choices[0], "delta", None) or choices[0].get(
+                            "delta"
+                        )
                         if msg:
-                            delta = getattr(msg, "content", None) or (msg.get("content") if isinstance(msg, dict) else None)
+                            delta = getattr(msg, "content", None) or (
+                                msg.get("content") if isinstance(msg, dict) else None
+                            )
                 except Exception:
                     pass
                 if delta:
@@ -104,18 +118,28 @@ class IAService:
             logger.error(f"Erro no chat_stream: {e}", exc_info=True)
             raise
 
-    def _calculate_cost(self, input_tokens: int, output_tokens: int) -> float:
-        if "gpt-4o-mini" in self.model:
+    def _calculate_cost(
+        self, input_tokens: int, output_tokens: int, modelo_usado: Optional[str] = None
+    ) -> float:
+        model_to_check = modelo_usado if modelo_usado else self.model
+        if "gpt-4o-mini" in model_to_check:
             return (input_tokens * 0.00000015) + (output_tokens * 0.00000060)
         return (input_tokens + output_tokens) * 0.000002
 
-    def chat_sync(self, messages: List[Dict], tools=None, **kwargs):
+    def chat_sync(
+        self,
+        messages: List[Dict],
+        tools=None,
+        model_override: Optional[str] = None,
+        **kwargs,
+    ):
+        modelo_final = model_override if model_override else self.model
         return completion(
-            model=self.model,
+            model=modelo_final,
             messages=messages,
             tools=tools,
             api_key=self.api_key,
-            **kwargs
+            **kwargs,
         )
 
 
@@ -145,7 +169,8 @@ def sanitizar_mensagem(mensagem: str) -> str:
     if not mensagem:
         return ""
     cleaned = "".join(
-        ch for ch in mensagem
+        ch
+        for ch in mensagem
         if unicodedata.category(ch) not in ("Cc", "Cf") or ch in ("\n", "\t")
     )
     cleaned = cleaned[:_MAX_MSG_LEN]
@@ -220,7 +245,7 @@ async def interpretar_mensagem(mensagem: str) -> IAInterpretacaoOut:
     response = await ia_service.chat(
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": sanitizar_mensagem(mensagem)}
+            {"role": "user", "content": sanitizar_mensagem(mensagem)},
         ],
         temperature=0.0,
         max_tokens=150,
@@ -238,7 +263,7 @@ async def interpretar_comando_operador(mensagem: str) -> dict:
         response = await ia_service.chat(
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT_OPERADOR},
-                {"role": "user", "content": sanitizar_mensagem(mensagem)}
+                {"role": "user", "content": sanitizar_mensagem(mensagem)},
             ],
             temperature=0.0,
             max_tokens=100,
@@ -266,7 +291,9 @@ async def gerar_resposta_bot(mensagem: str, dados_empresa: dict) -> str:
 async def interpretar_tabela_catalogo(texto: str) -> list[dict]:
     try:
         response = await ia_service.chat(
-            messages=[{"role": "user", "content": f"Analise a tabela abaixo:\n\n{texto}"}],
+            messages=[
+                {"role": "user", "content": f"Analise a tabela abaixo:\n\n{texto}"}
+            ],
             temperature=0.0,
             max_tokens=2000,
         )
