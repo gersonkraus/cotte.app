@@ -776,10 +776,6 @@ function renderAnaliseTexto(dados, isStreamed) {
 
 function formatAIResponse(data, isStreamed = false) {
     let dados = data.dados || data;
-    const semanticContract = (dados && dados.semantic_contract) || data.semantic_contract || null;
-    if (semanticContract && typeof semanticContract === 'object') {
-        return renderSemanticContract(data, semanticContract, isStreamed);
-    }
     let tipoResposta = (data.tipo_resposta && data.tipo_resposta !== 'geral') ? data.tipo_resposta : (dados.tipo || 'geral');
 
     // FIX: Corrige a renderização para respostas de aprovação de orçamento.
@@ -811,6 +807,11 @@ function formatAIResponse(data, isStreamed = false) {
 
     if (tipoResposta === 'orcamento_atualizado' && dados) {
         return renderOrcamentoAtualizado(dados);
+    }
+
+    const semanticContract = (dados && dados.semantic_contract) || data.semantic_contract || null;
+    if (semanticContract && typeof semanticContract === 'object') {
+        return renderSemanticContract(data, semanticContract, isStreamed);
     }
 
     if (dados && Array.isArray(dados.orcamentos) && typeof dados.total !== 'undefined') {
