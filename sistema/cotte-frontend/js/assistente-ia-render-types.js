@@ -120,13 +120,18 @@ function renderOrcamentoCriado(dados) {
                     <span class="orc-card-v2__valor-final">${escapeHtml(totalFmt)}</span>
                 </div>
             </div>
-            <div class="orc-card-v2__actions">
-                <div class="orc-card-v2__icon-btns">
-                    <button type="button" class="orc-card-v2__icon-btn btn-whats" ${disWhats} data-enviar-wa="${orcId}" data-orc-numero="${numEnc}" title="Enviar WhatsApp">💬</button>
-                    <button type="button" class="orc-card-v2__icon-btn btn-link" ${linkTokenAttr} title="Copiar link">🔗</button>
-                    <button type="button" class="orc-card-v2__icon-btn btn-email" ${disEmail} data-enviar-email="${orcId}" data-orc-numero="${numEnc}" title="Enviar E-mail">✉️</button>
+            <div class="orc-card-v2__actions" style="display:flex;flex-direction:column;gap:8px">
+                <button type="button" class="btn btn-primary" onclick="abrirDetalhesOrcamento(${orcId})" style="width: 100%; margin-bottom: 4px; font-size: 14px; font-weight: 600; justify-content: center; padding: 10px;">
+                    🔍 Ver Preview Completo
+                </button>
+                <div style="display: flex; gap: 8px; width: 100%;">
+                    <div class="orc-card-v2__icon-btns" style="flex: 1; justify-content: flex-start;">
+                        <button type="button" class="orc-card-v2__icon-btn btn-whats" ${disWhats} data-enviar-wa="${orcId}" data-orc-numero="${numEnc}" title="Enviar WhatsApp">💬</button>
+                        <button type="button" class="orc-card-v2__icon-btn btn-link" ${linkTokenAttr} title="Copiar link">🔗</button>
+                        <button type="button" class="orc-card-v2__icon-btn btn-email" ${disEmail} data-enviar-email="${orcId}" data-orc-numero="${numEnc}" title="Enviar E-mail">✉️</button>
+                    </div>
+                    <button type="button" class="orc-card-v2__aprovar-btn btn-aprovar" data-quick-send="${aprovarEnc}" data-silent-send="true" style="flex: 1; padding:0 8px;">✓ Aprovar</button>
                 </div>
-                <button type="button" class="orc-card-v2__aprovar-btn btn-aprovar" data-quick-send="${aprovarEnc}" data-silent-send="true">✓ Aprovar</button>
             </div>
         </div>
     </div>`;
@@ -185,8 +190,11 @@ function renderOrcamentoAprovado(dados) {
                     <span class="orc-card-v2__valor-final">${escapeHtml(totalFmt)}</span>
                 </div>
             </div>
-            <div class="orc-card-v2__actions">
-                <div class="orc-card-v2__icon-btns">
+            <div class="orc-card-v2__actions" style="display:flex;flex-direction:column;gap:8px">
+                <button type="button" class="btn btn-primary" onclick="abrirDetalhesOrcamento(${orcId})" style="width: 100%; margin-bottom: 4px; font-size: 14px; font-weight: 600; justify-content: center; padding: 10px;">
+                    🔍 Ver Preview Completo
+                </button>
+                <div class="orc-card-v2__icon-btns" style="justify-content: center; gap: 12px; width: 100%;">
                     <button type="button" class="orc-card-v2__icon-btn btn-calendar" onclick="abrirModalAgendamentoRapido(${orcId}, '${escapeHtml(orcNum)}', '${(clienteNome || '').replace(/'/g, "\\'")}')" title="Agendar">📅</button>
                     <button type="button" class="orc-card-v2__icon-btn btn-whats" ${disWhats} data-enviar-wa="${orcId}" data-orc-numero="${numEnc}" title="Enviar WhatsApp">💬</button>
                     <button type="button" class="orc-card-v2__icon-btn btn-link" ${linkTokenAttr} title="Copiar link">🔗</button>
@@ -302,13 +310,18 @@ function renderOrcamentoAtualizado(dados) {
                     <span class="orc-card-v2__valor-final">${escapeHtml(totalFmt)}</span>
                 </div>
             </div>
-            <div class="orc-card-v2__actions">
-                <div class="orc-card-v2__icon-btns">
-                    <button type="button" class="orc-card-v2__icon-btn btn-whats" ${disWhats} data-enviar-wa="${orcId}" data-orc-numero="${numEnc}" title="Enviar WhatsApp">💬</button>
-                    <button type="button" class="orc-card-v2__icon-btn btn-link" ${linkTokenAttr} title="Copiar link">🔗</button>
-                    <button type="button" class="orc-card-v2__icon-btn btn-email" ${disEmail} data-enviar-email="${orcId}" data-orc-numero="${numEnc}" title="Enviar E-mail">✉️</button>
+            <div class="orc-card-v2__actions" style="display:flex;flex-direction:column;gap:8px">
+                <button type="button" class="btn btn-primary" onclick="abrirDetalhesOrcamento(${orcId})" style="width: 100%; margin-bottom: 4px; font-size: 14px; font-weight: 600; justify-content: center; padding: 10px;">
+                    🔍 Ver Preview Completo
+                </button>
+                <div style="display: flex; gap: 8px; width: 100%;">
+                    <div class="orc-card-v2__icon-btns" style="flex: 1; justify-content: flex-start;">
+                        <button type="button" class="orc-card-v2__icon-btn btn-whats" ${disWhats} data-enviar-wa="${orcId}" data-orc-numero="${numEnc}" title="Enviar WhatsApp">💬</button>
+                        <button type="button" class="orc-card-v2__icon-btn btn-link" ${linkTokenAttr} title="Copiar link">🔗</button>
+                        <button type="button" class="orc-card-v2__icon-btn btn-email" ${disEmail} data-enviar-email="${orcId}" data-orc-numero="${numEnc}" title="Enviar E-mail">✉️</button>
+                    </div>
+                    <button type="button" class="orc-card-v2__aprovar-btn btn-aprovar" data-quick-send="${aprovarEnc}" data-silent-send="true" style="flex: 1; padding:0 8px;">✓ Aprovar</button>
                 </div>
-                <button type="button" class="orc-card-v2__aprovar-btn btn-aprovar" data-quick-send="${aprovarEnc}" data-silent-send="true">✓ Aprovar</button>
             </div>
         </div>
     </div>`;
