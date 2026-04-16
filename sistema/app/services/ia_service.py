@@ -6,6 +6,7 @@ IA Service - LiteLLM + GPT-4o-mini (Tool Use nativo)
 
 import json
 import logging
+import os
 import re
 import unicodedata
 from typing import List, Dict, Any, Optional
@@ -31,12 +32,88 @@ logger = logging.getLogger(__name__)
 
 class IAService:
     def __init__(self):
-        self.provider = settings.AI_PROVIDER or "openai"
-        self.model = settings.AI_MODEL or "gpt-4o-mini"
-        self.api_key = settings.AI_API_KEY
-        logger.info(
-            f"🚀 IA Service iniciado → {self.provider} / {self.model} (Tool Use ativado)"
+        self.provider = (settings.AI_PROVIDER or "openai").strip().lower()
+        self.model = (settings.AI_MODEL or "gpt-4o-mini").strip()
+        self.api_key = self._resolve_api_key(self.provider)
+        self.litellm_model = self._normalize_model_for_provider(
+            model=self.model,
+            provider=self.provider,
         )
+        logger.info(
+            "🚀 IA Service iniciado → %s / %s (modelo LiteLLM: %s, Tool Use ativado)",
+            self.provider,
+            self.model,
+            self.litellm_model,
+        )
+
+    def _resolve_api_key(self, provider: str) -> Optional[str]:
+        """Resolve chave de API com fallback por provider."""
+        if settings.AI_API_KEY:
+            return settings.AI_API_KEY
+
+        provider_key_map = {
+            "openrouter": "OPENROUTER_API_KEY",
+            "openai": "OPENAI_API_KEY",
+            "anthropic": "ANTHROPIC_API_KEY",
+            "google": "GOOGLE_API_KEY",
+            "gemini": "GEMINI_API_KEY",
+        }
+        env_name = provider_key_map.get(provider)
+        if env_name:
+            return os.getenv(env_name)
+        return None
+
+    def _normalize_model_for_provider(self, model: str, provider: str) -> str:
+        """Normaliza o model string para evitar roteamento incorreto no LiteLLM."""
+        model = (model or "").strip()
+        if not model:
+            return "gpt-4o-mini"
+
+        if provider == "openrouter":
+            if model.startswith("openrouter/"):
+                return model
+            if "/" in model:
+                return f"openrouter/{model}"
+            # fallback seguro para manter compatibilidade com modelos curtos.
+            return f"openrouter/openai/{model}"
+
+        # LiteLLM roteia Gemini pelo prefixo "gemini/". O alias "google/" (comum em
+        # catálogos) não é reconhecido e gera BadRequestError: "LLM Provider NOT provided".
+        # OpenRouter já foi tratado acima (mantém openrouter/google/...).
+        if model.startswith("google/"):
+            model = f"gemini/{model[len('google/') :]}"
+
+        if provider == "openai":
+            if model.startswith("openrouter/openai/"):
+                return model.replace("openrouter/openai/", "", 1)
+            if model.startswith("openai/"):
+                return model.replace("openai/", "", 1)
+            return model
+
+        if provider == "anthropic":
+            if model.startswith("openrouter/anthropic/"):
+                return model.replace("openrouter/anthropic/", "", 1)
+            if model.startswith("anthropic/"):
+                return model.replace("anthropic/", "", 1)
+            return model
+
+        return model
+
+    def _litellm_kwargs(
+        self, *, model_override: Optional[str] = None, stream: bool = False
+    ) -> dict:
+        modelo_base = model_override if model_override else self.model
+        modelo_final = self._normalize_model_for_provider(
+            model=modelo_base,
+            provider=self.provider,
+        )
+        kwargs: dict[str, Any] = {
+            "model": modelo_final,
+            "stream": stream,
+        }
+        if self.api_key:
+            kwargs["api_key"] = self.api_key
+        return kwargs
 
     async def chat(
         self,
@@ -49,15 +126,17 @@ class IAService:
     ) -> Dict[str, Any]:
         """Chat unificado com suporte completo a Tool Use / Function Calling"""
         try:
-            modelo_final = model_override if model_override else self.model
+            litellm_kwargs = self._litellm_kwargs(
+                model_override=model_override,
+                stream=stream,
+            )
+            modelo_final = litellm_kwargs["model"]
             response = await acompletion(
-                model=modelo_final,
                 messages=messages,
                 tools=tools,
                 temperature=temperature,
                 max_tokens=max_tokens,
-                api_key=self.api_key,
-                stream=stream,
+                **litellm_kwargs,
             )
 
             usage = response.get("usage", {})
@@ -72,7 +151,13 @@ class IAService:
             return response
 
         except Exception as e:
-            logger.error(f"Erro na chamada IA: {e}", exc_info=True)
+            logger.error(
+                "Erro na chamada IA (provider=%s, model=%s): %s",
+                self.provider,
+                model_override if model_override else self.model,
+                e,
+                exc_info=True,
+            )
             raise
 
     async def chat_stream(
@@ -89,14 +174,15 @@ class IAService:
         usar `chat()` normal.
         """
         try:
-            modelo_final = model_override if model_override else self.model
+            litellm_kwargs = self._litellm_kwargs(
+                model_override=model_override,
+                stream=True,
+            )
             response = await acompletion(
-                model=modelo_final,
                 messages=messages,
                 temperature=temperature,
                 max_tokens=max_tokens,
-                api_key=self.api_key,
-                stream=True,
+                **litellm_kwargs,
             )
             async for chunk in response:
                 delta = None
@@ -133,12 +219,14 @@ class IAService:
         model_override: Optional[str] = None,
         **kwargs,
     ):
-        modelo_final = model_override if model_override else self.model
+        litellm_kwargs = self._litellm_kwargs(
+            model_override=model_override,
+            stream=bool(kwargs.get("stream", False)),
+        )
         return completion(
-            model=modelo_final,
             messages=messages,
             tools=tools,
-            api_key=self.api_key,
+            **litellm_kwargs,
             **kwargs,
         )
 
