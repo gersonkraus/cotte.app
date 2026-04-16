@@ -4104,41 +4104,61 @@ body.embed-mode .chat-header-new-btn {
 
 .orc-card-v2__actions {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
   margin-bottom: 12px;
+}
+
+.orc-card-v2__actions--inline {
+  margin-top: 14px;
+  margin-bottom: 0;
+}
+
+.orc-card-v2__action-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  flex-wrap: wrap;
 }
 
 .orc-card-v2__icon-btns {
   display: flex;
   gap: 8px;
-  flex-shrink: 0;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.orc-card-v2__icon-btns--compact {
+  flex: 1 1 220px;
+}
+
+.orc-card-v2__icon-btns--center {
+  justify-content: center;
 }
 
 .orc-card-v2__icon-btn {
-  min-width: 42px;
-  height: 42px;
-  border-radius: 21px;
-  padding: 0 12px;
+  min-width: 0;
+  height: 34px;
+  border-radius: 999px;
+  padding: 0 10px;
   background: color-mix(in srgb, var(--ai-border) 40%, var(--ai-card) 60%);
   border: 1px solid var(--ai-border);
-  font-size: 0.85rem;
+  font-size: 0.74rem;
   font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 5px;
   transition: all 0.2s ease;
   line-height: 1.2;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .orc-card-v2__icon-btn:hover:not(:disabled) {
   background: var(--ai-border);
-  transform: scale(1.07);
+  transform: translateY(-1px);
 }
 
 .orc-card-v2__icon-btn:disabled {
@@ -4146,8 +4166,13 @@ body.embed-mode .chat-header-new-btn {
   cursor: not-allowed;
 }
 
+.orc-card-v2__icon-btn span {
+  font-size: 0.69rem;
+  letter-spacing: 0.01em;
+}
+
 .orc-card-v2__aprovar-btn {
-  flex: 1;
+  flex: 1 1 120px;
   height: 42px;
   background: var(--ai-accent);
   color: white;
@@ -4164,9 +4189,72 @@ body.embed-mode .chat-header-new-btn {
   white-space: nowrap;
 }
 
+.orc-card-v2__aprovar-btn--compact {
+  height: 34px;
+  border-radius: 999px;
+  padding: 0 12px;
+  font-size: 0.75rem;
+  gap: 4px;
+}
+
 .orc-card-v2__aprovar-btn:hover {
   background: var(--ai-accent-dark, #0d7a6e);
   transform: translateY(-1px);
+}
+
+.orc-card-v2__preview-btn {
+  width: 100%;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid var(--ai-border);
+  background: color-mix(in srgb, var(--ai-accent) 10%, var(--ai-card) 90%);
+  color: var(--ai-accent-dark, #0d7a6e);
+  font-size: 0.74rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s;
+  white-space: nowrap;
+}
+
+.orc-card-v2__preview-btn:hover {
+  background: color-mix(in srgb, var(--ai-accent) 16%, var(--ai-card) 84%);
+  transform: translateY(-1px);
+}
+
+.orc-card-v2__compact-btn {
+  flex: 1 1 120px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid var(--ai-border);
+  background: color-mix(in srgb, var(--ai-border) 35%, var(--ai-card) 65%);
+  color: var(--ai-text);
+  font-size: 0.74rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 10px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.orc-card-v2__compact-btn:hover:not(:disabled) {
+  background: var(--ai-border);
+  transform: translateY(-1px);
+}
+
+.orc-card-v2__compact-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.orc-card-v2__compact-btn--ghost {
+  background: transparent;
 }
 
 .orc-card-v2__footer {

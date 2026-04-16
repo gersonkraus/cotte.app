@@ -62,45 +62,48 @@ function renderOrcamentoCardUnificado(dados) {
     
     if (!orcId) {
         const previewJson = JSON.stringify(dados);
+        const materiaisNovos = Array.isArray(dados.materiais_novos) ? dados.materiais_novos : [];
+        const showCadastrarMaterial = materiaisNovos.length > 0;
         botoesHtml = `
-            <div style="display: flex; gap: 8px; width: 100%; flex-wrap: wrap;">
-                <button type="button" class="orc-card-v2__aprovar-btn btn-aprovar" data-orc-confirm="1" style="flex: 1; padding: 0 16px; white-space: nowrap; min-width: 140px; background: var(--ai-accent); color: white;">✓ Confirmar e Criar</button>
-                <button type="button" class="btn btn-ghost" data-orc-dismiss="1" style="flex: 1; padding: 0 16px; white-space: nowrap; min-width: 140px;">Cancelar</button>
+            <div class="orc-card-v2__action-row">
+                <button type="button" class="orc-card-v2__aprovar-btn orc-card-v2__aprovar-btn--compact btn-aprovar" data-orc-confirm="1">✅ Criar</button>
+                ${showCadastrarMaterial ? '<button type="button" class="orc-card-v2__aprovar-btn orc-card-v2__aprovar-btn--compact btn-aprovar" data-orc-confirm="1" data-cadastrar="1">📦 Criar + mat.</button>' : ''}
+                <button type="button" class="orc-card-v2__compact-btn orc-card-v2__compact-btn--ghost" data-orc-dismiss="1">✖ Cancelar</button>
             </div>
         `;
         extraDataHtml = `<script type="application/json" class="orc-data">${previewJson.replace(/<\/script>/g, '<\\/script>')}</script>`;
     } else {
         previewBtnHtml = `
-            <button type="button" class="btn btn-primary" onclick="abrirDetalhesOrcamento(${orcId})" style="width: 100%; margin-bottom: 4px; font-size: 14px; font-weight: 600; justify-content: center; padding: 10px;">
-                🔍 Ver Preview Completo
+            <button type="button" class="orc-card-v2__preview-btn" onclick="abrirDetalhesOrcamento(${orcId})">
+                🔍 Preview
             </button>
         `;
         
         if (['rascunho', 'enviado'].includes(statusKey)) {
             botoesHtml = `
-                <div style="display: flex; gap: 8px; width: 100%; flex-wrap: wrap;">
-                    <div class="orc-card-v2__icon-btns" style="flex: 1; justify-content: flex-start; min-width: 140px;">
-                        <button type="button" class="orc-card-v2__icon-btn btn-whats" ${disWhats} data-enviar-wa="${orcId}" data-orc-numero="${numEnc}" title="Enviar WhatsApp">💬</button>
-                        <button type="button" class="orc-card-v2__icon-btn btn-link" ${linkTokenAttr} title="Copiar link">🔗</button>
-                        <button type="button" class="orc-card-v2__icon-btn btn-email" ${disEmail} data-enviar-email="${orcId}" data-orc-numero="${numEnc}" title="Enviar E-mail">✉️</button>
+                <div class="orc-card-v2__action-row">
+                    <div class="orc-card-v2__icon-btns orc-card-v2__icon-btns--compact">
+                        <button type="button" class="orc-card-v2__icon-btn btn-whats" ${disWhats} data-enviar-wa="${orcId}" data-orc-numero="${numEnc}" title="Enviar WhatsApp">💬 <span>Whats</span></button>
+                        <button type="button" class="orc-card-v2__icon-btn btn-link" ${linkTokenAttr} title="Copiar link">🔗 <span>Link</span></button>
+                        <button type="button" class="orc-card-v2__icon-btn btn-email" ${disEmail} data-enviar-email="${orcId}" data-orc-numero="${numEnc}" title="Enviar E-mail">✉️ <span>E-mail</span></button>
                     </div>
-                    <button type="button" class="orc-card-v2__aprovar-btn btn-aprovar" data-quick-send="${aprovarEnc}" data-silent-send="true" style="flex: 1; padding: 0 16px; white-space: nowrap; min-width: 140px;">✓ Aprovar</button>
+                    <button type="button" class="orc-card-v2__aprovar-btn orc-card-v2__aprovar-btn--compact btn-aprovar" data-quick-send="${aprovarEnc}" data-silent-send="true">✅ Aprovar</button>
                 </div>
             `;
         } else if (statusKey === 'aprovado') {
             botoesHtml = `
-                <div class="orc-card-v2__icon-btns" style="justify-content: center; gap: 12px; width: 100%;">
-                    <button type="button" class="orc-card-v2__icon-btn btn-calendar" onclick="abrirModalAgendamentoRapido(${orcId}, '${escapeHtml(orcNum)}', '${(clienteNome || '').replace(/'/g, "\\'")}')" title="Agendar">📅</button>
-                    <button type="button" class="orc-card-v2__icon-btn btn-whats" ${disWhats} data-enviar-wa="${orcId}" data-orc-numero="${numEnc}" title="Enviar WhatsApp">💬</button>
-                    <button type="button" class="orc-card-v2__icon-btn btn-link" ${linkTokenAttr} title="Copiar link">🔗</button>
-                    <button type="button" class="orc-card-v2__icon-btn btn-email" ${disEmail} data-enviar-email="${orcId}" data-orc-numero="${numEnc}" title="Enviar E-mail">✉️</button>
+                <div class="orc-card-v2__icon-btns orc-card-v2__icon-btns--compact orc-card-v2__icon-btns--center">
+                    <button type="button" class="orc-card-v2__icon-btn btn-calendar" onclick="abrirModalAgendamentoRapido(${orcId}, '${escapeHtml(orcNum)}', '${(clienteNome || '').replace(/'/g, "\\'")}')" title="Agendar">📅 <span>Agenda</span></button>
+                    <button type="button" class="orc-card-v2__icon-btn btn-whats" ${disWhats} data-enviar-wa="${orcId}" data-orc-numero="${numEnc}" title="Enviar WhatsApp">💬 <span>Whats</span></button>
+                    <button type="button" class="orc-card-v2__icon-btn btn-link" ${linkTokenAttr} title="Copiar link">🔗 <span>Link</span></button>
+                    <button type="button" class="orc-card-v2__icon-btn btn-email" ${disEmail} data-enviar-email="${orcId}" data-orc-numero="${numEnc}" title="Enviar E-mail">✉️ <span>E-mail</span></button>
                 </div>
             `;
         } else {
              botoesHtml = `
-                <div class="orc-card-v2__icon-btns" style="justify-content: center; gap: 12px; width: 100%;">
-                     <button type="button" class="orc-card-v2__icon-btn btn-whats" ${disWhats} data-enviar-wa="${orcId}" data-orc-numero="${numEnc}" title="Reenviar WhatsApp">💬</button>
-                     <button type="button" class="orc-card-v2__icon-btn btn-link" ${linkTokenAttr} title="Copiar link">🔗</button>
+                <div class="orc-card-v2__icon-btns orc-card-v2__icon-btns--compact orc-card-v2__icon-btns--center">
+                     <button type="button" class="orc-card-v2__icon-btn btn-whats" ${disWhats} data-enviar-wa="${orcId}" data-orc-numero="${numEnc}" title="Reenviar WhatsApp">💬 <span>Whats</span></button>
+                     <button type="button" class="orc-card-v2__icon-btn btn-link" ${linkTokenAttr} title="Copiar link">🔗 <span>Link</span></button>
                 </div>
              `;
         }
@@ -125,7 +128,7 @@ function renderOrcamentoCardUnificado(dados) {
                     <span class="orc-card-v2__valor-final">${escapeHtml(totalFmt)}</span>
                 </div>
             </div>
-            <div class="orc-card-v2__actions" style="display:flex;flex-direction:column;gap:8px">
+            <div class="orc-card-v2__actions">
                 ${previewBtnHtml}
                 ${botoesHtml}
             </div>
@@ -166,20 +169,20 @@ function renderOperadorResultado(data, dados) {
             const disEmail = dados.tem_email ? '' : 'disabled title="Cliente sem e-mail"';
             const linkTokenAttr = dados.link_publico ? `data-copy-public-token="${escapeHtmlAttr(dados.link_publico)}"` : 'disabled title="Link indisponível"';
             botoesHtml = `
-                <div class="orc-card-v2__actions" style="margin-top:14px;margin-bottom:0; flex-wrap: wrap;">
-                    <div class="orc-card-v2__icon-btns" style="flex: 1; min-width: 140px;">
-                        <button type="button" class="orc-card-v2__icon-btn btn-whats" ${disWhats} data-enviar-wa="${orcId}" data-orc-numero="${numEnc}" title="Enviar WhatsApp">💬</button>
-                        <button type="button" class="orc-card-v2__icon-btn btn-link" ${linkTokenAttr} title="Copiar link">🔗</button>
-                        <button type="button" class="orc-card-v2__icon-btn btn-email" ${disEmail} data-enviar-email="${orcId}" data-orc-numero="${numEnc}" title="Enviar E-mail">✉️</button>
+                <div class="orc-card-v2__actions orc-card-v2__actions--inline">
+                    <div class="orc-card-v2__icon-btns orc-card-v2__icon-btns--compact">
+                        <button type="button" class="orc-card-v2__icon-btn btn-whats" ${disWhats} data-enviar-wa="${orcId}" data-orc-numero="${numEnc}" title="Enviar WhatsApp">💬 <span>Whats</span></button>
+                        <button type="button" class="orc-card-v2__icon-btn btn-link" ${linkTokenAttr} title="Copiar link">🔗 <span>Link</span></button>
+                        <button type="button" class="orc-card-v2__icon-btn btn-email" ${disEmail} data-enviar-email="${orcId}" data-orc-numero="${numEnc}" title="Enviar E-mail">✉️ <span>E-mail</span></button>
                     </div>
-                    <button type="button" class="orc-card-v2__aprovar-btn btn-aprovar" data-quick-send="${aprovarEnc}" data-silent-send="true" style="flex: 1; min-width: 140px; padding: 0 16px; white-space: nowrap;">✓ Aprovar</button>
+                    <button type="button" class="orc-card-v2__aprovar-btn orc-card-v2__aprovar-btn--compact btn-aprovar" data-quick-send="${aprovarEnc}" data-silent-send="true">✅ Aprovar</button>
                 </div>`;
         } else if (statusKey === 'aprovado') {
             const disWhats = dados.tem_telefone ? '' : 'disabled title="Cliente sem telefone"';
             botoesHtml = `
-                <div class="orc-card-v2__actions" style="margin-top:14px;margin-bottom:0">
-                    <div class="orc-card-v2__icon-btns">
-                        <button type="button" class="orc-card-v2__icon-btn btn-whats" ${disWhats} data-enviar-wa="${orcId}" data-orc-numero="${numEnc}" title="Reenviar WhatsApp">💬</button>
+                <div class="orc-card-v2__actions orc-card-v2__actions--inline">
+                    <div class="orc-card-v2__icon-btns orc-card-v2__icon-btns--compact">
+                        <button type="button" class="orc-card-v2__icon-btn btn-whats" ${disWhats} data-enviar-wa="${orcId}" data-orc-numero="${numEnc}" title="Reenviar WhatsApp">💬 <span>Whats</span></button>
                     </div>
                 </div>`;
         }

@@ -127,15 +127,44 @@
         font-size: 1.3rem;
     }
 
+    .orc-card-v2__actions,
+    .orc-card-v2__actions--inline {
+        gap: 6px;
+    }
+
+    .orc-card-v2__action-row {
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .orc-card-v2__icon-btns--compact {
+        width: 100%;
+        flex: 1 1 auto;
+    }
+
     .orc-card-v2__icon-btn {
-        min-width: 40px;
-        height: 40px;
-        font-size: 0.85rem;
+        min-width: 0;
+        height: 30px;
+        font-size: 0.68rem;
+        padding: 0 6px;
+        gap: 3px;
+    }
+
+    .orc-card-v2__icon-btn span {
+        font-size: 0.6rem;
     }
 
     .orc-card-v2__aprovar-btn {
-        height: 40px;
-        font-size: 0.88rem;
+        height: 34px;
+        font-size: 0.82rem;
+    }
+
+    .orc-card-v2__aprovar-btn--compact,
+    .orc-card-v2__compact-btn,
+    .orc-card-v2__preview-btn {
+        height: 30px;
+        width: 100%;
+        font-size: 0.68rem;
     }
 
     .orc-card-v2__item-row {
