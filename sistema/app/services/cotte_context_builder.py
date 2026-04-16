@@ -17,6 +17,7 @@ from typing import Optional, Any
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
+from sqlalchemy.exc import IntegrityError
 
 logger = logging.getLogger(__name__)
 
@@ -116,16 +117,9 @@ class SessionStore:
                 else:
                     sessao_db = sessao_any
                 if not sessao_db and empresa_id and not sessao_any:
-                    sessao_db = AIChatSessao(
-                        id=sessao_id,
-                        empresa_id=empresa_id,
-                        usuario_id=usuario_id or 0,
+                    SessionStore.ensure_sessao_db(
+                        sessao_id, empresa_id, usuario_id, db
                     )
-                    db.add(sessao_db)
-                    try:
-                        db.commit()
-                    except Exception:
-                        db.rollback()
 
                 # Carrega últimas mensagens do banco para o cache RAM
                 msgs_q = (
@@ -238,74 +232,53 @@ class SessionStore:
 
     @staticmethod
     def ensure_sessao_db(sessao_id: str, empresa_id: int, usuario_id: int, db: Session) -> bool:
-        """Garante que a sessão existe no banco. Idempotente e resiliente a corrida."""
-        # #region agent log
-        try:
-            import json
-            import time as _time_dbg
-
-            with open(
-                "/home/gk/Projeto-izi/.cursor/debug-086929.log", "a", encoding="utf-8"
-            ) as _f:
-                _f.write(
-                    json.dumps(
-                        {
-                            "sessionId": "086929",
-                            "timestamp": int(_time_dbg.time() * 1000),
-                            "hypothesisId": "H2",
-                            "location": "cotte_context_builder.py:ensure_sessao_db",
-                            "message": "ensure_sessao_db entrada",
-                            "data": {
-                                "sessao_prefix": sessao_id[:8],
-                                "empresa_id": empresa_id,
-                                "usuario_id": usuario_id,
-                            },
-                            "runId": "pre-fix",
-                        }
-                    )
-                    + "\n"
-                )
-        except Exception:
-            pass
-        # #endregion
+        """Garante que a sessão existe no banco. Idempotente e resiliente a corrida (INSERT concorrente)."""
         try:
             from app.models.models import AIChatSessao
+
             existe = db.query(AIChatSessao).filter(AIChatSessao.id == sessao_id).first()
-            if existe and existe.empresa_id != empresa_id:
-                logger.warning(
-                    "[SessionStore] Sessão %s pertence a empresa diferente (%s != %s)",
-                    sessao_id[:8],
-                    existe.empresa_id,
-                    empresa_id,
-                )
-                return False
             if existe:
+                if empresa_id and existe.empresa_id != empresa_id:
+                    logger.warning(
+                        "[SessionStore] Sessão %s pertence a empresa diferente (%s != %s)",
+                        sessao_id[:8],
+                        existe.empresa_id,
+                        empresa_id,
+                    )
+                    return False
                 return True
-            if not existe:
-                db.add(AIChatSessao(
+
+            db.add(
+                AIChatSessao(
                     id=sessao_id,
                     empresa_id=empresa_id,
-                    usuario_id=usuario_id,
-                ))
-                try:
-                    db.commit()
-                    return True
-                except Exception:
-                    db.rollback()
-                    existe_pos = (
-                        db.query(AIChatSessao).filter(AIChatSessao.id == sessao_id).first()
+                    usuario_id=usuario_id or 0,
+                )
+            )
+            try:
+                db.commit()
+                return True
+            except IntegrityError:
+                # Outro worker inseriu o mesmo id — PK global; revalidar escopo de empresa.
+                db.rollback()
+                existe_pos = (
+                    db.query(AIChatSessao).filter(AIChatSessao.id == sessao_id).first()
+                )
+                if not existe_pos:
+                    logger.warning(
+                        "[SessionStore] Sessão %s ausente após conflito de integridade",
+                        sessao_id[:8],
                     )
-                    if existe_pos:
-                        if existe_pos.empresa_id != empresa_id:
-                            logger.warning(
-                                "[SessionStore] Sessão %s pertence a empresa diferente (%s != %s)",
-                                sessao_id[:8],
-                                existe_pos.empresa_id,
-                                empresa_id,
-                            )
-                            return False
-                        return True
-                    raise
+                    return False
+                if empresa_id and existe_pos.empresa_id != empresa_id:
+                    logger.warning(
+                        "[SessionStore] Sessão %s pertence a empresa diferente (%s != %s)",
+                        sessao_id[:8],
+                        existe_pos.empresa_id,
+                        empresa_id,
+                    )
+                    return False
+                return True
         except Exception as e:
             logger.warning(f"[SessionStore] Erro ao criar sessão no banco: {e}")
             try:
@@ -313,7 +286,6 @@ class SessionStore:
             except Exception:
                 pass
             return False
-        return True
 
     @staticmethod
     def add_seen_suggestions(
