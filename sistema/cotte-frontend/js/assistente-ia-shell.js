@@ -225,7 +225,21 @@ function getAdaptiveMessagePlaceholder() {
         : DEFAULT_MESSAGE_PLACEHOLDER;
 }
 
-const ASSISTENTE_CHAT_META_KEY = 'ai_chat_meta';
+function _getEmpresaScopeKey(base) {
+    try {
+        const token = localStorage.getItem('cotte_token');
+        if (token) {
+            const parts = token.split('.');
+            if (parts.length >= 2) {
+                const payload = JSON.parse(atob(parts[1]));
+                if (payload.empresa_id) return `${base}_e${payload.empresa_id}`;
+            }
+        }
+    } catch (_) {}
+    return base;
+}
+
+const ASSISTENTE_CHAT_META_KEY = _getEmpresaScopeKey('ai_chat_meta');
 const ASSISTENTE_COMPACT_THRESHOLD = 8;
 const ASSISTENTE_COMPACT_RECENT_COUNT = 4;
 const ASSISTENTE_SCROLL_FOLLOW_THRESHOLD = 96;
@@ -628,8 +642,8 @@ function novaConversaAssistente() {
     const box = document.getElementById('chatMessages');
     if (!box) return;
     sessaoId = null;
-    localStorage.removeItem('ai_sessao_id');
-    localStorage.removeItem('ai_chat_history');
+    localStorage.removeItem(_getEmpresaScopeKey('ai_sessao_id'));
+    localStorage.removeItem(_getEmpresaScopeKey('ai_chat_history'));
     localStorage.removeItem(ASSISTENTE_CHAT_META_KEY);
     window._pendingConfirmationToken = null;
     window._pendingOverrideArgs = null;
@@ -944,8 +958,8 @@ function saveChatHistory() {
     clone.querySelectorAll('.loading').forEach(el => el.remove());
     clone.classList.remove('chat-messages--dense');
     clone.querySelectorAll('.message--compact').forEach((el) => el.classList.remove('message--compact'));
-    localStorage.setItem('ai_chat_history', clone.innerHTML);
-    if (sessaoId) localStorage.setItem('ai_sessao_id', sessaoId);
+    localStorage.setItem(_getEmpresaScopeKey('ai_chat_history'), clone.innerHTML);
+    if (sessaoId) localStorage.setItem(_getEmpresaScopeKey('ai_sessao_id'), sessaoId);
     _persistAssistenteChatMeta();
 }
 

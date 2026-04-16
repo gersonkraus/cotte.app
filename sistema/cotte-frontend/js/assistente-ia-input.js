@@ -387,12 +387,14 @@ document.addEventListener("DOMContentLoaded", function () {
     _assistenteWelcomeHTML = welcomeEl.outerHTML;
   }
 
-  const historico = localStorage.getItem("ai_chat_history");
+  const _chatHistoryKey = typeof _getEmpresaScopeKey === 'function' ? _getEmpresaScopeKey('ai_chat_history') : 'ai_chat_history';
+  const _sessaoIdKey = typeof _getEmpresaScopeKey === 'function' ? _getEmpresaScopeKey('ai_sessao_id') : 'ai_sessao_id';
+  const historico = localStorage.getItem(_chatHistoryKey);
   if (historico) {
     const box = document.getElementById("chatMessages");
     if (box) {
       box.innerHTML = historico;
-      sessaoId = localStorage.getItem("ai_sessao_id") || sessaoId;
+      sessaoId = localStorage.getItem(_sessaoIdKey) || sessaoId;
       box
         .querySelectorAll(".sugestao-chip")
         .forEach((c) => c.classList.add("visible"));
