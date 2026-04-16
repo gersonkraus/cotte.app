@@ -1,6 +1,6 @@
-"""Heurísticas do assistente para listar_orcamentos (autopaginação)."""
+"""Heurísticas do assistente para listagens com autopaginação."""
 
-from app.services.cotte_ai_hub import _wants_all_orcamentos
+from app.services.cotte_ai_hub import _wants_all_clientes, _wants_all_orcamentos
 
 
 def test_wants_all_orcamentos_todos_e_lista_completa():
@@ -18,3 +18,19 @@ def test_wants_all_orcamentos_lista_simples_nao_dispara():
 def test_wants_all_orcamentos_sem_escopo_orcamento():
     assert _wants_all_orcamentos("qual o faturamento") is False
     assert _wants_all_orcamentos("lista completa de clientes") is False
+
+
+def test_wants_all_clientes_todos_e_lista_completa():
+    assert _wants_all_clientes("liste todos os clientes cadastrados") is True
+    assert _wants_all_clientes("quero a lista completa de clientes") is True
+    assert _wants_all_clientes("mostrar clientes sem limite") is True
+
+
+def test_wants_all_clientes_lista_simples_nao_dispara():
+    assert _wants_all_clientes("listar clientes cadastrados") is False
+    assert _wants_all_clientes("lista de clientes ativos") is False
+
+
+def test_wants_all_clientes_sem_escopo_cliente():
+    assert _wants_all_clientes("lista completa de orçamentos") is False
+    assert _wants_all_clientes("qual meu saldo") is False

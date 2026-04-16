@@ -3089,7 +3089,7 @@ async def assistente_v2_stream_core(
                     confirmation_token=None,
                     engine=engine,
                 )
-                result = await _autopaginate_listar_orcamentos(
+                result = await _autopaginate_tool_result(
                     mensagem=mensagem,
                     tc=tc,
                     result=result,
@@ -4369,6 +4369,19 @@ def _wants_all_orcamentos(mensagem: str) -> bool:
     return False
 
 
+def _wants_all_clientes(mensagem: str) -> bool:
+    txt = str(mensagem or "").lower()
+    if "cliente" not in txt:
+        return False
+    if bool(re.search(r"\b(todos|todas|tudo|completo|inteiro)\b", txt)):
+        return True
+    if "lista completa" in txt or "sem limite" in txt or "sem limites" in txt:
+        return True
+    if re.search(r"\btodos os clientes\b", txt):
+        return True
+    return False
+
+
 def _tool_call_args(tc: dict[str, Any]) -> dict[str, Any]:
     fn = tc.get("function") or {}
     raw = fn.get("arguments")
@@ -4468,6 +4481,122 @@ async def _autopaginate_listar_orcamentos(
         data["auto_paginated_paginas"] = paginas
         result.data = data
         result.latencia_ms = int(getattr(result, "latencia_ms", 0) or 0) + lat_extra
+    return result
+
+
+async def _autopaginate_listar_clientes(
+    *,
+    mensagem: str,
+    tc: dict[str, Any],
+    result: Any,
+    tool_execute: Any,
+    db: Session,
+    current_user: Any,
+    sessao_id: str,
+    request_id: Optional[str],
+    confirmation_token: Optional[str],
+    engine: str = DEFAULT_ENGINE,
+) -> Any:
+    tool_name = ((tc.get("function") or {}).get("name") or "").strip()
+    if tool_name != "listar_clientes":
+        return result
+    if not _wants_all_clientes(mensagem):
+        return result
+    if not result or getattr(result, "status", None) != "ok":
+        return result
+
+    data = getattr(result, "data", None)
+    if not isinstance(data, dict):
+        return result
+    clientes = list(data.get("clientes") or [])
+
+    args_base = _tool_call_args(tc)
+    limit_atual_raw = args_base.get("limit")
+    try:
+        limit_atual = int(limit_atual_raw) if limit_atual_raw is not None else len(clientes)
+    except Exception:
+        limit_atual = len(clientes)
+
+    # Quando o usuário pede "todos", o LLM deve receber a lista completa retornada,
+    # sem preview de 10 linhas no payload da role=tool.
+    data["_llm_disable_preview"] = True
+    result.data = data
+
+    if limit_atual >= 50:
+        return result
+
+    prox_args = dict(args_base)
+    prox_args["limit"] = 50
+    tc_prox = {
+        "id": tc.get("id"),
+        "type": "function",
+        "function": {
+            "name": "listar_clientes",
+            "arguments": json.dumps(prox_args, ensure_ascii=False),
+        },
+    }
+    prox_result = await tool_execute(
+        tc_prox,
+        db=db,
+        current_user=current_user,
+        sessao_id=sessao_id,
+        request_id=request_id,
+        confirmation_token=confirmation_token,
+        engine=engine,
+    )
+    if getattr(prox_result, "status", None) != "ok":
+        return result
+    prox_data = getattr(prox_result, "data", None)
+    if not isinstance(prox_data, dict):
+        return result
+
+    prox_data["_llm_disable_preview"] = True
+    prox_data["auto_paginated"] = True
+    prox_data["auto_paginated_paginas"] = 1
+    result.data = prox_data
+    result.latencia_ms = int(getattr(result, "latencia_ms", 0) or 0) + int(
+        getattr(prox_result, "latencia_ms", 0) or 0
+    )
+    return result
+
+
+async def _autopaginate_tool_result(
+    *,
+    mensagem: str,
+    tc: dict[str, Any],
+    result: Any,
+    tool_execute: Any,
+    db: Session,
+    current_user: Any,
+    sessao_id: str,
+    request_id: Optional[str],
+    confirmation_token: Optional[str],
+    engine: str = DEFAULT_ENGINE,
+) -> Any:
+    result = await _autopaginate_listar_orcamentos(
+        mensagem=mensagem,
+        tc=tc,
+        result=result,
+        tool_execute=tool_execute,
+        db=db,
+        current_user=current_user,
+        sessao_id=sessao_id,
+        request_id=request_id,
+        confirmation_token=confirmation_token,
+        engine=engine,
+    )
+    result = await _autopaginate_listar_clientes(
+        mensagem=mensagem,
+        tc=tc,
+        result=result,
+        tool_execute=tool_execute,
+        db=db,
+        current_user=current_user,
+        sessao_id=sessao_id,
+        request_id=request_id,
+        confirmation_token=confirmation_token,
+        engine=engine,
+    )
     return result
 
 
@@ -5245,7 +5374,7 @@ async def _assistente_unificado_v2_legacy(
                     confirmation_token=confirmation_token,
                     engine=resolved_engine,
                 )
-                result = await _autopaginate_listar_orcamentos(
+                result = await _autopaginate_tool_result(
                     mensagem=mensagem,
                     tc=tc_dict,
                     result=result,

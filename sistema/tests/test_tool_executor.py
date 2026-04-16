@@ -238,6 +238,20 @@ def test_idempotencia_envio_replay_sem_reexecutar(db):
         tool_executor._SEND_TOOLS.discard("mock_write")
 
 
+def test_to_llm_payload_respeita_flag_sem_preview():
+    result = tool_executor.ToolResult(
+        status="ok",
+        data={
+            "clientes": [{"id": i, "nome": f"Cliente {i}"} for i in range(1, 15)],
+            "_llm_disable_preview": True,
+        },
+    )
+    payload = result.to_llm_payload()
+    assert "_llm_disable_preview" not in payload
+    assert isinstance(payload.get("clientes"), list)
+    assert len(payload["clientes"]) == 14
+
+
 def test_execute_pending_idempotencia_envio_com_tokens_duplicados(db):
     user = _make_user(db)
     tool_executor._SEND_TOOLS.add("mock_write")

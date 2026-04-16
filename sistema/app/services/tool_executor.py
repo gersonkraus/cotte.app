@@ -356,6 +356,11 @@ class ToolResult:
             if not isinstance(self.data, dict):
                 return self.data or {}
 
+            if self.data.get("_llm_disable_preview"):
+                return {
+                    k: v for k, v in self.data.items() if k != "_llm_disable_preview"
+                }
+
             compressed: dict[str, Any] = {
                 "_meta_notice": "Payload enxugado para raciocínio do LLM. O frontend exibe a lista completa."
             }
