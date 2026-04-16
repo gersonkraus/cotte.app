@@ -73,12 +73,15 @@ function renderOrcamentoCardUnificado(dados) {
         `;
         extraDataHtml = `<script type="application/json" class="orc-data">${previewJson.replace(/<\/script>/g, '<\\/script>')}</script>`;
     } else {
-        previewBtnHtml = `
-            <button type="button" class="orc-card-v2__preview-btn" onclick="abrirDetalhesOrcamento(${orcId})">
-                🔍 Preview
-            </button>
-        `;
-        
+        // Preview só para rascunho/enviado: aprovado já tem o botão 📄 no header
+        if (statusKey !== 'aprovado') {
+            previewBtnHtml = `
+                <button type="button" class="orc-card-v2__preview-btn" onclick="abrirDetalhesOrcamento(${orcId})">
+                    🔍 Preview
+                </button>
+            `;
+        }
+
         if (['rascunho', 'enviado'].includes(statusKey)) {
             botoesHtml = `
                 <div class="orc-card-v2__action-row">

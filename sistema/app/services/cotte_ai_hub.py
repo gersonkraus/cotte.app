@@ -682,10 +682,12 @@ class FallbackManual:
             "confianca": 0.3,
         }
 
-        # Extrair valor monetário
+        # Extrair valor monetário — inclui "por N" (ex: "cartão por 15")
         padroes_valor = [
-            r"R?\$?\s*(\d+[.,]?\d*)",
+            r"R\$\s*(\d+[.,]?\d*)",
+            r"(\d+[.,]\d+)\s*reais?",
             r"(\d+)\s*reais?",
+            r"por\s+(\d+[.,]?\d*)",
             r"(\d+)\s*mil",
         ]
         for padrao in padroes_valor:
@@ -700,8 +702,8 @@ class FallbackManual:
                 except ValueError:
                     pass
 
-        # Extrair serviços comuns
-        servicos = [
+        # Extrair serviços — primeiro lista predefinida, depois genérico
+        servicos_conhecidos = [
             "pintura",
             "reforma",
             "elétrica",
@@ -711,22 +713,39 @@ class FallbackManual:
             "azulejo",
             "telhado",
         ]
-        for servico in servicos:
+        for servico in servicos_conhecidos:
             if servico in mensagem.lower():
                 resultado["servico"] = servico
                 break
 
-        # Extrair nome (após "para", "cliente", etc.)
+        # Serviço genérico: "de um cartão", "de instalação", etc.
+        if not resultado["servico"]:
+            match_de = re.search(
+                r"\bde\s+(?:um\s+|uma\s+|uns\s+|umas\s+)?"
+                r"([\w\sáéíóúâêîôûãõàèìòùäëïöüç]{2,40}?)"
+                r"(?:\s+por\b|\s+r\$|\s+\d+\s*reais|\s+para\b|$)",
+                mensagem, re.IGNORECASE
+            )
+            if match_de:
+                servico_generico = match_de.group(1).strip()
+                if servico_generico and servico_generico.lower() not in ("um", "uma", "uns", "umas"):
+                    resultado["servico"] = servico_generico
+
+        # Extrair nome — aceita letras minúsculas e acentuadas
+        _NOME_PAT = r"[A-Za-záéíóúâêîôûãõàèìòùäëïöüçÁÉÍÓÚÂÊÎÔÛÃÕÀÈÌÒÙÄËÏÖÜÇ]+"
         padroes_nome = [
-            r"para\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
-            r"cliente\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
-            r"do\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
+            rf"para\s+({_NOME_PAT}(?:\s+{_NOME_PAT})?)",
+            rf"cliente\s+({_NOME_PAT}(?:\s+{_NOME_PAT})?)",
+            rf"\bdo\s+({_NOME_PAT}(?:\s+{_NOME_PAT})?)",
         ]
         for padrao in padroes_nome:
-            match = re.search(padrao, mensagem)
+            match = re.search(padrao, mensagem, re.IGNORECASE)
             if match:
-                resultado["cliente_nome"] = match.group(1)
-                break
+                nome = match.group(1).strip()
+                # Evita capturar preposições soltas como nome
+                if len(nome) >= 2 and nome.lower() not in ("um", "uma", "uns", "umas", "para"):
+                    resultado["cliente_nome"] = nome.title()
+                    break
 
         return resultado
 
@@ -1081,8 +1100,15 @@ async def criar_orcamento_ia(
     )
 
     # 1. Extrair dados via módulo "orcamentos"
-    resultado = await ai_hub.processar("orcamentos", mensagem)
-    if not resultado.sucesso or not resultado.dados:
+    # confianca_minima=0.3 aceita nomes sem maiúsculas, serviços genéricos e "por N"
+    resultado = await ai_hub.processar("orcamentos", mensagem, confianca_minima=0.3)
+    dados_raw = resultado.dados or {}
+    # Rejeita apenas se não extraiu absolutamente nenhuma informação útil
+    if not dados_raw or (
+        not dados_raw.get("servico")
+        and not dados_raw.get("valor")
+        and not dados_raw.get("cliente_nome")
+    ):
         return AIResponse(
             sucesso=False,
             resposta="Não entendi os dados do orçamento. Tente: 'Orçamento de pintura para João Silva, R$ 800'",
@@ -1091,7 +1117,7 @@ async def criar_orcamento_ia(
             modulo_origem="criar_orcamento",
         )
 
-    dados = resultado.dados
+    dados = dados_raw
     cliente_nome = (dados.get("cliente_nome") or "").strip()
 
     # 2. Resolver cliente usando a lógica centralizada
@@ -2142,6 +2168,97 @@ def _v2_is_orcamento_fastpath_message(mensagem: str) -> bool:
     return _v2_detect_deterministic_intent(mensagem) == "CRIAR_ORCAMENTO"
 
 
+def _v2_is_operador_fastpath_message(mensagem: str) -> bool:
+    """True se OPERADOR com ação + ID de orçamento claramente parseáveis (0 tokens LLM)."""
+    if _v2_detect_deterministic_intent(mensagem) != "OPERADOR":
+        return False
+    cmd = FallbackManual.extrair_comando(mensagem)
+    return (
+        cmd.get("acao") in {"APROVAR", "RECUSAR", "VER", "ENVIAR"}
+        and cmd.get("orcamento_id") is not None
+    )
+
+
+async def _v2_build_operador_fastpath_response(
+    *,
+    mensagem: str,
+    db: Session,
+    current_user: Any,
+    sessao_id: str,
+    request_id: Optional[str],
+) -> Optional[AIResponse]:
+    """Executa ação de orçamento (VER/APROVAR/RECUSAR/ENVIAR) sem chamar o LLM.
+
+    Retorna None se a ação falhar — o chamador deve cair no fluxo LLM normal.
+    """
+    from app.services.tool_executor import execute as tool_execute
+
+    cmd = FallbackManual.extrair_comando(mensagem)
+    acao = cmd.get("acao")
+    orcamento_id = cmd.get("orcamento_id")
+    if not orcamento_id:
+        return None
+
+    tool_map: dict[str, tuple[str, dict]] = {
+        "VER":     ("obter_orcamento",          {"orcamento_id": orcamento_id}),
+        "APROVAR": ("aprovar_orcamento",         {"orcamento_id": orcamento_id}),
+        "RECUSAR": ("recusar_orcamento",         {"orcamento_id": orcamento_id}),
+        "ENVIAR":  ("enviar_orcamento_whatsapp", {"orcamento_id": orcamento_id}),
+    }
+    tool_entry = tool_map.get(acao)
+    if not tool_entry:
+        return None
+
+    tool_name, tool_args = tool_entry
+    tc_dict = {
+        "id": f"fast_op_{acao.lower()}",
+        "type": "function",
+        "function": {"name": tool_name, "arguments": json.dumps(tool_args)},
+    }
+    result = await tool_execute(
+        tc_dict,
+        db=db,
+        current_user=current_user,
+        sessao_id=sessao_id,
+        request_id=request_id,
+    )
+
+    if result.status == "pending":
+        return AIResponse(
+            sucesso=True,
+            resposta="",
+            tipo_resposta="operador_action",
+            confianca=0.95,
+            modulo_origem="assistente_v2",
+            pending_action=result.pending_action,
+            tool_trace=[{
+                "tool": tool_name,
+                "status": "pending",
+                "latencia_ms": result.latencia_ms,
+            }],
+            dados={"input_tokens": 0, "output_tokens": 0},
+        )
+
+    if result.status == "ok":
+        data = result.data or {}
+        return AIResponse(
+            sucesso=True,
+            resposta="",
+            tipo_resposta="operador_resultado",
+            confianca=0.95,
+            modulo_origem="assistente_v2",
+            tool_trace=[{
+                "tool": tool_name,
+                "status": "ok",
+                "latencia_ms": result.latencia_ms,
+            }],
+            dados={"acao": acao, **data, "input_tokens": 0, "output_tokens": 0},
+        )
+
+    # erro ou forbidden: cai no LLM para mensagem de erro contextual
+    return None
+
+
 async def _v2_build_saldo_fastpath_response(db: Session, empresa_id: int) -> AIResponse:
     from app.services.ai_intention_classifier import saldo_rapido_ia
 
@@ -2713,6 +2830,39 @@ async def assistente_v2_stream_core(
             }
         )
         return
+
+    # ── Fast-path: operador (aprovar/recusar/ver/enviar com ID explícito) ────
+    if not confirmation_token and _v2_is_operador_fastpath_message(mensagem):
+        resposta_op = await _v2_build_operador_fastpath_response(
+            mensagem=mensagem,
+            db=db,
+            current_user=current_user,
+            sessao_id=sessao_id,
+            request_id=request_id,
+        )
+        if resposta_op is not None:
+            if resposta_op.pending_action:
+                tool_name_op = (resposta_op.pending_action or {}).get("tool", "?")
+                yield _enc({"phase": "thinking"})
+                yield _enc({"phase": "tool_running", "tool": tool_name_op})
+                yield _enc({
+                    "is_final": True,
+                    "final_text": "",
+                    "metadata": {
+                        "final_text": "",
+                        "tipo": "operador_action",
+                        "dados": resposta_op.dados or {},
+                        "tool_trace": resposta_op.tool_trace or [],
+                        "sugestoes": [],
+                        "pending_action": resposta_op.pending_action,
+                        "input_tokens": 0,
+                        "output_tokens": 0,
+                    },
+                })
+            else:
+                async for event in _emit_fastpath_ai_response(resposta_op):
+                    yield event
+            return
 
     # ── Fluxo normal: loop Tool Use v2 ────────────────────────────────────
     yield _enc({"phase": "thinking"})
@@ -4712,6 +4862,24 @@ async def assistente_unificado_v2(
             resposta=resposta.resposta or "",
         )
         return resposta
+
+    # OPERADOR fast-path: aprovar/recusar/ver/enviar com ID explícito → 0 tokens LLM
+    if _v2_is_operador_fastpath_message(mensagem):
+        resposta_op = await _v2_build_operador_fastpath_response(
+            mensagem=mensagem,
+            db=db,
+            current_user=current_user,
+            sessao_id=sessao_id,
+            request_id=request_id,
+        )
+        if resposta_op is not None:
+            _v2_persist_fastpath_response(
+                sessao_id=sessao_id,
+                db=db,
+                current_user=current_user,
+                resposta=resposta_op.resposta or "",
+            )
+            return resposta_op
 
     if (
         semantic_autonomy_enabled()

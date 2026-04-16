@@ -124,10 +124,10 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
                 <div class="orc-card-v2__body">
                     <div class="pending-action-tool">${humanizeToolName(pa.tool)}</div>
                     <div class="pending-action-summary">${resumo}</div>
-                    <div class="orc-card-v2__actions" style="margin-top:16px;flex-wrap:wrap">
-                        <button type="button" class="orc-card-v2__aprovar-btn" data-confirm-ia="${tokAttr}" style="background:var(--ai-green);color:white;min-height:42px">✅ Confirmar</button>
-                        ${temMateriaisNovos ? `<button type="button" class="orc-card-v2__aprovar-btn pa-btn-cadastrar" data-confirm-ia="${tokAttr}" data-cadastrar="1" style="min-height:42px;flex:1 1 100%">✅ ✏️ Cadastrar material</button>` : ''}
-                        <button type="button" class="orc-cancel-btn pa-cancel-btn" data-cancel-ia="1" style="flex:1;min-height:42px;display:flex;align-items:center;justify-content:center;border-radius:10px;">✕ Cancelar</button>
+                    <div class="orc-card-v2__action-row" style="margin-top:14px;">
+                        <button type="button" class="orc-card-v2__aprovar-btn orc-card-v2__aprovar-btn--compact" data-confirm-ia="${tokAttr}" style="background:var(--ai-green);color:white;">✅ Confirmar</button>
+                        ${temMateriaisNovos ? `<button type="button" class="orc-card-v2__aprovar-btn orc-card-v2__aprovar-btn--compact pa-btn-cadastrar" data-confirm-ia="${tokAttr}" data-cadastrar="1" style="flex:1 1 100%">✅ ✏️ Cadastrar material</button>` : ''}
+                        <button type="button" class="orc-card-v2__compact-btn orc-card-v2__compact-btn--ghost pa-cancel-btn" data-cancel-ia="1">✕ Cancelar</button>
                     </div>
                 </div>
             </div>`;
