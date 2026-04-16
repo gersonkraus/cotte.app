@@ -687,6 +687,11 @@ criar_orcamento = ToolSpec(
         "Cria um novo orçamento em RASCUNHO. Use cliente_nome quando o ID não for conhecido — o backend "
         "faz match por nome ou cria o cliente automaticamente (sem precisar chamar listar_clientes antes). "
         "Itens aceitam nome livre (sem servico_id); valor_unit informado sempre prevalece sobre catálogo. "
+        "PARSING DE LINGUAGEM NATURAL: extraia descricao e valor_unit separadamente do texto do usuário. "
+        "Exemplos: 'pacote de prego por 36' → descricao='pacote de prego', valor_unit=36; "
+        "'corte de cabelo a 50 reais' → descricao='corte de cabelo', valor_unit=50; "
+        "'2 peças de madeira por 15 cada' → descricao='peça de madeira', quantidade=2, valor_unit=15. "
+        "Sempre que o usuário mencionar preço/valor junto ao item (por, a, de, R$), extraia como valor_unit. "
         "NUNCA chame listar_clientes ou listar_materiais antes desta tool. AÇÃO DESTRUTIVA — exige confirmação."
     ),
     input_model=CriarOrcamentoInput,
