@@ -11,6 +11,7 @@
 
 Importar handlers fora deste módulo é proibido por convenção (sem guardrails).
 """
+
 from __future__ import annotations
 
 import json
@@ -146,7 +147,8 @@ def _issue_token(
         "args_dict": args,
         "args_hash": _args_hash(args),
         "empresa_id": empresa_id,
-        "expires_at": datetime.now(timezone.utc) + timedelta(minutes=_TOKEN_TTL_MINUTES),
+        "expires_at": datetime.now(timezone.utc)
+        + timedelta(minutes=_TOKEN_TTL_MINUTES),
     }
     return token
 
@@ -220,7 +222,10 @@ def _send_idempotency_get(
 
 
 def _send_idempotency_put(
-    empresa_id: Optional[int], tool_name: str, args: dict[str, Any], data: dict[str, Any]
+    empresa_id: Optional[int],
+    tool_name: str,
+    args: dict[str, Any],
+    data: dict[str, Any],
 ) -> None:
     if empresa_id is None:
         return
@@ -344,9 +349,29 @@ class ToolResult:
     tool_name: Optional[str] = None
 
     def to_llm_payload(self) -> dict[str, Any]:
-        """Payload serializado para devolver ao LLM como `{"role":"tool",...}`."""
+        """Payload serializado para devolver ao LLM como `{"role":"tool",...}`.
+        Versão compactada (fast-path) para evitar explosão de contexto com payloads grandes.
+        """
         if self.status == "ok":
-            return self.data or {}
+            if not isinstance(self.data, dict):
+                return self.data or {}
+
+            compressed: dict[str, Any] = {
+                "_meta_notice": "Payload enxugado para raciocínio do LLM. O frontend exibe a lista completa."
+            }
+            has_large_list = False
+            for k, v in self.data.items():
+                if isinstance(v, list) and len(v) > 10:
+                    has_large_list = True
+                    compressed[k] = {
+                        "total_items": len(v),
+                        "rows_preview": v[:10],
+                        "note": f"Exibindo 10 de {len(v)} itens. Evitando estouro de tokens.",
+                    }
+                else:
+                    compressed[k] = v
+
+            return compressed if has_large_list else self.data
         if self.status == "pending":
             return {
                 "pending": True,
@@ -507,7 +532,9 @@ async def execute(
 
     # 2. Parse + validação Pydantic
     try:
-        args_dict = json.loads(raw_args) if isinstance(raw_args, str) else (raw_args or {})
+        args_dict = (
+            json.loads(raw_args) if isinstance(raw_args, str) else (raw_args or {})
+        )
     except json.JSONDecodeError as e:
         result = ToolResult(
             status="invalid_input",
@@ -529,7 +556,9 @@ async def execute(
 
     args_dict = _normalize_tool_args(name, args_dict)
     if engine:
-        meta = args_dict.get("_meta") if isinstance(args_dict.get("_meta"), dict) else {}
+        meta = (
+            args_dict.get("_meta") if isinstance(args_dict.get("_meta"), dict) else {}
+        )
         args_dict["_meta"] = {**meta, "engine": str(engine).strip().lower()}
 
     if name in _SEND_TOOLS:
@@ -626,11 +655,7 @@ async def execute(
             return result
 
     # 4a. Cache hit para tools read-only cacheáveis (respeita RBAC já validado acima)
-    if (
-        not spec.destrutiva
-        and spec.cacheable_ttl
-        and spec.cacheable_ttl > 0
-    ):
+    if not spec.destrutiva and spec.cacheable_ttl and spec.cacheable_ttl > 0:
         cached = _cache_get(current_user.empresa_id, name, args_dict)
         if cached is not None:
             result = ToolResult(
@@ -668,7 +693,8 @@ async def execute(
                 )
             except Exception:
                 logger.debug(
-                    "Falha ao montar preview de confirmação para tool=%s", name,
+                    "Falha ao montar preview de confirmação para tool=%s",
+                    name,
                     exc_info=True,
                 )
 
@@ -680,9 +706,7 @@ async def execute(
                     "description": spec.description,
                     "confirmation_token": token,
                     "confirmation_required": True,
-                    "action_category": (
-                        "envio" if name in _SEND_TOOLS else "mutacao"
-                    ),
+                    "action_category": ("envio" if name in _SEND_TOOLS else "mutacao"),
                     "idempotency_window_seconds": (
                         _send_idempotency_ttl() if name in _SEND_TOOLS else None
                     ),
@@ -874,7 +898,9 @@ async def execute_pending(
                 args_dict[k] = v
     args_dict = _normalize_tool_args(name, args_dict)
     if engine:
-        meta = args_dict.get("_meta") if isinstance(args_dict.get("_meta"), dict) else {}
+        meta = (
+            args_dict.get("_meta") if isinstance(args_dict.get("_meta"), dict) else {}
+        )
         args_dict["_meta"] = {**meta, "engine": str(engine).strip().lower()}
 
     # Replays de envios críticos também devem ser idempotentes no caminho

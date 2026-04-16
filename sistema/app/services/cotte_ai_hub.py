@@ -1711,7 +1711,10 @@ async def assistente_unificado(
         from app.services.ia_service import ia_service
 
         response = await ia_service.chat(
-            messages=[{"role": "system", "content": SYSTEM_PROMPT_ASSISTENTE}, *messages],
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT_ASSISTENTE},
+                *messages,
+            ],
             temperature=0.3,
             max_tokens=800,
         )
@@ -1812,7 +1815,9 @@ def _v2_is_onboarding_bootstrap_message(mensagem: str) -> bool:
     return _v2_normalize_bootstrap_message(mensagem) in {"comecar", "vamos comecar"}
 
 
-def _v2_build_onboarding_fastpath_payload(db: Session, empresa_id: int) -> tuple[str, dict]:
+def _v2_build_onboarding_fastpath_payload(
+    db: Session, empresa_id: int
+) -> tuple[str, dict]:
     from app.services.onboarding_service import (
         formatar_resposta_onboarding,
         get_onboarding_status,
@@ -1932,19 +1937,67 @@ def _v2_selected_tool_names_for_message(
 ) -> tuple[set[str] | None, str]:
     if resolved_engine != DEFAULT_ENGINE:
         return None, "engine_default"
-    if prompt_strategy != "minimal":
-        return None, "full"
 
     normalized = _v2_normalize_bootstrap_message(mensagem)
     intent = _v2_detect_deterministic_intent(mensagem)
 
+    # Identifica se é do domínio financeiro ou inadimplência
+    is_financeiro = any(
+        k in normalized
+        for k in (
+            "saldo",
+            "caixa",
+            "financeiro",
+            "receita",
+            "despesa",
+            "faturamento",
+            "inadimpl",
+            "devendo",
+            "vencid",
+        )
+    )
+
+    # A) Scoped tools também para `standard`
+    # Libera perfil reduzido para financeiro mesmo fora do minimal
+    if prompt_strategy != "minimal" and not is_financeiro:
+        return None, "full"
+
     if intent == "CONVERSACAO" and not _v2_message_likely_requires_tools(mensagem):
         return set(), "minimal_conversation_no_tools"
 
-    selected = set(_V2_TOOLSET_CORE_READONLY)
-    if any(k in normalized for k in ("orcamento", "orçamento", "aprovar", "recusar", "enviar")):
+    if is_financeiro:
+        # Base bem mais enxuta para financeiro (evita carregar schemas inteiros)
+        selected = {
+            "obter_saldo_caixa",
+            "listar_movimentacoes_financeiras",
+            "listar_despesas",
+            "listar_clientes",
+        }
+        # Inclui orçamentos apenas se houver menção explícita
+        if any(
+            k in normalized
+            for k in (
+                "orcamento",
+                "orçamento",
+                "venda",
+                "aprovar",
+                "pendente",
+                "status",
+            )
+        ):
+            selected |= {"listar_orcamentos"}
+    else:
+        selected = set(_V2_TOOLSET_CORE_READONLY)
+
+    if any(
+        k in normalized
+        for k in ("orcamento", "orçamento", "aprovar", "recusar", "enviar")
+    ):
         selected |= _V2_TOOLSET_ORCAMENTOS
-    if any(k in normalized for k in ("saldo", "caixa", "financeiro", "receita", "despesa", "faturamento")):
+    if any(
+        k in normalized
+        for k in ("saldo", "caixa", "financeiro", "receita", "despesa", "faturamento")
+    ):
         selected |= _V2_TOOLSET_FINANCEIRO
     if "cliente" in normalized:
         selected |= _V2_TOOLSET_CLIENTES
@@ -1961,7 +2014,7 @@ def _v2_selected_tool_names_for_message(
             | _V2_TOOLSET_CATALOGO
         )
 
-    return selected, "minimal_intent_scoped"
+    return selected, f"{prompt_strategy}_intent_scoped"
 
 
 def _v2_filter_tools_payload_by_name(
@@ -2031,7 +2084,11 @@ def _v2_history_window_size(*, prompt_strategy: str, mensagem: str) -> int:
         return 12
     words = len((mensagem or "").split())
     intent = _v2_detect_deterministic_intent(mensagem)
-    if intent == "CONVERSACAO" and words <= 6 and not _v2_message_likely_requires_tools(mensagem):
+    if (
+        intent == "CONVERSACAO"
+        and words <= 6
+        and not _v2_message_likely_requires_tools(mensagem)
+    ):
         return 1
     if words <= 12:
         return 2
@@ -2049,6 +2106,14 @@ def _v2_is_saldo_rapido_message(mensagem: str) -> bool:
     return _v2_detect_deterministic_intent(mensagem) == "SALDO_RAPIDO"
 
 
+def _v2_is_dashboard_financeiro_message(mensagem: str) -> bool:
+    return _v2_detect_deterministic_intent(mensagem) == "DASHBOARD"
+
+
+def _v2_is_clientes_devendo_message(mensagem: str) -> bool:
+    return _v2_detect_deterministic_intent(mensagem) == "INADIMPLENCIA"
+
+
 def _v2_is_orcamento_fastpath_message(mensagem: str) -> bool:
     return _v2_detect_deterministic_intent(mensagem) == "CRIAR_ORCAMENTO"
 
@@ -2057,6 +2122,18 @@ async def _v2_build_saldo_fastpath_response(db: Session, empresa_id: int) -> AIR
     from app.services.ai_intention_classifier import saldo_rapido_ia
 
     return await saldo_rapido_ia(db=db, empresa_id=empresa_id)
+
+
+async def _v2_build_dashboard_fastpath_response(
+    db: Session, empresa_id: int
+) -> AIResponse:
+    return await dashboard_financeiro_ia(db=db, empresa_id=empresa_id)
+
+
+async def _v2_build_inadimplencia_fastpath_response(
+    db: Session, empresa_id: int
+) -> AIResponse:
+    return await clientes_devendo_ia(db=db, empresa_id=empresa_id)
 
 
 async def _v2_build_orcamento_fastpath_response(
@@ -2292,6 +2369,24 @@ async def assistente_v2_stream_core(
 
     if _v2_is_saldo_rapido_message(mensagem):
         resposta = await _v2_build_saldo_fastpath_response(
+            db=db,
+            empresa_id=getattr(current_user, "empresa_id", 0),
+        )
+        async for event in _emit_fastpath_ai_response(resposta):
+            yield event
+        return
+
+    if _v2_is_dashboard_financeiro_message(mensagem):
+        resposta = await _v2_build_dashboard_fastpath_response(
+            db=db,
+            empresa_id=getattr(current_user, "empresa_id", 0),
+        )
+        async for event in _emit_fastpath_ai_response(resposta):
+            yield event
+        return
+
+    if _v2_is_clientes_devendo_message(mensagem):
+        resposta = await _v2_build_inadimplencia_fastpath_response(
             db=db,
             empresa_id=getattr(current_user, "empresa_id", 0),
         )
@@ -2811,7 +2906,30 @@ async def assistente_v2_stream_core(
     total_out = 0
     expanded_tools_once = False
 
+    _metrics = {
+        "tokens_prompt_pre_tools": 0,
+        "tokens_tool_loop": 0,
+        "tokens_retry_full_tools": 0,
+        "tokens_final_stream": 0,
+        "iterations_count": 0,
+        "tools_payload_size": len(tools_payload),
+    }
+
     for _iter in range(_V2_MAX_ITER):
+        _metrics["iterations_count"] += 1
+        # Proteção: budget máximo de tokens para evitar loops caros repetitivos
+        if total_in > 15000:
+            logger.warning(
+                "[stream_v2] Token budget excedido (total_in=%s). Abortando loop.",
+                total_in,
+            )
+            yield _enc(
+                {
+                    "error": "O assistente precisou de muitas informações para processar. Tente ser mais específico."
+                }
+            )
+            return
+
         try:
             resp = await ia_service.chat(
                 messages=messages,
@@ -2828,12 +2946,19 @@ async def assistente_v2_stream_core(
             return
 
         _usage = (
-            resp.get("usage", {}) if isinstance(resp, dict)
+            resp.get("usage", {})
+            if isinstance(resp, dict)
             else getattr(resp, "usage", {}) or {}
         )
         try:
-            total_in += int(_usage.get("prompt_tokens", 0) or 0)
-            total_out += int(_usage.get("completion_tokens", 0) or 0)
+            _pt = int(_usage.get("prompt_tokens", 0) or 0)
+            _ct = int(_usage.get("completion_tokens", 0) or 0)
+            total_in += _pt
+            total_out += _ct
+            if _iter == 0:
+                _metrics["tokens_prompt_pre_tools"] += _pt
+            else:
+                _metrics["tokens_tool_loop"] += _pt
         except Exception:
             pass
 
@@ -2873,42 +2998,52 @@ async def assistente_v2_stream_core(
                 reduced_tools_active=reduced_tools_active,
             ):
                 expanded_tools_once = True
-                try:
-                    resp_retry = await ia_service.chat(
-                        messages=messages,
-                        tools=full_tools_payload,
-                        temperature=0.3,
-                        max_tokens=1024,
-                        model_override=modelo_injetado,
+
+                if total_in > 10000:
+                    logger.warning(
+                        "[stream_v2] Blocking retry with full tools due to token budget (total_in=%s)",
+                        total_in,
                     )
-                    _usage_retry = (
-                        resp_retry.get("usage", {})
-                        if isinstance(resp_retry, dict)
-                        else getattr(resp_retry, "usage", {}) or {}
-                    )
-                    total_in += int(_usage_retry.get("prompt_tokens", 0) or 0)
-                    total_out += int(_usage_retry.get("completion_tokens", 0) or 0)
-                    choices_retry = (
-                        resp_retry.get("choices")
-                        if isinstance(resp_retry, dict)
-                        else getattr(resp_retry, "choices", None)
-                    )
-                    if choices_retry:
-                        choice = choices_retry[0]
-                        msg_obj = (
-                            choice.get("message")
-                            if isinstance(choice, dict)
-                            else getattr(choice, "message", None)
+                else:
+                    try:
+                        resp_retry = await ia_service.chat(
+                            messages=messages,
+                            tools=full_tools_payload,
+                            temperature=0.3,
+                            max_tokens=1024,
+                            model_override=modelo_injetado,
                         )
-                        tool_calls = _get(msg_obj, "tool_calls")
-                        tools_payload = full_tools_payload
-                        reduced_tools_active = False
-                        adaptive_meta["tool_profile"] = "fallback_expanded_full"
-                        adaptive_meta["tool_count"] = len(tools_payload)
-                except Exception:
-                    logger.exception(
-                        "[stream_v2] Falha ao aplicar fallback para tools completas"
-                    )
+                        _usage_retry = (
+                            resp_retry.get("usage", {})
+                            if isinstance(resp_retry, dict)
+                            else getattr(resp_retry, "usage", {}) or {}
+                        )
+                        _pt_retry = int(_usage_retry.get("prompt_tokens", 0) or 0)
+                        _ct_retry = int(_usage_retry.get("completion_tokens", 0) or 0)
+                        total_in += _pt_retry
+                        total_out += _ct_retry
+                        _metrics["tokens_retry_full_tools"] += _pt_retry
+                        choices_retry = (
+                            resp_retry.get("choices")
+                            if isinstance(resp_retry, dict)
+                            else getattr(resp_retry, "choices", None)
+                        )
+                        if choices_retry:
+                            choice = choices_retry[0]
+                            msg_obj = (
+                                choice.get("message")
+                                if isinstance(choice, dict)
+                                else getattr(choice, "message", None)
+                            )
+                            tool_calls = _get(msg_obj, "tool_calls")
+                            tools_payload = full_tools_payload
+                            reduced_tools_active = False
+                            adaptive_meta["tool_profile"] = "fallback_expanded_full"
+                            adaptive_meta["tool_count"] = len(tools_payload)
+                    except Exception:
+                        logger.exception(
+                            "[stream_v2] Falha ao aplicar fallback para tools completas"
+                        )
 
         if tool_calls:
             # Adicionar turno do assistente com tool_calls ao histórico de messages
@@ -3101,6 +3236,7 @@ async def assistente_v2_stream_core(
     if (total_in > 0 or total_out > 0) and db is not None:
         try:
             from app.models.models import ToolCallLog as _ToolCallLog
+
             _token_row = _ToolCallLog(
                 empresa_id=int(empresa_id) if empresa_id else None,
                 usuario_id=int(usuario_id) if usuario_id else None,
@@ -4383,6 +4519,32 @@ async def assistente_unificado_v2(
         )
         return resposta
 
+    if _v2_is_dashboard_financeiro_message(mensagem):
+        resposta = await _v2_build_dashboard_fastpath_response(
+            db=db,
+            empresa_id=getattr(current_user, "empresa_id", 0),
+        )
+        _v2_persist_fastpath_response(
+            sessao_id=sessao_id,
+            db=db,
+            current_user=current_user,
+            resposta=resposta.resposta or "",
+        )
+        return resposta
+
+    if _v2_is_clientes_devendo_message(mensagem):
+        resposta = await _v2_build_inadimplencia_fastpath_response(
+            db=db,
+            empresa_id=getattr(current_user, "empresa_id", 0),
+        )
+        _v2_persist_fastpath_response(
+            sessao_id=sessao_id,
+            db=db,
+            current_user=current_user,
+            resposta=resposta.resposta or "",
+        )
+        return resposta
+
     if _v2_is_orcamento_fastpath_message(mensagem):
         resposta = await _v2_build_orcamento_fastpath_response(
             mensagem=mensagem,
@@ -4875,6 +5037,17 @@ async def _assistente_unificado_v2_legacy(
     )
 
     for _iter in range(_V2_MAX_ITER):
+        # Proteção: budget máximo de tokens
+        if total_in > 15000:
+            logger.warning("[v2_core] Token budget excedido (total_in=%s).", total_in)
+            return AIResponse(
+                sucesso=False,
+                resposta="A consulta exigiu volume de dados além do limite seguro. Seja mais específico.",
+                tipo_resposta="erro",
+                confianca=0.0,
+                modulo_origem="assistente_v2",
+            )
+
         try:
             resp = await ia_service.chat(
                 messages=messages,
@@ -4943,51 +5116,58 @@ async def _assistente_unificado_v2_legacy(
                 reduced_tools_active=reduced_tools_active,
             ):
                 expanded_tools_once = True
-                try:
-                    resp_retry = await ia_service.chat(
-                        messages=messages,
-                        tools=full_tools_payload,
-                        temperature=0.3,
-                        max_tokens=1024,
-                        model_override=modelo_injetado,
+
+                if total_in > 10000:
+                    logger.warning(
+                        "[v2_core] Blocking retry with full tools due to token budget (total_in=%s)",
+                        total_in,
                     )
-                    usage_retry = (
-                        resp_retry.get("usage", {})
-                        if isinstance(resp_retry, dict)
-                        else getattr(resp_retry, "usage", {}) or {}
-                    )
-                    total_in += int(usage_retry.get("prompt_tokens", 0) or 0)
-                    total_out += int(usage_retry.get("completion_tokens", 0) or 0)
-                    choices_retry = (
-                        resp_retry.get("choices")
-                        if isinstance(resp_retry, dict)
-                        else getattr(resp_retry, "choices", None)
-                    )
-                    if choices_retry:
-                        choice = choices_retry[0]
-                        msg = (
-                            choice.get("message")
-                            if isinstance(choice, dict)
-                            else getattr(choice, "message", None)
+                else:
+                    try:
+                        resp_retry = await ia_service.chat(
+                            messages=messages,
+                            tools=full_tools_payload,
+                            temperature=0.3,
+                            max_tokens=1024,
+                            model_override=modelo_injetado,
                         )
-                        finish = (
-                            choice.get("finish_reason")
-                            if isinstance(choice, dict)
-                            else getattr(choice, "finish_reason", None)
+                        usage_retry = (
+                            resp_retry.get("usage", {})
+                            if isinstance(resp_retry, dict)
+                            else getattr(resp_retry, "usage", {}) or {}
                         )
-                        tool_calls = (
-                            msg.get("tool_calls")
-                            if isinstance(msg, dict)
-                            else getattr(msg, "tool_calls", None)
+                        total_in += int(usage_retry.get("prompt_tokens", 0) or 0)
+                        total_out += int(usage_retry.get("completion_tokens", 0) or 0)
+                        choices_retry = (
+                            resp_retry.get("choices")
+                            if isinstance(resp_retry, dict)
+                            else getattr(resp_retry, "choices", None)
                         )
-                        tools_payload = full_tools_payload
-                        reduced_tools_active = False
-                        adaptive_meta["tool_profile"] = "fallback_expanded_full"
-                        adaptive_meta["tool_count"] = len(tools_payload)
-                except Exception:
-                    logger.exception(
-                        "Falha ao aplicar fallback para tools completas (v2)"
-                    )
+                        if choices_retry:
+                            choice = choices_retry[0]
+                            msg = (
+                                choice.get("message")
+                                if isinstance(choice, dict)
+                                else getattr(choice, "message", None)
+                            )
+                            finish = (
+                                choice.get("finish_reason")
+                                if isinstance(choice, dict)
+                                else getattr(choice, "finish_reason", None)
+                            )
+                            tool_calls = (
+                                msg.get("tool_calls")
+                                if isinstance(msg, dict)
+                                else getattr(msg, "tool_calls", None)
+                            )
+                            tools_payload = full_tools_payload
+                            reduced_tools_active = False
+                            adaptive_meta["tool_profile"] = "fallback_expanded_full"
+                            adaptive_meta["tool_count"] = len(tools_payload)
+                    except Exception:
+                        logger.exception(
+                            "Falha ao aplicar fallback para tools completas (v2)"
+                        )
 
         if tool_calls:
             # Anexa o assistant turn com tool_calls (preservando ids)
