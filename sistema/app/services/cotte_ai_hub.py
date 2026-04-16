@@ -1838,6 +1838,205 @@ _V2_MINIMAL_INTENTS = {
     "AGENDAMENTO_CANCELAR",
 }
 
+_V2_TOOLSET_FINANCEIRO = {
+    "obter_saldo_caixa",
+    "listar_movimentacoes_financeiras",
+    "listar_despesas",
+    "criar_movimentacao_financeira",
+    "registrar_pagamento_recebivel",
+    "criar_despesa",
+    "marcar_despesa_paga",
+    "criar_parcelamento",
+}
+_V2_TOOLSET_ORCAMENTOS = {
+    "listar_orcamentos",
+    "obter_orcamento",
+    "criar_orcamento",
+    "duplicar_orcamento",
+    "editar_orcamento",
+    "editar_item_orcamento",
+    "aprovar_orcamento",
+    "recusar_orcamento",
+    "enviar_orcamento_whatsapp",
+    "enviar_orcamento_email",
+    "anexar_documento_orcamento",
+}
+_V2_TOOLSET_CLIENTES = {
+    "listar_clientes",
+    "criar_cliente",
+    "editar_cliente",
+    "excluir_cliente",
+}
+_V2_TOOLSET_AGENDAMENTOS = {
+    "listar_agendamentos",
+    "criar_agendamento",
+    "cancelar_agendamento",
+    "remarcar_agendamento",
+}
+_V2_TOOLSET_CATALOGO = {"listar_materiais", "cadastrar_material"}
+_V2_TOOLSET_CORE_READONLY = {
+    "obter_saldo_caixa",
+    "listar_orcamentos",
+    "obter_orcamento",
+    "listar_clientes",
+    "listar_movimentacoes_financeiras",
+    "listar_despesas",
+    "listar_agendamentos",
+    "listar_materiais",
+}
+
+
+def _v2_message_likely_requires_tools(mensagem: str) -> bool:
+    msg = _v2_normalize_bootstrap_message(mensagem)
+    if not msg:
+        return False
+    tokens = (
+        "saldo",
+        "caixa",
+        "receita",
+        "despesa",
+        "financeiro",
+        "faturamento",
+        "orcamento",
+        "orçamento",
+        "cliente",
+        "clientes",
+        "agendamento",
+        "agenda",
+        "material",
+        "catalogo",
+        "catálogo",
+        "listar",
+        "mostrar",
+        "ver",
+        "criar",
+        "editar",
+        "excluir",
+        "aprovar",
+        "recusar",
+        "enviar",
+        "whatsapp",
+        "email",
+        "quanto",
+        "quais",
+        "quem",
+    )
+    return any(t in msg for t in tokens)
+
+
+def _v2_selected_tool_names_for_message(
+    *,
+    mensagem: str,
+    prompt_strategy: str,
+    resolved_engine: str,
+) -> tuple[set[str] | None, str]:
+    if resolved_engine != DEFAULT_ENGINE:
+        return None, "engine_default"
+    if prompt_strategy != "minimal":
+        return None, "full"
+
+    normalized = _v2_normalize_bootstrap_message(mensagem)
+    intent = _v2_detect_deterministic_intent(mensagem)
+
+    if intent == "CONVERSACAO" and not _v2_message_likely_requires_tools(mensagem):
+        return set(), "minimal_conversation_no_tools"
+
+    selected = set(_V2_TOOLSET_CORE_READONLY)
+    if any(k in normalized for k in ("orcamento", "orçamento", "aprovar", "recusar", "enviar")):
+        selected |= _V2_TOOLSET_ORCAMENTOS
+    if any(k in normalized for k in ("saldo", "caixa", "financeiro", "receita", "despesa", "faturamento")):
+        selected |= _V2_TOOLSET_FINANCEIRO
+    if "cliente" in normalized:
+        selected |= _V2_TOOLSET_CLIENTES
+    if "agenda" in normalized or "agendamento" in normalized:
+        selected |= _V2_TOOLSET_AGENDAMENTOS
+    if "material" in normalized or "catalogo" in normalized or "catálogo" in normalized:
+        selected |= _V2_TOOLSET_CATALOGO
+    if intent == "OPERADOR":
+        selected |= (
+            _V2_TOOLSET_ORCAMENTOS
+            | _V2_TOOLSET_CLIENTES
+            | _V2_TOOLSET_FINANCEIRO
+            | _V2_TOOLSET_AGENDAMENTOS
+            | _V2_TOOLSET_CATALOGO
+        )
+
+    return selected, "minimal_intent_scoped"
+
+
+def _v2_filter_tools_payload_by_name(
+    tools_payload: list[dict[str, Any]],
+    allowed_names: set[str] | None,
+) -> list[dict[str, Any]]:
+    if allowed_names is None:
+        return list(tools_payload)
+    return [
+        item
+        for item in tools_payload
+        if ((item.get("function") or {}).get("name") or "") in allowed_names
+    ]
+
+
+def _v2_select_tools_payload(
+    *,
+    mensagem: str,
+    prompt_strategy: str,
+    resolved_engine: str,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], bool, str]:
+    full_payload = tools_payload_for_engine(resolved_engine)
+    allowed_names, profile = _v2_selected_tool_names_for_message(
+        mensagem=mensagem,
+        prompt_strategy=prompt_strategy,
+        resolved_engine=resolved_engine,
+    )
+    selected = _v2_filter_tools_payload_by_name(full_payload, allowed_names)
+    reduced = allowed_names is not None and len(selected) < len(full_payload)
+
+    # Fallback preventivo: se a heurística reduziu demais em mensagem claramente operacional,
+    # reabre para o catálogo completo antes de chamar o LLM.
+    if reduced and not selected and _v2_message_likely_requires_tools(mensagem):
+        return full_payload, full_payload, False, "fallback_preemptive_full"
+    return selected, full_payload, reduced, profile
+
+
+def _v2_should_retry_with_full_tools(
+    *,
+    mensagem: str,
+    candidate_text: str,
+    reduced_tools_active: bool,
+) -> bool:
+    if not reduced_tools_active:
+        return False
+    if not _v2_message_likely_requires_tools(mensagem):
+        return False
+    normalized = _v2_normalize_bootstrap_message(candidate_text)
+    retry_markers = (
+        "nao consegui",
+        "não consegui",
+        "nao foi possivel",
+        "não foi possível",
+        "nao ha ferramenta",
+        "não há ferramenta",
+        "sem ferramenta",
+        "nao posso",
+        "não posso",
+    )
+    if not normalized:
+        return True
+    return any(m in normalized for m in retry_markers)
+
+
+def _v2_history_window_size(*, prompt_strategy: str, mensagem: str) -> int:
+    if prompt_strategy != "minimal":
+        return 12
+    words = len((mensagem or "").split())
+    intent = _v2_detect_deterministic_intent(mensagem)
+    if intent == "CONVERSACAO" and words <= 6 and not _v2_message_likely_requires_tools(mensagem):
+        return 1
+    if words <= 12:
+        return 2
+    return 4
+
 
 def _v2_detect_deterministic_intent(mensagem: str) -> str:
     try:
@@ -2564,7 +2763,10 @@ async def assistente_v2_stream_core(
                 ),
             }
         )
-    history_window = 4 if prompt_strategy == "minimal" else 12
+    history_window = _v2_history_window_size(
+        prompt_strategy=prompt_strategy,
+        mensagem=mensagem,
+    )
     for h in (history or [])[-history_window:]:
         role = h.get("role") if isinstance(h, dict) else getattr(h, "role", None)
         content = (
@@ -2581,7 +2783,16 @@ async def assistente_v2_stream_core(
         history_window,
     )
 
-    tools_payload = tools_payload_for_engine(resolved_engine)
+    tools_payload, full_tools_payload, reduced_tools_active, tool_profile = (
+        _v2_select_tools_payload(
+            mensagem=mensagem,
+            prompt_strategy=prompt_strategy,
+            resolved_engine=resolved_engine,
+        )
+    )
+    adaptive_meta["tool_profile"] = tool_profile
+    adaptive_meta["tool_count"] = len(tools_payload)
+    adaptive_meta["tool_count_full"] = len(full_tools_payload)
     tool_trace: list[dict] = []
     pending_action: dict | None = None
     grafico_data: dict | None = None
@@ -2598,6 +2809,7 @@ async def assistente_v2_stream_core(
 
     total_in = 0
     total_out = 0
+    expanded_tools_once = False
 
     for _iter in range(_V2_MAX_ITER):
         try:
@@ -2653,6 +2865,50 @@ async def assistente_v2_stream_core(
             return obj
 
         tool_calls = _get(msg_obj, "tool_calls")
+        if not tool_calls and not expanded_tools_once:
+            candidate_text = _get(msg_obj, "content") or ""
+            if _v2_should_retry_with_full_tools(
+                mensagem=mensagem,
+                candidate_text=candidate_text,
+                reduced_tools_active=reduced_tools_active,
+            ):
+                expanded_tools_once = True
+                try:
+                    resp_retry = await ia_service.chat(
+                        messages=messages,
+                        tools=full_tools_payload,
+                        temperature=0.3,
+                        max_tokens=1024,
+                        model_override=modelo_injetado,
+                    )
+                    _usage_retry = (
+                        resp_retry.get("usage", {})
+                        if isinstance(resp_retry, dict)
+                        else getattr(resp_retry, "usage", {}) or {}
+                    )
+                    total_in += int(_usage_retry.get("prompt_tokens", 0) or 0)
+                    total_out += int(_usage_retry.get("completion_tokens", 0) or 0)
+                    choices_retry = (
+                        resp_retry.get("choices")
+                        if isinstance(resp_retry, dict)
+                        else getattr(resp_retry, "choices", None)
+                    )
+                    if choices_retry:
+                        choice = choices_retry[0]
+                        msg_obj = (
+                            choice.get("message")
+                            if isinstance(choice, dict)
+                            else getattr(choice, "message", None)
+                        )
+                        tool_calls = _get(msg_obj, "tool_calls")
+                        tools_payload = full_tools_payload
+                        reduced_tools_active = False
+                        adaptive_meta["tool_profile"] = "fallback_expanded_full"
+                        adaptive_meta["tool_count"] = len(tools_payload)
+                except Exception:
+                    logger.exception(
+                        "[stream_v2] Falha ao aplicar fallback para tools completas"
+                    )
 
         if tool_calls:
             # Adicionar turno do assistente com tool_calls ao histórico de messages
@@ -4569,7 +4825,10 @@ async def _assistente_unificado_v2_legacy(
             }
         )
     # SessionStore historiza apenas role+content (sem tool_calls). Mantemos como hint.
-    history_window = 4 if prompt_strategy == "minimal" else 12
+    history_window = _v2_history_window_size(
+        prompt_strategy=prompt_strategy,
+        mensagem=mensagem,
+    )
     for h in history[-history_window:]:
         if h.get("role") in ("user", "assistant") and h.get("content"):
             messages.append({"role": h["role"], "content": h["content"]})
@@ -4592,12 +4851,22 @@ async def _assistente_unificado_v2_legacy(
         usuario_id=getattr(current_user, "id", 0),
     )
 
-    tools_payload = tools_payload_for_engine(resolved_engine)
+    tools_payload, full_tools_payload, reduced_tools_active, tool_profile = (
+        _v2_select_tools_payload(
+            mensagem=mensagem,
+            prompt_strategy=prompt_strategy,
+            resolved_engine=resolved_engine,
+        )
+    )
+    adaptive_meta["tool_profile"] = tool_profile
+    adaptive_meta["tool_count"] = len(tools_payload)
+    adaptive_meta["tool_count_full"] = len(full_tools_payload)
     tool_trace: list[dict] = []
     pending_action: Optional[dict] = None
     total_in = 0
     total_out = 0
     final_text: Optional[str] = None
+    expanded_tools_once = False
 
     modelo_injetado = (
         settings.AI_TECHNICAL_MODEL
@@ -4662,6 +4931,63 @@ async def _assistente_unificado_v2_legacy(
                 if isinstance(msg, dict)
                 else getattr(msg, "tool_calls", None)
             )
+        if not tool_calls and not expanded_tools_once:
+            candidate_text = (
+                msg.get("content")
+                if isinstance(msg, dict)
+                else getattr(msg, "content", None)
+            ) or ""
+            if _v2_should_retry_with_full_tools(
+                mensagem=mensagem,
+                candidate_text=candidate_text,
+                reduced_tools_active=reduced_tools_active,
+            ):
+                expanded_tools_once = True
+                try:
+                    resp_retry = await ia_service.chat(
+                        messages=messages,
+                        tools=full_tools_payload,
+                        temperature=0.3,
+                        max_tokens=1024,
+                        model_override=modelo_injetado,
+                    )
+                    usage_retry = (
+                        resp_retry.get("usage", {})
+                        if isinstance(resp_retry, dict)
+                        else getattr(resp_retry, "usage", {}) or {}
+                    )
+                    total_in += int(usage_retry.get("prompt_tokens", 0) or 0)
+                    total_out += int(usage_retry.get("completion_tokens", 0) or 0)
+                    choices_retry = (
+                        resp_retry.get("choices")
+                        if isinstance(resp_retry, dict)
+                        else getattr(resp_retry, "choices", None)
+                    )
+                    if choices_retry:
+                        choice = choices_retry[0]
+                        msg = (
+                            choice.get("message")
+                            if isinstance(choice, dict)
+                            else getattr(choice, "message", None)
+                        )
+                        finish = (
+                            choice.get("finish_reason")
+                            if isinstance(choice, dict)
+                            else getattr(choice, "finish_reason", None)
+                        )
+                        tool_calls = (
+                            msg.get("tool_calls")
+                            if isinstance(msg, dict)
+                            else getattr(msg, "tool_calls", None)
+                        )
+                        tools_payload = full_tools_payload
+                        reduced_tools_active = False
+                        adaptive_meta["tool_profile"] = "fallback_expanded_full"
+                        adaptive_meta["tool_count"] = len(tools_payload)
+                except Exception:
+                    logger.exception(
+                        "Falha ao aplicar fallback para tools completas (v2)"
+                    )
 
         if tool_calls:
             # Anexa o assistant turn com tool_calls (preservando ids)

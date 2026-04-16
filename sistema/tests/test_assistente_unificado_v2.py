@@ -699,10 +699,11 @@ def test_v2_injeta_memoria_semantica_empresa_no_prompt(db, monkeypatch):
 def test_v2_prompt_minimal_nao_inclui_kb_em_conversa_simples(db, monkeypatch):
     emp = make_empresa(db)
     user = make_usuario(db, emp)
-    captured = {"messages": None}
+    captured = {"messages": None, "tools_count": None}
 
     async def fake_chat(messages, tools=None, **kw):
         captured["messages"] = messages
+        captured["tools_count"] = len(tools or [])
         return _fake_response(content="Olá!", finish="stop")
 
     monkeypatch.setattr(ia_service_module.ia_service, "chat", fake_chat)
@@ -722,3 +723,24 @@ def test_v2_prompt_minimal_nao_inclui_kb_em_conversa_simples(db, monkeypatch):
     system_blobs = [m.get("content", "") for m in msgs if m.get("role") == "system"]
     merged = "\n".join(system_blobs)
     assert "Manual funcional do sistema" not in merged
+    assert captured["tools_count"] == 0
+
+
+def test_v2_history_window_conversa_curta_minimal():
+    size = cotte_ai_hub._v2_history_window_size(
+        prompt_strategy="minimal",
+        mensagem="oi tudo bem",
+    )
+    assert size == 1
+
+
+def test_v2_tool_selection_profile_conversa_curta():
+    selected, full, reduced, profile = cotte_ai_hub._v2_select_tools_payload(
+        mensagem="oi",
+        prompt_strategy="minimal",
+        resolved_engine=assistant_engine_registry.ENGINE_OPERATIONAL,
+    )
+    assert selected == []
+    assert len(full) >= 1
+    assert reduced is True
+    assert profile == "minimal_conversation_no_tools"
