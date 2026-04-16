@@ -1176,6 +1176,9 @@ async def criar_orcamento_ia(
                     "valor_unit": float(dados.get("valor") or 0),
                 }
             )
+        elif not dados.get("valor") and encontrou_servico.preco_padrao:
+            # Usar preço do catálogo quando nenhum valor foi informado
+            dados["valor"] = float(encontrou_servico.preco_padrao)
 
     # 3. Montar preview
     preview = {
