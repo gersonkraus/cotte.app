@@ -302,6 +302,30 @@ def test_v2_excel_chart_capability_fallback_sem_llm(db, monkeypatch):
     assert (out.dados or {}).get("capability") == "excel_nao_suportado"
 
 
+def test_v2_onboarding_bootstrap_fastpath_sem_llm(db, monkeypatch):
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+
+    async def fake_chat(*args, **kwargs):
+        raise AssertionError("LLM não deve ser chamado no fast-path de onboarding")
+
+    monkeypatch.setattr(ia_service_module.ia_service, "chat", fake_chat)
+
+    out = _run(
+        cotte_ai_hub.assistente_unificado_v2(
+            mensagem="começar",
+            sessao_id="sess-onboarding-fastpath",
+            db=db,
+            current_user=user,
+        )
+    )
+    assert out.sucesso is True
+    assert out.tipo_resposta == "onboarding"
+    assert out.modulo_origem == "onboarding"
+    assert isinstance((out.dados or {}).get("checklist"), list)
+    assert (out.dados or {}).get("concluido") is False
+
+
 def test_v2_ranking_clientes_capability_fallback_sem_llm(db, monkeypatch):
     emp = make_empresa(db)
     user = make_usuario(db, emp)
@@ -393,6 +417,47 @@ def test_stream_grafico_financeiro_retorna_metadata_grafico(db, monkeypatch):
     tool_names = [t.get("tool") for t in tools]
     assert "listar_movimentacoes_financeiras" in tool_names
     assert "obter_saldo_caixa" in tool_names
+
+
+def test_stream_onboarding_bootstrap_fastpath_sem_llm(db, monkeypatch):
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+
+    async def fake_chat(*args, **kwargs):
+        raise AssertionError("LLM não deve ser chamado no SSE de onboarding")
+
+    async def fake_chat_stream(*args, **kwargs):
+        raise AssertionError("chat_stream não deve ser chamado no SSE de onboarding")
+
+    monkeypatch.setattr(ia_service_module.ia_service, "chat", fake_chat)
+    monkeypatch.setattr(ia_service_module.ia_service, "chat_stream", fake_chat_stream)
+
+    events_raw = _run_stream(
+        cotte_ai_hub.assistente_v2_stream_core(
+            mensagem="começar",
+            sessao_id="sess-stream-onboarding-fastpath",
+            db=db,
+            current_user=user,
+        )
+    )
+    decoded = []
+    for evt in events_raw:
+        if not evt.startswith("data: "):
+            continue
+        payload = evt[len("data: "):].strip()
+        if payload:
+            decoded.append(json.loads(payload))
+
+    final_evt = next((e for e in decoded if e.get("is_final") is True), None)
+    assert final_evt is not None
+    metadata = final_evt.get("metadata") or {}
+    assert metadata.get("tipo") == "onboarding"
+    assert metadata.get("input_tokens") == 0
+    assert metadata.get("output_tokens") == 0
+    dados = metadata.get("dados") or {}
+    assert isinstance(dados.get("checklist"), list)
+    assert dados.get("concluido") is False
+    assert "semantic_contract" not in dados
 
 
 def test_v2_pending_recusar_orcamento_expoe_impacto_financeiro(db, monkeypatch):

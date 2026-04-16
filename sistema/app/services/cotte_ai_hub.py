@@ -1792,6 +1792,46 @@ async def assistente_unificado(
         )
 
 
+def _v2_normalize_bootstrap_message(mensagem: str) -> str:
+    texto = re.sub(r"\s+", " ", (mensagem or "").strip().lower())
+    if not texto:
+        return ""
+    mapa = str.maketrans(
+        {
+            "ã": "a",
+            "õ": "o",
+            "ç": "c",
+            "á": "a",
+            "é": "e",
+            "í": "i",
+            "ó": "o",
+            "ú": "u",
+            "â": "a",
+            "ê": "e",
+            "ô": "o",
+            "à": "a",
+        }
+    )
+    return texto.translate(mapa).strip(" .!?")
+
+
+def _v2_is_onboarding_bootstrap_message(mensagem: str) -> bool:
+    # O frontend envia esse gatilho oculto ao abrir o assistente quando o
+    # onboarding ainda está pendente. Não deve montar prompt nem chamar LLM.
+    return _v2_normalize_bootstrap_message(mensagem) in {"comecar", "vamos comecar"}
+
+
+def _v2_build_onboarding_fastpath_payload(db: Session, empresa_id: int) -> tuple[str, dict]:
+    from app.services.onboarding_service import (
+        formatar_resposta_onboarding,
+        get_onboarding_status,
+    )
+
+    status = get_onboarding_status(db=db, empresa_id=empresa_id)
+    resposta = formatar_resposta_onboarding(status)
+    return resposta, status
+
+
 async def assistente_v2_stream_core(
     *,
     mensagem: str,
@@ -1856,6 +1896,44 @@ async def assistente_v2_stream_core(
 
     resolved_engine = resolve_engine(engine)
     engine_policy = get_engine_policy(resolved_engine)
+
+    if _v2_is_onboarding_bootstrap_message(mensagem):
+        empresa_id = getattr(current_user, "empresa_id", 0)
+        usuario_id = getattr(current_user, "id", 0)
+        resposta, status = _v2_build_onboarding_fastpath_payload(
+            db=db,
+            empresa_id=empresa_id,
+        )
+        SessionStore.ensure_sessao_db(
+            sessao_id=sessao_id,
+            empresa_id=empresa_id,
+            usuario_id=usuario_id,
+            db=db,
+        )
+        SessionStore.append_db(
+            sessao_id,
+            "assistant",
+            resposta,
+            db,
+            empresa_id=empresa_id,
+            usuario_id=usuario_id,
+        )
+        yield _enc({"phase": "thinking"})
+        yield _enc({"chunk": resposta})
+        yield _enc(
+            {
+                "is_final": True,
+                "final_text": resposta,
+                "metadata": {
+                    "final_text": resposta,
+                    "tipo": "onboarding",
+                    "dados": status,
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                },
+            }
+        )
+        return
 
     if _v2_is_excel_chart_request(mensagem):
         final_text = (
@@ -3815,6 +3893,37 @@ async def assistente_unificado_v2(
         semantic_autonomy_enabled,
         try_handle_semantic_autonomy,
     )
+    from app.services.cotte_context_builder import SessionStore
+
+    if _v2_is_onboarding_bootstrap_message(mensagem):
+        empresa_id = getattr(current_user, "empresa_id", 0)
+        usuario_id = getattr(current_user, "id", 0)
+        resposta, status = _v2_build_onboarding_fastpath_payload(
+            db=db,
+            empresa_id=empresa_id,
+        )
+        SessionStore.ensure_sessao_db(
+            sessao_id=sessao_id,
+            empresa_id=empresa_id,
+            usuario_id=usuario_id,
+            db=db,
+        )
+        SessionStore.append_db(
+            sessao_id,
+            "assistant",
+            resposta,
+            db,
+            empresa_id=empresa_id,
+            usuario_id=usuario_id,
+        )
+        return AIResponse(
+            sucesso=True,
+            resposta=resposta,
+            tipo_resposta="onboarding",
+            dados=status,
+            confianca=1.0,
+            modulo_origem="onboarding",
+        )
 
     if (
         semantic_autonomy_enabled()
