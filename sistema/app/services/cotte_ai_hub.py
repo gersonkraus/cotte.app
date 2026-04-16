@@ -1158,6 +1158,30 @@ async def criar_orcamento_ia(
         "usuario_id": usuario_id,
     }
 
+    # 3b. Se nenhum valor foi informado, sugerir itens do catálogo antes de criar o orçamento
+    if not preview["valor"] and not erro_ambiguo and preview["servico"]:
+        from app.services.ai_catalog_suggester import (
+            buscar_sugestoes_catalogo,
+            formatar_resposta_sugestao,
+        )
+
+        sugestoes = await buscar_sugestoes_catalogo(db, empresa_id, preview["servico"])
+        if sugestoes:
+            contexto_orc = {
+                "cliente_nome": preview["cliente_nome"],
+                "cliente_id": preview["cliente_id"],
+                "servico": preview["servico"],
+            }
+            r = formatar_resposta_sugestao(sugestoes, preview["servico"], contexto_orc)
+            return AIResponse(
+                sucesso=r["sucesso"],
+                resposta=r["resposta"],
+                tipo_resposta=r["tipo_resposta"],
+                dados=r["dados"],
+                confianca=r["confianca"],
+                modulo_origem=r["modulo_origem"],
+            )
+
     if erro_ambiguo:
         resposta = f"Encontrei vários clientes com o nome '{cliente_nome}'. Selecione um abaixo:"
     elif cliente_match and _cliente_auto_criado:
@@ -1663,6 +1687,12 @@ async def assistente_unificado(
     # REMOVIDO: bloco punitivo que bloqueava qualquer conversa abaixo de 60% onboarding
     # Agora: IA responde a qualquer pergunta, onboarding é apenas sugerido se relevante.
 
+    # 2b. Extrair hints estruturados da mensagem via regex (pré-LLM)
+    from app.services.text_preprocessor import parse_message_hints, build_hint_injection
+
+    _hints = parse_message_hints(mensagem)
+    _hint_str = build_hint_injection(_hints)
+
     # 3. Buscar contexto de dados relevante
     contexto = await ContextBuilder.build(
         intencao, db, empresa_id, usuario_id=usuario_id, mensagem=mensagem
@@ -1673,13 +1703,14 @@ async def assistente_unificado(
     cabecalho = f"Hoje: {agora.strftime('%A, %d/%m/%Y')} às {agora.strftime('%H:%M')}"
     # Contexto de ajuda usa bloco separado [DOCUMENTAÇÃO DO SISTEMA]
     doc_sistema = contexto.pop("documentacao_sistema", None) if contexto else None
+    _hint_prefix = f"{_hint_str}\n\n" if _hint_str else ""
     if contexto:
         user_content = (
-            f"{mensagem}\n\n[DADOS DO SISTEMA]\n{cabecalho}\n"
+            f"{_hint_prefix}{mensagem}\n\n[DADOS DO SISTEMA]\n{cabecalho}\n"
             f"{json.dumps(contexto, ensure_ascii=False, default=str)}"
         )
     else:
-        user_content = f"{mensagem}\n\n[DADOS DO SISTEMA]\n{cabecalho}"
+        user_content = f"{_hint_prefix}{mensagem}\n\n[DADOS DO SISTEMA]\n{cabecalho}"
     if doc_sistema:
         user_content += f"\n\n[DOCUMENTAÇÃO DO SISTEMA]\n{doc_sistema}"
 

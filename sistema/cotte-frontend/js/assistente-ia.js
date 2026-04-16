@@ -705,6 +705,7 @@ async function sendMessage() {
     resizeMessageInput();
     _updateVoiceSendToggle(input);
     _hideQuickReplyChips();
+    if (typeof _hideDraftCard === 'function') _hideDraftCard();
     const isConfirmacaoSilenciosa = message === '__confirmar_acao__' || isSilent;
     if (!isConfirmacaoSilenciosa) {
         _ultimaPergunta = message;

@@ -4331,6 +4331,114 @@ body.embed-mode .chat-header-new-btn {
   }
 }
 
+/* ── Inovação 3: card de rascunho ao vivo ───────────────────────────────── */
+#draft-card-preview {
+  padding: 0 8px 6px;
+}
+.draft-card {
+  background: var(--surface-2, #f1f5f9);
+  border: 1.5px dashed var(--accent, #6c63ff);
+  border-radius: 12px;
+  padding: 10px 14px;
+  animation: fadeIn 0.18s ease;
+}
+.draft-card__label {
+  font-size: 11px;
+  color: var(--accent, #6c63ff);
+  font-weight: 600;
+  margin-bottom: 6px;
+  letter-spacing: 0.02em;
+}
+.draft-card__row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  padding: 2px 0;
+  color: var(--text-secondary, #64748b);
+}
+.draft-card__row strong {
+  color: var(--text-primary, #1e293b);
+}
+
+/* ── Inovação 2: sugestão por catálogo ──────────────────────────────────── */
+.cat-sug__card {
+  background: var(--surface-1, #fff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.cat-sug__header {
+  background: var(--surface-2, #f8fafc);
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary, #475569);
+  border-bottom: 1px solid var(--border, #e2e8f0);
+}
+.cat-sug__items {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.cat-sug__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-light, #f1f5f9);
+}
+.cat-sug__item:last-child {
+  border-bottom: none;
+}
+.cat-sug__info {
+  flex: 1;
+  min-width: 0;
+}
+.cat-sug__nome {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary, #1e293b);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cat-sug__meta {
+  font-size: 11px;
+  color: var(--text-muted, #94a3b8);
+  margin-top: 1px;
+}
+.cat-sug__preco {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--success, #059669);
+  white-space: nowrap;
+}
+.cat-sug__btn-usar {
+  background: var(--accent, #6c63ff);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+.cat-sug__btn-usar:hover { opacity: 0.85; }
+.cat-sug__btn-outro {
+  width: 100%;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--border, #e2e8f0);
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--accent, #6c63ff);
+  cursor: pointer;
+  text-align: left;
+}
+.cat-sug__btn-outro:hover { background: var(--surface-2, #f8fafc); }
+
 /* Token usage badge */
 .token-usage-badge {
   font-size: 0.68rem;

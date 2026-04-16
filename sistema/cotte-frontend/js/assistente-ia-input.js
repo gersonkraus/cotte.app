@@ -343,6 +343,42 @@ function addMessage(
   return messageDiv;
 }
 
+// ── Inovação 3: card de rascunho ao vivo ─────────────────────────────────
+// Detecta: "orçamento para [cliente] de [serviço] por [preço]"
+const _DRAFT_RE = /or[cç]amento\s+para\s+(?<cliente>[\wÀ-ÿ][\wÀ-ÿ\s]{1,40}?)\s+de\s+(?<servico>[\wÀ-ÿ][\wÀ-ÿ\s]{1,40}?)\s+(?:por|a)\s+R?\$?\s*(?<preco>\d+(?:[.,]\d{1,2})?)/i;
+
+function _parseDraft(texto) {
+  const m = texto.match(_DRAFT_RE);
+  if (!m) return null;
+  return {
+    cliente: m.groups.cliente.trim(),
+    servico: m.groups.servico.trim(),
+    preco: parseFloat(m.groups.preco.replace(",", ".")),
+  };
+}
+
+function _hideDraftCard() {
+  const el = document.getElementById("draft-card-preview");
+  if (el) el.style.display = "none";
+}
+
+function _updateDraftCard() {
+  const input = document.getElementById("messageInput");
+  if (!input) return;
+  const draft = _parseDraft(input.value);
+  const el = document.getElementById("draft-card-preview");
+  if (!el) return;
+  if (!draft) { el.style.display = "none"; return; }
+  el.style.display = "block";
+  el.innerHTML = `
+    <div class="draft-card">
+      <div class="draft-card__label">✏️ Rascunho detectado</div>
+      <div class="draft-card__row"><span>Cliente</span><strong>${draft.cliente}</strong></div>
+      <div class="draft-card__row"><span>Serviço</span><strong>${draft.servico}</strong></div>
+      <div class="draft-card__row"><span>Valor</span><strong>R$ ${draft.preco.toFixed(2).replace(".", ",")}</strong></div>
+    </div>`;
+}
+
 document.addEventListener("DOMContentLoaded", function () {
   mountAssistentePreferenciasLayersToBody();
 
@@ -386,6 +422,9 @@ document.addEventListener("DOMContentLoaded", function () {
     });
     applyAdaptiveMessagePlaceholder();
     resizeMessageInput();
+
+    // Inovação 3: rascunho ao vivo — detecta padrão de orçamento enquanto o usuário digita
+    input.addEventListener("input", _updateDraftCard);
   }
 
   window.addEventListener(

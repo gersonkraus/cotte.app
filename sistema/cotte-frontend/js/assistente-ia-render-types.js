@@ -540,6 +540,10 @@ function formatAIResponse(data, isStreamed = false) {
         return renderOrcamentoCardUnificado(dados);
     }
 
+    if (tipoResposta === 'catalogo_sugestao' && dados) {
+        return renderCatalogoSugestao(dados);
+    }
+
     const semanticContract = (dados && dados.semantic_contract) || data.semantic_contract || null;
     if (semanticContract && typeof semanticContract === 'object') {
         return renderSemanticContract(data, semanticContract, isStreamed);
@@ -570,4 +574,53 @@ function formatAIResponse(data, isStreamed = false) {
 // Abrir agendamento rápido a partir de orçamento aprovado
 window.abrirModalAgendamentoRapido = function(orcamentoId, numero, clienteNome) {
     window.location.href = `agendamentos.html?novo=true&orcamento_id=${orcamentoId}&cliente=${encodeURIComponent(clienteNome)}`;
+};
+
+// ── Inovação 2: Sugestão por catálogo ────────────────────────────────────
+function renderCatalogoSugestao(dados) {
+    const { sugestoes = [], termo_buscado = '', contexto_orcamento = {} } = dados;
+    const clienteNome = contexto_orcamento.cliente_nome || '';
+
+    const itemsHtml = sugestoes.map(s => {
+        const precoFmt = s.preco != null ? `R$ ${Number(s.preco).toFixed(2).replace('.', ',')}` : 'Sem preço';
+        const meta = [s.categoria, s.unidade].filter(Boolean).join(' · ');
+        const dataAttr = JSON.stringify({ nome: s.nome, preco: s.preco, cliente: clienteNome }).replace(/'/g, '&#39;');
+        return `
+            <div class="cat-sug__item">
+                <div class="cat-sug__info">
+                    <div class="cat-sug__nome">${s.nome}</div>
+                    ${meta ? `<div class="cat-sug__meta">${meta}</div>` : ''}
+                </div>
+                <div class="cat-sug__preco">${precoFmt}</div>
+                <button class="cat-sug__btn-usar" onclick="usarSugestaoCatalogo(this)" data-item='${dataAttr}'>Usar este</button>
+            </div>`;
+    }).join('');
+
+    return `
+        <div class="cat-sug__card">
+            <div class="cat-sug__header">📦 Catálogo — ${sugestoes.length} opção(ões) para "${termo_buscado}"</div>
+            <div class="cat-sug__items">${itemsHtml}</div>
+            <button class="cat-sug__btn-outro" onclick="informarOutroValorCatalogo(this)" data-termo="${termo_buscado}" data-cliente="${clienteNome}">Informar outro valor</button>
+        </div>`;
+}
+
+window.usarSugestaoCatalogo = function(btn) {
+    const item = JSON.parse(btn.dataset.item || '{}');
+    if (!item.nome) return;
+    const preco = item.preco != null ? ` por R$${Number(item.preco).toFixed(2)}` : '';
+    const cliente = item.cliente ? ` para ${item.cliente}` : '';
+    if (typeof sendQuickMessage === 'function') {
+        sendQuickMessage(`orçamento de ${item.nome}${preco}${cliente}`);
+    }
+};
+
+window.informarOutroValorCatalogo = function(btn) {
+    const termo = btn.dataset.termo || '';
+    const cliente = btn.dataset.cliente ? ` para ${btn.dataset.cliente}` : '';
+    const input = document.getElementById('messageInput');
+    if (input) {
+        input.value = `orçamento de ${termo}${cliente} por `;
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+    }
 };
