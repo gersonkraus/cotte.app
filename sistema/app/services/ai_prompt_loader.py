@@ -23,7 +23,7 @@ class PromptConfig:
     """Configuração de um prompt específico"""
     system: str
     max_tokens: int = 150
-    model: str = "claude-haiku-4-5-20251001"
+    model: str = "default"
     temperature: float = 0.1
     top_p: float = 0.9
     version: str = "1.0"
@@ -47,7 +47,7 @@ class AIPromptLoader:
         "orcamentos": {
             "system": "Você é o assistente...",
             "max_tokens": 150,
-            "model": "claude-sonnet-4-20250514",
+            "model": "default",
             "version": "1.0"
         },
         ...
@@ -76,7 +76,7 @@ REGRAS DE NEGÓCIO:
 - sem cliente → cliente_nome: "A definir"
 - confianca < 0.5 se dados forem incompletos ou ambíguos""",
             max_tokens=150,
-            model="claude-sonnet-4-20250514",
+            model="default",
             version="1.0"
         ),
         
@@ -98,7 +98,7 @@ REGRAS DE NEGÓCIO:
 - Tipo: inferir por documento ou contexto (empresa, oficina, comércio = pj)
 - confianca < 0.6 se faltar nome ou dados forem ambíguos""",
             max_tokens=200,
-            model="claude-sonnet-4-20250514",
+            model="default",
             version="1.0"
         ),
         
@@ -123,7 +123,7 @@ REGRAS DE NEGÓCIO:
 - Recorrente: true se mencionar "mensal", "todo mês", etc.
 - confianca < 0.5 se categoria for incerta""",
             max_tokens=150,
-            model="claude-haiku-4-5-20251001",
+            model="default",
             version="1.0"
         ),
         
@@ -145,7 +145,7 @@ REGRAS DE NEGÓCIO:
 - Tags: extrair serviços mencionados (pintura, reforma, elétrica)
 - confianca < 0.6 se informações insuficientes""",
             max_tokens=180,
-            model="claude-haiku-4-5-20251001",
+            model="default",
             version="1.0"
         ),
         
@@ -168,7 +168,7 @@ EXEMPLOS DE COMANDOS:
 - "aprovar 5" → acao: APROVAR, orcamento_id: 5
 - "ajuda" → acao: AJUDA""",
             max_tokens=100,
-            model="claude-haiku-4-5-20251001",
+            model="default",
             version="1.0"
         ),
         
@@ -181,7 +181,7 @@ REGRAS:
 3. Sempre ofereça ajuda concreta quando possível
 4. Se não souber, seja honesto e sugere falar com um humano""",
             max_tokens=120,
-            model="claude-haiku-4-5-20251001",
+            model="default",
             version="1.0"
         ),
         
@@ -206,7 +206,7 @@ EXEMPLO - pergunta "qual o saldo?":
 EXEMPLO - pergunta "mostre insights":
 {"tipo_analise":"fluxo_caixa","resumo":"Saldo positivo","kpi_principal":{"nome":"Saldo","valor":4895.50,"comparacao":"+444%"},"insights":["Receitas pendentes"],"recomendacoes":["Acompanhar recebimentos"],"confianca":0.85}""",
             max_tokens=600,
-            model="claude-sonnet-4-20250514",
+            model="default",
             version="1.0"
         ),
         
@@ -229,7 +229,7 @@ REGRAS DE NEGÓCIO:
 - recomendações: 2-4 sugestões para melhorar conversão
 - confianca: baseada na quantidade de dados analisados""",
             max_tokens=250,
-            model="claude-sonnet-4-20250514",
+            model="default",
             version="1.0"
         ),
         
@@ -258,7 +258,7 @@ REGRAS DE NEGÓCIO:
 - Métrica sucesso: como medir o resultado
 - confianca: baseada na robustez da análise""",
             max_tokens=200,
-            model="claude-sonnet-4-20250514",
+            model="default",
             version="1.0"
         ),
         
@@ -290,7 +290,7 @@ EXEMPLOS:
 - "como posso melhorar minhas vendas?" → {"intencao":"NEGOCIO","confianca":0.88}
 - "previsão financeira" → {"intencao":"PREVISAO","confianca":0.92}""",
             max_tokens=50,
-            model="claude-haiku-4-5-20251001",
+            model="default",
             temperature=0.0,
             version="1.0"
         )
@@ -398,7 +398,7 @@ EXEMPLOS:
         return {
             "system": self.DEFAULT_PROMPTS["conversacao"].system,
             "max_tokens": 120,
-            "model": "claude-haiku-4-5-20251001"
+            "model": "default"
         }
     
     def list_modulos(self) -> list:

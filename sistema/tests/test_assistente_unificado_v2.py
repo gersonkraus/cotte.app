@@ -326,6 +326,62 @@ def test_v2_onboarding_bootstrap_fastpath_sem_llm(db, monkeypatch):
     assert (out.dados or {}).get("concluido") is False
 
 
+def test_v2_saldo_rapido_fastpath_sem_llm(db, monkeypatch):
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+
+    async def fake_chat(*args, **kwargs):
+        raise AssertionError("LLM do V2 não deve ser chamado no fast-path de saldo")
+
+    monkeypatch.setattr(ia_service_module.ia_service, "chat", fake_chat)
+
+    out = _run(
+        cotte_ai_hub.assistente_unificado_v2(
+            mensagem="qual o saldo do caixa?",
+            sessao_id="sess-saldo-fastpath",
+            db=db,
+            current_user=user,
+        )
+    )
+    assert out.sucesso is True
+    assert out.tipo_resposta == "saldo_caixa"
+    assert out.modulo_origem == "financeiro_saldo"
+    assert (out.dados or {}).get("saldo_atual") is not None
+
+
+def test_v2_orcamento_fastpath_sem_prompt_completo(db, monkeypatch):
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+
+    async def fake_chat(*args, **kwargs):
+        raise AssertionError("LLM do V2 não deve ser chamado no fast-path de orçamento")
+
+    async def fake_criar_orcamento_ia(*args, **kwargs):
+        return cotte_ai_hub.AIResponse(
+            sucesso=True,
+            resposta="Revise o orçamento abaixo e confirme.",
+            tipo_resposta="orcamento_preview",
+            dados={"cliente_nome": "Ana Julia", "valor": 32.58, "servico": "um bolinho"},
+            confianca=0.95,
+            modulo_origem="criar_orcamento",
+        )
+
+    monkeypatch.setattr(ia_service_module.ia_service, "chat", fake_chat)
+    monkeypatch.setattr(cotte_ai_hub, "criar_orcamento_ia", fake_criar_orcamento_ia)
+
+    out = _run(
+        cotte_ai_hub.assistente_unificado_v2(
+            mensagem="orçamento para ana julia de um bolinho por 32,58",
+            sessao_id="sess-orc-fastpath",
+            db=db,
+            current_user=user,
+        )
+    )
+    assert out.sucesso is True
+    assert out.tipo_resposta == "orcamento_preview"
+    assert (out.dados or {}).get("cliente_nome") == "Ana Julia"
+
+
 def test_v2_ranking_clientes_capability_fallback_sem_llm(db, monkeypatch):
     emp = make_empresa(db)
     user = make_usuario(db, emp)
@@ -460,6 +516,97 @@ def test_stream_onboarding_bootstrap_fastpath_sem_llm(db, monkeypatch):
     assert "semantic_contract" not in dados
 
 
+def test_stream_saldo_rapido_fastpath_sem_llm(db, monkeypatch):
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+
+    async def fake_chat(*args, **kwargs):
+        raise AssertionError("LLM do V2 não deve ser chamado no SSE de saldo")
+
+    async def fake_chat_stream(*args, **kwargs):
+        raise AssertionError("chat_stream não deve ser chamado no SSE de saldo")
+
+    monkeypatch.setattr(ia_service_module.ia_service, "chat", fake_chat)
+    monkeypatch.setattr(ia_service_module.ia_service, "chat_stream", fake_chat_stream)
+
+    events_raw = _run_stream(
+        cotte_ai_hub.assistente_v2_stream_core(
+            mensagem="qual o saldo do caixa?",
+            sessao_id="sess-stream-saldo-fastpath",
+            db=db,
+            current_user=user,
+        )
+    )
+    decoded = []
+    for evt in events_raw:
+        if not evt.startswith("data: "):
+            continue
+        payload = evt[len("data: "):].strip()
+        if payload:
+            decoded.append(json.loads(payload))
+
+    final_evt = next((e for e in decoded if e.get("is_final") is True), None)
+    assert final_evt is not None
+    metadata = final_evt.get("metadata") or {}
+    assert metadata.get("tipo") == "saldo_caixa"
+    assert metadata.get("input_tokens") == 0
+    assert metadata.get("output_tokens") == 0
+    dados = metadata.get("dados") or {}
+    assert dados.get("saldo_atual") is not None
+    assert "semantic_contract" not in dados
+
+
+def test_stream_orcamento_fastpath_sem_prompt_completo(db, monkeypatch):
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+
+    async def fake_chat(*args, **kwargs):
+        raise AssertionError("LLM do V2 não deve ser chamado no SSE de orçamento")
+
+    async def fake_chat_stream(*args, **kwargs):
+        raise AssertionError("chat_stream não deve ser chamado no SSE de orçamento")
+
+    async def fake_criar_orcamento_ia(*args, **kwargs):
+        return cotte_ai_hub.AIResponse(
+            sucesso=True,
+            resposta="Revise o orçamento abaixo e confirme.",
+            tipo_resposta="orcamento_preview",
+            dados={"cliente_nome": "Ana Julia", "valor": 32.58, "servico": "um bolinho"},
+            confianca=0.95,
+            modulo_origem="criar_orcamento",
+        )
+
+    monkeypatch.setattr(ia_service_module.ia_service, "chat", fake_chat)
+    monkeypatch.setattr(ia_service_module.ia_service, "chat_stream", fake_chat_stream)
+    monkeypatch.setattr(cotte_ai_hub, "criar_orcamento_ia", fake_criar_orcamento_ia)
+
+    events_raw = _run_stream(
+        cotte_ai_hub.assistente_v2_stream_core(
+            mensagem="orçamento para ana julia de um bolinho por 32,58",
+            sessao_id="sess-stream-orc-fastpath",
+            db=db,
+            current_user=user,
+        )
+    )
+    decoded = []
+    for evt in events_raw:
+        if not evt.startswith("data: "):
+            continue
+        payload = evt[len("data: "):].strip()
+        if payload:
+            decoded.append(json.loads(payload))
+
+    final_evt = next((e for e in decoded if e.get("is_final") is True), None)
+    assert final_evt is not None
+    metadata = final_evt.get("metadata") or {}
+    assert metadata.get("tipo") == "orcamento_preview"
+    assert metadata.get("input_tokens") == 0
+    assert metadata.get("output_tokens") == 0
+    dados = metadata.get("dados") or {}
+    assert dados.get("cliente_nome") == "Ana Julia"
+    assert "semantic_contract" not in dados
+
+
 def test_v2_pending_recusar_orcamento_expoe_impacto_financeiro(db, monkeypatch):
     emp = make_empresa(db)
     user = make_usuario(db, emp)
@@ -547,3 +694,31 @@ def test_v2_injeta_memoria_semantica_empresa_no_prompt(db, monkeypatch):
     assert "perfil_operacional_dinamico" in merged
     assert "\"90d\"" in merged
     assert "prioridade_kpis" in merged
+
+
+def test_v2_prompt_minimal_nao_inclui_kb_em_conversa_simples(db, monkeypatch):
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+    captured = {"messages": None}
+
+    async def fake_chat(messages, tools=None, **kw):
+        captured["messages"] = messages
+        return _fake_response(content="Olá!", finish="stop")
+
+    monkeypatch.setattr(ia_service_module.ia_service, "chat", fake_chat)
+
+    out = _run(
+        cotte_ai_hub.assistente_unificado_v2(
+            mensagem="oi tudo bem?",
+            sessao_id="sess-minimal-prompt",
+            db=db,
+            current_user=user,
+        )
+    )
+
+    assert out.sucesso is True
+    assert (out.dados or {}).get("prompt_strategy") == "minimal"
+    msgs = captured["messages"] or []
+    system_blobs = [m.get("content", "") for m in msgs if m.get("role") == "system"]
+    merged = "\n".join(system_blobs)
+    assert "Manual funcional do sistema" not in merged

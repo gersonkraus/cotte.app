@@ -6,7 +6,7 @@ Melhorias implementadas:
 1. Extração de JSON robusta com Regex (ai_json_extractor)
 2. Queries agregadas SQLAlchemy func.sum (anti-bloqueio)
 3. Prompts externalizados (ai_prompt_loader)
-4. Classificador de intenção híbrido Regex+Haiku (ai_intention_classifier)
+4. Classificador de intenção determinístico por regex (ai_intention_classifier)
 """
 
 import json
@@ -22,7 +22,6 @@ _TZ_BR = ZoneInfo("America/Sao_Paulo")
 from functools import wraps
 from decimal import Decimal
 
-import anthropic
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_
 from sqlalchemy.future import select
@@ -32,10 +31,8 @@ from app.core.config import settings
 
 # Importar novos módulos refatorados
 from app.services.ai_json_extractor import AIJSONExtractor
-from app.services.ai_prompt_loader import get_prompt_loader, load_prompts
+from app.services.ai_prompt_loader import get_prompt_loader
 from app.services.ai_intention_classifier import (
-    get_intention_classifier,
-    IntencaoUsuario,
     detectar_intencao_assistente,
     detectar_intencao_assistente_async,
 )
@@ -51,42 +48,7 @@ from app.services.assistant_engine_registry import (
 
 logger = logging.getLogger(__name__)
 
-# ── Configuração dos Modelos ───────────────────────────────────────────────
-
-
-class _LazyAnthropicClient:
-    """Wrapper lazy: instancia o client Anthropic só no primeiro uso real.
-
-    Mantém compatibilidade com chamadas legadas a `client.messages.create(...)` sem
-    explodir no import quando ANTHROPIC_API_KEY não está configurada (caso atual:
-    o sistema migrou para LiteLLM/OpenAI via `ia_service`). Se uma rota legada
-    realmente chamar Anthropic sem a chave, o erro será claro e local.
-    """
-
-    _real = None
-
-    def _build(self):
-        import os
-
-        key = os.getenv("ANTHROPIC_API_KEY") or getattr(
-            settings, "ANTHROPIC_API_KEY", None
-        )
-        if not key:
-            raise RuntimeError(
-                "ANTHROPIC_API_KEY não configurada — esta rota legada ainda usa "
-                "anthropic.Anthropic. Migre para ia_service ou defina a variável."
-            )
-        self._real = anthropic.Anthropic(api_key=key)
-        return self._real
-
-    def __getattr__(self, item):
-        return getattr(self._real or self._build(), item)
-
-
-client = _LazyAnthropicClient()
-
-SONNET = "claude-sonnet-4-20250514"
-HAIKU = "claude-haiku-4-5-20251001"
+PROMPT_DEFAULT_MODEL = "default"
 
 # Inicializar loader de prompts (lazy loading)
 _prompt_loader = get_prompt_loader()
@@ -119,6 +81,26 @@ class AIResponse(BaseModel):
                 "modulo_origem": "orcamentos",
             }
         }
+
+
+def _extract_text_content_from_ia_response(response: dict | Any) -> str:
+    try:
+        if isinstance(response, dict):
+            choices = response.get("choices") or []
+            if not choices:
+                return ""
+            message = choices[0].get("message") or {}
+            return str(message.get("content") or "").strip()
+
+        choices = getattr(response, "choices", None) or []
+        if not choices:
+            return ""
+        message = getattr(choices[0], "message", None)
+        if isinstance(message, dict):
+            return str(message.get("content") or "").strip()
+        return str(getattr(message, "content", "") or "").strip()
+    except Exception:
+        return ""
 
 
 # ── Cache Inteligente ──────────────────────────────────────────────────────
@@ -191,7 +173,7 @@ REGRAS DE NEGÓCIO:
 - sem cliente → cliente_nome: "A definir"
 - confianca < 0.5 se dados forem incompletos ou ambíguos""",
         "max_tokens": 150,
-        "model": SONNET,
+        "model": PROMPT_DEFAULT_MODEL,
     },
     "clientes": {
         "system": """Você é o assistente de cadastro de clientes do COTTE. Extraia informações de contato e identificação.
@@ -211,7 +193,7 @@ REGRAS DE NEGÓCIO:
 - Tipo: inferir por documento ou contexto (empresa, oficina, comércio = pj)
 - confianca < 0.6 se faltar nome ou dados forem ambíguos""",
         "max_tokens": 200,
-        "model": SONNET,
+        "model": PROMPT_DEFAULT_MODEL,
     },
     "financeiro": {
         "system": """Você é o assistente financeiro do COTTE. Categorize transações e identifique padrões.
@@ -234,7 +216,7 @@ REGRAS DE NEGÓCIO:
 - Recorrente: true se mencionar "mensal", "todo mês", etc.
 - confianca < 0.5 se categoria for incerta""",
         "max_tokens": 150,
-        "model": HAIKU,
+        "model": PROMPT_DEFAULT_MODEL,
     },
     "comercial": {
         "system": """Você é o assistente comercial do COTTE. Qualifique leads e sugira abordagens.
@@ -254,7 +236,7 @@ REGRAS DE NEGÓCIO:
 - Tags: extrair serviços mencionados (pintura, reforma, elétrica)
 - confianca < 0.6 se informações insuficientes""",
         "max_tokens": 180,
-        "model": HAIKU,
+        "model": PROMPT_DEFAULT_MODEL,
     },
     "operador": {
         "system": """Você interpreta comandos de operadores do sistema COTTE.
@@ -275,7 +257,7 @@ EXEMPLOS DE COMANDOS:
 - "aprovar 5" → acao: APROVAR, orcamento_id: 5, confianca: 1.0
 - "ajuda" → acao: AJUDA, confianca: 1.0""",
         "max_tokens": 100,
-        "model": HAIKU,
+        "model": PROMPT_DEFAULT_MODEL,
     },
     "conversacao": {
         "system": """Você é o assistente virtual do COTTE. Responda de forma amigável e profissional.
@@ -286,7 +268,7 @@ REGRAS:
 3. Sempre ofereça ajuda concreta quando possível
 4. Se não souber, seja honesto e sugere falar com um humano""",
         "max_tokens": 120,
-        "model": HAIKU,
+        "model": PROMPT_DEFAULT_MODEL,
     },
     "financeiro_analise": {
         "system": """Você é o assistente financeiro do COTTE. Você DEVE retornar APENAS JSON válido.
@@ -309,7 +291,7 @@ EXEMPLO - pergunta "qual o saldo?":
 EXEMPLO - pergunta "mostre insights":
 {"tipo_analise":"fluxo_caixa","resumo":"Saldo positivo","kpi_principal":{"nome":"Saldo","valor":4895.50,"comparacao":"+444%"},"insights":["Receitas pendentes"],"recomendacoes":["Acompanhar recebimentos"],"confianca":0.85}""",
         "max_tokens": 600,
-        "model": SONNET,
+        "model": PROMPT_DEFAULT_MODEL,
     },
     "conversao_analise": {
         "system": """Você é o analista de conversão do COTTE. Analise taxas de sucesso de orçamentos.
@@ -330,7 +312,7 @@ REGRAS DE NEGÓCIO:
 - recomendações: 2-4 sugestões para melhorar conversão
 - confianca: baseada na quantidade de dados analisados""",
         "max_tokens": 250,
-        "model": SONNET,
+        "model": PROMPT_DEFAULT_MODEL,
     },
     "negocio_sugestoes": {
         "system": """Você é o consultor de negócios do COTTE. Forneça sugestões estratégicas baseadas em dados.
@@ -357,7 +339,7 @@ REGRAS DE NEGÓCIO:
 - Métrica sucesso: como medir o resultado
 - confianca: baseada na robustez da análise""",
         "max_tokens": 200,
-        "model": SONNET,
+        "model": PROMPT_DEFAULT_MODEL,
     },
 }
 
@@ -882,6 +864,8 @@ class CotteAIHub:
 
         # ── Chamada à IA ──────────────────────────────────────────────────────
         try:
+            from app.services.ia_service import ia_service
+
             # Usar PromptLoader para obter configuração atualizada
             config = _prompt_loader.get_dict(modulo)
 
@@ -890,14 +874,16 @@ class CotteAIHub:
                 modulo, mensagem_limpa, contexto
             )
 
-            response = client.messages.create(
-                model=config["model"],
-                max_tokens=config["max_tokens"],
-                system=config["system"],
-                messages=[{"role": "user", "content": mensagem_completa}],
+            response = await ia_service.chat(
+                messages=[
+                    {"role": "system", "content": config["system"]},
+                    {"role": "user", "content": mensagem_completa},
+                ],
+                temperature=float(config.get("temperature", 0.1) or 0.1),
+                max_tokens=int(config.get("max_tokens", 150) or 150),
             )
 
-            raw = response.content[0].text.strip()
+            raw = _extract_text_content_from_ia_response(response)
 
             # NOVO: Extrair JSON robusto com AIJSONExtractor (Etapa 1)
             dados_brutos = AIJSONExtractor.extract(raw)
@@ -1030,10 +1016,14 @@ Se não souber algo, seja honesto e sugere falar com um atendente humano."""
             messages = contexto_conversa + messages
 
         try:
-            response = client.messages.create(
-                model=HAIKU, max_tokens=600, system=system_prompt, messages=messages
+            from app.services.ia_service import ia_service
+
+            response = await ia_service.chat(
+                messages=[{"role": "system", "content": system_prompt}, *messages],
+                temperature=0.3,
+                max_tokens=600,
             )
-            return response.content[0].text.strip()
+            return _extract_text_content_from_ia_response(response)
         except Exception as e:
             logger.error(f"[AI Hub] Erro na conversação: {e}")
             return f"Desculpe, tive um problema para processar sua mensagem. Como posso ajudar?"
@@ -1614,7 +1604,7 @@ async def assistente_unificado(
     1. Busca histórico da sessão
     2. Classifica a intenção da mensagem
     3. Busca dados do banco baseado na intenção
-    4. Chama Claude Sonnet com contexto completo + histórico
+    4. Chama o gateway LiteLLM com contexto completo + histórico
     5. Persiste o turno na sessão
     6. Retorna AIResponse estruturado
     """
@@ -1623,7 +1613,7 @@ async def assistente_unificado(
     # 1. Histórico da sessão (últimas 6 mensagens)
     historico = SessionStore.get_or_create(sessao_id)
 
-    # 2. Classificar intenção (regex + Haiku como fallback)
+    # 2. Classificar intenção (regex determinístico)
     try:
         classificacao = await detectar_intencao_assistente_async(mensagem)
         intencao = classificacao.intencao.value
@@ -1644,7 +1634,7 @@ async def assistente_unificado(
             modulo_origem="assistente",
         )
 
-    # Roteamento especial: criação de orçamento (não passa pelo Claude genérico)
+    # Roteamento especial: criação de orçamento (não passa pelo prompt completo do assistente)
     if intencao == "CRIAR_ORCAMENTO":
         return await criar_orcamento_ia(
             mensagem=mensagem, db=db, empresa_id=empresa_id, usuario_id=usuario_id
@@ -1716,15 +1706,16 @@ async def assistente_unificado(
 
     messages = historico + [{"role": "user", "content": user_content}]
 
-    # 5. Chamar Claude Sonnet
+    # 5. Chamar o gateway LiteLLM
     try:
-        response = client.messages.create(
-            model=SONNET,
+        from app.services.ia_service import ia_service
+
+        response = await ia_service.chat(
+            messages=[{"role": "system", "content": SYSTEM_PROMPT_ASSISTENTE}, *messages],
+            temperature=0.3,
             max_tokens=800,
-            system=SYSTEM_PROMPT_ASSISTENTE,
-            messages=messages,
         )
-        raw = response.content[0].text.strip()
+        raw = _extract_text_content_from_ia_response(response)
 
         # Tentar parsear JSON da resposta
         dados_resposta = AIJSONExtractor.extract(raw)
@@ -1781,7 +1772,7 @@ async def assistente_unificado(
         )
 
     except Exception as e:
-        logger.error(f"[assistente_unificado] Erro ao chamar Claude: {e}")
+        logger.error(f"[assistente_unificado] Erro ao chamar LiteLLM: {e}")
         return AIResponse(
             sucesso=False,
             resposta="Não consegui processar sua mensagem. Tente novamente.",
@@ -1830,6 +1821,154 @@ def _v2_build_onboarding_fastpath_payload(db: Session, empresa_id: int) -> tuple
     status = get_onboarding_status(db=db, empresa_id=empresa_id)
     resposta = formatar_resposta_onboarding(status)
     return resposta, status
+
+
+_V2_HELP_REQUEST_RE = re.compile(
+    r"\b(como|tem como|da pra|dá pra|e possivel|é possível|consigo|onde fica|funciona|passo a passo|tutorial)\b",
+    flags=re.IGNORECASE,
+)
+_V2_MINIMAL_INTENTS = {
+    "CONVERSACAO",
+    "OPERADOR",
+    "CRIAR_ORCAMENTO",
+    "SALDO_RAPIDO",
+    "AGENDAMENTO_CRIAR",
+    "AGENDAMENTO_LISTAR",
+    "AGENDAMENTO_STATUS",
+    "AGENDAMENTO_CANCELAR",
+}
+
+
+def _v2_detect_deterministic_intent(mensagem: str) -> str:
+    try:
+        return str(detectar_intencao_assistente(mensagem) or "CONVERSACAO").upper()
+    except Exception:
+        return "CONVERSACAO"
+
+
+def _v2_is_saldo_rapido_message(mensagem: str) -> bool:
+    return _v2_detect_deterministic_intent(mensagem) == "SALDO_RAPIDO"
+
+
+def _v2_is_orcamento_fastpath_message(mensagem: str) -> bool:
+    return _v2_detect_deterministic_intent(mensagem) == "CRIAR_ORCAMENTO"
+
+
+async def _v2_build_saldo_fastpath_response(db: Session, empresa_id: int) -> AIResponse:
+    from app.services.ai_intention_classifier import saldo_rapido_ia
+
+    return await saldo_rapido_ia(db=db, empresa_id=empresa_id)
+
+
+async def _v2_build_orcamento_fastpath_response(
+    *,
+    mensagem: str,
+    db: Session,
+    empresa_id: int,
+    usuario_id: int,
+) -> AIResponse:
+    return await criar_orcamento_ia(
+        mensagem=mensagem,
+        db=db,
+        empresa_id=empresa_id,
+        usuario_id=usuario_id,
+    )
+
+
+def _v2_prompt_strategy(mensagem: str, resolved_engine: str) -> str:
+    if resolved_engine == ENGINE_INTERNAL_COPILOT:
+        return "technical"
+
+    deterministic_intent = _v2_detect_deterministic_intent(mensagem)
+    normalized = _v2_normalize_bootstrap_message(mensagem)
+    word_count = len((mensagem or "").split())
+
+    if deterministic_intent in {"AJUDA_SISTEMA", "ONBOARDING"}:
+        return "full_kb"
+    if normalized and _V2_HELP_REQUEST_RE.search(normalized):
+        return "full_kb"
+    if deterministic_intent in _V2_MINIMAL_INTENTS and word_count <= 18:
+        return "minimal"
+    return "standard"
+
+
+def _v2_build_system_prompt(
+    *,
+    mensagem: str,
+    resolved_engine: str,
+    now: str,
+) -> tuple[str, str]:
+    prompt_strategy = _v2_prompt_strategy(mensagem, resolved_engine)
+    kb_snippet = _v2_load_kb_snippet() if prompt_strategy == "full_kb" else ""
+
+    if resolved_engine == ENGINE_INTERNAL_COPILOT:
+        system_prompt = f"{_V2_TECHNICAL_COPILOT_PROMPT}\n\nData/hora atual: {now}."
+    else:
+        base_prompt = (
+            _V2_MINIMAL_SYSTEM_PROMPT
+            if prompt_strategy == "minimal"
+            else _V2_SYSTEM_PROMPT
+        )
+        system_prompt = f"{base_prompt}\n\nData/hora atual: {now}."
+        system_prompt += _v2_prompt_listar_orcamentos_datas_br()
+
+    system_prompt += "\n\n" + build_engine_guardrails(resolved_engine)
+    if resolved_engine == ENGINE_INTERNAL_COPILOT:
+        system_prompt += (
+            "\n- Este canal e interno: nao responda operacoes de negocio de clientes."
+            "\n- Nao reutilize contexto de assistente operacional."
+        )
+    if kb_snippet:
+        system_prompt += (
+            "\n\n## Manual funcional do sistema (fonte de verdade para 'como fazer')\n"
+            f"{kb_snippet}"
+        )
+
+    return system_prompt, prompt_strategy
+
+
+def _v2_build_runtime_meta(
+    *,
+    prompt_strategy: str,
+    resolved_engine: str,
+    model_override: str | None = None,
+) -> dict[str, Any]:
+    effective_model = model_override or settings.AI_MODEL
+    return {
+        "prompt_strategy": prompt_strategy,
+        "llm_gateway": "litellm",
+        "llm_provider": settings.AI_PROVIDER,
+        "llm_model": effective_model,
+        "engine": resolved_engine,
+    }
+
+
+def _v2_persist_fastpath_response(
+    *,
+    sessao_id: str,
+    db: Session,
+    current_user: Any,
+    resposta: str,
+) -> None:
+    from app.services.cotte_context_builder import SessionStore
+
+    empresa_id = getattr(current_user, "empresa_id", 0)
+    usuario_id = getattr(current_user, "id", 0)
+    SessionStore.ensure_sessao_db(
+        sessao_id=sessao_id,
+        empresa_id=empresa_id,
+        usuario_id=usuario_id,
+        db=db,
+    )
+    if resposta:
+        SessionStore.append_db(
+            sessao_id,
+            "assistant",
+            resposta,
+            db,
+            empresa_id=empresa_id,
+            usuario_id=usuario_id,
+        )
 
 
 async def assistente_v2_stream_core(
@@ -1894,29 +2033,46 @@ async def assistente_v2_stream_core(
             "metadata": metadata_extra or {},
         }
 
+    async def _emit_fastpath_ai_response(ai_response: AIResponse):
+        final_text = ai_response.resposta or ""
+        _v2_persist_fastpath_response(
+            sessao_id=sessao_id,
+            db=db,
+            current_user=current_user,
+            resposta=final_text,
+        )
+        yield _enc({"phase": "thinking"})
+        if final_text:
+            yield _enc({"chunk": final_text})
+        yield _enc(
+            {
+                "is_final": True,
+                "final_text": final_text,
+                "metadata": {
+                    "final_text": final_text,
+                    "tipo": ai_response.tipo_resposta or "geral",
+                    "dados": ai_response.dados or {},
+                    "pending_action": ai_response.pending_action,
+                    "tool_trace": ai_response.tool_trace,
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                },
+            }
+        )
+
     resolved_engine = resolve_engine(engine)
     engine_policy = get_engine_policy(resolved_engine)
 
     if _v2_is_onboarding_bootstrap_message(mensagem):
-        empresa_id = getattr(current_user, "empresa_id", 0)
-        usuario_id = getattr(current_user, "id", 0)
         resposta, status = _v2_build_onboarding_fastpath_payload(
             db=db,
-            empresa_id=empresa_id,
+            empresa_id=getattr(current_user, "empresa_id", 0),
         )
-        SessionStore.ensure_sessao_db(
+        _v2_persist_fastpath_response(
             sessao_id=sessao_id,
-            empresa_id=empresa_id,
-            usuario_id=usuario_id,
             db=db,
-        )
-        SessionStore.append_db(
-            sessao_id,
-            "assistant",
-            resposta,
-            db,
-            empresa_id=empresa_id,
-            usuario_id=usuario_id,
+            current_user=current_user,
+            resposta=resposta,
         )
         yield _enc({"phase": "thinking"})
         yield _enc({"chunk": resposta})
@@ -1933,6 +2089,26 @@ async def assistente_v2_stream_core(
                 },
             }
         )
+        return
+
+    if _v2_is_saldo_rapido_message(mensagem):
+        resposta = await _v2_build_saldo_fastpath_response(
+            db=db,
+            empresa_id=getattr(current_user, "empresa_id", 0),
+        )
+        async for event in _emit_fastpath_ai_response(resposta):
+            yield event
+        return
+
+    if _v2_is_orcamento_fastpath_message(mensagem):
+        resposta = await _v2_build_orcamento_fastpath_response(
+            mensagem=mensagem,
+            db=db,
+            empresa_id=getattr(current_user, "empresa_id", 0),
+            usuario_id=getattr(current_user, "id", 0),
+        )
+        async for event in _emit_fastpath_ai_response(resposta):
+            yield event
         return
 
     if _v2_is_excel_chart_request(mensagem):
@@ -2248,28 +2424,17 @@ async def assistente_v2_stream_core(
         usuario_id=usuario_id,
     )
 
-    kb_snippet = _v2_load_kb_snippet()
-    if resolved_engine == ENGINE_INTERNAL_COPILOT:
-        system_prompt = f"{_V2_TECHNICAL_COPILOT_PROMPT}\n\nData/hora atual: {agora}."
-    else:
-        system_prompt = f"{_V2_SYSTEM_PROMPT}\n\nData/hora atual: {agora}."
-        system_prompt += _v2_prompt_listar_orcamentos_datas_br()
-    system_prompt += "\n\n" + build_engine_guardrails(resolved_engine)
-    if resolved_engine == ENGINE_INTERNAL_COPILOT:
-        system_prompt += (
-            "\n- Este canal e interno: nao responda operacoes de negocio de clientes."
-            "\n- Nao reutilize contexto de assistente operacional."
-        )
-    if kb_snippet:
-        system_prompt += (
-            "\n\n## Manual funcional do sistema (fonte de verdade para 'como fazer')\n"
-            f"{kb_snippet}"
-        )
+    system_prompt, prompt_strategy = _v2_build_system_prompt(
+        mensagem=mensagem,
+        resolved_engine=resolved_engine,
+        now=agora,
+    )
+    allow_context_enrichment = prompt_strategy != "minimal"
 
     semantic_ctx = {}
     rag_ctx = {}
     adaptive_ctx = {}
-    if engine_policy.allow_business_context:
+    if engine_policy.allow_business_context and allow_context_enrichment:
         semantic_ctx = SemanticMemoryStore.build_context(
             db=db,
             empresa_id=getattr(current_user, "empresa_id", 0),
@@ -2282,7 +2447,7 @@ async def assistente_v2_stream_core(
             usuario_id=usuario_id,
             mensagem=mensagem,
         )
-    if engine_policy.allow_tenant_rag:
+    if engine_policy.allow_tenant_rag and allow_context_enrichment:
         try:
             from app.services.rag import TenantRAGService
 
@@ -2295,35 +2460,50 @@ async def assistente_v2_stream_core(
         except Exception:
             rag_ctx = {}
     code_ctx = {}
-    if resolved_engine == ENGINE_INTERNAL_COPILOT and is_code_rag_enabled():
+    if (
+        resolved_engine == ENGINE_INTERNAL_COPILOT
+        and is_code_rag_enabled()
+        and allow_context_enrichment
+    ):
         try:
             from app.services.code_rag_service import build_code_context
 
             code_ctx = build_code_context(query=mensagem, top_k=4)
         except Exception:
             code_ctx = {}
+    runtime_meta = _v2_build_runtime_meta(
+        prompt_strategy=prompt_strategy,
+        resolved_engine=resolved_engine,
+        model_override=(
+            settings.AI_TECHNICAL_MODEL
+            if resolved_engine == ENGINE_INTERNAL_COPILOT
+            else None
+        ),
+    )
     adaptive_meta = {
+        **runtime_meta,
         "visualizacao_recomendada": adaptive_ctx.get("preferencia_visualizacao_usuario")
         or {},
         "playbook_setor": adaptive_ctx.get("playbook_setor") or {},
     }
 
-    _modulos = adaptive_ctx.get("modulos_ativos") or {}
-    _nomes_modulos = {
-        "clientes": "Clientes",
-        "financeiro": "Financeiro",
-        "catalogo": "Catálogo de Serviços",
-        "orcamentos": "Orçamentos",
-    }
-    _linhas_modulos = [
-        f"- {label}: {'habilitado' if _modulos.get(key, True) else 'DESABILITADO pelo usuário'}"
-        for key, label in _nomes_modulos.items()
-    ]
-    system_prompt += (
-        "\n\n## Módulos com acesso autorizado pelo usuário\n"
-        + "\n".join(_linhas_modulos)
-        + "\nRespeite estritamente: não busque, exiba nem infira dados de módulos DESABILITADOS."
-    )
+    if adaptive_ctx:
+        _modulos = adaptive_ctx.get("modulos_ativos") or {}
+        _nomes_modulos = {
+            "clientes": "Clientes",
+            "financeiro": "Financeiro",
+            "catalogo": "Catálogo de Serviços",
+            "orcamentos": "Orçamentos",
+        }
+        _linhas_modulos = [
+            f"- {label}: {'habilitado' if _modulos.get(key, True) else 'DESABILITADO pelo usuário'}"
+            for key, label in _nomes_modulos.items()
+        ]
+        system_prompt += (
+            "\n\n## Módulos com acesso autorizado pelo usuário\n"
+            + "\n".join(_linhas_modulos)
+            + "\nRespeite estritamente: não busque, exiba nem infira dados de módulos DESABILITADOS."
+        )
 
     messages: list[dict] = [
         {
@@ -2384,7 +2564,8 @@ async def assistente_v2_stream_core(
                 ),
             }
         )
-    for h in (history or [])[-12:]:
+    history_window = 4 if prompt_strategy == "minimal" else 12
+    for h in (history or [])[-history_window:]:
         role = h.get("role") if isinstance(h, dict) else getattr(h, "role", None)
         content = (
             h.get("content") if isinstance(h, dict) else getattr(h, "content", None)
@@ -2392,6 +2573,13 @@ async def assistente_v2_stream_core(
         if role in ("user", "assistant") and content:
             messages.append({"role": role, "content": content})
     messages.append({"role": "user", "content": mensagem})
+    logger.info(
+        "[stream_v2] engine=%s prompt_strategy=%s system_chars=%s history=%s",
+        resolved_engine,
+        prompt_strategy,
+        len(system_prompt),
+        history_window,
+    )
 
     tools_payload = tools_payload_for_engine(resolved_engine)
     tool_trace: list[dict] = []
@@ -2662,7 +2850,11 @@ async def assistente_v2_stream_core(
                 usuario_id=int(usuario_id) if usuario_id else None,
                 sessao_id=str(sessao_id) if sessao_id else None,
                 tool="llm_turn",
-                args_json={"_meta": {"engine": resolved_engine}},
+                args_json={
+                    "_meta": {
+                        **runtime_meta,
+                    }
+                },
                 resultado_json=None,
                 status="ok",
                 input_tokens=int(total_in),
@@ -3562,6 +3754,14 @@ _V2_SYSTEM_PROMPT = (
     "quando houver paginação. \n"
 )
 
+_V2_MINIMAL_SYSTEM_PROMPT = (
+    "Você é o Assistente COTTE. Responda sempre em português, com objetividade e no máximo 3 parágrafos. "
+    "Use as tools disponíveis para buscar dados reais e nunca invente números, nomes ou valores. "
+    "Para criar, editar ou excluir, chame a tool diretamente; o sistema cuida da confirmação quando necessário. "
+    "Ao criar orçamento, extraia `cliente_nome`, item e `valor_unit` do texto natural e não misture preço na descrição. "
+    "Se não existir ferramenta para a tarefa, diga isso claramente."
+)
+
 _V2_TECHNICAL_COPILOT_PROMPT = (
     "Você é o **Copiloto Técnico Interno** do sistema. "
     "Você é focado em engenharia de software e suporte técnico para o superadmin. "
@@ -3576,7 +3776,7 @@ _V2_MAX_ITER = 5
 _V2_KB_SNIPPET_CACHE: Optional[str] = None
 
 
-def _v2_load_kb_snippet(max_chars: int = 7000) -> str:
+def _v2_load_kb_snippet(max_chars: int = 1800) -> str:
     """Carrega um trecho compacto da KB funcional para orientar o v2."""
     global _V2_KB_SNIPPET_CACHE
     if _V2_KB_SNIPPET_CACHE is not None:
@@ -3893,28 +4093,17 @@ async def assistente_unificado_v2(
         semantic_autonomy_enabled,
         try_handle_semantic_autonomy,
     )
-    from app.services.cotte_context_builder import SessionStore
 
     if _v2_is_onboarding_bootstrap_message(mensagem):
-        empresa_id = getattr(current_user, "empresa_id", 0)
-        usuario_id = getattr(current_user, "id", 0)
         resposta, status = _v2_build_onboarding_fastpath_payload(
             db=db,
-            empresa_id=empresa_id,
+            empresa_id=getattr(current_user, "empresa_id", 0),
         )
-        SessionStore.ensure_sessao_db(
+        _v2_persist_fastpath_response(
             sessao_id=sessao_id,
-            empresa_id=empresa_id,
-            usuario_id=usuario_id,
             db=db,
-        )
-        SessionStore.append_db(
-            sessao_id,
-            "assistant",
-            resposta,
-            db,
-            empresa_id=empresa_id,
-            usuario_id=usuario_id,
+            current_user=current_user,
+            resposta=resposta,
         )
         return AIResponse(
             sucesso=True,
@@ -3924,6 +4113,34 @@ async def assistente_unificado_v2(
             confianca=1.0,
             modulo_origem="onboarding",
         )
+
+    if _v2_is_saldo_rapido_message(mensagem):
+        resposta = await _v2_build_saldo_fastpath_response(
+            db=db,
+            empresa_id=getattr(current_user, "empresa_id", 0),
+        )
+        _v2_persist_fastpath_response(
+            sessao_id=sessao_id,
+            db=db,
+            current_user=current_user,
+            resposta=resposta.resposta or "",
+        )
+        return resposta
+
+    if _v2_is_orcamento_fastpath_message(mensagem):
+        resposta = await _v2_build_orcamento_fastpath_response(
+            mensagem=mensagem,
+            db=db,
+            empresa_id=getattr(current_user, "empresa_id", 0),
+            usuario_id=getattr(current_user, "id", 0),
+        )
+        _v2_persist_fastpath_response(
+            sessao_id=sessao_id,
+            db=db,
+            current_user=current_user,
+            resposta=resposta.resposta or "",
+        )
+        return resposta
 
     if (
         semantic_autonomy_enabled()
@@ -4229,29 +4446,18 @@ async def _assistente_unificado_v2_legacy(
         db=db,
     )
 
-    kb_snippet = _v2_load_kb_snippet()
-    if resolved_engine == ENGINE_INTERNAL_COPILOT:
-        system_prompt = f"{_V2_TECHNICAL_COPILOT_PROMPT}\n\nData/hora atual: {now}."
-    else:
-        system_prompt = f"{_V2_SYSTEM_PROMPT}\n\nData/hora atual: {now}."
-        system_prompt += _v2_prompt_listar_orcamentos_datas_br()
-    system_prompt += "\n\n" + build_engine_guardrails(resolved_engine)
-    if resolved_engine == ENGINE_INTERNAL_COPILOT:
-        system_prompt += (
-            "\n- Este canal e interno: nao responda operacoes de negocio de clientes."
-            "\n- Nao reutilize contexto de assistente operacional."
-        )
-    if kb_snippet:
-        system_prompt += (
-            "\n\n## Manual funcional do sistema (fonte de verdade para 'como fazer')\n"
-            f"{kb_snippet}"
-        )
+    system_prompt, prompt_strategy = _v2_build_system_prompt(
+        mensagem=mensagem,
+        resolved_engine=resolved_engine,
+        now=now,
+    )
+    allow_context_enrichment = prompt_strategy != "minimal"
 
     semantic_ctx = {}
     rag_ctx = {}
     adaptive_ctx = {}
     code_ctx = {}
-    if engine_policy.allow_business_context:
+    if engine_policy.allow_business_context and allow_context_enrichment:
         semantic_ctx = SemanticMemoryStore.build_context(
             db=db,
             empresa_id=getattr(current_user, "empresa_id", 0),
@@ -4264,7 +4470,7 @@ async def _assistente_unificado_v2_legacy(
             usuario_id=getattr(current_user, "id", 0),
             mensagem=mensagem,
         )
-    if engine_policy.allow_tenant_rag:
+    if engine_policy.allow_tenant_rag and allow_context_enrichment:
         try:
             from app.services.rag import TenantRAGService
 
@@ -4276,14 +4482,28 @@ async def _assistente_unificado_v2_legacy(
             )
         except Exception:
             rag_ctx = {}
-    if resolved_engine == ENGINE_INTERNAL_COPILOT and is_code_rag_enabled():
+    if (
+        resolved_engine == ENGINE_INTERNAL_COPILOT
+        and is_code_rag_enabled()
+        and allow_context_enrichment
+    ):
         try:
             from app.services.code_rag_service import build_code_context
 
             code_ctx = build_code_context(query=mensagem, top_k=4)
         except Exception:
             code_ctx = {}
+    runtime_meta = _v2_build_runtime_meta(
+        prompt_strategy=prompt_strategy,
+        resolved_engine=resolved_engine,
+        model_override=(
+            settings.AI_TECHNICAL_MODEL
+            if resolved_engine == ENGINE_INTERNAL_COPILOT
+            else None
+        ),
+    )
     adaptive_meta = {
+        **runtime_meta,
         "visualizacao_recomendada": adaptive_ctx.get("preferencia_visualizacao_usuario")
         or {},
         "playbook_setor": adaptive_ctx.get("playbook_setor") or {},
@@ -4349,10 +4569,18 @@ async def _assistente_unificado_v2_legacy(
             }
         )
     # SessionStore historiza apenas role+content (sem tool_calls). Mantemos como hint.
-    for h in history[-12:]:
+    history_window = 4 if prompt_strategy == "minimal" else 12
+    for h in history[-history_window:]:
         if h.get("role") in ("user", "assistant") and h.get("content"):
             messages.append({"role": h["role"], "content": h["content"]})
     messages.append({"role": "user", "content": mensagem})
+    logger.info(
+        "[assistente_v2] engine=%s prompt_strategy=%s system_chars=%s history=%s",
+        resolved_engine,
+        prompt_strategy,
+        len(system_prompt),
+        history_window,
+    )
 
     # Persiste mensagem do usuário no banco
     SessionStore.append_db(

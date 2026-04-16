@@ -16,8 +16,10 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.services.cotte_ai_hub import ai_hub, AIResponse
+from app.services.ia_service import ia_service
 from app.core.auth import get_usuario_atual as get_current_user, exigir_permissao, exigir_modulo
 from app.models.models import Usuario, HistoricoEdicao, Empresa
 from app.services.assistant_engine_registry import (
@@ -350,6 +352,7 @@ async def status_ia(current_user: Usuario = Depends(get_current_user)):
     """
     Retorna status do sistema de IA e estatísticas.
     """
+    runtime = ia_service.describe_runtime()
     return AIStatusResponse(
         status="operacional",
         modulos_disponiveis=[
@@ -365,8 +368,11 @@ async def status_ia(current_user: Usuario = Depends(get_current_user)):
             "nota": "Cache em memória - reinicia com o servidor",
         },
         versoes_modelos={
-            "sonnet": "claude-sonnet-4-20250514",
-            "haiku": "claude-haiku-4-5-20251001",
+            "gateway": runtime["gateway"],
+            "provider": runtime["provider"],
+            "conversa_configurada": runtime["configured_model"],
+            "conversa_litellm": runtime["litellm_model"],
+            "tecnico_configurado": settings.AI_TECHNICAL_MODEL,
         },
     )
 
@@ -829,7 +835,7 @@ async def assistente_universal(
 
     Único ponto de entrada para todas as perguntas do chat:
     - Mantém histórico de conversa por sessao_id (in-memory, TTL 60min)
-    - Classifica intenção automaticamente (regex + Haiku fallback)
+    - Classifica intenção automaticamente por regras determinísticas
     - Injeta contexto de dados relevante (financeiro, orçamentos, clientes, leads)
     - Retorna JSON estruturado com resposta, tipo, dados e sugestões de follow-up
     """

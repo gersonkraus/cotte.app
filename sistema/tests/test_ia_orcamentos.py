@@ -1,16 +1,31 @@
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from app.services.ia_service import interpretar_mensagem, interpretar_comando_operador
 from app.schemas.schemas import IAInterpretacaoOut
-from app.services.cotte_ai_hub import AIResponse
+
+
+def _fake_chat_response(content: str) -> dict:
+    return {
+        "choices": [
+            {
+                "message": {
+                    "content": content,
+                }
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+    }
 
 @pytest.mark.asyncio
 async def test_interpretar_mensagem_sucesso():
     """Testa a extração de dados de orçamento de uma mensagem em linguagem natural."""
-    mock_response = MagicMock()
-    mock_response.content = [MagicMock(text='{"cliente_nome":"João da Silva","servico":"Pintura de sala","valor":800.0,"desconto":10.0,"desconto_tipo":"percentual","observacoes":"Urgent","confianca":0.95}')]
-    
-    with patch("app.services.ia_service.client.messages.create", return_value=mock_response):
+
+    async def fake_chat(*args, **kwargs):
+        return _fake_chat_response(
+            '{"cliente_nome":"João da Silva","servico":"Pintura de sala","valor":800.0,"desconto":10.0,"desconto_tipo":"percentual","observacoes":"Urgent","confianca":0.95}'
+        )
+
+    with patch("app.services.ia_service.ia_service.chat", side_effect=fake_chat):
         resultado = await interpretar_mensagem("Pintura de sala para João da Silva por 800 reais com 10% de desconto urgente")
         
         assert isinstance(resultado, IAInterpretacaoOut)
@@ -24,10 +39,13 @@ async def test_interpretar_mensagem_sucesso():
 @pytest.mark.asyncio
 async def test_interpretar_comando_operador_ver_orcamento():
     """Testa a interpretação de um comando do operador para ver um orçamento."""
-    mock_response = MagicMock()
-    mock_response.content = [MagicMock(text='{"acao":"VER","orcamento_id":5,"valor":null,"desconto_tipo":"percentual","descricao":null,"num_item":null,"confianca":1.0}')]
-    
-    with patch("app.services.ia_service.client.messages.create", return_value=mock_response):
+
+    async def fake_chat(*args, **kwargs):
+        return _fake_chat_response(
+            '{"acao":"VER","orcamento_id":5,"valor":null,"desconto_tipo":"percentual","descricao":null,"num_item":null,"confianca":1.0}'
+        )
+
+    with patch("app.services.ia_service.ia_service.chat", side_effect=fake_chat):
         resultado = await interpretar_comando_operador("ver orçamento 5")
         
         assert resultado["acao"] == "VER"
@@ -36,12 +54,13 @@ async def test_interpretar_comando_operador_ver_orcamento():
 @pytest.mark.asyncio
 async def test_route_interpretar_orcamento_sucesso(client, admin_token):
     """Testa o endpoint /ai/orcamento/interpretar."""
-    mock_response = MagicMock()
-    mock_response.content = [MagicMock(text='{"cliente_nome":"João da Silva","servico":"Pintura de sala","valor":800.0,"desconto":10.0,"desconto_tipo":"percentual","observacoes":"Urgent","confianca":0.95}')]
-    
-    # Patch both instances of the client
-    with patch("app.services.ia_service.client.messages.create", return_value=mock_response), \
-         patch("app.services.cotte_ai_hub.client.messages.create", return_value=mock_response):
+
+    async def fake_chat(*args, **kwargs):
+        return _fake_chat_response(
+            '{"cliente_nome":"João da Silva","servico":"Pintura de sala","valor":800.0,"desconto":10.0,"desconto_tipo":"percentual","observacoes":"Urgent","confianca":0.95}'
+        )
+
+    with patch("app.services.ia_service.ia_service.chat", side_effect=fake_chat):
         headers = {"Authorization": f"Bearer {admin_token}"}
         response = await client.post("/api/v1/ai/orcamento/interpretar?mensagem=Pintura+de+sala+para+João", headers=headers)
 
@@ -54,12 +73,13 @@ async def test_route_interpretar_orcamento_sucesso(client, admin_token):
 @pytest.mark.asyncio
 async def test_route_comando_operador_sucesso(client, admin_token):
     """Testa o endpoint /ai/operador/comando."""
-    mock_response = MagicMock()
-    mock_response.content = [MagicMock(text='{"acao":"VER","orcamento_id":5,"valor":null,"desconto_tipo":"percentual","descricao":null,"num_item":null,"confianca":1.0}')]
 
-    # Patch both instances of the client
-    with patch("app.services.ia_service.client.messages.create", return_value=mock_response), \
-         patch("app.services.cotte_ai_hub.client.messages.create", return_value=mock_response):
+    async def fake_chat(*args, **kwargs):
+        return _fake_chat_response(
+            '{"acao":"VER","orcamento_id":5,"valor":null,"desconto_tipo":"percentual","descricao":null,"num_item":null,"confianca":1.0}'
+        )
+
+    with patch("app.services.ia_service.ia_service.chat", side_effect=fake_chat):
         headers = {"Authorization": f"Bearer {admin_token}"}
         response = await client.post("/api/v1/ai/operador/comando?mensagem=ver+orcamento+5", headers=headers)
 

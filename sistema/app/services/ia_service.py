@@ -115,6 +115,19 @@ class IAService:
             kwargs["api_key"] = self.api_key
         return kwargs
 
+    def describe_runtime(self, *, model_override: Optional[str] = None) -> dict[str, Any]:
+        litellm_kwargs = self._litellm_kwargs(
+            model_override=model_override,
+            stream=False,
+        )
+        return {
+            "gateway": "litellm",
+            "provider": self.provider,
+            "configured_model": model_override if model_override else self.model,
+            "litellm_model": litellm_kwargs["model"],
+            "api_key_configured": bool(self.api_key),
+        }
+
     async def chat(
         self,
         messages: List[Dict[str, str]],

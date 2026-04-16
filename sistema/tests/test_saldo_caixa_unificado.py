@@ -125,3 +125,13 @@ async def test_assistente_unificado_roteia_saldo_rapido_sem_llm(monkeypatch):
 
     assert chamada["saldo_rapido"] is True
     assert resposta.tipo_resposta == "saldo_caixa"
+
+
+@pytest.mark.asyncio
+async def test_classificador_async_saldo_usa_regex_sem_llm():
+    resultado = await ai_intention_classifier.detectar_intencao_assistente_async(
+        "qual o saldo do caixa?"
+    )
+
+    assert resultado.intencao.value == "SALDO_RAPIDO"
+    assert resultado.metodo == "regex"

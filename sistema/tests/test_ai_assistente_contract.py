@@ -6,6 +6,7 @@ import json
 
 import pytest
 
+from app.core.config import settings
 from app.core.auth import criar_token
 from app.models.models import (
     AIChatMensagem,
@@ -101,6 +102,20 @@ async def test_assistente_capabilities_contract(client, admin_token):
     for key in ("operational", "analytics", "documental", "internal_copilot"):
         assert key in data["available_engines"]
         assert isinstance(data["available_engines"][key], bool)
+
+
+@pytest.mark.asyncio
+async def test_ai_status_expoe_runtime_litellm(client, admin_token):
+    resp = await client.get(
+        "/api/v1/ai/status",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    payload = resp.json()
+    versoes = payload.get("versoes_modelos") or {}
+    assert versoes.get("gateway") == "litellm"
+    assert versoes.get("provider") == settings.AI_PROVIDER
+    assert versoes.get("conversa_configurada") == settings.AI_MODEL
 
 
 @pytest.mark.asyncio

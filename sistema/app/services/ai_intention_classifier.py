@@ -1,25 +1,20 @@
 """
 Classificador de Intenção Híbrido - COTTE AI Hub
-Etapa 4: Classificador de Intenção com Regex + Haiku
+Etapa 4: Classificador de Intenção com Regex
 
-Este módulo implementa um classificador híbrido que:
+Este módulo implementa um classificador leve que:
 1. Usa Regex para comandos simples e determinísticos (performance)
-2. Usa Claude Haiku como roteador de baixo custo quando Regex falha
+2. Evita fallback em LLM no roteamento para manter custo previsível
 
-Padrão Strategy: Prioriza velocidade, mantém precisão.
+Padrão Strategy: Prioriza velocidade e custo zero no roteamento.
 """
 
 import re
 import logging
 from decimal import Decimal
-from typing import Any, Optional, Tuple
+from typing import Any, Optional
 from dataclasses import dataclass
 from enum import Enum
-
-import anthropic
-
-from app.core.config import settings
-from app.services.ai_json_extractor import AIJSONExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -66,14 +61,14 @@ class ClassificacaoResult:
     """Resultado da classificação de intenção"""
     intencao: IntencaoUsuario
     confianca: float
-    metodo: str  # "regex", "haiku", "fallback"
+    metodo: str  # "regex" ou "fallback"
     tempo_ms: Optional[float] = None
     raw_response: Optional[str] = None
 
 
 class IntentionClassifier:
     """
-    Classificador de intenção híbrido (Regex + Haiku).
+    Classificador de intenção baseado em Regex.
     
     ARQUITETURA:
     ┌─────────────────────────────────────────────────────────────┐
@@ -88,29 +83,21 @@ class IntentionClassifier:
            Sim ┌───────────┴───────────┐ Não
                ▼                       ▼
     ┌─────────────────────┐  ┌─────────────────────┐
-    │  Retorna Intenção   │  │  ETAPA 2: HAIKU     │  ← Precisão
-    │  (confiança alta)   │  │ (Roteador Baixo     │    Custo baixo
+    │  Retorna Intenção   │  │      FALLBACK       │  ← Segurança
+    │  (confiança alta)   │  │  CONVERSACAO        │    Custo zero
     └─────────────────────┘  │      Custo)         │
                              └──────────┬──────────┘
                                         │
                              ┌──────────▼──────────┐
                              │  Retorna Intenção   │
-                             │  (confiança média)  │
+                             │  (confiança baixa)  │
                              └─────────────────────┘
     
     REGRAS DE NEGÓCIO:
     - Regex: 0ms latência, cobre 80% dos casos comuns
-    - Haiku: ~200ms latência, cobre casos ambíguos
     - Fallback: CONVERSACAO para casos não reconhecidos
     """
-    
-    # Modelo para classificação (baixo custo)
-    CLASSIFIER_MODEL = "claude-haiku-4-5-20251001"
-    MAX_TOKENS = 50
-    
-    # Cache do cliente Anthropic
-    _client: Optional[anthropic.Anthropic] = None
-    
+
     # ─────────────────────────────────────────────────────────────────
     # PADRÕES REGEX POR INTENÇÃO
     # ─────────────────────────────────────────────────────────────────
@@ -132,7 +119,11 @@ class IntentionClassifier:
         r'^quanto tenho',
         r'^valor em caixa',
         r'^saldo atual',
-        r'^caixa atual'
+        r'^caixa atual',
+        r'\bsaldo do caixa\b',
+        r'\bqual\s+(?:o\s+)?saldo\b',
+        r'\bqual\s+(?:e|é)\s+o\s+saldo\b',
+        r'\bquanto\s+(?:tenho|ha|há)\s+(?:em\s+)?caixa\b',
     ]
     
     # B) FATURAMENTO
@@ -394,23 +385,17 @@ class IntentionClassifier:
             IntencaoUsuario.AGENDAMENTO_CANCELAR: [re.compile(p, re.IGNORECASE) for p in self.AGENDAMENTO_CANCELAR_KEYWORDS],
         }
     
-    def _get_client(self) -> anthropic.Anthropic:
-        """Retorna cliente Anthropic (lazy initialization)"""
-        if self._client is None:
-            self._client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-        return self._client
-    
     # ═════════════════════════════════════════════════════════════════
     # MÉTODO PRINCIPAL: CLASSIFICAR
     # ═════════════════════════════════════════════════════════════════
-    
+
     async def classificar(self, mensagem: str, usar_haiku: bool = True) -> ClassificacaoResult:
         """
-        Classifica a intenção do usuário usando Regex + Haiku híbrido.
-        
+        Classifica a intenção do usuário usando apenas Regex.
+
         Args:
             mensagem: Texto da mensagem do usuário
-            usar_haiku: Se True, usa Haiku quando Regex falha
+            usar_haiku: Mantido apenas por compatibilidade. Não é mais usado.
         
         Returns:
             ClassificacaoResult com intenção e metadados
@@ -438,17 +423,6 @@ class IntentionClassifier:
                 metodo="regex",
                 tempo_ms=tempo_ms
             )
-        
-        # ── ETAPA 2: HAIKU (Roteador de Baixo Custo) ─────────────────
-        if usar_haiku:
-            try:
-                resultado_haiku = await self._classificar_haiku(mensagem)
-                tempo_ms = (time.time() - start_time) * 1000
-                resultado_haiku.tempo_ms = tempo_ms
-                logger.debug(f"[IntentionClassifier] Haiku match: {resultado_haiku.intencao.value} ({tempo_ms:.1f}ms)")
-                return resultado_haiku
-            except Exception as e:
-                logger.warning(f"[IntentionClassifier] Erro no Haiku: {e}")
         
         # ── FALLBACK ─────────────────────────────────────────────────
         tempo_ms = (time.time() - start_time) * 1000
@@ -602,77 +576,6 @@ class IntentionClassifier:
 
         return IntencaoUsuario.CONVERSACAO
     
-    async def _classificar_haiku(self, mensagem: str) -> ClassificacaoResult:
-        """
-        Classifica usando Claude Haiku - modelo de baixo custo.
-        Usado quando regex não consegue determinar a intenção.
-        """
-        system_prompt = """Você é um classificador de intenções do sistema COTTE.
-
-CATEGORIAS DISPONÍVEIS:
-- SALDO_RAPIDO: Perguntas diretas sobre saldo em caixa (ex: "caixa", "saldo", "quanto tenho", "disponível")
-  NEGAR se conter: "receber", "pagar", "faturamento", "vendas"
-- FATURAMENTO: Total de orçamentos aprovados (ex: "faturamento", "quanto fatura", "total de vendas")
-  Diferente de SALDO: faturamento = soma aprovada; saldo = dinheiro em caixa
-- CONTAS_RECEBER: Valores em aberto a receber (ex: "a receber", "tenho pra receber", "quanto a receber")
-  Diferente de SALDO: é o que ainda NÃO entrou no caixa
-- CONTAS_PAGAR: Valores em aberto a pagar (ex: "a pagar", "contas a pagar")
-- DASHBOARD: Visão geral condensada (ex: "resumo", "dashboard", "panorama", "situação")
-- PREVISAO: Projeções futuras (ex: "previsão de caixa", "quanto vou receber", "fluxo futuro")
-- INADIMPLENCIA: Clientes atrasados (ex: "devendo", "inadimplente", "contas vencidas", "pendências")
-- ANALISE: Análise detalhada (ex: "detalhamento", "relatório completo")
-- CONVERSAO: Métricas de vendas (ex: "ticket médio", "taxa de aprovação", "mais vendido")
-- NEGOCIO: Sugestões estratégicas (ex: "como aumentar vendas?", "sugestões")
-- CRIAR_ORCAMENTO: Criar novo orçamento (ex: "criar orçamento", "novo orçamento para João", "orçar pintura 800")
-- OPERADOR: Executar ação em orçamento existente (ex: "aprovar 5", "recusar 3", "enviar orçamento 2", "ver 4", "desconto 10% no 5", "adicionar item")
-- AJUDA_SISTEMA: Dúvidas sobre como usar o sistema (ex: "como crio um orçamento?", "como envio proposta?", "como conecto o WhatsApp?", "como cadastro cliente?", "para que serve o catálogo?", "como parcelar?", "é possível duplicar orçamento?")
-- CONVERSACAO: Saudação, off-topic ou texto não classificado (ex: "oi", "ajuda", "xpto")
-
-REGRAS:
-1. Retorne APENAS JSON válido: {"intencao":"NOME","confianca":0.0}
-2. "caixa" com "receber" → CONTAS_RECEBER (não SALDO_RAPIDO)
-3. "caixa" com "faturamento" → FATURAMENTO
-4. Seja conservador - quando em dúvida, use CONVERSACAO
-5. Confiança deve ser entre 0.0 e 1.0
-6. AJUDA_SISTEMA se a pergunta for sobre como usar alguma funcionalidade (verbos: criar, enviar, conectar, cadastrar, usar, importar, duplicar, parcelar, configurar + objeto do sistema)"""
-        
-        try:
-            client = self._get_client()
-            response = client.messages.create(
-                model=self.CLASSIFIER_MODEL,
-                max_tokens=self.MAX_TOKENS,
-                temperature=0.0,  # Determinístico
-                system=system_prompt,
-                messages=[{"role": "user", "content": f'Classifique: "{mensagem}"'}]
-            )
-            
-            raw_text = response.content[0].text.strip()
-            
-            # Extrai JSON da resposta
-            dados = AIJSONExtractor.extract(raw_text)
-            
-            if dados and "intencao" in dados:
-                intencao = IntencaoUsuario.from_string(dados["intencao"])
-                confianca = float(dados.get("confianca", 0.7))
-                
-                return ClassificacaoResult(
-                    intencao=intencao,
-                    confianca=min(1.0, max(0.0, confianca)),
-                    metodo="haiku",
-                    raw_response=raw_text
-                )
-            
-        except Exception as e:
-            logger.error(f"[IntentionClassifier] Erro Haiku: {e}")
-        
-        # Fallback se Haiku falhar
-        return ClassificacaoResult(
-            intencao=IntencaoUsuario.CONVERSACAO,
-            confianca=0.5,
-            metodo="haiku_fallback",
-            raw_response=None
-        )
-    
     def _normalize_text(self, text: str) -> str:
         """Normaliza texto para matching (remove acentos comuns)"""
         replacements = {
@@ -691,19 +594,18 @@ REGRAS:
     
     def classificar_sync(self, mensagem: str) -> IntencaoUsuario:
         """
-        Versão síncrona - usa apenas Regex (sem Haiku).
+        Versão síncrona - usa apenas Regex.
         Útil para contextos onde async não é possível.
         """
         return self._classificar_regex(mensagem)
     
     async def classificar_batch(self, mensagens: list) -> list:
         """
-        Classifica múltiplas mensagens em batch.
-        Otimiza chamadas Haiku agrupando quando necessário.
+        Classifica múltiplas mensagens em batch usando apenas regex.
         """
         resultados = []
         for msg in mensagens:
-            resultado = await self.classificar(msg, usar_haiku=False)  # Regex only
+            resultado = await self.classificar(msg, usar_haiku=False)
             resultados.append(resultado)
         return resultados
 
@@ -728,9 +630,6 @@ def detectar_intencao_assistente(mensagem: str) -> str:
     """
     Função compatível com a API anterior.
     Retorna string da intenção (ex: "SALDO_RAPIDO").
-    
-    NOTA: Esta versão usa apenas Regex (síncrona).
-    Para usar Haiku, chame async: classifier.classificar()
     """
     classifier = get_intention_classifier()
     intencao = classifier.classificar_sync(mensagem)
@@ -742,8 +641,8 @@ async def detectar_intencao_assistente_async(
     usar_haiku: bool = True
 ) -> ClassificacaoResult:
     """
-    Versão assíncrona completa com Haiku.
-    Retorna ClassificacaoResult com metadados completos.
+    Versão assíncrona compatível.
+    Retorna ClassificacaoResult usando apenas regex local.
     """
     classifier = get_intention_classifier()
     return await classifier.classificar(mensagem, usar_haiku=usar_haiku)
