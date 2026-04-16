@@ -225,6 +225,8 @@ Quando houver dúvida entre suposição e verificação, verificar.
 - No assistente IA, preferir evolução visual limpa e moderna (menos gradiente chamativo; evitar loading com aparência de “engrenagem” girando).
 - No fluxo do assistente IA, priorizar estabilidade e anti-regressão: contratos claros, testes de regressão e mudanças incrementais antes de refactors amplos.
 - Para autonomia do assistente, privilegiar desenho arquitetural (políticas, orquestração, capacidades) em detrimento de multiplicar tools como solução principal (“tool sprawl”).
+- Na evolução do assistente IA, priorizar autonomia real para consultar dados e gerar relatórios completos, sem restringir o foco apenas a ranking/receita.
+- Quando o usuário solicitar visualização analítica, priorizar respostas com tabela renderizada e formatação condicional (cores/estilo), em vez de texto simples.
 
 ## Factos duráveis do workspace
 - No desenvolvimento local, o frontend em `cotte-frontend` costuma ser servido com o prefixo `/app/`; se a UI parecer desatualizada mas o HTML/CSS servido já contiver as mudanças, tratar como problema provável de cache do navegador ou de service worker antes de concluir falha do servidor.
@@ -239,3 +241,4 @@ Quando houver dúvida entre suposição e verificação, verificar.
 - Em consultas SQLAlchemy que reutilizam uma query base já ordenada (`ORDER BY`) para fazer agregação (`GROUP BY` / `COUNT`), remover o `ORDER BY` na subquery de agregação (ex.: `order_by(None)` antes de `with_entities`/`group_by`); no PostgreSQL, herdar `ORDER BY` na agregação pode gerar erro de agrupamento (ex.: f405).
 - No `assistente_unificado_v2`, o caminho padrão ainda executa o fluxo legado de `tool calling` (`ia_service.chat` + `tool_calls` + `tool_executor`); a autonomia semântica entra por rollout/flag (`V2_SEMANTIC_AUTONOMY`) e convive com fallback legado para evitar regressões.
 - A biblioteca de prompts do assistente foi modelada por empresa em `assistente_prompts_empresa` (categorias `ranking`, `comissao`, `inadimplencia`, `comparativo_mensal`) com endpoints em `/ai/assistente/prompts`; gestão (criar/editar/remover) é restrita a gestor/admin, enquanto leitura/uso mantém escopo da permissão de IA.
+- Na configuração atual do `IAService`, quando `AI_PROVIDER=openrouter`, valores como `AI_MODEL=google/gemini-2.5-flash` e `AI_TECHNICAL_MODEL=google/gemini-2.5-flash` são aceitos no `.env` (formato `KEY=value`) e normalizados internamente para o formato esperado pelo LiteLLM/OpenRouter.

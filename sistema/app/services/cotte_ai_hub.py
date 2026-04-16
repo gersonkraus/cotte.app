@@ -1104,11 +1104,14 @@ async def criar_orcamento_ia(
 
         class _FakeInput:
             cliente_id = None
-            cliente_nome = cliente_nome
+            pass
+
+        fake_input = _FakeInput()
+        fake_input.cliente_nome = cliente_nome
 
         try:
             c, auto_criado, err = _resolver_cliente(
-                _FakeInput(), db, type("U", (), {"empresa_id": empresa_id})()
+                fake_input, db, type("U", (), {"empresa_id": empresa_id})()
             )
             if err:
                 if err.get("code") == "ambiguous_cliente":

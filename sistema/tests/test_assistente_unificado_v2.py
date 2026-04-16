@@ -252,7 +252,7 @@ def test_stream_evento_final_exige_final_text(db, monkeypatch):
 
     events_raw = _run_stream(
         cotte_ai_hub.assistente_v2_stream_core(
-            mensagem="me diga os pendentes",
+            mensagem="teste de resposta",
             sessao_id="sess-stream-final-text",
             db=db,
             current_user=user,

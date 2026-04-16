@@ -99,3 +99,172 @@ Teste de Sanidade Contextualizado via Webhook: Sempre que o administrador trocar
 Melhorias de frontend de alto impacto
 Badge Visual de Engine Ativa: No chat interno do Superadmin, adicionar um pequeno badge no canto superior direito do cabeçalho que indique dinamicamente qual modelo está ativo ali (ex: Claude-3.5 ou GPT-4o), informando imediatamente a performance cognitiva esperada para a sessão.
 Efeito de Erro Elegante na Queda de Provedor: Quando a variável de ambiente for mudada acidentalmente para um modelo inexistente, em vez de mostrar um erro genérico (500), a interface do chat deve renderizar de forma fluida uma mensagem sistêmica (System Feedback): "Provedor de inteligência offline. Retomando modelo padrão...", e reativar a barra de progresso após um retry do backend.
+
+Melhorias essenciais
+- Auditoria de contratos da listagem: Avaliar e alinhar as propriedades básicas essenciais entre OrcamentoListItem e OrcamentoOut, evitando que propriedades de uso primário da interface não cheguem na lista e quebrem edições por conta de acesso em cache raso.
+- Tipagem de schemas no frontend: Implementar anotações de JSDoc ou adotar TypeScript nas propriedades recebidas pela API, garantindo que o console reporte rapidamente quando o script tenta acessar atributos não definidos ou que dependam de endpoints detalhados.
+Ideias inovadoras
+- Auto-recuperação inteligente de contexto: Criar um observador (proxy) no cache do frontend que, ao notar a tentativa de acesso em atributos não presentes (undefined) que deveriam pertencer ao objeto completo, faça o fetch síncrono ou levante alerta em console local, mitigando bugs silenciosos por divergência de DTOs.
+- Expansão de capacidades do Monitor AI: Ensinar o bot RAG (Monitor AI) a cruzar os atributos chamados nas funções JS (orc.agendamento_modo) e os schemas Pydantic de resposta do backend nas rotas em uso, permitindo que ele conclua automaticamente falhas de contrato (payloads incompletos).
+
+---
+  [INOVAÇÃO] 1. Alerta de custo por empresa — threshold configurável no admin: se uma empresa consumir >X USD de
+  tokens em 24h, disparar email/WhatsApp para o superadmin com contexto do usuário e engine causador.
+
+  [INOVAÇÃO] 2. Token budget por plano — cada plano (básico/pro/premium) tem uma cota mensal de tokens. O backend
+  verifica antes de cada turno e bloqueia graciosamente com mensagem "Limite do plano atingido" quando esgotado, sem
+   cortar a conversa bruscamente.
+
+  [INOVAÇÃO] 3. Drill-down por sessão — na tabela de engines da observabilidade, ao clicar no engine abre um painel
+  lateral com as top 10 sessões que mais consumiram tokens naquele período, mostrando empresa, usuário, número de
+  turnos e custo individual — útil para detectar abuse ou usuários heavy.
+
+
+  ///////////////////IMPORTANTE ///////////////////////////
+   [INOVAÇÃO] 1. Adicionar um parser de linguagem natural pré-tool no backend: antes de chamar o Claude, passar a
+  mensagem por um regex/NLP leve que identifica padrões como "X por Y", "X a R$Y" e injeta hints estruturados no
+  contexto — reduz erros mesmo quando o prompt do modelo falha.
+
+  [INOVAÇÃO] 2. Modo de sugestão por catálogo: quando o usuário diz "prego", o assistente busca no catálogo serviços
+   similares e responde "Encontrei 'Pacote de pregos 500g' por R$28,00 — usar este ou informar outro valor?" —
+  criando um fluxo guiado de orçamento via assistente.
+
+  [INOVAÇÃO] 3. Card de rascunho ao vivo: ao digitar "orçamento para Ana de corte por 80", o frontend exibe um card
+  dinâmico mostrando o rascunho do orçamento sendo montado em tempo real antes da confirmação — UX tipo checkout que
+   reduz erros e aumenta confiança do usuário.
+
+    Melhorias essenciais sugeridas
+
+  - Centralizar fast-paths determinísticos do assistente em um único registry compartilhado por sync e SSE para
+    evitar drift entre os dois caminhos.
+  - Registrar uma métrica explícita de fast_path=onboarding_bootstrap na observabilidade para medir economia real de
+    tokens e detectar regressões.
+
+  Ideias inovadoras
+
+  - Trocar a mensagem oculta por um sinal estruturado no payload, como bootstrap_action: "onboarding_start",
+    eliminando ambiguidade semântica.
+  - Carregar o card de onboarding por endpoint dedicado no load da página, sem passar pelo endpoint de chat quando a
+    intenção já é conhecida.
+
+  Melhorias de frontend de alto impacto
+
+  - Substituir sendQuickMessage("começar") por um bootstrap explícito no frontend; isso remove o “turno fantasma” no
+    chat e simplifica telemetria.
+  - Exibir no cabeçalho do assistente um estado persistente de onboarding, como Configuração inicial 20%, com CTA
+    direto para a próxima etapa, em vez de depender de disparo automático oculto.
+
+     ## Melhorias essenciais sugeridas
+
+  - Consolidar fast-paths determinísticos do V2 em um registry único compartilhado entre sync e SSE para evitar
+    drift.
+  - Registrar telemetria explícita de fast_path=saldo_rapido com tokens economizados para detectar regressão
+    imediatamente.
+
+  ## Ideias inovadoras
+
+  - Introduzir um campo de classificação leve no payload interno, como deterministic_intent, para o hub decidir
+    fast-path sem depender do planner semântico.
+  - Criar uma camada “micro-intents” de custo zero para consultas operacionais triviais como saldo, permissões,
+    onboarding e status rápido.
+
+  ## Melhorias de frontend de alto impacto
+
+  - Exibir um selo visual simples quando a resposta vier por fast-path local, como Consulta instantânea, para
+    reforçar velocidade e previsibilidade.
+  - No card de debug/observabilidade do assistente, separar claramente fast-path local de analytics, evitando
+    confusão quando uma resposta curta mostra capability de relatório.
+
+     ## Melhorias essenciais sugeridas
+
+  - Criar um PromptComposer central para o assistente, para evitar duplicação de montagem de prompt entre sync,
+    SSE e fluxos legados.
+  - Definir orçamento máximo de tokens por classe de mensagem, com alarme de regressão quando um turno simples
+    ultrapassar esse teto.
+
+  ## Ideias inovadoras
+
+  - Introduzir um classificador de “peso de turno” (trivial, operacional, analítico, documental) antes do LLM,
+    decidindo automaticamente se usa fast-path, prompt mínimo ou prompt completo.
+  - Implementar cache semântico curto por sessão para reutilizar contexto recente resumido, em vez de reenviar
+    blocos grandes de KB/manual a cada turno.
+
+  ## Melhorias de frontend de alto impacto
+
+  - Exibir no painel técnico do assistente o consumo por turno com rótulos como fast-path local, prompt mínimo ou
+    prompt completo, para facilitar diagnóstico imediato.
+  - No card de debug do assistente, mostrar também o provider/model efetivamente usados via LiteLLM, evitando a
+    falsa impressão de que a conversa ainda está passando por Haiku/Sonnet.
+
+
+    
+  - Criar um PromptComposer único para sync e SSE, em vez de manter a composição distribuída dentro do hub.
+  - Registrar telemetria obrigatória por turno com prompt_strategy, provider, model, input_tokens e output_tokens
+    para detectar regressão de custo automaticamente.
+
+  Ideias inovadoras
+
+  - Adicionar um classificador leve de “peso do turno” (trivial, operacional, analítico, documental) antes do LLM
+    para decidir fast-path, prompt mínimo ou prompt completo.
+  - Implementar cache resumido por sessão para reaproveitar contexto recente em vez de reenviar blocos grandes de
+    memória/KB.
+
+  Melhorias de frontend de alto impacto
+
+  - Exibir no debug do assistente o gateway/provider/model real usado no turno, para deixar claro quando a resposta
+    veio de LiteLLM/OpenRouter.
+  - Mostrar um selo visual por resposta, como fast-path local ou prompt mínimo, para diagnosticar rapidamente por
+    que um turno consumiu pouco ou muito token.
+
+     Melhorias essenciais sugeridas
+
+  - Consolidar os fast-paths determinísticos em um registry único compartilhado por sync e SSE.
+  - Adicionar telemetria obrigatória por turno com prompt_strategy, provider, model e tokens.
+
+  Ideias inovadoras
+
+  - Classificar cada turno por peso (trivial, operacional, analítico) antes do LLM.
+  - Criar cache resumido por sessão para evitar reenviar contexto grande repetidamente.
+
+  Melhorias de frontend de alto impacto
+
+  - Mostrar no debug do assistente o provider/model real usado no turno.
+  - Exibir um selo visual como fast-path local ou prompt mínimo para facilitar diagnóstico de consumo.
+- Adicionar métrica agregada por tool_profile no painel de observabilidade para acompanhar redução real de input_tokens em produção.
+Criar teste de integração específico para fallback (primeira resposta sem tool + segunda com tool full).
+Ideias inovadoras
+[INOVAÇÃO] Implementar “tool budgeter” dinâmico por tenant (limite de tools por intenção + custo estimado por requisição).
+[INOVAÇÃO] Criar cache de seleção de toolset por embedding/intenção recente da sessão para reduzir custo de roteamento.
+[INOVAÇÃO] Introduzir “progressive disclosure” de contexto: enviar blocos de memória/rag só quando a resposta parcial exigir.
+Melhorias de frontend de alto impacto
+Exibir no debug UI do assistente o tool_profile e tool_count para facilitar diagnóstico de consumo.
+Adicionar badge opcional “modo econômico” em respostas simples para sinalizar quando o assistente operou com payload enxuto.
+
+Melhorias essenciais sugeridas
+- Implementar o mesmo fast-path guiado sem Tools para os outros principais módulos da plataforma (ex.: listar últimos leads ou últimos 10 agendamentos) visto que também costumam trazer um bloat com a estratégia de function calling.
+- Cache persistente de payload no Backend para consultas repetidas dentro do escopo de 1 hora, impedindo bater de novo no DB por métricas globais caso o status da empresa não sofra mutation neste tempo.
+Ideias inovadoras
+- Incluir no próprio dashboard principal uma opção "Gerar narrativa", que faça uma única requisição ao LLM com as métricas já pré-mastigadas da tela, sem usar a tela de chat do Assistente de forma ativa.
+- Em vez de re-enviar os payloads no LLM de forma estrita, introduzir embeddings do catálogo (RAG em metadados pontuais), reduzindo ainda mais o consumo de schemas injetados no context window.
+Melhorias de frontend de alto impacto
+- Criar cartões "compactos" customizados no chat para listar Inadimplentes e Resumo (através das tags "DASHBOARD" do semantic contract), usando renderers visuais (tabelas formadas com gradiente sutil) ao invés do markdown base do LLM, agregando qualidade visual.
+- Implementar transições na digitação do assistente que evite engrenagens visuais e favoreça skeleton progressivos, usando as próprias fases do SSE (emitidas agora) para indicar ao usuário que o Backend obteve os dados e está escrevendo a narrativa, gerando mais transparência.
+Melhorias essenciais
+1. Refinamento do Fallback da Classe Base (Pydantic/Dataclasses): Em vez de criar objetos vazios na função em tempo de execução via class _FakeInput ou type(), o sistema de tool_calling se beneficiaria de Dataclasses ou Pydantic Models reais para manter a rastreabilidade e evitar esses pequenos erros de escopo léxico.
+2. Registro centralizado do Erro: O NameError foi repassado nativamente para o front-end sem ofuscação pelo ia_service, o que expôs estrutura de código (Python traceback). O ideal é formatar uma camada de captura global (Exception Handler) nesses endpoints IA para retornar mensagens amigáveis ("Ocorreu um erro interno ao processar o cliente.") em produção.
+Ideias inovadoras
+1. Confirmação Fuzzy de Clientes via Chat: Quando a intenção de criar o orçamento detectar um cliente que não é exato, exibir botões interativos inline no chat para confirmar o cliente ([1] Ana Julia Costa, [2] Ana Maria).
+2. Integração com Busca Reversa Rápida do LLM: Manter em cache local os nomes frequentes na IA. Se "Ana Julia" não estiver registrada ainda com esse nome exato, o LLM poderia deduzir rapidamente e dizer "Ana Julia não está cadastrada. Posso cadastrá-la agora no mesmo passo?".
+Melhorias de frontend de alto impacto
+1. Feedback Visual Imediato no Card de Orçamento (Loading Skeleton): Durante processamentos complexos como a criação e análise da IA, renderizar um Skeleton visual com texto sendo analisado evita que a pessoa ache que travou a UI se o back-end demorar muito.
+2. Filtro de Destaque por Cores Condicionais (Conditional Table/Chat): Incluir badges na mensagem que criaram o orçamento para o "status" e o "valor" detectado com formatação condicional de alto contraste no texto para que as extrações saltem aos olhos do usuário rapidamente.
+Observações Adicionais
+Melhorias essenciais sugeridas
+1. Toolcalling Semântico no Back-End: Impedir que o chatbot lide com comandos textuais cegos (como foi com o clique que enviou "aprovar " vazio pro backend). Todo o sistema deveria ter uma validação de parâmetros fortes antes de atingir o LLM (se o ID está faltando, responder instantaneamente por FastPath ao invés de passar o problema pra IA tentar interpretar).
+2. Ocultar Debug Log de Tokens em Produção: Se as taxas de tokens não trazem métricas acionáveis para o usuário final, elas podem ser ocultadas visualmente ou transferidas exclusivamente para os relatórios do portal de Observabilidade e faturamento.
+Ideias Inovadoras
+1. Desfazer Rápido (Undo): Ao criar um orçamento rapidamente através da IA, disponibilizar no balão de sucesso um atalho simples: "Desfazer". Isso daria uma rede de proteção gigantesca, poupando passos de edição ou apagamento na grade.
+2. Miniaturas e Mídia nas Sugestões: Adicionar campo para pré-visualização de imagem se a extração sugerir que "tapete" ou o item solicitado está em catálogo. O frontend poderia buscar no catálogo interno miniaturas dessas peças para tornar a escolha mais confiável.
+Melhorias de Frontend de Alto Impacto
+1. Transições entre Componentes de Ação: O clique de Confirmar e Criar deve modificar o estado atual do card para carregando, e substituir imediatamente pelo card de Sucesso (como num update reativo), em vez de adicionar mensagens diferentes encavaladas na linha do tempo, deixando o chat mais longo.
+2. Inputs Modificáveis em Tela: No lugar do card estático, dar a chance do usuário alterar no próprio chat a variável de "Serviço" e o "Valor" sem necessitar refazer o prompt. Um <input> mascarado por cima dos campos da prévia ofereceria conveniência inigualável.

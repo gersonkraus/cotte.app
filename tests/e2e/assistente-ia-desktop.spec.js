@@ -61,4 +61,17 @@ test.describe('Assistente IA desktop', () => {
     await expect(page.locator('.message.ai').last()).toContainText('Segue o gráfico financeiro.');
     await expect(page.locator('.chart-container canvas')).toHaveCount(1);
   });
+
+  test('mantém painel debug recolhido quando debug_ui está ativo', async ({ page }) => {
+    await page.evaluate(() => {
+      localStorage.setItem('cotte_assistente_debug_ui', '1');
+    });
+
+    await page.locator('#messageInput').fill('Quantos clientes eu tenho?');
+    await page.locator('#messageInput').press('Enter');
+
+    const debugDetails = page.locator('.ai-debug-ui').last();
+    await expect(debugDetails).toBeVisible();
+    await expect(debugDetails).not.toHaveAttribute('open', '');
+  });
 });

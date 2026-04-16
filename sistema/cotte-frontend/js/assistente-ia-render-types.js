@@ -47,7 +47,7 @@ function renderOrcamentoCardUnificado(dados) {
         bannerColor = 'background:var(--ai-warning);color:#1e293b;';
     } else if (statusKey === 'rascunho') {
         bannerIcon = '📝';
-        bannerText = 'Orçamento Rascunho';
+        bannerText = !orcId ? 'Prévia do Orçamento' : 'Orçamento Rascunho';
     }
     const docBtn = orcId
         ? `<button type="button" class="orc-card-v2__doc-btn" data-editar-orc="${orcId}" title="Ver orçamento">📄</button>`
@@ -57,35 +57,55 @@ function renderOrcamentoCardUnificado(dados) {
     const linkTokenAttr = dados.link_publico ? `data-copy-public-token="${escapeHtmlAttr(dados.link_publico)}"` : 'disabled title="Link indisponível"';
     // Botões
     let botoesHtml = '';
-    if (['rascunho', 'enviado'].includes(statusKey)) {
+    let extraDataHtml = '';
+    let previewBtnHtml = '';
+    
+    if (!orcId) {
+        const previewJson = JSON.stringify(dados);
         botoesHtml = `
             <div style="display: flex; gap: 8px; width: 100%; flex-wrap: wrap;">
-                <div class="orc-card-v2__icon-btns" style="flex: 1; justify-content: flex-start; min-width: 140px;">
+                <button type="button" class="orc-card-v2__aprovar-btn btn-aprovar" data-orc-confirm="1" style="flex: 1; padding: 0 16px; white-space: nowrap; min-width: 140px; background: var(--ai-accent); color: white;">✓ Confirmar e Criar</button>
+                <button type="button" class="btn btn-ghost" data-orc-dismiss="1" style="flex: 1; padding: 0 16px; white-space: nowrap; min-width: 140px;">Cancelar</button>
+            </div>
+        `;
+        extraDataHtml = `<script type="application/json" class="orc-data">${previewJson.replace(/<\/script>/g, '<\\/script>')}</script>`;
+    } else {
+        previewBtnHtml = `
+            <button type="button" class="btn btn-primary" onclick="abrirDetalhesOrcamento(${orcId})" style="width: 100%; margin-bottom: 4px; font-size: 14px; font-weight: 600; justify-content: center; padding: 10px;">
+                🔍 Ver Preview Completo
+            </button>
+        `;
+        
+        if (['rascunho', 'enviado'].includes(statusKey)) {
+            botoesHtml = `
+                <div style="display: flex; gap: 8px; width: 100%; flex-wrap: wrap;">
+                    <div class="orc-card-v2__icon-btns" style="flex: 1; justify-content: flex-start; min-width: 140px;">
+                        <button type="button" class="orc-card-v2__icon-btn btn-whats" ${disWhats} data-enviar-wa="${orcId}" data-orc-numero="${numEnc}" title="Enviar WhatsApp">💬</button>
+                        <button type="button" class="orc-card-v2__icon-btn btn-link" ${linkTokenAttr} title="Copiar link">🔗</button>
+                        <button type="button" class="orc-card-v2__icon-btn btn-email" ${disEmail} data-enviar-email="${orcId}" data-orc-numero="${numEnc}" title="Enviar E-mail">✉️</button>
+                    </div>
+                    <button type="button" class="orc-card-v2__aprovar-btn btn-aprovar" data-quick-send="${aprovarEnc}" data-silent-send="true" style="flex: 1; padding: 0 16px; white-space: nowrap; min-width: 140px;">✓ Aprovar</button>
+                </div>
+            `;
+        } else if (statusKey === 'aprovado') {
+            botoesHtml = `
+                <div class="orc-card-v2__icon-btns" style="justify-content: center; gap: 12px; width: 100%;">
+                    <button type="button" class="orc-card-v2__icon-btn btn-calendar" onclick="abrirModalAgendamentoRapido(${orcId}, '${escapeHtml(orcNum)}', '${(clienteNome || '').replace(/'/g, "\\'")}')" title="Agendar">📅</button>
                     <button type="button" class="orc-card-v2__icon-btn btn-whats" ${disWhats} data-enviar-wa="${orcId}" data-orc-numero="${numEnc}" title="Enviar WhatsApp">💬</button>
                     <button type="button" class="orc-card-v2__icon-btn btn-link" ${linkTokenAttr} title="Copiar link">🔗</button>
                     <button type="button" class="orc-card-v2__icon-btn btn-email" ${disEmail} data-enviar-email="${orcId}" data-orc-numero="${numEnc}" title="Enviar E-mail">✉️</button>
                 </div>
-                <button type="button" class="orc-card-v2__aprovar-btn btn-aprovar" data-quick-send="${aprovarEnc}" data-silent-send="true" style="flex: 1; padding: 0 16px; white-space: nowrap; min-width: 140px;">✓ Aprovar</button>
-            </div>
-        `;
-    } else if (statusKey === 'aprovado') {
-        botoesHtml = `
-            <div class="orc-card-v2__icon-btns" style="justify-content: center; gap: 12px; width: 100%;">
-                <button type="button" class="orc-card-v2__icon-btn btn-calendar" onclick="abrirModalAgendamentoRapido(${orcId}, '${escapeHtml(orcNum)}', '${(clienteNome || '').replace(/'/g, "\\'")}')" title="Agendar">📅</button>
-                <button type="button" class="orc-card-v2__icon-btn btn-whats" ${disWhats} data-enviar-wa="${orcId}" data-orc-numero="${numEnc}" title="Enviar WhatsApp">💬</button>
-                <button type="button" class="orc-card-v2__icon-btn btn-link" ${linkTokenAttr} title="Copiar link">🔗</button>
-                <button type="button" class="orc-card-v2__icon-btn btn-email" ${disEmail} data-enviar-email="${orcId}" data-orc-numero="${numEnc}" title="Enviar E-mail">✉️</button>
-            </div>
-        `;
-    } else {
-         botoesHtml = `
-            <div class="orc-card-v2__icon-btns" style="justify-content: center; gap: 12px; width: 100%;">
-                 <button type="button" class="orc-card-v2__icon-btn btn-whats" ${disWhats} data-enviar-wa="${orcId}" data-orc-numero="${numEnc}" title="Reenviar WhatsApp">💬</button>
-                 <button type="button" class="orc-card-v2__icon-btn btn-link" ${linkTokenAttr} title="Copiar link">🔗</button>
-            </div>
-         `;
+            `;
+        } else {
+             botoesHtml = `
+                <div class="orc-card-v2__icon-btns" style="justify-content: center; gap: 12px; width: 100%;">
+                     <button type="button" class="orc-card-v2__icon-btn btn-whats" ${disWhats} data-enviar-wa="${orcId}" data-orc-numero="${numEnc}" title="Reenviar WhatsApp">💬</button>
+                     <button type="button" class="orc-card-v2__icon-btn btn-link" ${linkTokenAttr} title="Copiar link">🔗</button>
+                </div>
+             `;
+        }
     }
-    return `<div class="orc-card-v2">
+    return `<div class="orc-card-v2${!orcId ? ' orc-preview-card' : ''}">
         <div class="${bannerClass}" style="${bannerColor}">
             <span class="orc-card-v2__banner-icon" aria-hidden="true">${bannerIcon}</span>
             ${bannerText}
@@ -106,11 +126,10 @@ function renderOrcamentoCardUnificado(dados) {
                 </div>
             </div>
             <div class="orc-card-v2__actions" style="display:flex;flex-direction:column;gap:8px">
-                <button type="button" class="btn btn-primary" onclick="abrirDetalhesOrcamento(${orcId})" style="width: 100%; margin-bottom: 4px; font-size: 14px; font-weight: 600; justify-content: center; padding: 10px;">
-                    🔍 Ver Preview Completo
-                </button>
+                ${previewBtnHtml}
                 ${botoesHtml}
             </div>
+            ${extraDataHtml}
         </div>
     </div>`;
 }
