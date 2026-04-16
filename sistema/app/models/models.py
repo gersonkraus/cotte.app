@@ -1917,10 +1917,6 @@ class Agendamento(TenantScopedMixin, Base):
     data_fim = Column(DateTime(timezone=True), nullable=True)
     duracao_estimada_min = Column(Integer, default=60)
 
-    opcao_escolhida_id = Column(
-        Integer, ForeignKey("agendamento_opcoes.id"), nullable=True
-    )  # qual opção o cliente escolheu
-
     endereco = Column(Text, nullable=True)
     observacoes = Column(Text, nullable=True)
     motivo_cancelamento = Column(Text, nullable=True)
@@ -1976,13 +1972,27 @@ class AgendamentoOpcao(Base):
     """Opção de data/hora oferecida pela empresa ao cliente."""
 
     __tablename__ = "agendamento_opcoes"
+    __table_args__ = (
+        Index(
+            "uq_agendamento_opcao_uma_escolhida",
+            "agendamento_id",
+            unique=True,
+            postgresql_where=text("escolhida IS TRUE"),
+        ),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     agendamento_id = Column(
         Integer, ForeignKey("agendamentos.id"), nullable=False, index=True
     )
     data_hora = Column(DateTime(timezone=True), nullable=False)
-    disponivel = Column(Boolean, default=True)  # False quando escolhida ou removida
+    disponivel = Column(Boolean, default=True)  # False quando removida/indisponível
+    escolhida = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("false"),
+    )  # qual opção o cliente escolheu (no máx. uma por agendamento)
     criado_em = Column(DateTime(timezone=True), server_default=func.now())
 
     agendamento = relationship(

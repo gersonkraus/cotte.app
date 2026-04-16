@@ -239,6 +239,35 @@ class SessionStore:
     @staticmethod
     def ensure_sessao_db(sessao_id: str, empresa_id: int, usuario_id: int, db: Session) -> bool:
         """Garante que a sessão existe no banco. Idempotente e resiliente a corrida."""
+        # #region agent log
+        try:
+            import json
+            import time as _time_dbg
+
+            with open(
+                "/home/gk/Projeto-izi/.cursor/debug-086929.log", "a", encoding="utf-8"
+            ) as _f:
+                _f.write(
+                    json.dumps(
+                        {
+                            "sessionId": "086929",
+                            "timestamp": int(_time_dbg.time() * 1000),
+                            "hypothesisId": "H2",
+                            "location": "cotte_context_builder.py:ensure_sessao_db",
+                            "message": "ensure_sessao_db entrada",
+                            "data": {
+                                "sessao_prefix": sessao_id[:8],
+                                "empresa_id": empresa_id,
+                                "usuario_id": usuario_id,
+                            },
+                            "runId": "pre-fix",
+                        }
+                    )
+                    + "\n"
+                )
+        except Exception:
+            pass
+        # #endregion
         try:
             from app.models.models import AIChatSessao
             existe = db.query(AIChatSessao).filter(AIChatSessao.id == sessao_id).first()

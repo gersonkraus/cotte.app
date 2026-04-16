@@ -29,6 +29,35 @@ def monitor_ai_agent(
     if not query:
         raise HTTPException(status_code=400, detail="Query não informada.")
 
+    # #region agent log
+    try:
+        import json
+        import time as _time_dbg
+
+        with open(
+            "/home/gk/Projeto-izi/.cursor/debug-086929.log", "a", encoding="utf-8"
+        ) as _f:
+            _f.write(
+                json.dumps(
+                    {
+                        "sessionId": "086929",
+                        "timestamp": int(_time_dbg.time() * 1000),
+                        "hypothesisId": "H1",
+                        "location": "monitor_ai.py:monitor_ai_agent",
+                        "message": "monitor-ai agent POST",
+                        "data": {
+                            "query_len": len(query or ""),
+                            "history_len": len(history or []),
+                        },
+                        "runId": "pre-fix",
+                    }
+                )
+                + "\n"
+            )
+    except Exception:
+        pass
+    # #endregion
+
     try:
         result = process_monitor_query(query, history)
         return result

@@ -1696,7 +1696,7 @@
           secao.classList.remove('hidden');
           const opcoes = (dados.opcoes || []).filter(o => o.disponivel);
 
-          if (dados.opcao_escolhida_id) {
+          if (dados.opcao_escolhida_id || (dados.opcoes || []).some(o => o.escolhida)) {
             // Já escolheu
             document.getElementById('agendamento-escolhido').classList.remove('hidden');
             const dataFmt = dados.data_agendada

@@ -1759,18 +1759,18 @@ def escolher_opcao(
         db.rollback()
         return None, erro
 
-    ag.opcao_escolhida_id = opcao.id
+    opcao.escolhida = True
     ag.data_agendada = opcao.data_hora
     ag.data_fim = opcao.data_hora + timedelta(minutes=ag.duracao_estimada_min or 60)
     db.flush()
 
     db.flush()  # Forçar gravação para evitar duplicação em requests simultâneos
 
-    # Marcar outras opções como indisponíveis
+    # Marcar outras opções como indisponíveis e não escolhidas
     db.query(AgendamentoOpcao).filter(
         AgendamentoOpcao.agendamento_id == agendamento_id,
         AgendamentoOpcao.id != opcao_id,
-    ).update({"disponivel": False}, synchronize_session=False)
+    ).update({"disponivel": False, "escolhida": False}, synchronize_session=False)
 
     # Atualizar status
     config = _obter_config(db, ag.empresa_id)
@@ -1849,6 +1849,15 @@ def buscar_agendamento_publico_por_orcamento(
     # Verificar se empresa permite agendamento pelo cliente
     config = _obter_config(db, ag.empresa_id)
 
+    opcao_escolhida_id = (
+        db.query(AgendamentoOpcao.id)
+        .filter(
+            AgendamentoOpcao.agendamento_id == ag.id,
+            AgendamentoOpcao.escolhida.is_(True),
+        )
+        .scalar()
+    )
+
     opcoes = (
         db.query(AgendamentoOpcao)
         .filter(
@@ -1869,13 +1878,14 @@ def buscar_agendamento_publico_por_orcamento(
         "duracao_estimada_min": ag.duracao_estimada_min,
         "endereco": ag.endereco,
         "observacoes": ag.observacoes,
-        "opcao_escolhida_id": ag.opcao_escolhida_id,
+        "opcao_escolhida_id": opcao_escolhida_id,
         "opcoes": [
             {
                 "id": o.id,
                 "agendamento_id": o.agendamento_id,
                 "data_hora": o.data_hora,
                 "disponivel": o.disponivel,
+                "escolhida": o.escolhida,
             }
             for o in opcoes
         ],

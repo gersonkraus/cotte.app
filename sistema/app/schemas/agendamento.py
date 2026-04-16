@@ -272,6 +272,7 @@ class AgendamentoOpcaoOut(BaseModel):
     agendamento_id: int
     data_hora: datetime
     disponivel: bool
+    escolhida: bool = False
     criado_em: Optional[datetime] = None
 
     class Config:
@@ -282,6 +283,7 @@ class AgendamentoComOpcoes(AgendamentoOut):
     """Agendamento com opções de data/hora para o cliente escolher."""
 
     opcoes: List[AgendamentoOpcaoOut] = []
+    # Derivado de agendamento_opcoes.escolhida (compatível com clientes antigos)
     opcao_escolhida_id: Optional[int] = None
 
 

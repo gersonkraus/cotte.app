@@ -7,20 +7,12 @@ let chatHistory = [];
 
 async function carregarDashboard() {
   try {
-    const res = await fetch('/api/superadmin/monitor-ai/status', {
-      headers: {
-        'Authorization': `Bearer ${getToken()}`
-      }
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      if (data.success && data.status) {
-        document.getElementById('val-erros').textContent = data.status.erros_24h ?? '--';
-        document.getElementById('val-cpu').textContent = data.status.cpu_usage ?? '--';
-        document.getElementById('val-db').textContent = data.status.db_status ?? '--';
-        document.getElementById('val-jobs').textContent = data.status.jobs_pendentes ?? '--';
-      }
+    const data = await api.get('/superadmin/monitor-ai/status');
+    if (data.success && data.status) {
+      document.getElementById('val-erros').textContent = data.status.erros_24h ?? '--';
+      document.getElementById('val-cpu').textContent = data.status.cpu_usage ?? '--';
+      document.getElementById('val-db').textContent = data.status.db_status ?? '--';
+      document.getElementById('val-jobs').textContent = data.status.jobs_pendentes ?? '--';
     }
   } catch (error) {
     console.error('Erro ao carregar status do Monitor AI:', error);
@@ -129,25 +121,12 @@ chatForm.addEventListener('submit', async (e) => {
   const loadingEl = showLoading();
 
   try {
-    const res = await fetch('/api/superadmin/monitor-ai/agent', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${getToken()}`
-      },
-      body: JSON.stringify({ 
-        query: text,
-        history: chatHistory
-      })
+    const data = await api.post('/superadmin/monitor-ai/agent', {
+      query: text,
+      history: chatHistory
     });
 
     hideLoading(loadingEl);
-
-    if (!res.ok) {
-      throw new Error(`Erro HTTP: ${res.status}`);
-    }
-
-    const data = await res.json();
     
     // Atualiza histórico
     chatHistory.push({ role: 'user', content: text });

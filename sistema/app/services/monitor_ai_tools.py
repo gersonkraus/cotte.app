@@ -15,7 +15,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///test_cotte.db")
 
 # Cria a engine e a conexão SQL Database para o Langchain (Read-Only seria ideal, mas SQLDatabase do Langchain já restringe um pouco)
 db_engine = create_engine(DATABASE_URL)
-db = SQLDatabase(db_engine)
+db = SQLDatabase(db_engine, lazy_table_reflection=True)
 
 
 def get_sql_toolkit(llm: ChatOpenAI) -> SQLDatabaseToolkit:
