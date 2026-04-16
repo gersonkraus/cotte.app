@@ -179,7 +179,6 @@ def build_token_chart_data(
 
     query = db.query(ToolCallLog).filter(
         ToolCallLog.criado_em >= dt_from,
-        ToolCallLog.input_tokens.isnot(None),
     )
     if empresa_id is not None:
         query = query.filter(ToolCallLog.empresa_id == empresa_id)
@@ -194,11 +193,13 @@ def build_token_chart_data(
     for row in logs:
         t_in = _safe_int(row.input_tokens)
         t_out = _safe_int(row.output_tokens)
-        if t_in == 0 and t_out == 0:
+        # Considerar registros mesmo quando tokens não estão preenchidos
+        # para manter a integridade dos dados agregados
+        tokens = t_in + t_out
+        if tokens == 0:
             continue
         total_in += t_in
         total_out += t_out
-        tokens = t_in + t_out
 
         engine = _extract_engine_from_log(row)
         bucket = by_engine.setdefault(engine, {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0})

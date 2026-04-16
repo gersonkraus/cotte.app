@@ -65,6 +65,9 @@ async function confirmarOrcamento(btn) {
             };
         };
     const body = build(dados, clienteId);
+    if (btn && btn.dataset && btn.dataset.cadastrar === '1') {
+        body.cadastrar_materiais_novos = true;
+    }
 
     if (_assistenteMetricsEnabled()) {
         try {

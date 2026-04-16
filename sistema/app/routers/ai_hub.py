@@ -169,6 +169,7 @@ class AIConfirmarOrcamentoRequest(BaseModel):
     desconto: float = 0.0
     desconto_tipo: str = "percentual"
     observacoes: Optional[str] = None
+    cadastrar_materiais_novos: bool = False
 
 
 class AIStatusResponse(BaseModel):
@@ -390,61 +391,63 @@ async def confirmar_orcamento_ia(
     Confirma e cria o orçamento no banco a partir dos dados extraídos pela IA.
     Chamado pelo frontend após o usuário revisar a prévia do orçamento.
     """
-    from fastapi import BackgroundTasks
-    from app.models.models import Cliente, Orcamento, ItemOrcamento, Empresa, ModoAgendamentoOrcamento
-    from app.schemas.schemas import OrcamentoCreate, ItemOrcamentoCreate
-    from app.routers.orcamentos import criar_orcamento as _criar_orcamento
+    from app.services.ai_tools.orcamento_tools import (
+        CriarOrcamentoInput,
+        _criar_orcamento,
+    )
+    from app.models.models import Orcamento
+    from sqlalchemy.orm import joinedload
 
-    # Resolver cliente
-    cliente_id = request.cliente_id
-    if not cliente_id:
-        nome_cliente = (request.cliente_nome or "").strip() or "A definir"
-        cliente = (
-            db.query(Cliente)
+    try:
+        input_tool = CriarOrcamentoInput(
+            cliente_id=request.cliente_id,
+            cliente_nome=request.cliente_nome,
+            itens=[
+                {
+                    "descricao": request.servico or "Serviço",
+                    "quantidade": 1.0,
+                    "valor_unit": request.valor,
+                }
+            ],
+            desconto=request.desconto,
+            desconto_tipo=request.desconto_tipo,
+            observacoes=request.observacoes,
+            cadastrar_materiais_novos=bool(request.cadastrar_materiais_novos),
+        )
+        resultado = await _criar_orcamento(input_tool, db=db, current_user=current_user)
+        if resultado.get("error"):
+            return AIResponse(
+                sucesso=False,
+                resposta=f"Não foi possível criar o orçamento: {resultado.get('error')}",
+                tipo_resposta="erro",
+                confianca=0.0,
+                erros=[str(resultado.get("error"))],
+                modulo_origem="confirmar_orcamento",
+            )
+
+        orc = (
+            db.query(Orcamento)
+            .options(
+                joinedload(Orcamento.cliente),
+                joinedload(Orcamento.itens),
+            )
             .filter(
-                Cliente.empresa_id == current_user.empresa_id,
-                Cliente.nome == nome_cliente,
+                Orcamento.id == int(resultado["id"]),
+                Orcamento.empresa_id == current_user.empresa_id,
             )
             .first()
         )
-        if not cliente:
-            cliente = Cliente(empresa_id=current_user.empresa_id, nome=nome_cliente)
-            db.add(cliente)
-            db.flush()
-        cliente_id = cliente.id
-
-    empresa_ia = (
-        db.query(Empresa).filter(Empresa.id == current_user.empresa_id).first()
-    )
-    agendamento_modo_ia: Optional[ModoAgendamentoOrcamento] = None
-    if empresa_ia and getattr(empresa_ia, "agendamento_escolha_obrigatoria", False):
-        # Fluxo automático por IA não passa pelo modal: assume sem agendamento até o operador ajustar.
-        agendamento_modo_ia = ModoAgendamentoOrcamento.NAO_USA
-
-    orc_data = OrcamentoCreate(
-        cliente_id=cliente_id,
-        itens=[
-            ItemOrcamentoCreate(
-                descricao=request.servico or "Serviço",
-                quantidade=1.0,
-                valor_unit=request.valor,
+        if not orc:
+            return AIResponse(
+                sucesso=False,
+                resposta="Não foi possível carregar o orçamento criado.",
+                tipo_resposta="erro",
+                confianca=0.0,
+                erros=["orcamento_nao_encontrado_pos_criacao"],
+                modulo_origem="confirmar_orcamento",
             )
-        ],
-        desconto=request.desconto,
-        desconto_tipo=request.desconto_tipo,
-        observacoes=request.observacoes,
-        agendamento_modo=agendamento_modo_ia,
-    )
 
-    try:
-        orc = await _criar_orcamento(
-            dados=orc_data,
-            background_tasks=BackgroundTasks(),
-            db=db,
-            usuario=current_user,
-        )
-        
-        # Registro extra indicando origem IA
+        # Registro extra indicando confirmação no fluxo do assistente.
         db.add(
             HistoricoEdicao(
                 orcamento_id=orc.id,
@@ -453,6 +456,7 @@ async def confirmar_orcamento_ia(
             )
         )
         db.commit()
+        db.refresh(orc)
 
         return AIResponse(
             sucesso=True,

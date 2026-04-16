@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.models.models import (
     Cliente,
+    HistoricoEdicao,
     ItemOrcamento,
     Orcamento,
     Servico,
@@ -366,6 +367,8 @@ class CriarOrcamentoInput(BaseModel):
     cliente_id: Optional[int] = Field(default=None, gt=0)
     cliente_nome: Optional[str] = Field(default=None, min_length=1, max_length=200)
     itens: List[ItemOrcamentoInput] = Field(min_length=1)
+    desconto: Optional[float] = Field(default=0.0, ge=0)
+    desconto_tipo: Optional[str] = Field(default="percentual")
     observacoes: Optional[str] = Field(default=None, max_length=2000)
     cadastrar_materiais_novos: bool = Field(
         default=False,
@@ -508,6 +511,22 @@ def _resolver_itens(inp: "CriarOrcamentoInput", db: Session, current_user: Usuar
     return itens_resolvidos, materiais_novos, None
 
 
+def _registrar_evento_orcamento(
+    db: Session,
+    *,
+    orcamento_id: int,
+    descricao: str,
+    usuario_id: Optional[int] = None,
+) -> None:
+    db.add(
+        HistoricoEdicao(
+            orcamento_id=orcamento_id,
+            editado_por_id=usuario_id,
+            descricao=descricao,
+        )
+    )
+
+
 async def _criar_orcamento(
     inp: CriarOrcamentoInput, *, db: Session, current_user: Usuario
 ) -> dict[str, Any]:
@@ -548,6 +567,8 @@ async def _criar_orcamento(
             origem="Assistente IA",
             forma_pagamento="pix",
             observacoes=inp.observacoes,
+            desconto=Decimal(str(inp.desconto or 0)),
+            desconto_tipo=str(inp.desconto_tipo or "percentual"),
         )
         db.commit()
         db.refresh(orcamento)
@@ -790,6 +811,12 @@ async def _aprovar_orcamento(
     old_status = orc.status
     orc.status = StatusOrcamento.APROVADO
     ensure_quote_approval_metadata(orc, source="assistente_tool")
+    _registrar_evento_orcamento(
+        db,
+        orcamento_id=orc.id,
+        usuario_id=current_user.id,
+        descricao=f"Status alterado de {old_status.value} para APROVADO (assistente).",
+    )
     try:
         financeiro_service.criar_contas_receber_aprovacao(
             orc, current_user.empresa_id, db
@@ -856,6 +883,13 @@ async def _recusar_orcamento(
         orc.recusa_em = datetime.now(timezone.utc)
     if inp.motivo and hasattr(orc, "recusa_motivo"):
         orc.recusa_motivo = inp.motivo
+    motivo_txt = f" Motivo: {inp.motivo}" if inp.motivo else ""
+    _registrar_evento_orcamento(
+        db,
+        orcamento_id=orc.id,
+        usuario_id=current_user.id,
+        descricao=f"Status alterado de {old_status.value} para RECUSADO (assistente).{motivo_txt}",
+    )
     contas_pendentes = (
         db.query(ContaFinanceira)
         .filter(
@@ -948,9 +982,29 @@ async def _enviar_orcamento_whatsapp(
     except Exception as e:
         return {"error": f"Falha no envio: {e}", "code": "send_error"}
 
+    if orc.status == StatusOrcamento.RASCUNHO:
+        orc.status = StatusOrcamento.ENVIADO
+        if hasattr(orc, "enviado_em"):
+            orc.enviado_em = datetime.now(timezone.utc)
+        _registrar_evento_orcamento(
+            db,
+            orcamento_id=orc.id,
+            usuario_id=current_user.id,
+            descricao="Enviado por WhatsApp via assistente.",
+        )
+    else:
+        _registrar_evento_orcamento(
+            db,
+            orcamento_id=orc.id,
+            usuario_id=current_user.id,
+            descricao="Reenviado por WhatsApp via assistente.",
+        )
+    db.commit()
+
     return {
         "id": orc.id,
         "numero": orc.numero,
+        "status": orc.status.value if orc.status else None,
         "canal": "whatsapp",
         "enviado": True,
     }
@@ -1024,9 +1078,30 @@ async def _enviar_orcamento_email(
 
     if not ok:
         return {"error": "Envio retornou falha", "code": "send_failed"}
+
+    if orc.status == StatusOrcamento.RASCUNHO:
+        orc.status = StatusOrcamento.ENVIADO
+        if hasattr(orc, "enviado_em"):
+            orc.enviado_em = datetime.now(timezone.utc)
+        _registrar_evento_orcamento(
+            db,
+            orcamento_id=orc.id,
+            usuario_id=current_user.id,
+            descricao="Envio por e-mail solicitado via assistente.",
+        )
+    else:
+        _registrar_evento_orcamento(
+            db,
+            orcamento_id=orc.id,
+            usuario_id=current_user.id,
+            descricao="Reenviado por e-mail via assistente.",
+        )
+    db.commit()
+
     return {
         "id": orc.id,
         "numero": orc.numero,
+        "status": orc.status.value if orc.status else None,
         "canal": "email",
         "enviado": True,
     }
@@ -1205,6 +1280,12 @@ async def _editar_orcamento(
         mudou = True
     if not mudou:
         return {"error": "nenhum campo para atualizar", "code": "invalid_input"}
+    _registrar_evento_orcamento(
+        db,
+        orcamento_id=orc.id,
+        usuario_id=current_user.id,
+        descricao="Orçamento editado via assistente.",
+    )
     db.commit()
     db.refresh(orc)
     return _build_orcamento_response(
@@ -1293,6 +1374,12 @@ async def _editar_item_orcamento(
         orc.total = max(Decimal("0"), subtotal - subtotal * desconto / 100)
     else:
         orc.total = max(Decimal("0"), subtotal - desconto)
+    _registrar_evento_orcamento(
+        db,
+        orcamento_id=orc.id,
+        usuario_id=current_user.id,
+        descricao=f"Item {inp.num_item} editado via assistente.",
+    )
     db.commit()
     db.refresh(orc)
     return _build_orcamento_response(
@@ -1385,6 +1472,12 @@ async def _anexar_documento_orcamento(
         documento_tipo=getattr(doc.tipo, "value", str(doc.tipo)),
     )
     db.add(vinc)
+    _registrar_evento_orcamento(
+        db,
+        orcamento_id=orc.id,
+        usuario_id=current_user.id,
+        descricao=f"Documento anexado via assistente: {doc.nome}.",
+    )
     db.commit()
     db.refresh(vinc)
     return {

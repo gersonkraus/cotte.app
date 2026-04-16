@@ -1,7 +1,9 @@
 import pytest
 from unittest.mock import patch
+from sqlalchemy import select
 from app.services.ia_service import interpretar_mensagem, interpretar_comando_operador
 from app.schemas.schemas import IAInterpretacaoOut
+from app.models.models import ItemOrcamento, Servico
 
 
 def _fake_chat_response(content: str) -> dict:
@@ -89,3 +91,49 @@ async def test_route_comando_operador_sucesso(client, admin_token):
         assert data["tipo_resposta"] == "comando_operador"
         assert data["dados"]["acao"] == "VER"
         assert data["dados"]["orcamento_id"] == 5
+
+
+@pytest.mark.asyncio
+async def test_confirmar_orcamento_vincula_servico_existente_catalogo(
+    client,
+    admin_token,
+    db_session,
+    empresa_id,
+):
+    servico = Servico(
+        empresa_id=empresa_id,
+        nome="Carrinho do toreto",
+        preco_padrao=123.0,
+        ativo=True,
+    )
+    db_session.add(servico)
+    await db_session.commit()
+    await db_session.refresh(servico)
+
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    payload = {
+        "cliente_nome": "Nicollas da silva",
+        "servico": "carrinho do toreto",
+        "valor": 123.0,
+        "desconto": 0.0,
+        "desconto_tipo": "percentual",
+        "observacoes": "teste integração catálogo",
+        "cadastrar_materiais_novos": False,
+    }
+    response = await client.post(
+        "/api/v1/ai/orcamento/confirmar",
+        json=payload,
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["sucesso"] is True
+    assert body["tipo_resposta"] == "orcamento_criado"
+    orcamento_id = int(body["dados"]["id"])
+
+    item_q = await db_session.execute(
+        select(ItemOrcamento).where(ItemOrcamento.orcamento_id == orcamento_id)
+    )
+    item = item_q.scalar_one()
+    assert item.servico_id == servico.id

@@ -78,7 +78,7 @@
     if (!client || typeof client.get !== "function") return;
     var hours = hoursEl && hoursEl.value ? hoursEl.value : "24";
     try {
-      var resp = await client.get("/api/superadmin/monitor-ai/stats?hours=" + hours);
+      var resp = await client.get("/v1/superadmin/monitor-ai/stats?hours=" + hours);
       var payload = resp && resp.data ? resp.data : resp;
       var data = (payload && payload.data) ? payload.data : null;
       if (!data) return;

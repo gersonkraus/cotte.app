@@ -190,7 +190,20 @@ class SessionStore:
             sessao_q = db.query(AIChatSessao).filter(AIChatSessao.id == sessao_id)
             if empresa_id:
                 sessao_q = sessao_q.filter(AIChatSessao.empresa_id == empresa_id)
-            if not sessao_q.first():
+            sessao_db = sessao_q.first()
+            if not sessao_db:
+                ensured = SessionStore.ensure_sessao_db(
+                    sessao_id=sessao_id,
+                    empresa_id=empresa_id,
+                    usuario_id=usuario_id,
+                    db=db,
+                )
+                if ensured:
+                    sessao_q = db.query(AIChatSessao).filter(AIChatSessao.id == sessao_id)
+                    if empresa_id:
+                        sessao_q = sessao_q.filter(AIChatSessao.empresa_id == empresa_id)
+                    sessao_db = sessao_q.first()
+            if not sessao_db:
                 logger.warning(
                     "[SessionStore] Sessão %s não encontrada no escopo empresa=%s; pulando persistência",
                     sessao_id[:8],
@@ -224,8 +237,8 @@ class SessionStore:
         )
 
     @staticmethod
-    def ensure_sessao_db(sessao_id: str, empresa_id: int, usuario_id: int, db: Session) -> None:
-        """Garante que a sessão existe no banco. Idempotente."""
+    def ensure_sessao_db(sessao_id: str, empresa_id: int, usuario_id: int, db: Session) -> bool:
+        """Garante que a sessão existe no banco. Idempotente e resiliente a corrida."""
         try:
             from app.models.models import AIChatSessao
             existe = db.query(AIChatSessao).filter(AIChatSessao.id == sessao_id).first()
@@ -236,20 +249,42 @@ class SessionStore:
                     existe.empresa_id,
                     empresa_id,
                 )
-                return
+                return False
+            if existe:
+                return True
             if not existe:
                 db.add(AIChatSessao(
                     id=sessao_id,
                     empresa_id=empresa_id,
                     usuario_id=usuario_id,
                 ))
-                db.commit()
+                try:
+                    db.commit()
+                    return True
+                except Exception:
+                    db.rollback()
+                    existe_pos = (
+                        db.query(AIChatSessao).filter(AIChatSessao.id == sessao_id).first()
+                    )
+                    if existe_pos:
+                        if existe_pos.empresa_id != empresa_id:
+                            logger.warning(
+                                "[SessionStore] Sessão %s pertence a empresa diferente (%s != %s)",
+                                sessao_id[:8],
+                                existe_pos.empresa_id,
+                                empresa_id,
+                            )
+                            return False
+                        return True
+                    raise
         except Exception as e:
             logger.warning(f"[SessionStore] Erro ao criar sessão no banco: {e}")
             try:
                 db.rollback()
             except Exception:
                 pass
+            return False
+        return True
 
     @staticmethod
     def add_seen_suggestions(

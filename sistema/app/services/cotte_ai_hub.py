@@ -1074,7 +1074,7 @@ async def criar_orcamento_ia(
     Extrai dados de orçamento da mensagem, busca o cliente pelo nome
     e retorna uma prévia para confirmação do usuário.
     """
-    from app.models.models import Cliente
+    from app.models.models import Cliente, Servico
     from app.services.ai_tools.orcamento_tools import (
         _resolver_cliente,
         CriarOrcamentoInput,
@@ -1131,6 +1131,26 @@ async def criar_orcamento_ia(
         except Exception as e:
             logger.warning(f"Erro ao resolver cliente em criar_orcamento_ia: {e}")
 
+    servico_preview = (dados.get("servico") or "").strip()
+    materiais_novos_preview: list[dict[str, Any]] = []
+    if servico_preview:
+        encontrou_servico = (
+            db.query(Servico)
+            .filter(
+                Servico.empresa_id == empresa_id,
+                Servico.nome.ilike(f"%{servico_preview}%"),
+                Servico.ativo.is_(True),
+            )
+            .first()
+        )
+        if not encontrou_servico:
+            materiais_novos_preview.append(
+                {
+                    "descricao": servico_preview,
+                    "valor_unit": float(dados.get("valor") or 0),
+                }
+            )
+
     # 3. Montar preview
     preview = {
         "cliente_nome": cliente_match.nome
@@ -1141,7 +1161,7 @@ async def criar_orcamento_ia(
         "cliente_auto_criado": _cliente_auto_criado,
         "clientes_sugeridos": clientes_sugeridos,
         "cliente_ambiguo": erro_ambiguo is not None,
-        "servico": dados.get("servico") or "",
+        "servico": servico_preview,
         "valor": float(dados.get("valor") or 0),
         "desconto": float(dados.get("desconto") or 0),
         "desconto_tipo": dados.get("desconto_tipo") or "percentual",
@@ -1149,6 +1169,7 @@ async def criar_orcamento_ia(
         "confianca": float(dados.get("confianca") or 0.5),
         "empresa_id": empresa_id,
         "usuario_id": usuario_id,
+        "materiais_novos": materiais_novos_preview,
     }
 
     # 3b. Se nenhum valor foi informado, sugerir itens do catálogo antes de criar o orçamento

@@ -166,6 +166,42 @@ def test_loop_com_tool_call_e_resposta_final(db, monkeypatch):
     assert out.tool_trace[0]["status"] == "ok"
 
 
+def test_session_store_append_db_cria_sessao_ausente(db):
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+    sessao_id = "sess-append-db-cria"
+
+    assert (
+        db.query(AIChatSessao)
+        .filter(AIChatSessao.id == sessao_id, AIChatSessao.empresa_id == emp.id)
+        .first()
+        is None
+    )
+
+    SessionStore.append_db(
+        sessao_id=sessao_id,
+        role="user",
+        content="mensagem de teste",
+        db=db,
+        empresa_id=emp.id,
+        usuario_id=user.id,
+    )
+
+    sessao = (
+        db.query(AIChatSessao)
+        .filter(AIChatSessao.id == sessao_id, AIChatSessao.empresa_id == emp.id)
+        .first()
+    )
+    assert sessao is not None
+    msg = (
+        db.query(AIChatMensagem)
+        .filter(AIChatMensagem.sessao_id == sessao_id)
+        .first()
+    )
+    assert msg is not None
+    assert msg.role == "user"
+
+
 def test_loop_pending_action_interrompe(db, monkeypatch):
     emp = make_empresa(db)
     user = make_usuario(db, emp)

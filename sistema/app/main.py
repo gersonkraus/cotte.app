@@ -266,7 +266,7 @@ def include_routers(app: FastAPI):
         (whatsapp_router, "/api/v1"),
         (empresa_router, "/api/v1"),
         (admin_router, "/api/v1"),
-        (monitor_ai_router, "/api/superadmin/monitor-ai"),
+        (monitor_ai_router, "/api/v1/superadmin/monitor-ai"),
         (catalogo_router, "/api/v1"),
         (relatorios_router, "/api/v1"),
         (notificacoes_router, "/api/v1"),
