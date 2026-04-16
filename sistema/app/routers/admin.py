@@ -490,6 +490,7 @@ def impersonate_empresa(
             "sub": str(usuario.id),
             "empresa_id": usuario.empresa_id,
             "v": usuario.token_versao,
+            "imp": True,
         }
     )
 

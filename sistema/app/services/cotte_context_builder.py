@@ -178,6 +178,15 @@ class SessionStore:
         Adiciona mensagem ao cache RAM E persiste no banco PostgreSQL.
         Usar em todos os fluxos definitivos (assistente_unificado_v2, etc.).
         """
+        # Impersonação: não persiste no banco para não contaminar sessões reais
+        if db is not None:
+            try:
+                from app.core.tenant_context import is_impersonation_active
+                if is_impersonation_active(db):
+                    SessionStore.append(sessao_id, role, content, empresa_id=empresa_id, usuario_id=usuario_id)
+                    return
+            except Exception:
+                pass
         # Persiste no banco
         try:
             from app.models.models import AIChatMensagem, AIChatSessao

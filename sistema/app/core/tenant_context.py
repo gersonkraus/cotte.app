@@ -15,6 +15,7 @@ def _context_template() -> dict[str, Any]:
         "empresa_id": None,
         "usuario_id": None,
         "is_superadmin": False,
+        "is_impersonation": False,
         "bypass": False,
         "bypass_reason": None,
         "scope_source": None,
@@ -37,6 +38,7 @@ def set_tenant_context(
     empresa_id: Optional[int],
     usuario_id: Optional[int] = None,
     is_superadmin: bool = False,
+    is_impersonation: bool = False,
     scope_source: str = "request_auth",
 ) -> dict[str, Any]:
     """Associa escopo tenant à sessão atual."""
@@ -46,12 +48,18 @@ def set_tenant_context(
             "empresa_id": int(empresa_id) if empresa_id else None,
             "usuario_id": int(usuario_id) if usuario_id else None,
             "is_superadmin": bool(is_superadmin),
+            "is_impersonation": bool(is_impersonation),
             "bypass": False,
             "bypass_reason": None,
             "scope_source": scope_source,
         }
     )
     return ctx
+
+
+def is_impersonation_active(db: Session) -> bool:
+    """True quando a sessão atual é de um superadmin impersonando uma empresa."""
+    return bool(get_tenant_context(db).get("is_impersonation"))
 
 
 def get_scoped_empresa_id(db: Session) -> Optional[int]:

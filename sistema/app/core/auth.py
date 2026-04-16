@@ -106,12 +106,14 @@ def get_usuario_atual(
     )
     if not usuario:
         raise erro
-    # Sessão única: token só vale se a versão bater (login em outro lugar invalida este token)
-    token_versao = payload.get("v")
-    if token_versao is None or usuario.token_versao != token_versao:
-        raise erro
-    # Bloqueia acesso se a empresa estiver inativa (exceto superadmin)
-    if not usuario.is_superadmin and usuario.empresa:
+    is_impersonation = bool(payload.get("imp"))
+    # Sessão única: token só vale se a versão bater — exceto para tokens de impersonação
+    if not is_impersonation:
+        token_versao = payload.get("v")
+        if token_versao is None or usuario.token_versao != token_versao:
+            raise erro
+    # Bloqueia acesso se a empresa estiver inativa (exceto superadmin e impersonação)
+    if not usuario.is_superadmin and not is_impersonation and usuario.empresa:
         if not usuario.empresa.ativo:
             raise HTTPException(
                 status_code=403,
@@ -152,6 +154,7 @@ def get_usuario_atual(
         empresa_id=usuario.empresa_id,
         usuario_id=usuario.id,
         is_superadmin=usuario.is_superadmin,
+        is_impersonation=is_impersonation,
     )
     return usuario
 
