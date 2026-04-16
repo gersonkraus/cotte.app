@@ -1221,6 +1221,20 @@ async def criar_orcamento_ia(
                 confianca=r["confianca"],
                 modulo_origem=r["modulo_origem"],
             )
+        # Sem catálogo e sem valor: pedir o valor antes de criar o preview
+        cliente_ref = preview["cliente_nome"] or "o cliente"
+        servico_ref = preview["servico"]
+        return AIResponse(
+            sucesso=False,
+            resposta=(
+                f"Qual o valor do orçamento de **{servico_ref}** para **{cliente_ref}**? "
+                f"Informe o valor e envie novamente. Exemplo: "
+                f"'orçamento de {servico_ref} para {cliente_ref}, R$ 150'"
+            ),
+            tipo_resposta="solicitar_valor",
+            confianca=0.5,
+            modulo_origem="criar_orcamento",
+        )
 
     if erro_ambiguo:
         resposta = f"Encontrei vários clientes com o nome '{cliente_nome}'. Selecione um abaixo:"
