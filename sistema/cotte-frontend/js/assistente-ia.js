@@ -984,7 +984,7 @@ async function sendMessage() {
             );
             const pre = escapeHtml(snippet);
             addMessage(
-                `<details class="ai-debug-ui" open><summary class="ai-debug-ui__summary">Debug UI (erro no cliente)</summary><pre class="ai-debug-ui__pre" tabindex="0">${pre}</pre><p class="ai-debug-ui__hint">Desative com <code>disableAssistenteDebugUi()</code> no console.</p></details>`,
+                `<details class="ai-debug-ui"><summary class="ai-debug-ui__summary">Debug UI (erro no cliente)</summary><pre class="ai-debug-ui__pre" tabindex="0">${pre}</pre><p class="ai-debug-ui__hint">Desative com <code>disableAssistenteDebugUi()</code> no console.</p></details>`,
                 false,
                 false
             );

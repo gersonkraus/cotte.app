@@ -212,7 +212,7 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
             preJson = '{"erro":"serialização falhou"}';
         }
         const pre = escapeHtml(preJson);
-        responseContent += `<details class="ai-debug-ui" open><summary class="ai-debug-ui__summary">Debug UI (stream / metadata)</summary><pre class="ai-debug-ui__pre" tabindex="0">${pre}</pre><p class="ai-debug-ui__hint">Desative com <code>disableAssistenteDebugUi()</code> no console ou remova <code>?debug_ui=1</code> da URL.</p></details>`;
+        responseContent += `<details class="ai-debug-ui"><summary class="ai-debug-ui__summary">Debug UI (stream / metadata)</summary><pre class="ai-debug-ui__pre" tabindex="0">${pre}</pre><p class="ai-debug-ui__hint">Desative com <code>disableAssistenteDebugUi()</code> no console ou remova <code>?debug_ui=1</code> da URL.</p></details>`;
     }
 
     const tipoSemFeedback = ['onboarding', 'orcamento_preview', 'operador_resultado', 'registro_criado'];
