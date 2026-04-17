@@ -144,7 +144,7 @@ assistente-ia.html
             │                                                           ├─ [2] detectar_intencao_assistente_async(mensagem)
             │                                                           │     └─ IntentionClassifier.classificar()
             │                                                           │         ├─ _classificar_regex()
-            │                                                           │         └─ _classificar_haiku() (se regex falhar)
+            │                                                           │         └─ fallback CONVERSACAO (sem LLM no classificador)
             │                                                           │
             │                                                           ├─ [3] Checagem permissão financeira
             │                                                           │
@@ -154,7 +154,7 @@ assistente-ia.html
             │                                                           ├─ [5] ContextBuilder.build(intencao, db, empresa_id)
             │                                                           │     └─ Busca dados reais do banco
             │                                                           │
-            │                                                           ├─ [6] Claude Sonnet (800 tokens)
+            │                                                           ├─ [6] LLM via LiteLLM (`AI_MODEL` / normalização em `ia_service`, ~800 tokens)
             │                                                           │     └─ SYSTEM_PROMPT_ASSISTENTE + messages
             │                                                           │
             │                                                           ├─ [7] AIJSONExtractor.extract(raw)
@@ -173,7 +173,7 @@ assistente-ia.html
 ```
 assistente_unificado()
   ├─ IntentionClassifier → SALDO_RAPIDO (regex match)
-  └─ saldo_rapido_ia(db, empresa_id)  ← NÃO PASSA PELO CLAUDE
+  └─ saldo_rapido_ia(db, empresa_id)  ← NÃO PASSA PELO LLM
       ├─ SaldoCaixaConfig → saldo_inicial
       ├─ financeiro_service.calcular_saldo_caixa_kpi()
       └─ AIResponse(tipo_resposta="saldo_caixa", dados={saldo_atual, saldo_inicial})
@@ -185,9 +185,9 @@ assistente_unificado()
 assistente_unificado()
   ├─ IntentionClassifier → CRIAR_ORCAMENTO
   └─ criar_orcamento_ia(mensagem, db, empresa_id, usuario_id)
-      ├─ ai_hub.processar("orcamentos", mensagem)  ← USA CLAUDE SONNET
+      ├─ ai_hub.processar("orcamentos", mensagem)  ← USA LLM (LiteLLM; modelo em config)
       │     ├─ AntiDelirium.camada_1_sanitizar_entrada()
-      │     ├─ Claude Sonnet (prompt "orcamentos") → extrai JSON
+      │     ├─ LLM (prompt "orcamentos") → extrai JSON
       │     ├─ AIJSONExtractor.extract(raw)
       │     ├─ camada_2_validar_schema()
       │     ├─ camada_3_validar_dominio()
@@ -214,7 +214,7 @@ assistente_unificado()
 assistente_unificado()
   ├─ IntentionClassifier → OPERADOR
   └─ executar_comando_operador_ia(mensagem, db, empresa_id, usuario_id)
-      ├─ interpretar_comando_operador(mensagem)  ← ia_service.py LEGADO (Haiku)
+      ├─ interpretar_comando_operador(mensagem)  ← ia_service.py (LiteLLM; modelo técnico / fallback conforme `.env`)
       │     └─ Retorna {acao: "VER", orcamento_id: 5}
       ├─ Orcamento.query(like("ORC-5-%")) ou query(id=5)
       └─ Match por ação:
@@ -294,7 +294,7 @@ WhatsApp message → whatsapp.py: _processar_assistente_gestor()
 | `onboarding` | Checklist com progresso | `onboarding_service` |
 | `sem_permissao` | Mensagem de erro | `assistente_unificado()` |
 | `erro` | Mensagem de erro | Múltiplas origens |
-| Qualquer outro | Resposta textual direta | Claude Sonnet genérico |
+| Qualquer outro | Resposta textual direta | LLM principal (`AI_MODEL` via LiteLLM) |
 
 ### Sessão em Memória (Python dict)
 
@@ -365,8 +365,8 @@ _sessions[sessao_id] = {
 | 2 | **RBAC financeiro** | `cotte_ai_hub.py:1510-1522` | Intenções financeiras bloqueadas se `permissoes.financeiro` ausente e não é gestor |
 | 3 | **Contador de mensagens IA** | `ai_hub.py:552-556` | Incrementa `empresa.total_mensagens_ia` a cada mensagem |
 | 4 | **Anti-Delírios (4 camadas)** | `cotte_ai_hub.py:316-634` | Sanitização → Schema → Domínio → Consistência DB |
-| 5 | **Roteamento sem LLM** | `cotte_ai_hub.py:1524-1553` | SALDO_RAPIDO, ONBOARDING não passam pelo Claude |
-| 6 | **Fallback regex** | `cotte_ai_hub.py:635-724` | Se Claude falha, `FallbackManual` extrai dados por regex |
+| 5 | **Roteamento sem LLM** | `cotte_ai_hub.py:1524-1553` | SALDO_RAPIDO, ONBOARDING não passam pelo LLM |
+| 6 | **Fallback regex** | `cotte_ai_hub.py:635-724` | Se o LLM falha, `FallbackManual` extrai dados por regex |
 | 7 | **Cache TTL 5min** | `cotte_ai_hub.py:85-116` | Respostas com confiança ≥ 0.7 são cacheadas (módulos antigos) |
 | 8 | **Histórico de sessão** | `cotte_context_builder.py:21-23` | Máximo 6 mensagens, TTL 60min, em memória |
 | 9 | **Filtro de sugestões repetidas** | `cotte_context_builder.py:73-78` | Sugestões já vistas são filtradas |
@@ -389,7 +389,7 @@ _sessions[sessao_id] = {
 | 2 | **Schemas inline no router** | `ai_hub.py:73,85,572` | `AIAssistenteRequest`, `AIConfirmarOrcamentoRequest`, `AIFeedbackRequest` definidos no router em vez de `app/schemas/`. |
 | 3 | **Duplicação `mockAIResponse`** | `assistente-ia.js:555` e `api.js:639` | Duas implementações similares mas não idênticas. |
 | 4 | **Acoplamento entre routers** | `ai_hub.py:180` | `confirmar_orcamento_ia` importa `_criar_orcamento` de `orcamentos.py` diretamente. |
-| 5 | **Serviço legacy ainda ativo** | `cotte_ai_hub.py:1106` | `executar_comando_operador_ia` chama `ia_service.py:interpretar_comando_operador` (Haiku legado). Dupla camada de IA. |
+| 5 | **Serviço legacy ainda ativo** | `cotte_ai_hub.py:1106` | `executar_comando_operador_ia` chama `ia_service.py:interpretar_comando_operador`. Dupla camada de IA (roteamento + interpretação). |
 
 ### 🟡 Médios
 
@@ -397,7 +397,7 @@ _sessions[sessao_id] = {
 |---|---|---|---|
 | 6 | **`AIResponse` em service, não em schemas** | `cotte_ai_hub.py:57` | Router importa Pydantic model do service. |
 | 7 | **Contador sem transação protegida** | `ai_hub.py:552-556` | `db.commit()` sem try/except. Falha não tratada. |
-| 8 | **Anti-Delírios bypassado no assistente_unificado** | `cotte_ai_hub.py:1609-1618` | O fluxo principal chama `client.messages.create` diretamente sem passar pelas 4 camadas de validação. Anti-Delírios só é usado em `ai_hub.processar()` (ex: criar_orcamento_ia). |
+| 8 | **Anti-Delírios bypassado no assistente_unificado** | `cotte_ai_hub.py:~1776` | O fluxo principal chama `ia_service.chat()` (LiteLLM) sem passar pelas 4 camadas de validação do `processar()`. Anti-Delírios só é usado em `ai_hub.processar()` (ex.: `criar_orcamento_ia`). |
 | 9 | **XSS em sugestões** | `assistente-ia.js:202` | Texto da sugestão interpolado em HTML sem `escapeHtml()`. |
 | 10 | **Sem testes** | `tests/` | Apenas `test_saldo_caixa_unificado.py` testa roteamento. Sem testes para `assistente_unificado`, `criar_orcamento_ia`, `IntentionClassifier`. |
 
@@ -418,7 +418,7 @@ _sessions[sessao_id] = {
 | Alvo | Arquivo | Linha | Observação |
 |---|---|---|---|
 | Orquestração | `app/services/cotte_ai_hub.py` | L1478 (`assistente_unificado`) | Ponto único. Afeta web + WhatsApp. |
-| System prompt | `app/services/cotte_ai_hub.py` | L972 (`SYSTEM_PROMPT_ASSISTENTE`) | Altera comportamento geral do Claude. |
+| System prompt | `app/services/cotte_ai_hub.py` | L972 (`SYSTEM_PROMPT_ASSISTENTE`) | Altera comportamento geral do assistente (LLM configurável). |
 | Roteamento | `app/services/cotte_ai_hub.py` | L1524-1583 | Adicionar/remover intenções especiais. |
 
 ### Para adicionar nova intenção (checklist)
@@ -474,8 +474,8 @@ _sessions[sessao_id] = {
 │  └──────────────────────────────────────────────────────┘   │
 │  ┌──────────────────────────────────────────────────────┐   │
 │  │ [2] IntentionClassifier.classificar()                 │   │
-│  │     ├─ Regex (80% dos casos) → retorna intenção       │   │
-│  │     └─ Haiku fallback (20%) → classifica → retorna    │   │
+│  │     ├─ Regex → retorna intenção quando há match         │   │
+│  │     └─ Senão CONVERSACAO (fallback; sem LLM aqui)      │   │
 │  └──────────────────────────────────────────────────────┘   │
 │  ┌──────────────────────────────────────────────────────┐   │
 │  │ [3] Roteamento por intenção:                          │   │
@@ -496,8 +496,8 @@ _sessions[sessao_id] = {
 │  │     _ctx_ajuda_sistema → manual_sistema.md            │   │
 │  └──────────────────────────────────────────────────────┘   │
 │  ┌──────────────────────────────────────────────────────┐   │
-│  │ [5] Claude Sonnet                                     │   │
-│  │     model=claude-sonnet-4-20250514                    │   │
+│  │ [5] LLM (LiteLLM)                                     │   │
+│  │     model = settings.AI_MODEL (normalizado p/ rota)    │   │
 │  │     max_tokens=800                                    │   │
 │  │     system=SYSTEM_PROMPT_ASSISTENTE                   │   │
 │  │     messages = historico + [{user: msg + contexto}]   │   │
@@ -517,10 +517,11 @@ _sessions[sessao_id] = {
 
 | Dependência | Uso | Localização |
 |---|---|---|
-| **Anthropic SDK** | Chamadas a Claude Sonnet e Haiku | `cotte_ai_hub.py:46`, `ai_intention_classifier.py:19` |
-| **Claude Sonnet 4** (`claude-sonnet-4-20250514`) | Respostas do assistente e extração de orçamentos | `cotte_ai_hub.py:48` |
-| **Claude Haiku 4.5** (`claude-haiku-4-5-20251001`) | Classificação de intenção e comandos de operador | `ai_intention_classifier.py:104`, `ia_service.py` |
-| **ANTHROPIC_API_KEY** | Configurada via `app/core/config.py` settings | `cotte_ai_hub.py:46` |
+| **LiteLLM** | Gateway único para chamadas de chat/completion | `ia_service.py`, `cotte_ai_hub.py` (ex.: `llm_gateway`: `litellm`) |
+| **`AI_MODEL` / `AI_MODEL_FALLBACK`** | Modelo principal do assistente (slug normalizado: OpenRouter, OpenAI, Anthropic nativo, etc.) | `app/core/config.py`, `ia_service.normalize_litellm_model` |
+| **`AI_TECHNICAL_MODEL`** | Overrides de modelo “técnico” onde o código usa modelo dedicado | `app/core/config.py` |
+| **`OPENROUTER_API_KEY` / `AI_API_KEY`** | Autenticação conforme rota (`openrouter/...`, `openai/...`, etc.) | `app/core/config.py`; `ANTHROPIC_API_KEY` só se usar rota nativa Anthropic |
+| **IntentionClassifier** | Apenas regex + fallback `CONVERSACAO` (sem LLM no classificador) | `ai_intention_classifier.py` |
 
 ---
 

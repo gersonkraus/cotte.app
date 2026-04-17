@@ -1082,7 +1082,7 @@ Arquivo: app/services/tool_executor.py
 
 Trecho: if tool == "criar_orcamento": return orcamento_tools.criar(...)
 
-Passo a passo: 1) Claude envia payload de tool de intenção. 2) Executor amarra no SQLAlchemy real e retorna string de contexto.
+Passo a passo: 1) O LLM envia payload de tool de intenção. 2) Executor amarra no SQLAlchemy real e retorna string de contexto.
 
 115. Interceptador de Human-in-the-loop
 

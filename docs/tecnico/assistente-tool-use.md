@@ -22,7 +22,7 @@ O assistente v2 substitui o roteamento por intent hardcoded por **function calli
 
 Ativado por feature flag: `USE_TOOL_CALLING=true` no `.env` ou nas Variables do Railway. Quando desligado, o sistema cai no `assistente_unificado` v1 (intent-based) — rollback instantâneo, sem redeploy.
 
-**Decisão de stack**: continua usando Anthropic Claude (via LiteLLM) — não houve migração para GPT-4o-mini. LiteLLM permite trocar de provider futuramente sem mexer no resto.
+**Decisão de stack**: chamadas unificadas via **LiteLLM** (`ia_service.chat`). O modelo efetivo vem de `AI_MODEL` / `AI_TECHNICAL_MODEL` / `AI_MODEL_FALLBACK` e da rota normalizada (`openrouter/...`, `openai/...`, `anthropic/...`, etc.) — não há um único vendor fixo no código.
 
 ## Arquitetura
 
@@ -146,7 +146,7 @@ Regras:
 | `USE_TOOL_CALLING` | `false` | Ativa o assistente v2. Sem isso, usa o v1 antigo. |
 | `TOOL_RATE_LIMIT_PER_MIN` | `30` | Máximo de tool calls (status `ok` ou `erro`) por empresa por minuto. `0` desativa. |
 | `TOOL_RATE_LIMIT_PER_HOUR` | `300` | Idem, por hora. `0` desativa. |
-| `ANTHROPIC_API_KEY` | — | Necessária pelo LiteLLM. |
+| `OPENROUTER_API_KEY` / `AI_API_KEY` | — | Conforme rota LiteLLM (ex.: OpenRouter). `ANTHROPIC_API_KEY` só se usar provider/rota Anthropic nativa. |
 
 ## Auditoria — `tool_call_log`
 

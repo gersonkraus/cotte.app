@@ -18,6 +18,8 @@ status: documentado
 
 Documento de continuidade. Resume o que já foi feito nas fases anteriores e o que ainda falta para concluir a migração do assistente para Tool Use / function calling.
 
+Visão geral / roadmap de produto (histórico de decisões): `docs/plano-assistente-v2.md`.
+
 ---
 
 ## Arquitetura (resumo)

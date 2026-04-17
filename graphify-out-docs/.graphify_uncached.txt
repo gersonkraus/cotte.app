@@ -47,8 +47,8 @@ docs/tecnico/banco.md
 docs/tecnico/plano-melhorias-proposta.md
 docs/tecnico/agendamento.md
 docs/tecnico/permissoes.md
-docs/tecnico/assistente-ia-ultimas-melhorias-2026-04-10.md
-docs/tecnico/teste-manual-ultimos-20-commits-2026-04-10.md
+docs/archive/assistente-ia-ultimas-melhorias-2026-04-10.md
+docs/archive/teste-manual-ultimos-20-commits-2026-04-10.md
 docs/tecnico/financeiro.md
 docs/tecnico/fluxo-otp-aceite.md
 docs/tecnico/documentos-orcamento.md

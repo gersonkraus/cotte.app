@@ -3,9 +3,11 @@ title: Assistente Ia Ultimas Melhorias 2026 04 10
 tags:
   - tecnico
 prioridade: media
-status: documentado
+status: arquivado
 ---
 # Assistente IA — Últimas Melhorias e Modificações (2026-04-10)
+
+> **Arquivado:** snapshot de melhorias na data acima; para arquitetura atual do assistente, veja `docs/tecnico/assistente-ia-arquitetura.md` e `docs/tecnico/plano-tool-use-v2.md`.
 
 Este documento consolida as melhorias recentes aplicadas ao `assistente-ia`, com foco em precisão contextual, segurança operacional, UX de confirmação e personalização por empresa/usuário.
 

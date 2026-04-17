@@ -40,7 +40,7 @@ Implementado modal overlay que aparece automaticamente no dashboard quando o tri
 - Link: https://pay.kiwify.com.br/GEEDagv
 - Até 1.000 orçamentos/mês
 - 10 usuários
-- IA automática (Claude)
+- IA automática (LiteLLM)
 - Lembretes automáticos
 - Relatórios avançados
 - WhatsApp próprio

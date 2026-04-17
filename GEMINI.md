@@ -169,7 +169,7 @@ A stack abaixo é definitiva. Não sugira substituições de framework ou biblio
 - **SQLAlchemy** (async) — ORM
 - **Alembic** — migrations
 - **PostgreSQL** — banco de dados
-- **Anthropic SDK** — IA (Claude Sonnet para interpretação, Haiku para tarefas simples)
+- **LiteLLM** — gateway unificado de IA; modelos escolhidos no `.env` (`AI_MODEL`, `AI_TECHNICAL_MODEL`, `AI_MODEL_FALLBACK`, `AI_PROVIDER`), não fixos a um único provedor
 - **WeasyPrint** — geração de PDF (motor moderno); fallback: **FPDF2**
 - **Brevo** — envio de e-mails
 - **Cloudflare R2** — armazenamento de arquivos (`r2_service.py`)
@@ -274,7 +274,7 @@ Ao receber um pedido, o parceiro deve:
 
 - Assistente responde em linguagem natural e executa ações operacionais
 - Nunca executar ação operacional (criar orçamento, aprovar, etc.) sem ID explícito confirmado
-- `ia_service.py` — interpretação de intenção (Claude)
+- `ia_service.py` — interpretação de intenção (chamadas via LiteLLM; modelo conforme config)
 - `cotte_ai_hub.py` — hub de IA com streaming SSE
 - `ai_prompt_loader.py` — carregamento de prompts (sempre usar, nunca hardcodar prompts)
 - Limite de tokens sempre configurado em chamadas de IA
@@ -325,7 +325,7 @@ Use os marcadores abaixo para enriquecer respostas sem misturar com o código pe
 
 | Arquivo | Função |
 |---|---|
-| `app/services/ia_service.py` | Interpretação de mensagens com Claude |
+| `app/services/ia_service.py` | Interpretação de mensagens (LiteLLM / modelo configurável) |
 | `app/services/cotte_ai_hub.py` | Hub IA com streaming SSE |
 | `app/services/quote_notification_service.py` | Aprovação e notificação de orçamentos |
 | `app/services/whatsapp_evolution.py` | Integração Evolution API |

@@ -50,7 +50,7 @@ A arquitetura prioriza simplicidade, clareza e manutenção fácil.
 - `quote_notification_service` — centraliza o tratamento de mudança de status (aprovado/expirado) e envio de notificação interna por WhatsApp (apenas aprovado, com idempotência)
 - `whatsapp_service` — envio de mensagens (provider Z-API ou Evolution, multi-tenant por empresa)
 - `email_service` — envio de orçamento ao cliente, reset de senha (Brevo ou SMTP)
-- `ia_service` — interpretação de mensagens e comandos (Claude)
+- `ia_service` — interpretação de mensagens e comandos (LiteLLM; modelo configurável no `.env`)
 - `pdf_service` — geração de PDF do orçamento
 
 ### Banco de dados

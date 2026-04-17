@@ -30,7 +30,7 @@ Este documento detalha o roteiro de implementação para as melhorias identifica
 - [ ] **Bloco de FAQ**: Criar novo tipo de bloco com lista de `pergunta` e `resposta` (formato accordion).
 - [ ] **Bloco de Prova Social**: Permitir upload/link de imagens de logotipos ou prints de depoimentos.
 
-### Fase 2: Inteligência Artificial (Claude)
+### Fase 2: Inteligência Artificial (LiteLLM / modelos configuráveis)
 - [ ] **Botão "Gerar com IA"**: No editor de cada bloco, adicionar botão que dispara chamada para o `ia_service.py`.
 - [ ] **Contexto do Lead**: Garantir que o prompt da IA receba o `nome_empresa`, `segmento` e `dores` do lead para gerar copy personalizado.
 - [ ] **Refinamento de Pitch**: IA deve sugerir 3 opções de títulos impactantes para o bloco Hero.

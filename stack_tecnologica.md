@@ -36,7 +36,7 @@ status: documentado
 |---------|-----|
 | **Brevo** | E-mails transacionais: envio de orçamento ao cliente, recuperação de senha. Não usado para notificações internas de aprovado/expirado. |
 | **Evolution API ou Z-API** | WhatsApp: envio de orçamento ao cliente, lembretes automáticos, notificação interna quando o cliente aprova (para o atendente responsável). Provider escolhido via `WHATSAPP_PROVIDER`. |
-| **Anthropic (Claude)** | Interpretação de mensagens em linguagem natural e geração de respostas do bot. |
+| **LiteLLM** (modelos via `.env`: `AI_MODEL`, `AI_TECHNICAL_MODEL`, etc.) | Interpretação de mensagens em linguagem natural e geração de respostas do bot; rota típica OpenRouter (`OPENROUTER_API_KEY` ou `AI_API_KEY`). |
 
 ## Outros recursos
 - Geração de PDF do orçamento

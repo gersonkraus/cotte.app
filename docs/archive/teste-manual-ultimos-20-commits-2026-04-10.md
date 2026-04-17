@@ -3,9 +3,11 @@ title: Teste Manual Ultimos 20 Commits 2026 04 10
 tags:
   - tecnico
 prioridade: media
-status: documentado
+status: arquivado
 ---
 # Roteiro de Teste Manual — Últimos 20 commits
+
+> **Arquivado:** roteiro pontual para uma faixa de commits antiga; não use como checklist atual de release.
 
 Data da análise: 2026-04-10  
 Branch base analisada: `main`  

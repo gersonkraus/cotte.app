@@ -54,7 +54,7 @@ status: documentado
 | `app/routers/catalogo.py` | Router HTTP — todas as rotas do catálogo |
 | `app/services/catalogo_service.py` | Seeds de categorias e serviços de demonstração |
 | `app/services/template_segmento_service.py` | Templates de catálogo por segmento (eletricista, pedreiro, etc.) |
-| `app/services/ia_service.py:138` | `interpretar_tabela_catalogo()` — parse de tabela via Anthropic |
+| `app/services/ia_service.py:138` | `interpretar_tabela_catalogo()` — parse de tabela via LiteLLM (modelo configurável) |
 | `app/services/r2_service.py` | Upload/remoção de imagens no R2 |
 | `app/models/models.py:435-464` | Models `CategoriaCatalogo` e `Servico` |
 | `app/models/models.py:729-752` | Model `ItemOrcamento` (vincula `servico_id`) |
@@ -129,7 +129,7 @@ Frontend (catalogo.html:890)
   → api.post('/catalogo/analisar-importacao', { texto })
     ↓
 Router (catalogo.py:244-255)
-  → interpretar_tabela_catalogo(texto)        ← Anthropic API
+  → interpretar_tabela_catalogo(texto)        ← LiteLLM / modelo em config
   → _enriquecer_com_duplicatas(items, db, empresa_id)
   → retorna { items: [...], total: N }
 ```

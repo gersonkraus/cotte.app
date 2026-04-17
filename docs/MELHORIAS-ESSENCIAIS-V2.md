@@ -97,7 +97,7 @@ Streaming do "Thought Process" (Cadeia de Pensamento): Antes de responder o text
 Botões Rápidos no Superadmin (Painel de Modelos): Criar uma página em tempo real onde o Superadmin visualize qual IA atende cada camada via GET na API config/ai_status — e mude temporariamente o provedor direto na interface para fazer benchmarks A/B sem depender de tocar no arquivo de hospedagem.
 Teste de Sanidade Contextualizado via Webhook: Sempre que o administrador trocar a variável na nuvem (Railway, etc.), um hook rodaria um healthcheck contra um script fixo que testa se o modelo novo atende com sucesso o retorno JSON de orçamentos exigido pelo sistema, emitindo um alerta via webhook (Telegram/Email) se o modelo atual não aguentar a carga cognitiva.
 Melhorias de frontend de alto impacto
-Badge Visual de Engine Ativa: No chat interno do Superadmin, adicionar um pequeno badge no canto superior direito do cabeçalho que indique dinamicamente qual modelo está ativo ali (ex: Claude-3.5 ou GPT-4o), informando imediatamente a performance cognitiva esperada para a sessão.
+Badge Visual de Engine Ativa: No chat interno do Superadmin, adicionar um pequeno badge no canto superior direito do cabeçalho que indique dinamicamente qual modelo está ativo ali (ex.: slug configurado em `AI_MODEL` / engine selecionada), informando imediatamente a performance cognitiva esperada para a sessão.
 Efeito de Erro Elegante na Queda de Provedor: Quando a variável de ambiente for mudada acidentalmente para um modelo inexistente, em vez de mostrar um erro genérico (500), a interface do chat deve renderizar de forma fluida uma mensagem sistêmica (System Feedback): "Provedor de inteligência offline. Retomando modelo padrão...", e reativar a barra de progresso após um retry do backend.
 
 Melhorias essenciais
@@ -121,7 +121,7 @@ Ideias inovadoras
 
 
   ///////////////////IMPORTANTE ///////////////////////////
-   [INOVAÇÃO] 1. Adicionar um parser de linguagem natural pré-tool no backend: antes de chamar o Claude, passar a
+   [INOVAÇÃO] 1. Adicionar um parser de linguagem natural pré-tool no backend: antes de chamar o LLM (LiteLLM), passar a
   mensagem por um regex/NLP leve que identifica padrões como "X por Y", "X a R$Y" e injeta hints estruturados no
   contexto — reduz erros mesmo quando o prompt do modelo falha.
 
@@ -194,7 +194,7 @@ Ideias inovadoras
   - Exibir no painel técnico do assistente o consumo por turno com rótulos como fast-path local, prompt mínimo ou
     prompt completo, para facilitar diagnóstico imediato.
   - No card de debug do assistente, mostrar também o provider/model efetivamente usados via LiteLLM, evitando a
-    falsa impressão de que a conversa ainda está passando por Haiku/Sonnet.
+    falsa impressão de que o backend ainda fixa um único modelo comercial antigo.
 
 
     

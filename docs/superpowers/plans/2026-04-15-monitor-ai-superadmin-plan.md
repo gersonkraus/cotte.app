@@ -29,23 +29,13 @@ O `monitor-ai.html` será um **painel de inteligência operacional exclusivo par
 
 ## 2. Decisão de Stack
 
- O projeto não tem LangChain instalado. A dependência real é `anthropic>=0.34.0` + `litellm>=1.65.0`. Adicionar LangChain traria ~50 sub-dependências sem ganho real para este caso.
+O projeto não tem LangChain instalado. A camada de IA do produto passa por **`litellm`** (`ia_service`), com modelos e chaves definidos no `.env` (`AI_MODEL`, `AI_TECHNICAL_MODEL`, `OPENROUTER_API_KEY` / `AI_API_KEY`, etc.). Adicionar LangChain traria muitas sub-dependências sem ganho claro para este caso.
 
-### ✅ USAR Anthropic Tool Use nativo
-O SDK Anthropic já suporta `tools=[]` na chamada de API com loop de execução. É o mesmo padrão que as ferramentas "agentic" modernas usam (ex: Cursor, Claude Code).
-
-```python
-# Padrão Anthropic Tool Use (já disponível)
-response = client.messages.create(
-    model="claude-sonnet-4-5",
-    tools=[tool1, tool2, ...],
-    messages=messages
-)
-# Loop: se response.stop_reason == "tool_use" → executa tool → continua
-```
+### ✅ Tool calling via LiteLLM
+O fluxo alinhado ao restante do sistema é **`ia_service.chat(..., tools=...)`** com o modelo configurado (pode ser rota OpenRouter, OpenAI, Anthropic nativo, etc.). O loop de tool execution replica o padrão agentic moderno (mensagem → tool_calls → tool_result → próximo turno).
 
 ### ✅ Manter code_rag_service existente como retriever_tool
-Converter `CodeRAGService.search()` em tool Anthropic-compatible.
+Converter `CodeRAGService.search()` em tool no formato esperado pelo payload de tools do gateway em uso.
 
 ---
 

@@ -44,7 +44,7 @@ Atualizar apenas informações duráveis (decisões técnicas, padrões, arquite
 
 Backend: FastAPI + SQLAlchemy (async) + Python 3.11+
 Frontend: HTML5 + CSS3 (Tailwind CDN + CSS custom) + JavaScript Vanilla puro
-IA: Anthropic SDK (app/services/ia_service.py + cotte_ai_hub.py)
+IA: LiteLLM (`app/services/ia_service.py` + `cotte_ai_hub.py`) — modelos e chaves via `.env` (`AI_PROVIDER`, `AI_MODEL`, `AI_TECHNICAL_MODEL`, `AI_MODEL_FALLBACK`, `OPENROUTER_API_KEY` / `AI_API_KEY`, etc.)
 WhatsApp: Evolution API (provider default — whatsapp_evolution.py)
 E-mail: Brevo
 Armazenamento: Cloudflare R2 (r2_service.py)

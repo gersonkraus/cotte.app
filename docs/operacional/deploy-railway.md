@@ -137,7 +137,9 @@ No serviço da **API** (o que faz deploy do código), abra **Variables** e confi
 | `SECRET_KEY` | Chave longa e aleatória (ex.: [randomkeygen.com](https://randomkeygen.com)) | Sim |
 | `ALGORITHM` | `HS256` | Sim |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `60` | Sim |
-| `ANTHROPIC_API_KEY` | Sua chave da API Claude (Anthropic) | Sim |
+| `OPENROUTER_API_KEY` ou `AI_API_KEY` | Chave do provedor de IA usado pelo LiteLLM (ex.: OpenRouter); ver `sistema/.env.example` para `AI_MODEL`, `AI_PROVIDER` | Sim (ou a combinação de chaves exigida pela rota escolhida) |
+| `AI_MODEL` | Slug do modelo principal (ex.: `openai/gpt-4o-mini`) | Recomendado (há default em `config.py`) |
+| `AI_PROVIDER` | Ex.: `openrouter` | Opcional (há default) |
 | `WHATSAPP_PROVIDER` | `zapi` ou `evolution` | Sim |
 | `ZAPI_INSTANCE_ID` | Instance ID da Z-API (quando provider=zapi) | Se Z-API |
 | `ZAPI_TOKEN` | Token da Z-API | Se Z-API |
@@ -232,7 +234,7 @@ O provider (Z-API ou Evolution) precisa chamar sua API quando chega mensagem.
 | 1 | Novo projeto → Deploy from GitHub repo → selecionar repositório |
 | 2 | Settings do serviço → Root Directory = `sistema` |
 | 3 | New → Database → PostgreSQL → ligar DATABASE_URL ao serviço da API |
-| 4 | Variables: preencher SECRET_KEY, APP_URL, Anthropic, Z-API, etc. |
+| 4 | Variables: preencher SECRET_KEY, APP_URL, chaves de IA (LiteLLM/OpenRouter), Z-API, etc. |
 | 5 | Procfile já existe em `sistema/Procfile` |
 | 6 | Push no Git → deploy automático → gerar domínio |
 | 7 | (Opcional) Volume em `static` para PDFs/logos |
@@ -245,7 +247,7 @@ O provider (Z-API ou Evolution) precisa chamar sua API quando chega mensagem.
 
 - **"Crashed" após o deploy**  
   1. Veja o **erro real**: no Railway → seu serviço → **Deployments** → clique no último deploy → abra **View Logs**. O traceback mostra o que quebrou.  
-  2. Confira as **variáveis**: no serviço → **Variables**. Obrigatórias: `DATABASE_URL`, `SECRET_KEY`, `ANTHROPIC_API_KEY`, `WHATSAPP_PROVIDER`. Se usar Z-API: `ZAPI_INSTANCE_ID`, `ZAPI_TOKEN`, `ZAPI_BASE_URL`. Se usar Evolution: `EVOLUTION_API_URL`, `EVOLUTION_API_KEY` (e opcionalmente `EVOLUTION_INSTANCE`).  
+  2. Confira as **variáveis**: no serviço → **Variables**. Obrigatórias: `DATABASE_URL`, `SECRET_KEY`, variáveis de IA (`OPENROUTER_API_KEY` / `AI_API_KEY` e modelo conforme `.env.example`), `WHATSAPP_PROVIDER`. Se usar Z-API: `ZAPI_INSTANCE_ID`, `ZAPI_TOKEN`, `ZAPI_BASE_URL`. Se usar Evolution: `EVOLUTION_API_URL`, `EVOLUTION_API_KEY` (e opcionalmente `EVOLUTION_INSTANCE`).  
   3. **DATABASE_URL**: use referência ao Postgres do projeto quando disponível (ex.: `${{Postgres.DATABASE_URL}}`).
 
 - **"Script start.sh not found" ou "Railpack could not determine how to build"**  

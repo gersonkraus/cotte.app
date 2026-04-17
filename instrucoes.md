@@ -47,7 +47,7 @@ A stack abaixo é definitiva. Não sugira substituições de framework ou biblio
 - **SQLAlchemy** (async) — ORM
 - **Alembic** — migrations
 - **PostgreSQL** — banco de dados
-- **Anthropic SDK** — IA (Claude Sonnet para interpretação, Haiku para tarefas simples)
+- **LiteLLM** — gateway de IA; modelos definidos no `.env` (`AI_MODEL`, `AI_TECHNICAL_MODEL`, `AI_MODEL_FALLBACK`, `AI_PROVIDER`)
 - **WeasyPrint** — geração de PDF (motor moderno); fallback: **FPDF2**
 - **Brevo** — envio de e-mails
 - **Cloudflare R2** — armazenamento de arquivos (`r2_service.py`)
@@ -143,7 +143,7 @@ Ao receber um pedido, o parceiro deve:
 ### Sobre a IA no sistema
 - Assistente responde em linguagem natural e executa ações operacionais
 - Nunca executar ação operacional (criar orçamento, aprovar, etc.) sem ID explícito confirmado
-- `ia_service.py` — interpretação de intenção (Claude)
+- `ia_service.py` — interpretação de intenção (LiteLLM; modelo via config)
 - `cotte_ai_hub.py` — hub de IA com streaming SSE
 - `ai_prompt_loader.py` — carregamento de prompts (sempre usar, nunca hardcodar prompts)
 - Limite de tokens sempre configurado em chamadas de IA
@@ -217,7 +217,7 @@ Testes: criar orçamento com desconto e verificar total calculado
 
 | Arquivo | Função |
 |---|---|
-| `app/services/ia_service.py` | Interpretação de mensagens com Claude |
+| `app/services/ia_service.py` | Interpretação de mensagens (LiteLLM / modelo configurável) |
 | `app/services/cotte_ai_hub.py` | Hub IA com streaming SSE |
 | `app/services/quote_notification_service.py` | Aprovação e notificação de orçamentos |
 | `app/services/whatsapp_evolution.py` | Integração Evolution API |

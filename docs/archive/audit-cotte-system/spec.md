@@ -27,5 +27,5 @@ Realizar uma auditoria técnica e de produto profunda no sistema COTTE para enco
 ## Escopo de Análise
 - **Backend**: FastAPI, modelagem do banco de dados SQLAlchemy, validações Pydantic.
 - **Frontend**: Vanilla JS, estrutura HTML5/CSS3, reatividade e feedback visual.
-- **Integrações Chave**: IA (Claude), envios via WhatsApp, PDFs e e-mails.
+- **Integrações Chave**: IA (LiteLLM / modelos configuráveis), envios via WhatsApp, PDFs e e-mails.
 - **Fluxo de Negócio**: Desde a entrada de dados (captação), geração do orçamento, aprovação e gestão financeira.

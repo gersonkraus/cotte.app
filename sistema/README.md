@@ -17,7 +17,7 @@ status: documentado
 
 # COTTE — Backend API
 
-Sistema de geração de orçamentos via WhatsApp com inteligência artificial (Claude).
+Sistema de geração de orçamentos via WhatsApp com inteligência artificial (**LiteLLM**; modelos e provider em `.env`).
 FastAPI, PostgreSQL, frontend em HTML/JS servido em `/app`.
 
 ## Estrutura do Projeto
@@ -57,7 +57,7 @@ sistema/
     │   └── webhooks.py             # Webhooks externos
     │
     ├── services/
-    │   ├── ia_service.py           # Claude (interpretar mensagem, comando operador)
+    │   ├── ia_service.py           # LiteLLM — interpretar mensagem, comando operador (modelo via config)
     │   ├── whatsapp_service.py     # Factory Z-API/Evolution, send_whatsapp_message
     │   ├── quote_notification_service.py  # Notificações internas (aprovado → WhatsApp)
     │   ├── email_service.py        # Brevo/SMTP (orçamento ao cliente, reset senha)
@@ -144,7 +144,7 @@ Mensagem recebida no WhatsApp
         ↓
 Webhook (Z-API ou Evolution) chama /whatsapp/webhook
         ↓
-Claude interpreta (comando ou criação de orçamento)
+IA (LiteLLM) interpreta (comando ou criação de orçamento)
         ↓
 Orçamento criado / comando executado
         ↓

@@ -48,7 +48,7 @@ Sistema completo de gestão comercial com orçamentos, clientes, produtos e inte
 
 ### Integrações
 - WhatsApp Business API
-- OpenAI GPT-4
+- IA via **LiteLLM** (modelos configuráveis no `.env`: `AI_MODEL`, `AI_TECHNICAL_MODEL`, `AI_MODEL_FALLBACK`, `AI_PROVIDER`; chaves `OPENROUTER_API_KEY` / `AI_API_KEY` conforme rota)
 - PDF generation (WeasyPrint)
 - Email (SMTP)
 
@@ -151,7 +151,7 @@ status: ativo
 
 # COTTE — Projeto iZi
 
-Sistema de geração de orçamentos via WhatsApp com inteligência artificial (Claude).
+Sistema de geração de orçamentos via WhatsApp com inteligência artificial (roteamento **LiteLLM**, modelos definidos no `.env`).
 Backend em FastAPI, frontend em HTML/CSS/JS; deploy no Railway.
 
 ## Estrutura do repositório
