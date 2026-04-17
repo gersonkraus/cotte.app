@@ -225,15 +225,30 @@ function getAdaptiveMessagePlaceholder() {
         : DEFAULT_MESSAGE_PLACEHOLDER;
 }
 
-function _getEmpresaScopeKey(base) {
+function _decodeJwtPayloadSafely(token) {
+    if (!token || typeof token !== 'string') return null;
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
     try {
-        const token = localStorage.getItem('cotte_token');
-        if (token) {
-            const parts = token.split('.');
-            if (parts.length >= 2) {
-                const payload = JSON.parse(atob(parts[1]));
-                if (payload.empresa_id) return `${base}_e${payload.empresa_id}`;
-            }
+        // JWT usa base64url; convertemos para base64 padrão antes do atob.
+        const payloadB64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        const padded = payloadB64 + '='.repeat((4 - (payloadB64.length % 4)) % 4);
+        return JSON.parse(atob(padded));
+    } catch (_) {
+        return null;
+    }
+}
+
+function _getEmpresaScopeKey(base) {
+    const payload = _decodeJwtPayloadSafely(localStorage.getItem('cotte_token'));
+    if (payload && payload.empresa_id) {
+        return `${base}_e${payload.empresa_id}`;
+    }
+    try {
+        // Fallback para cenários de token inválido/parcial durante troca de sessão.
+        const usuario = JSON.parse(localStorage.getItem('cotte_usuario') || 'null');
+        if (usuario && usuario.empresa_id) {
+            return `${base}_e${usuario.empresa_id}`;
         }
     } catch (_) {}
     return base;

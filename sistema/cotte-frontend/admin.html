@@ -1264,6 +1264,14 @@
       if (!res.access_token || !res.usuario) throw new Error('Resposta da API inválida.');
       sessionStorage.setItem('superadmin_token_backup', localStorage.getItem('cotte_token'));
       sessionStorage.setItem('superadmin_usuario_backup', localStorage.getItem('cotte_usuario'));
+      // Evita reaproveitar sessão de IA de outro tenant após impersonação.
+      try {
+        Object.keys(localStorage).forEach((k) => {
+          if (k === 'ai_sessao_id' || k === 'ai_chat_history' || k === 'ai_chat_meta' || /^ai_(sessao_id|chat_history|chat_meta)_e\d+$/.test(k)) {
+            localStorage.removeItem(k);
+          }
+        });
+      } catch (_) { /* no-op */ }
       salvarSessao(res.access_token, res.usuario);
       // Busca objeto usuario completo (com is_gestor, permissoes, etc.)
       try {
