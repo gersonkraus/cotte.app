@@ -60,4 +60,24 @@ def test_raw_mode_preserves_unknown_prefix():
 
 
 def test_default_placeholder_maps_to_fallback():
-    assert normalize_litellm_model("default", provider="openrouter", raw=False) == "gpt-4o-mini"
+    assert (
+        normalize_litellm_model(
+            "default",
+            provider="openrouter",
+            raw=False,
+            fallback_model="gpt-4o-mini",
+        )
+        == "openrouter/openai/gpt-4o-mini"
+    )
+
+
+def test_custom_fallback_model_respected():
+    assert (
+        normalize_litellm_model(
+            "",
+            provider="openrouter",
+            raw=False,
+            fallback_model="openrouter/deepseek/deepseek-chat",
+        )
+        == "openrouter/deepseek/deepseek-chat"
+    )

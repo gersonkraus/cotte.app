@@ -1,6 +1,6 @@
 # sistema/app/services/ia_service.py
 """
-IA Service - LiteLLM + GPT-4o-mini (Tool Use nativo)
+IA Service - LiteLLM (Tool Use nativo)
 100% compatível com todas as funcionalidades já implementadas no sistema COTTE
 """
 
@@ -92,8 +92,18 @@ def _apply_google_to_gemini_alias(model: str) -> str:
     return model
 
 
-def normalize_litellm_model(model: str, *, provider: str, raw: bool = False) -> str:
-    """Converte AI_MODEL / override em string aceita pelo LiteLLM (testável sem instanciar serviço)."""
+def normalize_litellm_model(
+    model: str,
+    *,
+    provider: str,
+    raw: bool = False,
+    fallback_model: str = "gpt-4o-mini",
+) -> str:
+    """Converte AI_MODEL / override em string aceita pelo LiteLLM (testável sem instanciar serviço).
+
+    ``fallback_model`` vem tipicamente de ``Settings.AI_MODEL_FALLBACK`` quando ``model`` está vazio
+    ou é o placeholder ``default``.
+    """
     model = (model or "").strip()
     prov = (provider or "openai").strip().lower()
 
@@ -101,9 +111,10 @@ def normalize_litellm_model(model: str, *, provider: str, raw: bool = False) -> 
         if model and model.lower() == "default":
             logger.warning(
                 'AI_MODEL com valor literal "default" é inválido para o LiteLLM; '
-                "usando fallback gpt-4o-mini. Defina um id de modelo real no .env."
+                "usando AI_MODEL_FALLBACK (%s). Defina um id de modelo real no .env.",
+                fallback_model,
             )
-        return "gpt-4o-mini"
+        model = (fallback_model or "").strip() or "gpt-4o-mini"
 
     if raw:
         return _apply_google_to_gemini_alias(model)
@@ -156,7 +167,7 @@ def normalize_litellm_model(model: str, *, provider: str, raw: bool = False) -> 
 class IAService:
     def __init__(self):
         self.provider = (settings.AI_PROVIDER or "openai").strip().lower()
-        self.model = (settings.AI_MODEL or "gpt-4o-mini").strip()
+        self.model = (settings.AI_MODEL or settings.AI_MODEL_FALLBACK).strip()
         self.litellm_model = self._normalize_model_for_provider(
             model=self.model,
             provider=self.provider,
@@ -215,6 +226,7 @@ class IAService:
             model,
             provider=provider,
             raw=bool(getattr(settings, "AI_LITELLM_RAW", False)),
+            fallback_model=getattr(settings, "AI_MODEL_FALLBACK", "gpt-4o-mini"),
         )
 
     def _litellm_kwargs(
@@ -339,8 +351,11 @@ class IAService:
     def _calculate_cost(
         self, input_tokens: int, output_tokens: int, modelo_usado: Optional[str] = None
     ) -> float:
-        model_to_check = modelo_usado if modelo_usado else self.model
-        if "gpt-4o-mini" in model_to_check:
+        model_to_check = (modelo_usado if modelo_usado else self.model or "").lower()
+        fb = (getattr(settings, "AI_MODEL_FALLBACK", "") or "").strip().lower()
+        fb_slug = fb.split("/")[-1] if fb else ""
+        # Estimativa barata aproximada quando o modelo em uso corresponde ao fallback configurado.
+        if fb_slug and fb_slug in model_to_check:
             return (input_tokens * 0.00000015) + (output_tokens * 0.00000060)
         return (input_tokens + output_tokens) * 0.000002
 

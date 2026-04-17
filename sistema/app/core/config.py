@@ -53,9 +53,12 @@ class Settings(BaseSettings):
     # Anthropic (Claude AI)
     # ANTHROPIC_API_KEY: str
 
-    # === IA - LiteLLM + GPT-4o-mini ===
+    # === IA - LiteLLM ===
     AI_PROVIDER: str = "openrouter"
     AI_MODEL: str = "openai/gpt-4o-mini"
+    # Usado quando AI_MODEL está vazio ou é o placeholder "default" (antes de normalizar para LiteLLM).
+    # Slug curto (ex.: gpt-4o-mini) funciona bem com AI_PROVIDER=openrouter; ou use openrouter/...
+    AI_MODEL_FALLBACK: str = "gpt-4o-mini"
     # Padrão via OpenRouter + LiteLLM (OPENROUTER_API_KEY); não exige ANTHROPIC_API_KEY nativa.
     AI_TECHNICAL_MODEL: str = "openrouter/anthropic/claude-3.5-sonnet"
     AI_API_KEY: Optional[str] = None
