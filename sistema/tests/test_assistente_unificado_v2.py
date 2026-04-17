@@ -828,3 +828,43 @@ def test_derive_display_text_fallback_dados_financeiro_analise():
     text = _derive_ai_response_display_text(r)
     assert text
     assert "inadimplentes" in text
+
+
+def test_texto_exibicao_inadimplencia_campos_ia():
+    """IA retorna cliente/valor_devido/data_vencimento sem resumo (caso real do assistente)."""
+    from app.services.cotte_ai_hub import _texto_exibicao_para_modulo
+
+    dados = {
+        "cliente": "O-99",
+        "valor_devido": 7.5,
+        "data_vencimento": "2026-04-05",
+        "confianca": 0.5,
+    }
+    txt = _texto_exibicao_para_modulo("financeiro_analise", dados)
+    assert "O-99" in txt
+    assert "7,50" in txt or "7.50" in txt
+    assert "2026-04-05" in txt
+    assert "Análise financeira concluída" not in txt
+
+
+def test_texto_exibicao_inadimplencia_lista():
+    from app.services.cotte_ai_hub import _texto_exibicao_para_modulo
+
+    dados = {
+        "clientes": [
+            {"cliente": "A", "valor_devido": 10.0, "data_vencimento": "2026-03-01"},
+            {"cliente": "B", "valor_devido": 20.0},
+        ],
+        "confianca": 0.8,
+    }
+    txt = _texto_exibicao_para_modulo("financeiro_analise", dados)
+    assert "A" in txt and "B" in txt
+    assert "Análise financeira concluída" not in txt
+
+
+def test_intencao_orcamentos_pendentes_nao_dispara_inadimplencia():
+    """'Pendente' em orçamentos é pipeline; não deve ser INADIMPLENCIA (fastpath clientes_devendo)."""
+    from app.services.ai_intention_classifier import detectar_intencao_assistente
+
+    assert detectar_intencao_assistente("Quais orçamentos pendentes?") != "INADIMPLENCIA"
+    assert detectar_intencao_assistente("Quem está devendo?") == "INADIMPLENCIA"

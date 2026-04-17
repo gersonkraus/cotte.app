@@ -495,6 +495,11 @@ class IntentionClassifier:
         # D) INADIMPLÊNCIA
         for pattern in self._regex_patterns[IntencaoUsuario.INADIMPLENCIA]:
             if pattern.search(mensagem_normalized):
+                # Orçamento(s) pendente(s) = pipeline comercial (rascunho/enviado), não cobrança
+                if re.search(r"\bor[çc]amentos?\b", mensagem_lower) and re.search(
+                    r"\bpendentes?\b", mensagem_lower
+                ):
+                    continue
                 return IntencaoUsuario.INADIMPLENCIA
 
         # E) DASHBOARD

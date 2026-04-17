@@ -109,6 +109,65 @@ def _fmt_brl(val: float) -> str:
     return "R$ " + s.replace(",", "X").replace(".", ",").replace("X", ".")
 
 
+def _linha_devedor_item(it: dict) -> Optional[str]:
+    """Uma linha legível para inadimplência (IA costuma usar campos soltos ou em lista)."""
+    if not isinstance(it, dict):
+        return None
+    nome = it.get("cliente") or it.get("cliente_nome") or it.get("nome")
+    if not nome and it.get("descricao"):
+        nome = it["descricao"]
+    vd = it.get("valor_devido")
+    if vd is None and str(it.get("tipo") or "").lower() != "saldo":
+        vd = it.get("valor")
+    if nome is None and vd is None:
+        return None
+    bits: list[str] = []
+    if nome is not None:
+        bits.append(str(nome).strip())
+    if vd is not None:
+        try:
+            bits.append(_fmt_brl(float(vd)))
+        except (TypeError, ValueError):
+            bits.append(str(vd))
+    dv = it.get("data_vencimento") or it.get("vencimento") or it.get("data_vcto")
+    if dv:
+        bits.append(f"venc. {dv}")
+    return " — ".join(bits) if bits else None
+
+
+def _append_financeiro_inadimplencia_texto(dados: dict, parts: list[str]) -> None:
+    """Acrescenta texto para JSON de 'quem devê' (lista ou registro único no topo)."""
+    for key in (
+        "clientes",
+        "inadimplentes",
+        "contas_em_atraso",
+        "devedores",
+        "lista",
+        "itens",
+        "contas",
+    ):
+        lst = dados.get(key)
+        if not isinstance(lst, list) or not lst:
+            continue
+        lines: list[str] = []
+        for it in lst[:80]:
+            if not isinstance(it, dict):
+                continue
+            line = _linha_devedor_item(it)
+            if line:
+                lines.append(line)
+        if lines:
+            parts.append(
+                "Clientes com valores em atraso:\n"
+                + "\n".join(f"• {ln}" for ln in lines)
+            )
+            return
+    # Campos no nível raiz (um único registro)
+    line = _linha_devedor_item(dados)
+    if line:
+        parts.append("Contas em atraso:\n• " + line)
+
+
 def _texto_exibicao_para_modulo(modulo: str, dados: dict) -> str:
     """
     Monta texto legível para UI/SSE a partir do JSON validado pela IA.
@@ -159,6 +218,7 @@ def _texto_exibicao_para_modulo(modulo: str, dados: dict) -> str:
                 )
                 if bullets:
                     parts.append(f"{label}:\n{bullets}")
+        _append_financeiro_inadimplencia_texto(dados, parts)
         out = "\n\n".join(p for p in parts if p).strip()
         if out:
             return out
