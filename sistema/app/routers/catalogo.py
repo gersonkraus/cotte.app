@@ -5,6 +5,7 @@ import os, shutil, uuid, csv, io
 
 from app.core.database import get_db
 from app.core.auth import exigir_permissao
+from app.core.tenant_context import set_tenant_context
 from app.models.models import Servico, Usuario, CategoriaCatalogo
 from app.schemas.schemas import (
     ServicoCreate,
@@ -100,6 +101,13 @@ def listar_catalogo(
     apenas_ativos: bool = True,
 ):
     """Lista serviços do catálogo da empresa."""
+    # Reforça o escopo tenant na sessão desta rota.
+    set_tenant_context(
+        db,
+        empresa_id=usuario.empresa_id,
+        usuario_id=usuario.id,
+        is_superadmin=usuario.is_superadmin,
+    )
     seed_catalogo_padrao(usuario.empresa_id, db)
     query = (
         db.query(Servico)

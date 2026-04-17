@@ -12,6 +12,7 @@ import logging
 
 from app.core.database import get_db, SessionLocal
 from app.core.auth import get_usuario_atual, exigir_permissao
+from app.core.tenant_context import set_tenant_context
 from app.models.models import (
     Orcamento,
     ItemOrcamento,
@@ -501,6 +502,14 @@ def listar_orcamentos(
     ``joinedload`` em coleções. Pagamentos financeiros não são carregados aqui
     (use GET /orcamentos/{id} para o corpo completo e N+1 evitado com eager load).
     """
+    # Reforça o escopo tenant na sessão desta rota.
+    set_tenant_context(
+        db,
+        empresa_id=usuario.empresa_id,
+        usuario_id=usuario.id,
+        is_superadmin=usuario.is_superadmin,
+    )
+
     query = (
         db.query(Orcamento)
         .options(

@@ -6,6 +6,7 @@ import os, shutil, uuid, logging
 
 from app.core.database import get_db
 from app.core.auth import get_usuario_atual, hash_senha, exigir_permissao
+from app.core.tenant_context import set_tenant_context
 from app.services.audit_service import registrar_auditoria
 from app.models.models import Usuario, Empresa, BancoPIXEmpresa, Orcamento, Notificacao
 from app.schemas.schemas import (
@@ -57,6 +58,12 @@ def get_empresa(
     db: Session = Depends(get_db),
 ):
     """Retorna os dados da empresa do usuário logado."""
+    set_tenant_context(
+        db,
+        empresa_id=usuario.empresa_id,
+        usuario_id=usuario.id,
+        is_superadmin=usuario.is_superadmin,
+    )
     empresa = db.query(Empresa).filter(Empresa.id == usuario.empresa_id).first()
     if not empresa:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
@@ -69,6 +76,12 @@ def get_empresa_uso(
     db: Session = Depends(get_db),
 ):
     """Retorna o uso de recursos (orçamentos, usuários) da empresa."""
+    set_tenant_context(
+        db,
+        empresa_id=usuario.empresa_id,
+        usuario_id=usuario.id,
+        is_superadmin=usuario.is_superadmin,
+    )
     empresa = db.query(Empresa).filter(Empresa.id == usuario.empresa_id).first()
     if not empresa:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
@@ -122,6 +135,12 @@ def get_resumo_sidebar(
     db: Session = Depends(get_db),
 ):
     """Retorna em uma única chamada os dados necessários para a sidebar: empresa, uso do plano e contagem de notificações."""
+    set_tenant_context(
+        db,
+        empresa_id=usuario.empresa_id,
+        usuario_id=usuario.id,
+        is_superadmin=usuario.is_superadmin,
+    )
     empresa = db.query(Empresa).filter(Empresa.id == usuario.empresa_id).first()
     if not empresa:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
