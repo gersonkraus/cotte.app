@@ -29,16 +29,130 @@ from app.schemas.schemas import IAInterpretacaoOut
 
 logger = logging.getLogger(__name__)
 
+# Primeiro segmento do model já define o roteamento no LiteLLM — não reescrever.
+# Lista conservadora + extensível via env (ver _explicit_route_prefixes).
+_LITELLM_EXPLICIT_ROUTE_PREFIXES: frozenset[str] = frozenset(
+    {
+        "openrouter",
+        "azure",
+        "bedrock",
+        "ollama",
+        "anthropic",
+        "gemini",
+        "openai",
+        "groq",
+        "mistral",
+        "cohere",
+        "vertex_ai",
+        "vertex_ai_beta",
+        "deepseek",
+        "fireworks_ai",
+        "together_ai",
+        "xai",
+        "perplexity",
+        "nvidia_nim",
+        "sagemaker",
+        "watsonx",
+        "huggingface",
+        "replicate",
+        "vllm",
+        "hosted_vllm",
+        "databricks",
+        "moonshot",
+        "ai21",
+        "clarifai",
+        "nlp_cloud",
+        "aleph_alpha",
+        "anyscale",
+        "cloudflare",
+        "custom_openai",
+        "text-completion-openai",
+    }
+)
+
+
+def _explicit_route_prefixes() -> frozenset[str]:
+    extra = (os.getenv("AI_LITELLM_ROUTE_PREFIXES") or "").strip()
+    if not extra:
+        return _LITELLM_EXPLICIT_ROUTE_PREFIXES
+    parts = {p.strip().lower() for p in extra.split(",") if p.strip()}
+    return _LITELLM_EXPLICIT_ROUTE_PREFIXES | parts
+
+
+def _is_explicit_litellm_route(model: str, prefixes: frozenset[str]) -> bool:
+    if "/" not in model:
+        return False
+    head = model.split("/", 1)[0].strip().lower()
+    return head in prefixes
+
+
+def _apply_google_to_gemini_alias(model: str) -> str:
+    if model.startswith("google/"):
+        return f"gemini/{model[len('google/') :]}"
+    return model
+
+
+def normalize_litellm_model(model: str, *, provider: str, raw: bool = False) -> str:
+    """Converte AI_MODEL / override em string aceita pelo LiteLLM (testável sem instanciar serviço)."""
+    model = (model or "").strip()
+    prov = (provider or "openai").strip().lower()
+
+    if not model or model.lower() == "default":
+        if model and model.lower() == "default":
+            logger.warning(
+                'AI_MODEL com valor literal "default" é inválido para o LiteLLM; '
+                "usando fallback gpt-4o-mini. Defina um id de modelo real no .env."
+            )
+        return "gpt-4o-mini"
+
+    if raw:
+        return _apply_google_to_gemini_alias(model)
+
+    prefixes = _explicit_route_prefixes()
+    if _is_explicit_litellm_route(model, prefixes):
+        return _apply_google_to_gemini_alias(model)
+
+    if prov == "openrouter":
+        if model.startswith("openrouter/"):
+            return model
+        if "/" in model:
+            return f"openrouter/{model}"
+        return f"openrouter/openai/{model}"
+
+    if model.startswith("google/"):
+        model = f"gemini/{model[len('google/') :]}"
+
+    if prov == "openai":
+        if model.startswith("openrouter/openai/"):
+            return model.replace("openrouter/openai/", "", 1)
+        if model.startswith("openai/"):
+            return model.replace("openai/", "", 1)
+        return model
+
+    if prov == "anthropic":
+        if model.startswith("openrouter/anthropic/"):
+            return model.replace("openrouter/anthropic/", "", 1)
+        if model.startswith("anthropic/"):
+            return model.replace("anthropic/", "", 1)
+        return model
+
+    if prov in ("google", "gemini"):
+        if model.startswith("gemini/"):
+            return model
+        return f"gemini/{model}" if "/" not in model else model
+
+    return _apply_google_to_gemini_alias(model)
+
 
 class IAService:
     def __init__(self):
         self.provider = (settings.AI_PROVIDER or "openai").strip().lower()
         self.model = (settings.AI_MODEL or "gpt-4o-mini").strip()
-        self.api_key = self._resolve_api_key(self.provider)
         self.litellm_model = self._normalize_model_for_provider(
             model=self.model,
             provider=self.provider,
         )
+        self.api_key = self._resolve_api_key_for_litellm_model(self.litellm_model)
         logger.info(
             "🚀 IA Service iniciado → %s / %s (modelo LiteLLM: %s, Tool Use ativado)",
             self.provider,
@@ -46,10 +160,32 @@ class IAService:
             self.litellm_model,
         )
 
-    def _resolve_api_key(self, provider: str) -> Optional[str]:
-        """Resolve chave de API com fallback por provider."""
+    def _resolve_api_key_for_litellm_model(self, litellm_model: str) -> Optional[str]:
+        """Escolhe a chave compatível com o model resolvido (LiteLLM roteia pelo prefixo)."""
         if settings.AI_API_KEY:
             return settings.AI_API_KEY
+
+        m = (litellm_model or "").strip().lower()
+        if m.startswith("openrouter/"):
+            return os.getenv("OPENROUTER_API_KEY")
+
+        if m.startswith("anthropic/"):
+            return os.getenv("ANTHROPIC_API_KEY")
+
+        if m.startswith("gemini/") or m.startswith("google/"):
+            return os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+
+        if m.startswith("azure/"):
+            return os.getenv("AZURE_API_KEY") or os.getenv("AZURE_OPENAI_API_KEY")
+
+        if m.startswith("vertex_ai") or m.startswith("vertex_ai_beta"):
+            return os.getenv("VERTEXAI_API_KEY")
+
+        # OpenAI direto (prefixo openai/ ou modelo curto com AI_PROVIDER=openai)
+        if m.startswith("openai/"):
+            return os.getenv("OPENAI_API_KEY")
+        if self.provider == "openai" and "/" not in m:
+            return os.getenv("OPENAI_API_KEY")
 
         provider_key_map = {
             "openrouter": "OPENROUTER_API_KEY",
@@ -58,46 +194,18 @@ class IAService:
             "google": "GOOGLE_API_KEY",
             "gemini": "GEMINI_API_KEY",
         }
-        env_name = provider_key_map.get(provider)
+        env_name = provider_key_map.get(self.provider)
         if env_name:
             return os.getenv(env_name)
         return None
 
     def _normalize_model_for_provider(self, model: str, provider: str) -> str:
-        """Normaliza o model string para evitar roteamento incorreto no LiteLLM."""
-        model = (model or "").strip()
-        if not model:
-            return "gpt-4o-mini"
-
-        if provider == "openrouter":
-            if model.startswith("openrouter/"):
-                return model
-            if "/" in model:
-                return f"openrouter/{model}"
-            # fallback seguro para manter compatibilidade com modelos curtos.
-            return f"openrouter/openai/{model}"
-
-        # LiteLLM roteia Gemini pelo prefixo "gemini/". O alias "google/" (comum em
-        # catálogos) não é reconhecido e gera BadRequestError: "LLM Provider NOT provided".
-        # OpenRouter já foi tratado acima (mantém openrouter/google/...).
-        if model.startswith("google/"):
-            model = f"gemini/{model[len('google/') :]}"
-
-        if provider == "openai":
-            if model.startswith("openrouter/openai/"):
-                return model.replace("openrouter/openai/", "", 1)
-            if model.startswith("openai/"):
-                return model.replace("openai/", "", 1)
-            return model
-
-        if provider == "anthropic":
-            if model.startswith("openrouter/anthropic/"):
-                return model.replace("openrouter/anthropic/", "", 1)
-            if model.startswith("anthropic/"):
-                return model.replace("anthropic/", "", 1)
-            return model
-
-        return model
+        """Delega para :func:`normalize_litellm_model` usando flags do settings."""
+        return normalize_litellm_model(
+            model,
+            provider=provider,
+            raw=bool(getattr(settings, "AI_LITELLM_RAW", False)),
+        )
 
     def _litellm_kwargs(
         self, *, model_override: Optional[str] = None, stream: bool = False
@@ -107,12 +215,13 @@ class IAService:
             model=modelo_base,
             provider=self.provider,
         )
+        api_key = self._resolve_api_key_for_litellm_model(modelo_final)
         kwargs: dict[str, Any] = {
             "model": modelo_final,
             "stream": stream,
         }
-        if self.api_key:
-            kwargs["api_key"] = self.api_key
+        if api_key:
+            kwargs["api_key"] = api_key
         return kwargs
 
     def describe_runtime(self, *, model_override: Optional[str] = None) -> dict[str, Any]:
@@ -125,7 +234,7 @@ class IAService:
             "provider": self.provider,
             "configured_model": model_override if model_override else self.model,
             "litellm_model": litellm_kwargs["model"],
-            "api_key_configured": bool(self.api_key),
+            "api_key_configured": bool(litellm_kwargs.get("api_key")),
         }
 
     async def chat(

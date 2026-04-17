@@ -58,6 +58,9 @@ class Settings(BaseSettings):
     AI_MODEL: str = "openai/gpt-4o-mini"
     AI_TECHNICAL_MODEL: str = "anthropic/claude-3.5-sonnet"
     AI_API_KEY: Optional[str] = None
+    # Se true: AI_MODEL / overrides vão ao LiteLLM sem reescrever prefixos (só vazio/default e google/→gemini/).
+    # Use quando quiser um roteamento que ainda não está na heurística do backend.
+    AI_LITELLM_RAW: bool = False
 
     # ── Provider WhatsApp ─────────────────────────────────────────────────────
     # Escolha o provider: "evolution" (padrão) ou "zapi"
