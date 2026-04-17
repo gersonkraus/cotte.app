@@ -108,6 +108,15 @@ def normalize_litellm_model(model: str, *, provider: str, raw: bool = False) -> 
     if raw:
         return _apply_google_to_gemini_alias(model)
 
+    # Com AI_PROVIDER=openrouter, "anthropic/..." (API nativa) vira rota OpenRouter no LiteLLM,
+    # usando só OPENROUTER_API_KEY. Quem quiser API Anthropic direta: AI_PROVIDER=anthropic.
+    if (
+        prov == "openrouter"
+        and model.startswith("anthropic/")
+        and not model.startswith("openrouter/")
+    ):
+        model = f"openrouter/{model}"
+
     prefixes = _explicit_route_prefixes()
     if _is_explicit_litellm_route(model, prefixes):
         return _apply_google_to_gemini_alias(model)
@@ -169,6 +178,7 @@ class IAService:
         if m.startswith("openrouter/"):
             return os.getenv("OPENROUTER_API_KEY")
 
+        # Rota nativa Anthropic (ex.: AI_PROVIDER=anthropic). Com openrouter/… não cai aqui.
         if m.startswith("anthropic/"):
             return os.getenv("ANTHROPIC_API_KEY")
 

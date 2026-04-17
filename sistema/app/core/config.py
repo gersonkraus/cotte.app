@@ -56,7 +56,8 @@ class Settings(BaseSettings):
     # === IA - LiteLLM + GPT-4o-mini ===
     AI_PROVIDER: str = "openrouter"
     AI_MODEL: str = "openai/gpt-4o-mini"
-    AI_TECHNICAL_MODEL: str = "anthropic/claude-3.5-sonnet"
+    # Padrão via OpenRouter + LiteLLM (OPENROUTER_API_KEY); não exige ANTHROPIC_API_KEY nativa.
+    AI_TECHNICAL_MODEL: str = "openrouter/anthropic/claude-3.5-sonnet"
     AI_API_KEY: Optional[str] = None
     # Se true: AI_MODEL / overrides vão ao LiteLLM sem reescrever prefixos (só vazio/default e google/→gemini/).
     # Use quando quiser um roteamento que ainda não está na heurística do backend.

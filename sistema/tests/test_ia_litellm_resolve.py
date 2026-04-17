@@ -27,10 +27,19 @@ def test_openrouter_short_name_uses_openai_namespace():
     )
 
 
-def test_anthropic_explicit_route_untouched():
+def test_anthropic_native_becomes_openrouter_when_provider_openrouter():
     assert (
         normalize_litellm_model(
             "anthropic/claude-3-5-sonnet-20240620", provider="openrouter", raw=False
+        )
+        == "openrouter/anthropic/claude-3-5-sonnet-20240620"
+    )
+
+
+def test_native_anthropic_preserved_when_provider_anthropic():
+    assert (
+        normalize_litellm_model(
+            "anthropic/claude-3-5-sonnet-20240620", provider="anthropic", raw=False
         )
         == "anthropic/claude-3-5-sonnet-20240620"
     )
