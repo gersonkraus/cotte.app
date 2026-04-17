@@ -161,7 +161,7 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
 
     // Se o backend não mandou texto e também não é um dos cards ricos estruturados:
     const ehCardRico = isSemanticResponse
-        || ['orcamento_criado', 'orcamento_atualizado', 'orcamento_preview', 'onboarding', 'registro_criado', 'saldo_caixa', 'resumo_financeiro'].includes(tipoResp)
+        || ['orcamento_criado', 'orcamento_atualizado', 'orcamento_preview', 'onboarding', 'registro_criado', 'saldo_caixa', 'resumo_financeiro', 'analise_financeira', 'analise_conversao', 'sugestao_negocio'].includes(tipoResp)
         || data.pending_action
         || (responseContent && responseContent.includes('opr-card'));
     const responseHasText = (responseContent && responseContent.replace(/<[^>]*>/g, '').trim().length > 0) || (isStreamed && data.stream_has_chunks);

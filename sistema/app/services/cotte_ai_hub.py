@@ -103,6 +103,143 @@ def _extract_text_content_from_ia_response(response: dict | Any) -> str:
         return ""
 
 
+def _fmt_brl(val: float) -> str:
+    """Formata valor monetário em pt-BR (ex.: R$ 1.234,56)."""
+    s = f"{abs(val):,.2f}"
+    return "R$ " + s.replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def _texto_exibicao_para_modulo(modulo: str, dados: dict) -> str:
+    """
+    Monta texto legível para UI/SSE a partir do JSON validado pela IA.
+    Usado quando o modelo retorna apenas estrutura (sem campo resposta no topo).
+    """
+    if not isinstance(dados, dict):
+        return ""
+
+    if modulo == "financeiro_analise":
+        parts: list[str] = []
+        resumo = (dados.get("resumo") or "").strip()
+        if resumo:
+            parts.append(resumo)
+        tipo = str(dados.get("tipo") or "").lower()
+        if tipo == "saldo" and dados.get("valor") is not None:
+            try:
+                v = float(dados["valor"])
+                linha = f"Saldo do caixa: {_fmt_brl(v)}"
+                if not parts:
+                    parts.append(linha)
+                elif linha.replace("Saldo do caixa: ", "") not in resumo:
+                    parts.append(linha)
+            except (TypeError, ValueError):
+                pass
+        elif not parts and dados.get("valor") is not None and tipo != "saldo":
+            try:
+                v = float(dados["valor"])
+                parts.append(f"Valor: {_fmt_brl(v)}")
+            except (TypeError, ValueError):
+                pass
+        kpi = dados.get("kpi_principal")
+        if isinstance(kpi, dict) and not parts:
+            try:
+                nome = str(kpi.get("nome") or "Indicador")
+                val = float(kpi.get("valor", 0))
+                linha = f"{nome}: {_fmt_brl(val)}"
+                comp = kpi.get("comparacao")
+                if comp:
+                    linha += f" ({comp})"
+                parts.append(linha)
+            except (TypeError, ValueError):
+                pass
+        for key, label in (("insights", "Insights"), ("recomendacoes", "Recomendações")):
+            arr = dados.get(key)
+            if isinstance(arr, list) and arr:
+                bullets = "\n".join(
+                    f"• {str(x).strip()}" for x in arr[:6] if str(x).strip()
+                )
+                if bullets:
+                    parts.append(f"{label}:\n{bullets}")
+        out = "\n\n".join(p for p in parts if p).strip()
+        if out:
+            return out
+        tipo_an = dados.get("tipo_analise")
+        if tipo_an:
+            return f"Análise: {tipo_an}."
+        return "Análise financeira concluída."
+
+    if modulo == "conversao_analise":
+        parts2: list[str] = []
+        if dados.get("periodo"):
+            parts2.append(f"Período: {dados['periodo']}")
+        try:
+            tx = float(dados.get("taxa_conversao", 0))
+            parts2.append(f"Taxa de conversão: {tx * 100:.1f}%")
+        except (TypeError, ValueError):
+            pass
+        if dados.get("orcamentos_enviados") is not None:
+            parts2.append(f"Orçamentos enviados: {dados['orcamentos_enviados']}")
+        if dados.get("orcamentos_aprovados") is not None:
+            parts2.append(f"Aprovados: {dados['orcamentos_aprovados']}")
+        if dados.get("ticket_medio") is not None:
+            try:
+                tm = float(dados["ticket_medio"])
+                parts2.append(f"Ticket médio: {_fmt_brl(tm)}")
+            except (TypeError, ValueError):
+                pass
+        if dados.get("servico_mais_vendido"):
+            parts2.append(f"Serviço mais vendido: {dados['servico_mais_vendido']}")
+        padroes = dados.get("padroes")
+        if isinstance(padroes, list) and padroes:
+            lines = []
+            for p in padroes[:5]:
+                if isinstance(p, dict) and p.get("descricao"):
+                    lines.append(f"• {p.get('descricao')}")
+            if lines:
+                parts2.append("Padrões:\n" + "\n".join(lines))
+        recs = dados.get("recomendacoes")
+        if isinstance(recs, list) and recs:
+            parts2.append(
+                "Recomendações:\n"
+                + "\n".join(f"• {str(x)}" for x in recs[:5] if str(x).strip())
+            )
+        out2 = "\n".join(p for p in parts2 if p).strip()
+        return out2 or "Análise de conversão concluída."
+
+    if modulo == "negocio_sugestoes":
+        parts3: list[str] = []
+        if dados.get("sugestao"):
+            parts3.append(str(dados["sugestao"]))
+        if dados.get("justificativa"):
+            parts3.append(f"Justificativa: {dados['justificativa']}")
+        if dados.get("impacto_estimado"):
+            parts3.append(f"Impacto estimado: {dados['impacto_estimado']}")
+        if dados.get("acao_imediata"):
+            parts3.append(f"Ação imediata: {dados['acao_imediata']}")
+        if dados.get("metrica_sucesso"):
+            parts3.append(f"Métrica de sucesso: {dados['metrica_sucesso']}")
+        tipo_s = dados.get("tipo_sugestao")
+        if tipo_s and not parts3:
+            parts3.append(f"Sugestão ({tipo_s})")
+        out3 = "\n\n".join(p for p in parts3 if p).strip()
+        return out3 or "Sugestão de negócio gerada."
+
+    return ""
+
+
+def _derive_ai_response_display_text(ai_response: AIResponse) -> str:
+    """Texto para SSE/UI: usa resposta ou deriva de dados estruturados."""
+    raw = (ai_response.resposta or "").strip()
+    if raw:
+        return raw
+    dados = ai_response.dados
+    if isinstance(dados, dict):
+        mod = (ai_response.modulo_origem or "").strip()
+        derived = _texto_exibicao_para_modulo(mod, dados).strip()
+        if derived:
+            return derived
+    return ""
+
+
 # ── Cache Inteligente ──────────────────────────────────────────────────────
 
 
@@ -981,9 +1118,14 @@ class CotteAIHub:
             "negocio_sugestoes": "sugestao_negocio",
         }
 
+        resposta_texto = _texto_exibicao_para_modulo(modulo, dados_validados)
+        if not (resposta_texto or "").strip():
+            resposta_texto = None
+
         resultado = AIResponse(
             sucesso=sucesso,
             dados=dados_validados,
+            resposta=resposta_texto,
             tipo_resposta=mapa_tipos.get(modulo, "geral"),
             acao_sugerida=dados_validados.get("acao") if modulo == "operador" else None,
             confianca=confianca_final,
@@ -2468,7 +2610,7 @@ async def assistente_v2_stream_core(
         }
 
     async def _emit_fastpath_ai_response(ai_response: AIResponse):
-        final_text = ai_response.resposta or ""
+        final_text = _derive_ai_response_display_text(ai_response)
         _v2_persist_fastpath_response(
             sessao_id=sessao_id,
             db=db,

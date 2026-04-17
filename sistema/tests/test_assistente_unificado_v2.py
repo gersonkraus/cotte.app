@@ -780,3 +780,51 @@ def test_v2_tool_selection_profile_conversa_curta():
     assert len(full) >= 1
     assert reduced is True
     assert profile == "minimal_conversation_no_tools"
+
+
+@pytest.mark.asyncio
+async def test_processar_financeiro_analise_popula_resposta(db, monkeypatch):
+    """JSON da IA vem em dados (resumo); resposta textual deve ser preenchida para SSE/UI."""
+    payload = {
+        "tipo_analise": "inadimplencia",
+        "resumo": "Três clientes com valores em atraso.",
+        "insights": ["Cliente A em atraso", "Cliente B em atraso"],
+        "recomendacoes": ["Cobrar por WhatsApp"],
+        "confianca": 0.9,
+    }
+
+    async def fake_chat(messages, **kw):
+        return {
+            "choices": [
+                {"message": {"content": json.dumps(payload, ensure_ascii=False)}}
+            ]
+        }
+
+    monkeypatch.setattr(ia_service_module.ia_service, "chat", fake_chat)
+
+    out = await cotte_ai_hub.ai_hub.processar(
+        "financeiro_analise",
+        "Quem está devendo?",
+        contexto={"empresa_id": 1},
+        db=None,
+        usar_cache=False,
+    )
+    assert out.sucesso is True
+    assert out.resposta
+    assert "Três clientes" in out.resposta
+
+
+def test_derive_display_text_fallback_dados_financeiro_analise():
+    """Fastpath SSE: se resposta top-level vazia, deriva de dados estruturados."""
+    from app.services.cotte_ai_hub import AIResponse, _derive_ai_response_display_text
+
+    r = AIResponse(
+        sucesso=True,
+        resposta=None,
+        dados={"resumo": "Lista de inadimplentes atualizada.", "confianca": 0.9},
+        confianca=0.9,
+        modulo_origem="financeiro_analise",
+    )
+    text = _derive_ai_response_display_text(r)
+    assert text
+    assert "inadimplentes" in text

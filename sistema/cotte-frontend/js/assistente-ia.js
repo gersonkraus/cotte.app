@@ -903,7 +903,8 @@ async function sendMessage() {
            resposta: responseText
                 || (metadata && typeof metadata.final_text === 'string' ? metadata.final_text : '')
                 || (metadata && typeof metadata.resposta === 'string' ? metadata.resposta : '')
-                || (metadata && metadata.dados && typeof metadata.dados.resposta === 'string' ? metadata.dados.resposta : ''),
+                || (metadata && metadata.dados && typeof metadata.dados.resposta === 'string' ? metadata.dados.resposta : '')
+                || (metadata && metadata.dados && typeof metadata.dados.resumo === 'string' ? metadata.dados.resumo : ''),
            stream_has_chunks: !!(responseText && responseText.trim()),
            tipo_resposta: (metadata && metadata.tipo) ? metadata.tipo : 'geral',
            dados: metadata ? (metadata.dados || null) : null,
