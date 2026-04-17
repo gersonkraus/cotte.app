@@ -52,8 +52,9 @@ def _apply_tenant_scope(execute_state):
         statement = statement.options(
             with_loader_criteria(
                 model_cls,
-                lambda cls, eid=empresa_id: cls.empresa_id == eid,
+                lambda cls: cls.empresa_id == empresa_id,
                 include_aliases=True,
+                track_closure_variables=True,
             )
         )
     execute_state.statement = statement
