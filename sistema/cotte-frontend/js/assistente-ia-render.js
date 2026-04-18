@@ -255,7 +255,11 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
         || (data.dados && data.dados.semantic_contract && data.dados.semantic_contract.chart)
         || null;
     if (chartPayload && window.Chart && msgEl) {
-        setTimeout(() => renderChart(msgEl.querySelector('.message-bubble'), chartPayload), 100);
+        setTimeout(() => {
+            // Tenta achar o slot específico para o gráfico, se não encontrar joga no final do chat (fallback)
+            const chartSlot = msgEl.querySelector('.semantic-chart-slot');
+            renderChart(chartSlot || msgEl.querySelector('.message-bubble'), chartPayload);
+        }, 100);
     }
 
     if (msgEl) msgEl.dataset.pergunta = '';

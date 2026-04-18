@@ -131,7 +131,7 @@ def _orcamentos(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id: 
         rows = [
             {
                 "Status": label_map.get(s, s),
-                "Quantidade": c,
+                "Qtd.": c,
                 "% do total": f"{round(c / total * 100, 1)}%" if total else "0%",
             }
             for s, c in sorted(counts.items(), key=lambda x: -x[1])
@@ -145,7 +145,7 @@ def _orcamentos(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id: 
         chart_spec = _chart(
             inp.tipo_grafico or "doughnut",
             [r["Status"] for r in rows],
-            [{"label": "Orçamentos", "data": [r["Quantidade"] for r in rows], "backgroundColor": cores}],
+            [{"label": "Orçamentos", "data": [r["Qtd."] for r in rows], "backgroundColor": cores}],
         )
 
     elif agrup == "cliente":
@@ -528,7 +528,7 @@ def _agendamentos(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id
     rows = [
         {
             "Status": label_map.get(s, str(s)),
-            "Quantidade": c,
+            "Qtd.": c,
             "% do total": f"{round(c / total * 100, 1)}%" if total else "0%",
         }
         for s, c in sorted(counts.items(), key=lambda x: -x[1])
@@ -539,7 +539,7 @@ def _agendamentos(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id
         chart_spec = _chart(
             inp.tipo_grafico or "doughnut",
             [r["Status"] for r in rows],
-            [{"label": "Agendamentos", "data": [r["Quantidade"] for r in rows],
+            [{"label": "Agendamentos", "data": [r["Qtd."] for r in rows],
               "backgroundColor": _CORES[: len(rows)]}],
         )
 

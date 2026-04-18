@@ -459,6 +459,11 @@ function renderSemanticContract(data, semanticContract, isStreamed) {
             .join('');
         content += `<div class="semantic-actions" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">${actionsHtml}</div>`;
     }
+    // Cria o slot onde o gráfico será ancorado (antes do card de impressão)
+    if (sc.chart) {
+        content += `<div class="semantic-chart-slot" style="margin-top:12px;width:100%;min-height:10px;"></div>`;
+    }
+
     const printableObj = sc.printable && typeof sc.printable === 'object' ? sc.printable : null;
     const printableRows = Array.isArray(printableObj?.rows) ? printableObj.rows : [];
     const printableSummary = String(printableObj?.summary || summary || '');
@@ -487,10 +492,8 @@ function renderSemanticContract(data, semanticContract, isStreamed) {
                 </div>
             </div>
             <div class="semantic-printable-card__actions">
-                <button type="button" class="btn btn-secondary" data-semantic-print-preview="${printablePayloadEscaped}">Visualizar impressão</button>
                 <button type="button" class="btn btn-primary" data-semantic-print-now="${printablePayloadEscaped}">Imprimir</button>
                 <button type="button" class="btn btn-secondary" data-semantic-export-report="${printablePayloadEscaped}" data-export-format="csv">Exportar CSV</button>
-                <button type="button" class="btn btn-secondary" data-semantic-export-report="${printablePayloadEscaped}" data-export-format="html">Exportar HTML</button>
                 <button type="button" class="btn btn-secondary" data-semantic-export-report="${printablePayloadEscaped}" data-export-format="pdf">Exportar PDF</button>
                 <button type="button" class="btn btn-ghost" data-semantic-copy-summary="${escapeHtmlAttr(String(printSummary || summary || ''))}">Copiar resumo</button>
             </div>

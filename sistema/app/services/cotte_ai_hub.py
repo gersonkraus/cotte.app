@@ -2628,10 +2628,10 @@ def _v2_format_relatorio_resumo(
         return f"R$ {n:_.2f}".replace("_", "X").replace(".", ",").replace("X", ".")
 
     if dominio == "orcamentos":
-        total = int(metricas.get("total") or 0)
-        aprovados = int(metricas.get("aprovados") or 0)
-        taxa = metricas.get("taxa_conversao") or metricas.get("taxa") or 0
-        fat = metricas.get("faturamento") or metricas.get("total_faturamento") or 0
+        total = int(metricas.get("total_orcamentos") or metricas.get("total") or 0)
+        aprovados = int(metricas.get("total_aprovados") or metricas.get("aprovados") or 0)
+        taxa = metricas.get("taxa_conversao_pct") or metricas.get("taxa_conversao") or 0
+        fat = metricas.get("total_faturado") or metricas.get("faturamento") or 0
         ticket = metricas.get("ticket_medio") or 0
         linhas = [
             f"Relatório de orçamentos — {periodo_label}.",
