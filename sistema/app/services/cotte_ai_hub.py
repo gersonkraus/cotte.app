@@ -2223,6 +2223,19 @@ def _v2_selected_tool_names_for_message(
     if intent == "GERAR_RELATORIO":
         return {"gerar_relatorio_dinamico"}, "relatorio_scoped"
 
+    if intent in {"FATURAMENTO", "CONVERSAO", "ANALISE", "NEGOCIO", "PREVISAO"}:
+        return {"gerar_relatorio_dinamico", "listar_orcamentos"}, "analise_scoped"
+
+    if intent in {"CONTAS_RECEBER", "CONTAS_PAGAR"}:
+        return {
+            "gerar_relatorio_dinamico",
+            "listar_movimentacoes_financeiras",
+            "listar_despesas",
+        }, "contas_scoped"
+
+    if intent == "INADIMPLENCIA":
+        return {"gerar_relatorio_dinamico", "listar_clientes"}, "inadimplencia_scoped"
+
     # Identifica se é do domínio financeiro ou inadimplência
     is_financeiro = any(
         k in normalized
