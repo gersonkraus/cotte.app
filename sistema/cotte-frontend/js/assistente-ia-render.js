@@ -249,9 +249,13 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
                 bubble.insertAdjacentHTML('beforeend', responseContent);
             }
         }
-        if (data.grafico && window.Chart) {
-            setTimeout(() => renderChart(msgEl.querySelector('.message-bubble'), data.grafico), 100);
-        }
+    }
+    const chartPayload = data.grafico
+        || (data.semantic_contract && data.semantic_contract.chart)
+        || (data.dados && data.dados.semantic_contract && data.dados.semantic_contract.chart)
+        || null;
+    if (chartPayload && window.Chart && msgEl) {
+        setTimeout(() => renderChart(msgEl.querySelector('.message-bubble'), chartPayload), 100);
     }
 
     if (msgEl) msgEl.dataset.pergunta = '';

@@ -280,10 +280,19 @@ function formatPendingArgs(tool, args, extras) {
 }
 
 function renderChart(containerOrMsgEl, grafico) {
-    if (!grafico || !grafico.dados || !containerOrMsgEl) return;
+    if (!grafico || !containerOrMsgEl) return;
+    const tipo = grafico.tipo || grafico.type || 'bar';
+    const dados = grafico.dados || (
+        (Array.isArray(grafico.labels) || Array.isArray(grafico.datasets))
+            ? { labels: grafico.labels || [], datasets: grafico.datasets || [] }
+            : null
+    );
+    if (!dados || !Array.isArray(dados.labels) || dados.labels.length === 0) return;
+    if (!Array.isArray(dados.datasets) || dados.datasets.length === 0) return;
     const canvasId = 'chart_' + Date.now() + Math.floor(Math.random() * 1000);
     const html = `<div class="chart-container" style="position:relative; width:100%; max-width:100%; height:300px; margin-top:16px; margin-bottom:16px; background:var(--ai-user-bg); padding:16px; border-radius:12px; border:1px solid rgba(255,255,255,0.05);"><canvas id="${canvasId}"></canvas></div>`;
     const innerBubble = containerOrMsgEl.querySelector('.message-bubble') || containerOrMsgEl;
+    if (innerBubble.querySelector('.chart-container')) return;
     innerBubble.insertAdjacentHTML('beforeend', html);
 
     setTimeout(() => {
@@ -292,8 +301,8 @@ function renderChart(containerOrMsgEl, grafico) {
             Chart.defaults.color = '#94a3b8';
             Chart.defaults.font.family = "'Outfit', sans-serif";
             new Chart(canvasEl.getContext('2d'), {
-                type: grafico.tipo || 'bar',
-                data: grafico.dados,
+                type: tipo,
+                data: dados,
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
