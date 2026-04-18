@@ -39,7 +39,6 @@ from .financeiro_tools import (
     obter_saldo_caixa,
     registrar_pagamento_recebivel,
 )
-from .financeiro_reports_tools import gerar_relatorio_ranking_clientes
 from .log_tools import analisar_tool_logs
 from .relatorio_tools import gerar_relatorio_dinamico
 from .sql_analytics_tools import executar_sql_analitico
@@ -82,7 +81,6 @@ TOOL_DOMAIN_MAP: dict[str, str] = {
     "criar_parcelamento": "financeiro",
     "gerar_relatorio_vendas": "financeiro",
     "gerar_relatorio_contas_a_receber": "financeiro",
-    "gerar_relatorio_ranking_clientes": "financeiro",
     # clientes
     "listar_clientes": "clientes",
     "criar_cliente": "clientes",
@@ -120,7 +118,6 @@ _ALL_TOOLS: list[ToolSpec] = [
     listar_movimentacoes_financeiras,
     gerar_relatorio_vendas,
     gerar_relatorio_contas_a_receber,
-    gerar_relatorio_ranking_clientes,
     listar_orcamentos,
     obter_orcamento,
     listar_clientes,
