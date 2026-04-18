@@ -221,6 +221,7 @@ Quando houver dúvida entre uma solução maior e uma solução menor que resolv
 Quando houver dúvida entre suposição e verificação, verificar.
 
 ## Learned User Preferences
+- Preferir definir fallback de modelos IA e opções equivalentes na `.env` (em conjunto com `AI_MODEL` / `AI_TECHNICAL_MODEL`), em vez de fornecedores ou modelos fixos no código, para permitir troca só por configuração.
 - Em pedidos de commit, preferir incluir apenas os ficheiros do escopo da alteração, evitando misturar mudanças não relacionadas no mesmo commit.
 - No assistente IA, preferir evolução visual limpa e moderna (menos gradiente chamativo; evitar loading com aparência de “engrenagem” girando); em cards de orçamento em telas pequenas, preferir ações compactas (ícone + texto curto) para não quebrar o layout.
 - No fluxo do assistente IA, priorizar estabilidade e anti-regressão: contratos claros, testes de regressão e mudanças incrementais antes de refactors amplos.

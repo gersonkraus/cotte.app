@@ -528,3 +528,180 @@ criar_parcelamento = ToolSpec(
     permissao_recurso="financeiro",
     permissao_acao="escrita",
 )
+
+
+# ── gerar_relatorio_vendas ───────────────────────────────────────────────────
+class GerarRelatorioVendasInput(BaseModel):
+    periodo_dias: int = Field(
+        default=30, ge=1, le=365, description="Janela em dias retroativos para o relatório."
+    )
+    agrupar_por: Optional[str] = Field(
+        default=None, description="Agrupar resultados por 'cliente' ou 'servico'."
+    )
+
+
+async def _gerar_relatorio_vendas(
+    inp: GerarRelatorioVendasInput, *, db: Session, current_user: Usuario
+) -> dict[str, Any]:
+    from app.models.models import Orcamento, StatusOrcamento, Cliente, OrcamentoItem
+    from sqlalchemy import func, and_
+
+    end_date = date.today()
+    start_date = end_date - timedelta(days=inp.periodo_dias)
+
+    query = db.query(
+        func.sum(Orcamento.total).label("total_vendido"),
+        func.count(Orcamento.id).label("quantidade_vendas")
+    ).filter(
+        Orcamento.empresa_id == current_user.empresa_id,
+        Orcamento.status == StatusOrcamento.APROVADO,
+        Orcamento.data_aprovacao.between(start_date, end_date)
+    )
+
+    if inp.agrupar_por == 'cliente':
+        query = query.join(Cliente).group_by(Cliente.nome).add_columns(Cliente.nome.label("agrupador"))
+    elif inp.agrupar_por == 'servico':
+        query = query.join(OrcamentoItem).group_by(OrcamentoItem.descricao).add_columns(OrcamentoItem.descricao.label("agrupador"))
+    
+    results = query.all()
+
+    if not inp.agrupar_por:
+        total = results[0]
+        return {
+            "total_vendido": float(total.total_vendido or 0),
+            "quantidade_vendas": total.quantidade_vendas,
+            "periodo_dias": inp.periodo_dias,
+            "agrupamento": None,
+            "detalhes": []
+        }
+
+    detalhes = [
+        {
+            "agrupador": r.agrupador,
+            "total_vendido": float(r.total_vendido or 0),
+            "quantidade_vendas": r.quantidade_vendas,
+        }
+        for r in results
+    ]
+
+    total_vendido = sum(d['total_vendido'] for d in detalhes)
+    quantidade_total = sum(d['quantidade_vendas'] for d in detalhes)
+
+    return {
+        "total_vendido": total_vendido,
+        "quantidade_vendas": quantidade_total,
+        "periodo_dias": inp.periodo_dias,
+        "agrupamento": inp.agrupar_por,
+        "detalhes": sorted(detalhes, key=lambda x: x['total_vendido'], reverse=True),
+    }
+
+
+gerar_relatorio_vendas = ToolSpec(
+    name="gerar_relatorio_vendas",
+    description="Gera um relatório de vendas com base em orçamentos aprovados em um determinado período. Os resultados podem ser agrupados por cliente ou serviço.",
+    input_model=GerarRelatorioVendasInput,
+    handler=_gerar_relatorio_vendas,
+    destrutiva=False,
+    cacheable_ttl=60,
+    permissao_recurso="financeiro",
+    permissao_acao="leitura",
+)
+
+
+# ── gerar_relatorio_contas_a_receber ───────────────────────────────────────
+class GerarRelatorioContasAReceberInput(BaseModel):
+    apenas_vencidas: bool = Field(
+        default=False, description="Se True, retorna apenas contas já vencidas."
+    )
+    agrupar_por: Optional[str] = Field(
+        default=None, description="Agrupar resultados por 'cliente'."
+    )
+    limit: int = Field(default=50, ge=1, le=200)
+
+
+async def _gerar_relatorio_contas_a_receber(
+    inp: GerarRelatorioContasAReceberInput, *, db: Session, current_user: Usuario
+) -> dict[str, Any]:
+    from app.models.models import ContaFinanceira, StatusConta, Cliente
+    from sqlalchemy import func, and_
+
+    query = db.query(
+        ContaFinanceira
+    ).filter(
+        ContaFinanceira.empresa_id == current_user.empresa_id,
+        ContaFinanceira.tipo == 'receber',
+        ContaFinanceira.status.in_([StatusConta.PENDENTE, StatusConta.VENCIDO])
+    )
+
+    if inp.apenas_vencidas:
+        query = query.filter(ContaFinanceira.data_vencimento < date.today())
+
+    if inp.agrupar_por == 'cliente':
+        results = db.query(
+            Cliente.nome.label("agrupador"),
+            func.sum(ContaFinanceira.valor - func.coalesce(ContaFinanceira.valor_pago, 0)).label("total_devido"),
+            func.count(ContaFinanceira.id).label("quantidade_contas")
+        ).join(Cliente).filter(
+            ContaFinanceira.empresa_id == current_user.empresa_id,
+            ContaFinanceira.tipo == 'receber',
+            ContaFinanceira.status.in_([StatusConta.PENDENTE, StatusConta.VENCIDO])
+        )
+        if inp.apenas_vencidas:
+            results = results.filter(ContaFinanceira.data_vencimento < date.today())
+            
+        results = results.group_by(Cliente.nome).order_by(func.sum(ContaFinanceira.valor).desc()).limit(inp.limit).all()
+        
+        detalhes = [
+            {
+                "cliente": r.agrupador,
+                "total_devido": float(r.total_devido or 0),
+                "quantidade_contas": r.quantidade_contas,
+            }
+            for r in results
+        ]
+        
+        total_devido = sum(d['total_devido'] for d in detalhes)
+        quantidade_total = sum(d['quantidade_contas'] for d in detalhes)
+
+        return {
+            "total_devido": total_devido,
+            "quantidade_contas": quantidade_total,
+            "agrupamento": "cliente",
+            "detalhes": detalhes
+        }
+
+    contas = query.order_by(ContaFinanceira.data_vencimento.asc()).limit(inp.limit).all()
+    
+    detalhes = [
+        {
+            "id_conta": c.id,
+            "descricao": c.descricao,
+            "cliente": c.cliente.nome if c.cliente else "N/A",
+            "valor_total": float(c.valor or 0),
+            "valor_devido": float((c.valor or 0) - (c.valor_pago or 0)),
+            "data_vencimento": c.data_vencimento.isoformat() if c.data_vencimento else None,
+            "status": c.status.value,
+        }
+        for c in contas
+    ]
+
+    total_devido = sum(d['valor_devido'] for d in detalhes)
+
+    return {
+        "total_devido": total_devido,
+        "quantidade_contas": len(detalhes),
+        "agrupamento": None,
+        "detalhes": detalhes
+    }
+
+
+gerar_relatorio_contas_a_receber = ToolSpec(
+    name="gerar_relatorio_contas_a_receber",
+    description="Gera um relatório de contas a receber pendentes ou vencidas. Os resultados podem ser consolidados por cliente.",
+    input_model=GerarRelatorioContasAReceberInput,
+    handler=_gerar_relatorio_contas_a_receber,
+    destrutiva=False,
+    cacheable_ttl=60,
+    permissao_recurso="financeiro",
+    permissao_acao="leitura",
+)
