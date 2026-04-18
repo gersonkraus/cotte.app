@@ -180,6 +180,20 @@ class IAService:
             self.litellm_model,
         )
 
+    def supports_prompt_caching(self) -> bool:
+        """Retorna True se o modelo/provider ativo suporta Anthropic prompt caching.
+
+        Anthropic nativo e OpenRouter passthrough para Claude repassam cache_control.
+        Outros providers (OpenAI, Gemini) ignoram ou quebram — mantemos disabled.
+        """
+        model = (self.litellm_model or "").lower()
+        provider = (self.provider or "").lower()
+        if "claude" in model or "anthropic" in model:
+            return True
+        if provider == "anthropic":
+            return True
+        return False
+
     def _resolve_api_key_for_litellm_model(self, litellm_model: str) -> Optional[str]:
         """Escolhe a chave compatível com o model resolvido (LiteLLM roteia pelo prefixo)."""
         if settings.AI_API_KEY:

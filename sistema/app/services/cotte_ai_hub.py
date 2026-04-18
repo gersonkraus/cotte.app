@@ -2715,6 +2715,48 @@ def _v2_is_relatorio_fastpath_message(mensagem: str) -> bool:
     return _v2_detect_deterministic_intent(mensagem) in _V2_RELATORIO_INTENTS
 
 
+def _v2_apply_prompt_caching(messages: list[dict]) -> list[dict]:
+    """Aplica Anthropic prompt caching no primeiro system message.
+
+    Transforma `content: str` em `content: [{type: text, text, cache_control}]`.
+    Só atua se o provider/model ativo for Anthropic/Claude — outros ignoram.
+    """
+    try:
+        from app.services.ia_service import ia_service
+        if not ia_service.supports_prompt_caching():
+            return messages
+    except Exception:
+        return messages
+
+    if not messages:
+        return messages
+
+    patched: list[dict] = []
+    cached_once = False
+    for msg in messages:
+        if (
+            not cached_once
+            and isinstance(msg, dict)
+            and msg.get("role") == "system"
+            and isinstance(msg.get("content"), str)
+            and len(msg["content"]) > 1024
+        ):
+            patched.append({
+                "role": "system",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": msg["content"],
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
+            })
+            cached_once = True
+        else:
+            patched.append(msg)
+    return patched
+
+
 def _v2_prompt_strategy(mensagem: str, resolved_engine: str) -> str:
     if resolved_engine == ENGINE_INTERNAL_COPILOT:
         return "technical"
@@ -3531,7 +3573,7 @@ async def assistente_v2_stream_core(
 
         try:
             resp = await ia_service.chat(
-                messages=messages,
+                messages=_v2_apply_prompt_caching(messages),
                 tools=tools_payload,
                 temperature=0.3,
                 max_tokens=1024,
@@ -3606,7 +3648,7 @@ async def assistente_v2_stream_core(
                 else:
                     try:
                         resp_retry = await ia_service.chat(
-                            messages=messages,
+                            messages=_v2_apply_prompt_caching(messages),
                             tools=full_tools_payload,
                             temperature=0.3,
                             max_tokens=1024,
@@ -5778,7 +5820,7 @@ async def _assistente_unificado_v2_legacy(
 
         try:
             resp = await ia_service.chat(
-                messages=messages,
+                messages=_v2_apply_prompt_caching(messages),
                 tools=tools_payload,
                 temperature=0.3,
                 max_tokens=1024,
@@ -5853,7 +5895,7 @@ async def _assistente_unificado_v2_legacy(
                 else:
                     try:
                         resp_retry = await ia_service.chat(
-                            messages=messages,
+                            messages=_v2_apply_prompt_caching(messages),
                             tools=full_tools_payload,
                             temperature=0.3,
                             max_tokens=1024,
