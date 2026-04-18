@@ -92,44 +92,56 @@ function _buildSemanticPrintableHtml(payload) {
 
 function _openSemanticPrintPreview(payload, printNow = false) {
     const html = _buildSemanticPrintableHtml(payload || {});
-    const printWin = window.open('', '_blank', 'noopener,noreferrer');
-    if (printWin) {
-        printWin.document.open();
-        printWin.document.write(html);
-        printWin.document.close();
-        if (printNow) {
-            printWin.focus();
-            setTimeout(() => {
-                try { printWin.print(); } catch (_) { /* noop */ }
-            }, 250);
+
+    // Se no seu _buildSemanticPrintableHtml ainda tiver o script de autoPrint da 
+    // tentativa anterior, não tem problema, o iframe isolará da mesma forma.
+
+    if (printNow) {
+        // IMPRIMIR: Impressão silenciosa via Iframe. (Não abre nova aba!)
+        const iframe = document.createElement('iframe');
+        iframe.style.position = 'fixed';
+        iframe.style.right = '0';
+        iframe.style.bottom = '0';
+        iframe.style.width = '0';
+        iframe.style.height = '0';
+        iframe.style.border = '0';
+        document.body.appendChild(iframe);
+
+        const doc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (!doc) {
+            iframe.remove();
+            return;
         }
+        doc.open();
+        doc.write(html);
+        doc.close();
+
+        // Espera renderizar e executa o print EXCLUSIVAMENTE dentro do iframe
+        setTimeout(() => {
+            if (iframe.contentWindow) {
+                iframe.contentWindow.focus();
+                iframe.contentWindow.print();
+            }
+            // Remove o lixo de memória logo após o navegador resolver o print
+            setTimeout(() => iframe.remove(), 2000);
+        }, 500);
         return;
     }
 
-    // Fallback para popup bloqueado: usa iframe oculto para preview/impressão.
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    document.body.appendChild(iframe);
-    const doc = iframe.contentDocument || iframe.contentWindow?.document;
-    if (!doc) {
-        iframe.remove();
-        return;
-    }
-    doc.open();
-    doc.write(html);
-    doc.close();
-    if (printNow && iframe.contentWindow) {
-        setTimeout(() => {
-            try { iframe.contentWindow.print(); } catch (_) { /* noop */ }
-            setTimeout(() => iframe.remove(), 1200);
-        }, 250);
-    } else {
-        setTimeout(() => iframe.remove(), 8000);
+    // PREVIEW: Abre uma aba real codificada para evitar confusões do "about:blank"
+    try {
+        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (e) {
+        // Fallback antigo de segurança
+        const printWin = window.open('', '_blank');
+        if (printWin) {
+            printWin.document.open();
+            printWin.document.write(html);
+            printWin.document.close();
+        }
     }
 }
 
