@@ -116,7 +116,13 @@ def _orcamentos(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id: 
     qtde_ap = int(fat_cnt or 0)
     ticket = round(total_fat / qtde_ap, 2) if qtde_ap else 0.0
 
-    agrup = inp.agrupamento or "status"
+    agrup = inp.agrupamento
+    if not agrup:
+        if inp.metrica in ("faturamento", "total_vendido"):
+            agrup = "cliente"
+        else:
+            agrup = "status"
+
     rows: list[dict] = []
     chart_spec = None
     titulo = "Relatório de Orçamentos"

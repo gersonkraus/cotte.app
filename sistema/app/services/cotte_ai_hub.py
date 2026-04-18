@@ -2619,6 +2619,7 @@ def _v2_format_relatorio_resumo(
     metricas: dict,
     periodo_label: str,
     rows: list,
+    titulo: str = "",
 ) -> str:
     def _money(v):
         try:
@@ -2633,11 +2634,22 @@ def _v2_format_relatorio_resumo(
         taxa = metricas.get("taxa_conversao_pct") or metricas.get("taxa_conversao") or 0
         fat = metricas.get("total_faturado") or metricas.get("faturamento") or 0
         ticket = metricas.get("ticket_medio") or 0
-        linhas = [
-            f"Relatório de orçamentos — {periodo_label}.",
-            f"Total: {total} | Aprovados: {aprovados} | Taxa de conversão: {taxa}%.",
-            f"Faturamento: {_money(fat)} | Ticket médio: {_money(ticket)}.",
-        ]
+
+        title_line = f"{titulo} — {periodo_label}." if titulo else f"Relatório de orçamentos — {periodo_label}."
+        linhas = [title_line]
+        
+        titulo_low = title_line.lower()
+        if "faturamento" in titulo_low:
+            linhas.append(f"💰 Faturamento total: {_money(fat)}.")
+            linhas.append(f"Aprovados: {aprovados} de {total} orçamentos | Ticket médio: {_money(ticket)}.")
+        elif "convers" in titulo_low:
+            linhas.append(f"📊 Taxa de conversão: {taxa}%.")
+            linhas.append(f"Total: {total} orçamentos | Aprovados: {aprovados}.")
+            linhas.append(f"Faturamento gerado: {_money(fat)} | Ticket médio: {_money(ticket)}.")
+        else:
+            linhas.append(f"Total: {total} | Aprovados: {aprovados} | Taxa de conversão: {taxa}%.")
+            linhas.append(f"Faturamento: {_money(fat)} | Ticket médio: {_money(ticket)}.")
+
         return "\n".join(linhas)
 
     if dominio == "clientes":
@@ -2698,7 +2710,7 @@ async def _v2_build_relatorio_fastpath_response(
     periodo_label = rel_data.get("periodo_label") or f"Últimos {periodo_dias} dias"
     insights = list(rel_data.get("insights_base") or [])
 
-    resumo = _v2_format_relatorio_resumo(dominio, metricas_resumo, periodo_label, rows)
+    resumo = _v2_format_relatorio_resumo(dominio, metricas_resumo, periodo_label, rows, titulo=titulo)
 
     dados: dict[str, Any] = {
         "rows": rows,
