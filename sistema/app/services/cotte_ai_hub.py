@@ -2524,6 +2524,197 @@ async def _v2_build_orcamento_fastpath_response(
     )
 
 
+_V2_RELATORIO_INTENTS = {"GERAR_RELATORIO", "FATURAMENTO", "CONVERSAO"}
+
+_V2_DOMINIO_KEYWORDS = {
+    "orcamentos": ("orcament", "orçament", "conversão", "conversao", "faturamento", "ticket", "pendente", "aprovado"),
+    "clientes": ("ranking de cliente", "melhores clientes", "top cliente"),
+    "financeiro": ("fluxo de caixa", "financeir", "contas a receber", "contas a pagar", "receita", "despesa"),
+    "inadimplencia": ("inadimpl", "devendo", "atrasado", "vencid"),
+    "servicos": ("serviço mais vendido", "servico mais vendido", "top serviç", "top servic"),
+    "agendamentos": ("agendamento", "agenda"),
+}
+
+_V2_PERIODO_RE = re.compile(
+    r"(?:ultim[oa]s?|nos?|últim[oa]s?)\s*(\d{1,3})\s*(dia|dias|semana|semanas|mes|meses|mês|ano|anos)",
+    re.IGNORECASE,
+)
+
+
+def _v2_parse_relatorio_params(mensagem: str) -> tuple[str, int, str | None, str | None]:
+    msg = _v2_normalize_bootstrap_message(mensagem) or ""
+    msg_low = msg.lower()
+
+    # domínio
+    dominio = "orcamentos"
+    for dom, kws in _V2_DOMINIO_KEYWORDS.items():
+        if any(k in msg_low for k in kws):
+            dominio = dom
+            break
+
+    # período
+    periodo_dias = 30
+    if "hoje" in msg_low:
+        periodo_dias = 1
+    elif "semana" in msg_low and "semanas" not in msg_low:
+        periodo_dias = 7
+    elif "trimestre" in msg_low:
+        periodo_dias = 90
+    elif "ano" in msg_low:
+        periodo_dias = 365
+    elif "mês" in msg_low or "mes" in msg_low:
+        periodo_dias = 30
+    m = _V2_PERIODO_RE.search(msg_low)
+    if m:
+        n = int(m.group(1))
+        unidade = m.group(2)
+        if "semana" in unidade:
+            periodo_dias = n * 7
+        elif "mes" in unidade or "mês" in unidade or "meses" in unidade:
+            periodo_dias = n * 30
+        elif "ano" in unidade:
+            periodo_dias = n * 365
+        else:
+            periodo_dias = n
+    periodo_dias = max(1, min(periodo_dias, 365))
+
+    # agrupamento
+    agrupamento: str | None = None
+    if any(k in msg_low for k in ("por cliente", "ranking de cliente", "top cliente")):
+        agrupamento = "cliente"
+    elif any(k in msg_low for k in ("por vendedor", "por colaborador", "performance do vendedor")):
+        agrupamento = "vendedor"
+    elif any(k in msg_low for k in ("por serviço", "por servico")):
+        agrupamento = "servico"
+    elif "por status" in msg_low:
+        agrupamento = "status"
+
+    # métrica explícita
+    metrica: str | None = None
+    if "taxa de conversão" in msg_low or "taxa de conversao" in msg_low or "conversão" in msg_low:
+        metrica = "taxa_conversao"
+    elif "ticket médio" in msg_low or "ticket medio" in msg_low:
+        metrica = "ticket_medio"
+    elif "faturamento" in msg_low:
+        metrica = "faturamento"
+
+    return dominio, periodo_dias, agrupamento, metrica
+
+
+def _v2_format_relatorio_resumo(
+    dominio: str,
+    metricas: dict,
+    periodo_label: str,
+    rows: list,
+) -> str:
+    def _money(v):
+        try:
+            n = float(v or 0)
+        except (TypeError, ValueError):
+            return "R$ 0,00"
+        return f"R$ {n:_.2f}".replace("_", "X").replace(".", ",").replace("X", ".")
+
+    if dominio == "orcamentos":
+        total = int(metricas.get("total") or 0)
+        aprovados = int(metricas.get("aprovados") or 0)
+        taxa = metricas.get("taxa_conversao") or metricas.get("taxa") or 0
+        fat = metricas.get("faturamento") or metricas.get("total_faturamento") or 0
+        ticket = metricas.get("ticket_medio") or 0
+        linhas = [
+            f"Relatório de orçamentos — {periodo_label}.",
+            f"Total: {total} | Aprovados: {aprovados} | Taxa de conversão: {taxa}%.",
+            f"Faturamento: {_money(fat)} | Ticket médio: {_money(ticket)}.",
+        ]
+        return "\n".join(linhas)
+
+    if dominio == "clientes":
+        total_clientes = len(rows or [])
+        return f"Ranking de clientes — {periodo_label}. {total_clientes} clientes no topo."
+
+    if dominio == "financeiro":
+        entradas = metricas.get("entradas") or metricas.get("total_entradas") or 0
+        saidas = metricas.get("saidas") or metricas.get("total_saidas") or 0
+        saldo = metricas.get("saldo") or (float(entradas or 0) - float(saidas or 0))
+        return (
+            f"Financeiro — {periodo_label}. "
+            f"Entradas: {_money(entradas)} | Saídas: {_money(saidas)} | Saldo: {_money(saldo)}."
+        )
+
+    if dominio == "inadimplencia":
+        total = int(metricas.get("total_clientes") or len(rows or []))
+        valor = metricas.get("total_devido") or 0
+        return f"Inadimplência — {total} clientes devendo {_money(valor)} ({periodo_label})."
+
+    return f"Relatório de {dominio} — {periodo_label}. {len(rows or [])} itens."
+
+
+async def _v2_build_relatorio_fastpath_response(
+    *,
+    mensagem: str,
+    db: Session,
+    current_user: Any,
+) -> AIResponse | None:
+    from app.services.ai_tools.relatorio_tools import (
+        GerarRelatorioDinamicoInput,
+        _handler_gerar_relatorio_dinamico,
+    )
+
+    dominio, periodo_dias, agrupamento, metrica = _v2_parse_relatorio_params(mensagem)
+
+    try:
+        inp = GerarRelatorioDinamicoInput(
+            dominio=dominio,
+            periodo_dias=periodo_dias,
+            agrupamento=agrupamento,
+            metrica=metrica,
+        )
+        rel_data = await _handler_gerar_relatorio_dinamico(
+            inp, db=db, current_user=current_user
+        )
+    except Exception:
+        return None
+
+    if not isinstance(rel_data, dict) or rel_data.get("erro"):
+        return None
+
+    rows = list(rel_data.get("rows") or [])
+    metricas_resumo = rel_data.get("metricas_resumo") or {}
+    chart_spec = rel_data.get("chart_spec")
+    titulo = rel_data.get("titulo") or "Relatório"
+    subtitulo = rel_data.get("subtitulo") or ""
+    periodo_label = rel_data.get("periodo_label") or f"Últimos {periodo_dias} dias"
+    insights = list(rel_data.get("insights_base") or [])
+
+    resumo = _v2_format_relatorio_resumo(dominio, metricas_resumo, periodo_label, rows)
+
+    dados: dict[str, Any] = {
+        "rows": rows,
+        "titulo": titulo,
+        "subtitulo": subtitulo,
+        "periodo_label": periodo_label,
+        "metricas_resumo": metricas_resumo,
+        "insights_base": insights,
+        "dominio": dominio,
+        "grafico": chart_spec,
+        "input_tokens": 0,
+        "output_tokens": 0,
+    }
+
+    return AIResponse(
+        sucesso=True,
+        resposta=resumo,
+        tipo_resposta="relatorio_dinamico",
+        confianca=0.95,
+        modulo_origem="assistente_v2",
+        tool_trace=[{"tool": "gerar_relatorio_dinamico", "status": "ok", "latencia_ms": 0}],
+        dados=dados,
+    )
+
+
+def _v2_is_relatorio_fastpath_message(mensagem: str) -> bool:
+    return _v2_detect_deterministic_intent(mensagem) in _V2_RELATORIO_INTENTS
+
+
 def _v2_prompt_strategy(mensagem: str, resolved_engine: str) -> str:
     if resolved_engine == ENGINE_INTERNAL_COPILOT:
         return "technical"
@@ -2690,6 +2881,29 @@ async def assistente_v2_stream_core(
             current_user=current_user,
             resposta=final_text,
         )
+        dados_out = dict(ai_response.dados or {})
+        grafico_meta = dados_out.get("grafico")
+
+        if ai_response.tipo_resposta == "relatorio_dinamico" and "semantic_contract" not in dados_out:
+            dados_out["semantic_contract"] = _build_semantic_contract(
+                summary=final_text,
+                table=list(dados_out.get("rows") or []),
+                chart=_to_semantic_chart(grafico_meta),
+                printable={
+                    "title": dados_out.get("titulo", "Relatório"),
+                    "summary": final_text,
+                    "rows": list(dados_out.get("rows") or []),
+                    "force_printable": True,
+                    "theme": {"variant": "professional", "accent_color": "#0f766e"},
+                },
+                metadata_extra={
+                    "capability": "GenerateAnalyticsReport",
+                    "domain": dados_out.get("dominio", "analytics"),
+                    "period_days": (dados_out.get("metricas_resumo") or {}).get("periodo_dias"),
+                    "tipo_resposta_inferida": "relatorio_dinamico",
+                },
+            )
+
         yield _enc({"phase": "thinking"})
         if final_text:
             yield _enc({"chunk": final_text})
@@ -2700,7 +2914,8 @@ async def assistente_v2_stream_core(
                 "metadata": {
                     "final_text": final_text,
                     "tipo": ai_response.tipo_resposta or "geral",
-                    "dados": ai_response.dados or {},
+                    "dados": dados_out,
+                    "grafico": grafico_meta,
                     "pending_action": ai_response.pending_action,
                     "tool_trace": ai_response.tool_trace,
                     "input_tokens": 0,
@@ -2777,6 +2992,17 @@ async def assistente_v2_stream_core(
         async for event in _emit_fastpath_ai_response(resposta):
             yield event
         return
+
+    if _v2_is_relatorio_fastpath_message(mensagem):
+        resposta_rel = await _v2_build_relatorio_fastpath_response(
+            mensagem=mensagem,
+            db=db,
+            current_user=current_user,
+        )
+        if resposta_rel is not None:
+            async for event in _emit_fastpath_ai_response(resposta_rel):
+                yield event
+            return
 
     if _v2_is_excel_chart_request(mensagem):
         final_text = (
