@@ -2210,6 +2210,9 @@ def _v2_selected_tool_names_for_message(
     normalized = _v2_normalize_bootstrap_message(mensagem)
     intent = _v2_detect_deterministic_intent(mensagem)
 
+    if intent == "GERAR_RELATORIO":
+        return {"gerar_relatorio_dinamico"}, "relatorio_scoped"
+
     # Identifica se é do domínio financeiro ou inadimplência
     is_financeiro = any(
         k in normalized
@@ -2792,39 +2795,6 @@ async def assistente_v2_stream_core(
                         "semantic_contract": _build_semantic_contract(
                             summary=final_text,
                             metadata_extra={"capability": "excel_nao_suportado"},
-                        ),
-                    },
-                    "tipo": "geral",
-                },
-            }
-        )
-        return
-
-    if _v2_is_customer_revenue_ranking_unavailable_request(mensagem):
-        final_text = _v2_customer_revenue_ranking_unavailable_response()
-        SessionStore.append_db(
-            sessao_id,
-            "assistant",
-            final_text,
-            db,
-            empresa_id=getattr(current_user, "empresa_id", 0),
-            usuario_id=getattr(current_user, "id", 0),
-        )
-        yield _enc({"phase": "thinking"})
-        yield _enc({"chunk": final_text})
-        yield _enc(
-            {
-                "is_final": True,
-                "final_text": final_text,
-                "metadata": {
-                    "final_text": final_text,
-                    "dados": {
-                        "capability": "ranking_clientes_indisponivel",
-                        "semantic_contract": _build_semantic_contract(
-                            summary=final_text,
-                            metadata_extra={
-                                "capability": "ranking_clientes_indisponivel"
-                            },
                         ),
                     },
                     "tipo": "geral",
@@ -3608,6 +3578,25 @@ async def assistente_v2_stream_core(
             if mov_tool and isinstance(mov_tool.get("data"), dict):
                 movs = mov_tool["data"].get("movimentacoes", [])
                 grafico_data = _v2_build_financial_chart_payload(movs)
+        elif "gerar_relatorio_dinamico" in tools_ok:
+            tipo_resp = "relatorio_dinamico"
+            rel_tool = next(
+                (t for t in tool_trace if t.get("tool") == "gerar_relatorio_dinamico"),
+                None,
+            )
+            if rel_tool and isinstance(rel_tool.get("data"), dict):
+                rel_data = rel_tool["data"]
+                resp_dados = {
+                    **adaptive_meta,
+                    "rows": rel_data.get("rows", []),
+                    "titulo": rel_data.get("titulo", "Relatório"),
+                    "subtitulo": rel_data.get("subtitulo", ""),
+                    "periodo_label": rel_data.get("periodo_label", ""),
+                    "metricas_resumo": rel_data.get("metricas_resumo", {}),
+                    "insights_base": rel_data.get("insights_base", []),
+                    "dominio": rel_data.get("dominio", ""),
+                }
+                grafico_data = rel_data.get("chart_spec")
 
     if not isinstance(final_text, str) or not final_text.strip():
         if pending_action:
@@ -3672,16 +3661,26 @@ async def assistente_v2_stream_core(
                         ),
                         chart=_to_semantic_chart(grafico_data),
                         printable={
-                            "title": "Resumo do assistente",
+                            "title": resp_dados.get("titulo", "Relatório")
+                            if tipo_resp == "relatorio_dinamico"
+                            else "Resumo do assistente",
                             "summary": final_text,
+                            "rows": resp_dados.get("rows", [])
+                            if tipo_resp == "relatorio_dinamico"
+                            else [],
+                            "force_printable": tipo_resp == "relatorio_dinamico",
+                            "theme": {"variant": "professional", "accent_color": "#0f766e"},
                         },
                         metadata_extra={
                             "capability": "GenerateAnalyticsReport"
-                            if tipo_resp == "financeiro"
+                            if tipo_resp in ("financeiro", "relatorio_dinamico")
                             else "UnknownCapability",
-                            "domain": "analytics"
-                            if tipo_resp == "financeiro"
-                            else "unknown",
+                            "domain": resp_dados.get("dominio", "analytics")
+                            if tipo_resp == "relatorio_dinamico"
+                            else ("analytics" if tipo_resp == "financeiro" else "unknown"),
+                            "period_days": resp_dados.get("metricas_resumo", {}).get("periodo_dias")
+                            if tipo_resp == "relatorio_dinamico"
+                            else None,
                             "tipo_resposta_inferida": tipo_resp,
                         },
                     ),
@@ -4505,7 +4504,9 @@ _V2_SYSTEM_PROMPT = (
     "Use as ferramentas (tools) disponíveis para buscar informações reais e cruzamentos analíticos. "
     "Se precisar de relatórios personalizados, agrupamentos por categoria, tabelas, rankings "
     "ou cálculos complexos do financeiro/comercial, **FAÇA queries SQL** ativamente usando a tool 'executar_sql_analitico'. "
-    "NUNCA invente números, nomes ou valores — sempre obtenha via tool. "
+    "NUNCA invente números, nomes, IDs ou valores — sempre obtenha via tool. "
+    "NUNCA use dados do histórico da conversa para responder uma nova consulta: "
+    "sempre chame a ferramenta para obter dados frescos. "
     "\n\n"
     "## Regras críticas:  \n"
     "1. **Criar/excluir**: chame a tool DIRETAMENTE — o sistema mostrará um card de confirmação. "
@@ -4541,7 +4542,11 @@ _V2_SYSTEM_PROMPT = (
 
 _V2_MINIMAL_SYSTEM_PROMPT = (
     "Você é o Assistente COTTE. Responda sempre em português, com objetividade e no máximo 3 parágrafos. "
-    "Use as tools disponíveis para buscar dados reais e nunca invente números, nomes ou valores. "
+    "REGRA ABSOLUTA: Para qualquer consulta sobre dados do sistema (orçamentos, clientes, saldo, agendamentos, "
+    "despesas, relatórios), você DEVE chamar a ferramenta correspondente e usar apenas os dados retornados. "
+    "NUNCA liste orçamentos, clientes, IDs, nomes ou valores baseando-se em suposições, estimativas ou "
+    "no histórico da conversa — sempre consulte a ferramenta para obter dados atualizados do banco. "
+    "Se a ferramenta retornar vazio, informe que não há registros; nunca invente exemplos. "
     "Para criar, editar ou excluir, chame a tool diretamente; o sistema cuida da confirmação quando necessário. "
     "Ao criar orçamento, extraia `cliente_nome`, item e `valor_unit` do texto natural e não misture preço na descrição. "
     "Se não existir ferramenta para a tarefa, diga isso claramente."
@@ -4621,41 +4626,6 @@ def _v2_is_financial_chart_request(mensagem: str) -> bool:
         )
     )
     return has_chart and has_financial_scope
-
-
-def _v2_is_customer_revenue_ranking_unavailable_request(mensagem: str) -> bool:
-    msg = (mensagem or "").lower()
-    if not msg:
-        return False
-    has_client_scope = "cliente" in msg or "clientes" in msg
-    has_revenue_scope = any(
-        token in msg
-        for token in (
-            "faturamento",
-            "ticket medio",
-            "ticket médio",
-            "mês anterior",
-            "mes anterior",
-        )
-    )
-    has_ranking_scope = "ranking" in msg and "10" in msg
-    has_current_month_scope = "mês atual" in msg or "mes atual" in msg
-    return (
-        has_client_scope
-        and has_revenue_scope
-        and has_ranking_scope
-        and has_current_month_scope
-    )
-
-
-def _v2_customer_revenue_ranking_unavailable_response() -> str:
-    return (
-        "Atualmente, não há uma ferramenta disponível para gerar um ranking dos clientes "
-        "com maior faturamento diretamente. Para isso, você precisaria acessar os dados "
-        "de faturamento e calcular o ticket médio e a variação em relação ao mês anterior manualmente.\n\n"
-        "Se precisar de ajuda para encontrar esses dados ou orientações sobre como realizar "
-        "esses cálculos, estou aqui para ajudar!"
-    )
 
 
 def _v2_extract_days_window(mensagem: str, default_days: int = 30) -> int:
@@ -5185,24 +5155,6 @@ async def _assistente_unificado_v2_legacy(
             confianca=0.98,
             modulo_origem="assistente_v2",
             dados={"capability": "excel_nao_suportado"},
-        )
-
-    if _v2_is_customer_revenue_ranking_unavailable_request(mensagem):
-        resposta = _v2_customer_revenue_ranking_unavailable_response()
-        SessionStore.append_db(
-            sessao_id,
-            "assistant",
-            resposta,
-            db,
-            empresa_id=getattr(current_user, "empresa_id", 0),
-            usuario_id=getattr(current_user, "id", 0),
-        )
-        return AIResponse(
-            sucesso=True,
-            resposta=resposta,
-            confianca=0.98,
-            modulo_origem="assistente_v2",
-            dados={"capability": "ranking_clientes_indisponivel"},
         )
 
     if _v2_is_financial_chart_request(mensagem):

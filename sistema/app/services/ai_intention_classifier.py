@@ -46,7 +46,8 @@ class IntencaoUsuario(Enum):
     AGENDAMENTO_LISTAR = "AGENDAMENTO_LISTAR"
     AGENDAMENTO_STATUS = "AGENDAMENTO_STATUS"
     AGENDAMENTO_CANCELAR = "AGENDAMENTO_CANCELAR"
-    
+    GERAR_RELATORIO = "GERAR_RELATORIO"
+
     @classmethod
     def from_string(cls, value: str) -> "IntencaoUsuario":
         """Converte string para enum, retornando CONVERSACAO se inválido"""
@@ -271,6 +272,32 @@ class IntentionClassifier:
         r'\bcriar?\s+orc\b',
     ]
 
+    # M2) GERAR RELATÓRIO — análise e exportação de dados
+    GERAR_RELATORIO_KEYWORDS = [
+        r'\brelat[oó]rio\b',
+        r'\bgerar\s+relat[oó]rio\b',
+        r'\btaxa\s+de\s+convers[aã]o\b',
+        r'\branking\s+de\b',
+        r'\bticket\s+m[eé]dio\b',
+        r'\bdesempenho\s+(de|dos|por)\b',
+        r'\bperformance\s+(de|dos|por)\b',
+        r'\bclientes?\s+(mais|que\s+mais)\s+(compraram?|gastaram?|pagaram?)\b',
+        r'\bservi[çc]os?\s+mais\s+(vendidos?|realizados?|executados?)\b',
+        r'\bestat[ií]sticas?\b',
+        r'\bm[eé]tricas?\s+(do|de|da)\b',
+        r'\ban[aá]lise\s+(de|dos?|das?|por)\b',
+        r'\bcomparativo\s+(mensal|semanal|anual|de\s+per[ií]odo)\b',
+        r'\bor[çc]amentos?\s+(aprovados?|recusados?|expirados?)\s+(do|no|este|neste|esse)\b',
+        r'\bfaturamento\s+(por|dos?|das?|do|de)\s+(cliente|servi[çc]o|m[eê]s|per[ií]odo|semana|dia)\b',
+        # Padrões adicionais para faturamento/aprovados como relatório
+        r'\bfaturamento\s+total\b',
+        r'\bfaturamento\s+(deste|do|neste|no)\s+(m[eê]s|ano|trimestre|semestre)\b',
+        r'\bfaturamento\s+(dos?\s+[úu]ltimos?)\b',
+        r'\btotal\s+(de\s+)?or[çc]amentos?\s+(aprovados?|faturados?|conclu[íi]dos?)\b',
+        r'\bquantos?\s+or[çc]amentos?\s+(foram?\s+)?(aprovados?|faturados?|conclu[íi]dos?)\b',
+        r'\bor[çc]amentos?\s+(aprovados?|conclu[íi]dos?)\s+(no|deste|do|neste)\b',
+    ]
+
     # I) OPERADOR — comandos de execução em orçamentos existentes
     OPERADOR_KEYWORDS = [
         r'\baprovar?\b',
@@ -376,6 +403,7 @@ class IntentionClassifier:
             IntencaoUsuario.CONVERSAO: [re.compile(p, re.IGNORECASE) for p in self.CONVERSAO_KEYWORDS],
             IntencaoUsuario.NEGOCIO: [re.compile(p, re.IGNORECASE) for p in self.NEGOCIO_KEYWORDS],
             IntencaoUsuario.CRIAR_ORCAMENTO: [re.compile(p, re.IGNORECASE) for p in self.CRIAR_ORCAMENTO_KEYWORDS],
+            IntencaoUsuario.GERAR_RELATORIO: [re.compile(p, re.IGNORECASE) for p in self.GERAR_RELATORIO_KEYWORDS],
             IntencaoUsuario.OPERADOR: [re.compile(p, re.IGNORECASE) for p in self.OPERADOR_KEYWORDS],
             IntencaoUsuario.ONBOARDING: [re.compile(p, re.IGNORECASE) for p in self.ONBOARDING_KEYWORDS],
             IntencaoUsuario.AJUDA_SISTEMA: [re.compile(p, re.IGNORECASE) for p in self.AJUDA_SISTEMA_KEYWORDS],
@@ -471,6 +499,11 @@ class IntentionClassifier:
                     pass  # é análise complexa
                 else:
                     return IntencaoUsuario.SALDO_RAPIDO
+
+        # M2) GERAR RELATÓRIO — check prioritário antes de FATURAMENTO/CONVERSAO/INADIMPLENCIA
+        for pattern in self._regex_patterns[IntencaoUsuario.GERAR_RELATORIO]:
+            if pattern.search(mensagem_lower):
+                return IntencaoUsuario.GERAR_RELATORIO
 
         # B) FATURAMENTO
         for pattern in self._regex_patterns[IntencaoUsuario.FATURAMENTO]:

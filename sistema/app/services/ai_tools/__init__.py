@@ -40,6 +40,7 @@ from .financeiro_tools import (
     registrar_pagamento_recebivel,
 )
 from .log_tools import analisar_tool_logs
+from .relatorio_tools import gerar_relatorio_dinamico
 from .sql_analytics_tools import executar_sql_analitico
 from .code_tools import ler_arquivo_repositorio, buscar_codigo_repositorio, analisar_estrutura_html
 from .orcamento_tools import (
@@ -97,6 +98,7 @@ TOOL_DOMAIN_MAP: dict[str, str] = {
     "analisar_tool_logs": "auditoria",
     # analitica
     "executar_sql_analitico": "analitica",
+    "gerar_relatorio_dinamico": "analitica",
     # code
     "ler_arquivo_repositorio": "code",
     "buscar_codigo_repositorio": "code",
@@ -111,6 +113,7 @@ _ALL_TOOLS: list[ToolSpec] = [
     analisar_estrutura_html,
     analisar_tool_logs,
     executar_sql_analitico,
+    gerar_relatorio_dinamico,
     obter_saldo_caixa,
     listar_movimentacoes_financeiras,
     gerar_relatorio_vendas,
