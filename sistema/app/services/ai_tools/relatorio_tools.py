@@ -100,7 +100,7 @@ def _orcamentos(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id: 
 
     # Faturamento
     fat_q = q.filter(Orcamento.status.in_(_STATUS_FATURADOS))
-    fat_sum, fat_cnt = db.query(
+    res_fat = db.query(
         func.sum(Orcamento.total), func.count(Orcamento.id)
     ).filter(
         Orcamento.empresa_id == empresa_id,
@@ -111,6 +111,8 @@ def _orcamentos(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id: 
             if inp.filtro_usuario_id else []
         ),
     ).first()
+    fat_sum = res_fat[0] if res_fat and res_fat[0] is not None else 0
+    fat_cnt = res_fat[1] if res_fat and res_fat[1] is not None else 0
 
     total_fat = _f(fat_sum)
     qtde_ap = int(fat_cnt or 0)
@@ -118,7 +120,7 @@ def _orcamentos(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id: 
 
     agrup = inp.agrupamento
     if not agrup:
-        if inp.metrica in ("faturamento", "total_vendido"):
+        if inp.metrica in ("faturamento", "total_vendido", "ticket_medio", "quantidade"):
             agrup = "cliente"
         else:
             agrup = "status"
@@ -140,7 +142,7 @@ def _orcamentos(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id: 
                 "Qtd.": c,
                 "% do total": f"{round(c / total * 100, 1)}%" if total else "0%",
             }
-            for s, c in sorted(counts.items(), key=lambda x: -x[1])
+            for s, c in sorted(counts.items(), key=lambda x: -int(x[1] or 0))
         ]
         cores = [
             _COR_OK if any(k in r["Status"].lower() for k in ["prov", "exec", "conc", "aguard"])
@@ -156,6 +158,9 @@ def _orcamentos(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id: 
 
     elif agrup == "cliente":
         titulo = "Faturamento por Cliente"
+        if inp.metrica == "ticket_medio":
+            titulo = "Ranking de Ticket Médio por Cliente"
+        
         res = (
             db.query(Cliente.nome, func.count(Orcamento.id), func.sum(Orcamento.total))
             .join(Orcamento, Cliente.id == Orcamento.cliente_id)
@@ -169,7 +174,27 @@ def _orcamentos(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id: 
             .limit(inp.limite)
             .all()
         )
-        rows = [{"Cliente": r[0] or "–", "Orçamentos": int(r[1] or 0), "Faturamento": _brl(r[2])} for r in res]
+        
+        if inp.metrica == "ticket_medio":
+            rows = [
+                {
+                    "Cliente": r[0] or "–",
+                    "Orçamentos": int(r[1] or 0),
+                    "Faturamento": _brl(r[2]),
+                    "Ticket Médio": _brl((_f(r[2]) / int(r[1])) if int(r[1] or 0) > 0 else 0)
+                }
+                for r in res
+            ]
+        else:
+            rows = [
+                {
+                    "Cliente": r[0] or "–", 
+                    "Orçamentos": int(r[1] or 0), 
+                    "Faturamento": _brl(r[2])
+                } 
+                for r in res
+            ]
+            
         if rows:
             chart_spec = _chart(
                 inp.tipo_grafico or "bar",
@@ -185,6 +210,7 @@ def _orcamentos(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id: 
             .filter(
                 Orcamento.empresa_id == empresa_id,
                 Orcamento.criado_em >= inicio,
+                Orcamento.status.in_(_STATUS_FATURADOS),
             )
             .group_by(Usuario.id, Usuario.nome)
             .order_by(func.sum(Orcamento.total).desc())
@@ -197,6 +223,36 @@ def _orcamentos(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id: 
                 inp.tipo_grafico or "bar",
                 [r["Vendedor"] for r in rows],
                 [{"label": "Faturamento (R$)", "data": [_f(res[i][2]) for i in range(len(res))], "backgroundColor": _CORES[1]}],
+            )
+
+    elif agrup == "servico":
+        titulo = "Ticket Médio por Serviço" if inp.metrica == "ticket_medio" else "Vendas por Serviço"
+        res = (
+            db.query(
+                ItemOrcamento.descricao,
+                func.count(ItemOrcamento.id),
+                func.sum(ItemOrcamento.total)
+            )
+            .join(Orcamento, ItemOrcamento.orcamento_id == Orcamento.id)
+            .filter(
+                Orcamento.empresa_id == empresa_id,
+                Orcamento.criado_em >= inicio,
+                Orcamento.status.in_(_STATUS_FATURADOS),
+            )
+            .group_by(ItemOrcamento.descricao)
+            .order_by(func.sum(ItemOrcamento.total).desc())
+            .limit(inp.limite)
+            .all()
+        )
+        if inp.metrica == "ticket_medio":
+            rows = [{"Serviço": r[0] or "–", "Quantidade": int(r[1] or 0), "Ticket Médio": _brl(_f(r[2])/int(r[1]) if int(r[1] or 0) > 0 else 0)} for r in res]
+        else:
+            rows = [{"Serviço": r[0] or "–", "Quantidade": int(r[1] or 0), "Faturamento": _brl(r[2])} for r in res]
+        if rows:
+            chart_spec = _chart(
+                inp.tipo_grafico or "bar",
+                [r["Serviço"] for r in rows],
+                [{"label": "Valor (R$)", "data": [_f(res[i][2])/int(res[i][1] or 1) if inp.metrica == "ticket_medio" else _f(res[i][2]) for i in range(len(res))], "backgroundColor": _CORES[2]}],
             )
 
     # Override título por métrica
@@ -240,43 +296,86 @@ def _orcamentos(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id: 
 def _clientes(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id: int) -> dict:
     inicio = _inicio(inp.periodo_dias)
 
-    res = (
-        db.query(Cliente.nome, func.count(Orcamento.id), func.sum(Orcamento.total))
-        .join(
-            Orcamento,
-            (Cliente.id == Orcamento.cliente_id)
-            & (Orcamento.empresa_id == empresa_id)
-            & (Orcamento.criado_em >= inicio)
-            & (Orcamento.status.in_(_STATUS_FATURADOS)),
+    # Se for pedido clientes inativos (sem compras aprovadas no periodo)
+    if inp.metrica == "inativos":
+        # Busca clientes da empresa que tem orçamento faturado no periodo
+        clientes_ativos_subq = (
+            db.query(Orcamento.cliente_id)
+            .filter(
+                Orcamento.empresa_id == empresa_id,
+                Orcamento.criado_em >= inicio,
+                Orcamento.status.in_(_STATUS_FATURADOS)
+            )
+            .subquery()
         )
-        .filter(Cliente.empresa_id == empresa_id)
-        .group_by(Cliente.id, Cliente.nome)
-        .order_by(func.sum(Orcamento.total).desc())
-        .limit(inp.limite)
-        .all()
-    )
-
-    rows = [
-        {
-            "Cliente": r[0] or "–",
-            "Orçamentos Aprovados": int(r[1] or 0),
-            "Faturamento Total": _brl(r[2]),
-        }
-        for r in res
-    ]
-    total_fat = sum(_f(r[2]) for r in res)
+        
+        res = (
+            db.query(Cliente.nome, Cliente.criado_em)
+            .filter(
+                Cliente.empresa_id == empresa_id,
+                Cliente.id.notin_(clientes_ativos_subq)
+            )
+            .order_by(Cliente.nome.asc())
+            .limit(inp.limite)
+            .all()
+        )
+        
+        rows = [{"Cliente": r[0] or "–", "Cliente desde": r[1].strftime("%d/%m/%Y") if r[1] else "-"} for r in res]
+        total_fat = 0
+        titulo_cli = "Clientes Inativos (Sem compras no período)"
+    else:
+        res = (
+            db.query(Cliente.nome, func.count(Orcamento.id), func.sum(Orcamento.total))
+            .join(
+                Orcamento,
+                (Cliente.id == Orcamento.cliente_id)
+                & (Orcamento.empresa_id == empresa_id)
+                & (Orcamento.criado_em >= inicio)
+                & (Orcamento.status.in_(_STATUS_FATURADOS)),
+            )
+            .filter(Cliente.empresa_id == empresa_id)
+            .group_by(Cliente.id, Cliente.nome)
+            .order_by(func.sum(Orcamento.total).desc())
+            .limit(inp.limite)
+            .all()
+        )
+    
+        if inp.metrica == "quantidade":
+            res = sorted(res, key=lambda x: -int(x[1] or 0))
+            titulo_cli = "Top Clientes por Quantidade de Orçamentos"
+            rows = [
+                {
+                    "Cliente": r[0] or "–",
+                    "Quantidade de Orçamentos": int(r[1] or 0),
+                    "Faturamento Total": _brl(r[2]),
+                }
+                for r in res
+            ]
+        else:
+            rows = [
+                {
+                    "Cliente": r[0] or "–",
+                    "Orçamentos Aprovados": int(r[1] or 0),
+                    "Faturamento Total": _brl(r[2]),
+                }
+                for r in res
+            ]
+            
+        if "titulo_cli" not in locals() or titulo_cli == "Clientes Inativos (Sem compras no período)":
+            titulo_cli = "Ranking de Clientes por Faturamento"
+        total_fat = sum(_f(r[2]) for r in res)
 
     chart_spec = None
-    if rows:
+    if rows and inp.metrica != "inativos":
         chart_spec = _chart(
             inp.tipo_grafico or "bar",
-            [r["Cliente"] for r in rows[:10]],
+            [r.get("Cliente", "–") for r in rows[:10]],
             [{"label": "Faturamento (R$)", "data": [_f(res[i][2]) for i in range(min(10, len(res)))], "backgroundColor": _CORES[0]}],
         )
 
     return {
         "dominio": "clientes",
-        "titulo": "Ranking de Clientes por Faturamento",
+        "titulo": titulo_cli,
         "subtitulo": _periodo_label(inp.periodo_dias),
         "periodo_label": _periodo_label(inp.periodo_dias),
         "periodo_dias": inp.periodo_dias,
@@ -333,6 +432,41 @@ def _financeiro(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id: 
         )
         .scalar()
     )
+
+    if inp.metrica == "despesas" or inp.agrupamento == "categoria":
+        res_desp = (
+            db.query(ContaFinanceira.categoria, func.sum(ContaFinanceira.valor))
+            .filter(
+                ContaFinanceira.empresa_id == empresa_id,
+                ContaFinanceira.tipo == TipoConta.PAGAR,
+                ContaFinanceira.status.in_([StatusConta.PAGO]),
+                ContaFinanceira.data_vencimento >= inicio_date,
+            )
+            .group_by(ContaFinanceira.categoria)
+            .order_by(func.sum(ContaFinanceira.valor).desc())
+            .all()
+        )
+        rows = [
+            {"Categoria": r[0] or "Geral", "Valor": _brl(r[1])}
+            for r in res_desp
+        ]
+        chart_spec = _chart(
+            inp.tipo_grafico or "bar",
+            [r["Categoria"] for r in rows],
+            [{"label": "R$", "data": [_f(r[1]) for r in res_desp],
+              "backgroundColor": _CORES[:len(rows)]}],
+        )
+        return {
+            "dominio": "financeiro",
+            "titulo": "Despesas por Categoria",
+            "subtitulo": _periodo_label(inp.periodo_dias),
+            "periodo_label": _periodo_label(inp.periodo_dias),
+            "periodo_dias": inp.periodo_dias,
+            "rows": rows,
+            "metricas_resumo": {"saidas": saidas},
+            "chart_spec": chart_spec,
+            "insights_base": [f"Total de saídas: {_brl(saidas)}"],
+        }
 
     rows = [
         {"Categoria": "Entradas confirmadas", "Valor": _brl(entradas)},
@@ -400,22 +534,47 @@ def _inadimplencia(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_i
     )
 
     total_inad = sum(_f(r[2]) for r in res)
-    rows = [
-        {
-            "Cliente": r[0] or "Sem cliente",
-            "Contas em atraso": int(r[1] or 0),
-            "Valor em aberto": _brl(r[2]),
-            "Vencimento mais antigo": str(r[3]) if r[3] else "–",
-        }
-        for r in res
-    ]
+    if inp.metrica == "total_aberto":
+        res_abertos = (
+            db.query(
+                func.sum(ContaFinanceira.valor - ContaFinanceira.valor_pago),
+                func.count(ContaFinanceira.id)
+            )
+            .filter(
+                ContaFinanceira.empresa_id == empresa_id,
+                ContaFinanceira.tipo == TipoConta.RECEBER,
+                ContaFinanceira.status.in_([StatusConta.PENDENTE, StatusConta.PARCIAL]),
+                ContaFinanceira.excluido_em.is_(None),
+            )
+            .first()
+        )
+        total_inad_geral = _f(res_abertos[0] if res_abertos else 0)
+        qnt_contas = int(res_abertos[1] if res_abertos else 0)
+        
+        rows = [
+            {"Métrica": "Valor Total em Aberto", "Valor": _brl(total_inad_geral)},
+            {"Métrica": "Quantidade de Contas", "Valor": qnt_contas},
+            {"Métrica": "Inclui Atrasadas e a Vencer", "Valor": "Sim"}
+        ]
+        total_inad = total_inad_geral
+    else:
+        rows = [
+            {
+                "Cliente": r[0] or "Sem cliente",
+                "Contas em atraso": int(r[1] or 0),
+                "Valor em aberto": _brl(r[2]),
+                "Vencimento mais antigo": str(r[3]) if r[3] else "–",
+            }
+            for r in res
+        ]
+        total_inad = sum(_f(r[2]) for r in res)
 
     chart_spec = None
-    if rows:
+    if rows and inp.metrica != "total_aberto":
         chart_spec = _chart(
             inp.tipo_grafico or "bar",
-            [r["Cliente"] for r in rows[:10]],
-            [{"label": "Valor em Aberto (R$)", "data": [_f(res[i][2]) for i in range(min(10, len(res)))], "backgroundColor": _COR_RUIM}],
+            [r.get("Cliente", "–") for r in rows[:10]],
+            [{"label": "Valor em Aberto (R$)", "data": [_f(r[2]) for r in res[:10]], "backgroundColor": _COR_RUIM}],
         )
 
     return {
@@ -431,9 +590,9 @@ def _inadimplencia(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_i
         },
         "chart_spec": chart_spec,
         "insights_base": [
-            f"{len(rows)} clientes com contas em atraso",
+            f"{len(rows)} clientes com contas em atraso" if inp.metrica != "total_aberto" else "Relatório de contas em aberto",
             f"Total inadimplente: {_brl(total_inad)}",
-            f"Maior devedor: {rows[0]['Cliente']} ({rows[0]['Valor em aberto']})" if rows else "Sem inadimplência",
+            f"Maior devedor: {rows[0].get('Cliente', '–')} ({rows[0].get('Valor em aberto', '–')})" if rows and inp.metrica != "total_aberto" else "Geral",
         ],
     }
 
@@ -462,27 +621,41 @@ def _servicos(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id: in
         .all()
     )
 
-    rows = [
-        {
-            "Serviço": r[0] or "–",
-            "Vendas": int(r[1] or 0),
-            "Faturamento": _brl(r[2]),
-            "Preço médio": _brl(r[3]),
-        }
-        for r in res
-    ]
+    if inp.metrica == "quantidade":
+        res = sorted(res, key=lambda x: -x[1])
+        rows = [
+            {
+                "Serviço": r[0] or "–",
+                "Quantidade": int(r[1] or 0),
+                "Faturamento": _brl(r[2]),
+                "Preço médio": _brl(r[3]),
+            }
+            for r in res
+        ]
+        titulo = "Serviços Mais Vendidos por Quantidade"
+    else:
+        rows = [
+            {
+                "Serviço": r[0] or "–",
+                "Vendas": int(r[1] or 0),
+                "Faturamento": _brl(r[2]),
+                "Preço médio": _brl(r[3]),
+            }
+            for r in res
+        ]
+        titulo = "Serviços Mais Vendidos por Valor"
 
     chart_spec = None
     if rows:
         chart_spec = _chart(
             inp.tipo_grafico or "bar",
             [r["Serviço"] for r in rows[:8]],
-            [{"label": "Faturamento (R$)", "data": [_f(res[i][2]) for i in range(min(8, len(res)))], "backgroundColor": _CORES[2]}],
+            [{"label": "Quantidade" if inp.metrica == "quantidade" else "Faturamento (R$)", "data": [int(res[i][1]) if inp.metrica == "quantidade" else _f(res[i][2]) for i in range(min(8, len(res)))], "backgroundColor": _CORES[2]}],
         )
 
     return {
         "dominio": "servicos",
-        "titulo": "Serviços Mais Vendidos",
+        "titulo": titulo,
         "subtitulo": _periodo_label(inp.periodo_dias),
         "periodo_label": _periodo_label(inp.periodo_dias),
         "periodo_dias": inp.periodo_dias,
@@ -531,17 +704,25 @@ def _agendamentos(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id
         StatusAgendamento.NAO_COMPARECEU: "Não compareceu",
     }
 
-    rows = [
-        {
-            "Status": label_map.get(s, str(s)),
-            "Qtd.": c,
-            "% do total": f"{round(c / total * 100, 1)}%" if total else "0%",
-        }
-        for s, c in sorted(counts.items(), key=lambda x: -x[1])
-    ]
+    if inp.metrica == "taxa_cancelamento":
+        rows = [
+            {"Métrica": "Total Agendado", "Valor": total},
+            {"Métrica": "Concluídos", "Valor": concluidos},
+            {"Métrica": "Cancelados/Não compareceu", "Valor": cancelados},
+            {"Métrica": "Taxa de Cancelamento", "Valor": f"{taxa_cancel}%"}
+        ]
+    else:
+        rows = [
+            {
+                "Status": label_map.get(s, str(s)),
+                "Qtd.": c,
+                "% do total": f"{round(c / total * 100, 1)}%" if total else "0%",
+            }
+            for s, c in sorted(counts.items(), key=lambda x: -x[1])
+        ]
 
     chart_spec = None
-    if rows:
+    if rows and inp.metrica != "taxa_cancelamento":
         chart_spec = _chart(
             inp.tipo_grafico or "doughnut",
             [r["Status"] for r in rows],
@@ -551,7 +732,7 @@ def _agendamentos(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id
 
     return {
         "dominio": "agendamentos",
-        "titulo": "Relatório de Agendamentos",
+        "titulo": "Relatório de Agendamentos" if inp.metrica != "taxa_cancelamento" else "Taxa de Cancelamento de Agendamentos",
         "subtitulo": _periodo_label(inp.periodo_dias),
         "periodo_label": _periodo_label(inp.periodo_dias),
         "periodo_dias": inp.periodo_dias,
@@ -584,13 +765,15 @@ def _operacional(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id:
         Orcamento.status != StatusOrcamento.RASCUNHO,
     ).scalar() or 0
 
-    fat_sum, fat_cnt = db.query(
+    res_fat2 = db.query(
         func.sum(Orcamento.total), func.count(Orcamento.id)
     ).filter(
         Orcamento.empresa_id == empresa_id,
         Orcamento.criado_em >= inicio,
         Orcamento.status.in_(_STATUS_FATURADOS),
     ).first()
+    fat_sum = res_fat2[0] if res_fat2 and res_fat2[0] is not None else 0
+    fat_cnt = res_fat2[1] if res_fat2 and res_fat2[1] is not None else 0
 
     aprovados = int(fat_cnt or 0)
     total_fat = _f(fat_sum)

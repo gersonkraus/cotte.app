@@ -2793,6 +2793,8 @@ def _v2_parse_relatorio_params(mensagem: str) -> tuple[str, int, str | None, str
         agrupamento = "servico"
     elif "por status" in msg_low:
         agrupamento = "status"
+    elif "por categoria" in msg_low:
+        agrupamento = "categoria"
 
     # métrica explícita
     metrica: str | None = None
@@ -2802,6 +2804,18 @@ def _v2_parse_relatorio_params(mensagem: str) -> tuple[str, int, str | None, str
         metrica = "ticket_medio"
     elif "faturamento" in msg_low:
         metrica = "faturamento"
+    elif "inativo" in msg_low:
+        metrica = "inativos"
+        dominio = "clientes"
+    elif "despesa" in msg_low:
+        metrica = "despesas"
+        dominio = "financeiro"
+    elif "quantidade" in msg_low:
+        metrica = "quantidade"
+    elif "taxa de cancelamento" in msg_low or "cancelamento" in msg_low:
+        metrica = "taxa_cancelamento"
+    elif "total em aberto" in msg_low or "em aberto" in msg_low:
+        metrica = "total_aberto"
 
     return dominio, periodo_dias, agrupamento, metrica
 
@@ -2889,11 +2903,11 @@ async def _v2_build_relatorio_fastpath_response(
             inp, db=db, current_user=current_user
         )
     except Exception as e:
-        logger.error(f"Erro no fastpath de listar orçamentos: {e}")
+        logger.error(f"Erro no fastpath de gerar relatório: {e}")
         return None
 
-    if not isinstance(res_lista, dict) or res_lista.get("error"):
-        logger.error(f"res_lista com erro: {res_lista.get('error')}")
+    if not isinstance(rel_data, dict) or rel_data.get("error"):
+        logger.error(f"rel_data com erro: {rel_data.get('error') if isinstance(rel_data, dict) else 'not a dict'}")
         return None
 
     rows = list(rel_data.get("rows") or [])
