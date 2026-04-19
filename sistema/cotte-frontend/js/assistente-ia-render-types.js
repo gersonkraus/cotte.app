@@ -240,24 +240,48 @@ function renderListaOrcamentos(dados) {
     const titulo = statusFiltro
         ? `Orçamentos (${escapeHtml(String(statusFiltro).toUpperCase())})`
         : 'Orçamentos';
+        
+    const badgeMap = {
+        'rascunho': 'badge-rascunho',
+        'enviado': 'badge-enviado',
+        'aprovado': 'badge-aprovado',
+        'recusado': 'badge-recusado',
+        'expirado': 'badge-expirado'
+    };
+
     const listaHtml = itens.length
         ? itens.map((item) => {
             const numero = escapeHtml(item.numero || `#${item.id || '—'}`);
             const cliente = escapeHtml(item.cliente_nome || 'Cliente não informado');
-            const status = escapeHtml(item.status || '—');
+            const statusStr = item.status || '—';
+            const statusKey = statusStr.toLowerCase();
+            const badgeClass = badgeMap[statusKey] || 'badge-rascunho';
+            
             const criadoEm = item.criado_em
                 ? new Date(item.criado_em).toLocaleDateString('pt-BR')
                 : 'data não informada';
             const valor = formatValue(item.total || 0);
-            return `<div class="orc-list-card__item">
-                <div>
-                    <div class="orc-list-card__item-title">${numero}</div>
-                    <div class="orc-list-card__item-sub">${cliente} • ${status} • ${criadoEm}</div>
+            
+            const actionBtn = item.id 
+                ? `<button type="button" class="btn btn-ghost" style="padding: 2px 8px; font-size: 11px; margin-left: 12px; height: 26px;" onclick="if(typeof abrirDetalhesOrcamento === 'function') abrirDetalhesOrcamento(${item.id})" title="Ver detalhes do orçamento">🔍 Ver</button>` 
+                : '';
+
+            return `<div class="orc-list-card__item" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <div style="flex:1; min-width:180px;">
+                    <div class="orc-list-card__item-title" style="display:flex; align-items:center; gap: 6px;">
+                        ${numero}
+                        <span class="opr-status-badge ${badgeClass}" style="font-size:0.7em; padding:2px 6px;">${escapeHtml(statusStr)}</span>
+                    </div>
+                    <div class="orc-list-card__item-sub">${cliente} • ${criadoEm}</div>
                 </div>
-                <div class="orc-list-card__item-value">${escapeHtml(valor)}</div>
+                <div style="display:flex; align-items:center;">
+                    <div class="orc-list-card__item-value" style="font-weight:600;">${escapeHtml(valor)}</div>
+                    ${actionBtn}
+                </div>
             </div>`;
         }).join('')
         : `<div class="orc-list-empty">Nenhum orçamento encontrado para os filtros selecionados.</div>`;
+        
     const totaisPorStatus = dados.totais_por_status && typeof dados.totais_por_status === 'object'
         ? Object.entries(dados.totais_por_status)
         : [];
