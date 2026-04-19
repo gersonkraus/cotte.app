@@ -261,14 +261,14 @@ class IntentionClassifier:
 
     # H) CRIAR ORÇAMENTO
     CRIAR_ORCAMENTO_KEYWORDS = [
-        r'\bcriar?\s+or[çc]amento\b',
-        r'\bnovo\s+or[çc]amento\b',
-        r'\bor[çc]amento\s+(de|para|do|da)\b',
+        # 1. Ações diretas (crie, fazer, lançar) com artigo opcional
+        r'\b(cria|criar?|crie|fazer|fa[çc]a|gerar?|gere|lan[çc]ar?|lance|montar?|monte|novo)\s+(um\s+|o\s+)?(or[çc]amento|orc)\b',
+        # 2. Orçamento explícito para alguém (orçamento para a ana julia) ou "novo"
+        r'\b(novo\s+)?(or[çc]amento|orc)\s+(para\s+(a\s+|o\s+)?|pro?\s+|pra\s+)\w+',
+        # 3. Orçamento direto (orçamento joão / orçamento da maria / orçamento de serviço / orçamento 100 reais)
+        r'\b(or[çc]amento|orc)\s+(d[eao]\s+)?\w+',
+        # 4. Palavras-chave isoladas de criação
         r'\bor[çc]ar\b',
-        r'\bfazer\s+or[çc]amento\b',
-        r'\bmontar\s+or[çc]amento\b',
-        r'\bor[çc]amento\s+.*?r\$',
-        r'\bor[çc]amento\s+.*?\d+\s*(reais|mil)\b',
         r'\bnovo\s+orc\b',
         r'\bcriar?\s+orc\b',
     ]
@@ -309,10 +309,11 @@ class IntentionClassifier:
         r'\b(ultimos?|[úu]ltimos?|recentes?)\s+or[çc]amentos?\b',
         r'\bor[çc]amentos?\s+(pendentes?|aprovados?|recusados?|enviados?|em\s+aberto|rascunhos?)\b',
         r'\b(quais|ver|listar|liste|lista|meus|mostrar)\b.*\bor[çc]ament',
-        r'\bor[çc]amentos?\s+(da|do|de|para|cliente)\b',
         # Intenção de ter "todos" (listagem global)
         r'\btodos?\s+(os\s+)?or[çc]amentos?\b',
         r'\blista\s+completa\s+de\s+or[çc]amentos?\b',
+        # Pega a intenção nua de plural ("orçamentos do joão"), enquanto singular cai na criação ("orçamento do joão")
+        r'^or[çc]amentos\s+(da|do|de|para|cliente)\b'
     ]
 
     # I) OPERADOR — comandos de execução em orçamentos existentes

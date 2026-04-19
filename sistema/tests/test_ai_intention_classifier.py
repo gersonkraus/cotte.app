@@ -34,6 +34,11 @@ def classifier():
     # CRIAR ORÇAMENTO
     ("criar orçamento", IntencaoUsuario.CRIAR_ORCAMENTO),
     ("novo orçamento", IntencaoUsuario.CRIAR_ORCAMENTO),
+    ("orçamento para ana julia", IntencaoUsuario.CRIAR_ORCAMENTO),
+    ("orçamento da maria", IntencaoUsuario.CRIAR_ORCAMENTO),
+    
+    # LISTAR ORÇAMENTOS
+    ("orçamentos da maria", IntencaoUsuario.LISTAR_ORCAMENTOS),
     
     # ONBOARDING
     ("como começo", IntencaoUsuario.ONBOARDING),

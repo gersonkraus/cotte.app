@@ -501,7 +501,7 @@ obter_orcamento = ToolSpec(
 class ItemOrcamentoInput(BaseModel):
     descricao: str = Field(min_length=1, max_length=300)
     quantidade: float = Field(default=1.0, gt=0)
-    valor_unit: Optional[float] = Field(default=None, gt=0)
+    valor_unit: Optional[float] = Field(default=0.0, ge=0)
     servico_id: Optional[int] = Field(default=None, gt=0)
 
 
@@ -630,12 +630,12 @@ def _resolver_itens(inp: "CriarOrcamentoInput", db: Session, current_user: Usuar
                     {"descricao": descricao, "valor_unit": valor_unit}
                 )
 
-        if valor_unit is None or valor_unit <= 0:
+        if valor_unit is None or valor_unit < 0:
             return (
                 None,
                 None,
                 {
-                    "error": f"Valor inválido ou zero para o item '{descricao}'.",
+                    "error": f"Valor inválido ou menor que zero para o item '{descricao}'.",
                     "code": "missing_valor",
                     "item": descricao,
                 },
