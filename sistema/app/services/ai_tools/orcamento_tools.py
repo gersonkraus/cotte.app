@@ -240,36 +240,7 @@ async def _listar_orcamentos(
         for row in status_counts
     }
 
-    return {
-        "total": total,
-        "itens_retornados": len(items),
-        "limit": inp.limit,
-        "has_more": has_more,
-        "next_cursor": next_cursor,
-        "filtros": {
-            "status": inp.status,
-            # Quando há aprovado_em_de/ate, o SQL sempre exige APROVADO + aprovado_em preenchido
-            # (mesmo se o modelo não enviar status); evita interpretar status=null como "sem filtro".
-            **(
-                {"status_efetivo": StatusOrcamento.APROVADO.value}
-                if use_aprovado_em
-                else {}
-            ),
-            "cliente_id": inp.cliente_id,
-            "dias": inp.dias,
-            "aprovado_em_de": inp.aprovado_em_de.isoformat()
-            if inp.aprovado_em_de
-            else None,
-            "aprovado_em_ate": inp.aprovado_em_ate.isoformat()
-            if inp.aprovado_em_ate
-            else None,
-        },
-        "totais_por_status": totais_por_status,
-        "_meta_notice": "A UI já renderizou essa lista na tela do usuário em formato de tabela interativa com suporte a impressão. NUNCA resuma, itere ou liste os orçamentos 1 a 1 no seu texto de resposta. Apenas concorde dizendo: 'Aqui estão os orçamentos encontrados:'.",
-        "diagnostico": {
-            "filtro_por_data_aprovacao": bool(use_aprovado_em),
-            "aprovados_sem_data": aprovados_sem_data,
-        },
+    frontend_data = {
         "orcamentos": [
             {
                 "id": o.id,
@@ -283,22 +254,44 @@ async def _listar_orcamentos(
             }
             for o in items
         ],
+        "is_list": True, # Sinalizador para o frontend
+    }
+
+    return {
+        "total": total,
+        "itens_retornados": len(items),
+        "limit": inp.limit,
+        "has_more": has_more,
+        "next_cursor": next_cursor,
+        "filtros": {
+            "status": inp.status,
+            **(
+                {"status_efetivo": StatusOrcamento.APROVADO.value}
+                if use_aprovado_em
+                else {}
+            ),
+            "cliente_id": inp.cliente_id,
+            "dias": inp.dias,
+            "aprovado_em_de": inp.aprovado_em_de.isoformat() if inp.aprovado_em_de else None,
+            "aprovado_em_ate": inp.aprovado_em_ate.isoformat() if inp.aprovado_em_ate else None,
+        },
+        "totais_por_status": totais_por_status,
+        "_meta_frontend_data": frontend_data,
+        "_meta_notice": "A UI já renderizou essa lista na tela do usuário em formato de tabela interativa. Não liste os itens um por um. Apenas confirme a ação.",
+        "diagnostico": {
+            "filtro_por_data_aprovacao": bool(use_aprovado_em),
+            "aprovados_sem_data": aprovados_sem_data,
+        },
     }
 
 
 listar_orcamentos = ToolSpec(
     name="listar_orcamentos",
     description=(
-        "Lista orçamentos da empresa. Filtros: status (RASCUNHO/ENVIADO/APROVADO/RECUSADO), "
-        "cliente_id, dias (janela em criado_em), aprovado_em_de/aprovado_em_ate (dia civil "
-        "America/Sao_Paulo no campo aprovado_em; use para 'aprovados ontem/hoje' com as duas "
-        "datas iguais em YYYY-MM-DD; status APROVADO é aplicado automaticamente ou pode ser "
-        "informado explicitamente. Inclui cursor para paginação. Retorna total, "
-        "has_more, next_cursor e totais_por_status. O campo total é a contagem completa do filtro; "
-        "orcamentos pode ter até `limit` itens — se total > len(orcamentos) ou has_more, há mais páginas. "
-        "Para 'quem está devendo / inadimplentes': "
-        "use status='ENVIADO'. Para 'orçamentos aprovados a receber': status='APROVADO'. "
-        "CHAME UMA ÚNICA VEZ por consulta — não repita a mesma tool."
+        "Para listagens rápidas e PAGINADAS de orçamentos (ex: 'últimos orçamentos', 'ver recentes'). "
+        "Retorna uma página de resultados com cursor para carregar mais. "
+        "**NÃO USE para 'todos' os orçamentos ou para gerar relatórios completos**; para isso, use `gerar_relatorio_orcamentos`. "
+        "Filtros: status (ENVIADO, APROVADO, etc), cliente, e datas."
     ),
     input_model=ListarOrcamentosInput,
     handler=_listar_orcamentos,
