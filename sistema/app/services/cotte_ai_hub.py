@@ -2709,14 +2709,14 @@ async def _v2_build_orcamento_fastpath_response(
     )
 
 
-_V2_RELATORIO_INTENTS = {"GERAR_RELATORIO", "FATURAMENTO", "CONVERSAO"}
+_V2_RELATORIO_INTENTS = {"GERAR_RELATORIO", "FATURAMENTO", "CONVERSAO", "DASHBOARD", "INADIMPLENCIA", "ANALISE", "PREVISAO"}
 
 _V2_DOMINIO_KEYWORDS = {
     "orcamentos": ("orcament", "orçament", "conversão", "conversao", "faturamento", "ticket", "pendente", "aprovado"),
-    "clientes": ("ranking de cliente", "melhores clientes", "top cliente"),
-    "financeiro": ("fluxo de caixa", "financeir", "contas a receber", "contas a pagar", "receita", "despesa"),
+    "clientes": ("ranking de cliente", "melhores clientes", "top cliente", "inativo"),
+    "financeiro": ("fluxo de caixa", "financeir", "contas a receber", "contas a pagar", "receita", "despesa", "dashboard", "caixa", "resumo"),
     "inadimplencia": ("inadimpl", "devendo", "atrasado", "vencid"),
-    "servicos": ("serviço mais vendido", "servico mais vendido", "top serviç", "top servic"),
+    "servicos": ("serviç", "servic", "mais vendid", "top serviç", "top servic"),
     "agendamentos": ("agendamento", "agenda"),
 }
 
@@ -2790,7 +2790,7 @@ def _v2_parse_relatorio_params(mensagem: str) -> tuple[str, int, str | None, str
     elif "despesa" in msg_low:
         metrica = "despesas"
         dominio = "financeiro"
-    elif "quantidade" in msg_low:
+    elif "quantidade" in msg_low or "mais vendid" in msg_low:
         metrica = "quantidade"
     elif "taxa de cancelamento" in msg_low or "cancelamento" in msg_low:
         metrica = "taxa_cancelamento"

@@ -335,13 +335,14 @@ def _clientes(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id: in
             )
             .filter(Cliente.empresa_id == empresa_id)
             .group_by(Cliente.id, Cliente.nome)
-            .order_by(func.sum(Orcamento.total).desc())
+            .order_by(
+                func.count(Orcamento.id).desc() if inp.metrica == "quantidade" else func.sum(Orcamento.total).desc()
+            )
             .limit(inp.limite)
             .all()
         )
     
         if inp.metrica == "quantidade":
-            res = sorted(res, key=lambda x: -int(x[1] or 0))
             titulo_cli = "Top Clientes por Quantidade de Orçamentos"
             rows = [
                 {
@@ -373,6 +374,14 @@ def _clientes(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id: in
             [{"label": "Faturamento (R$)", "data": [_f(res[i][2]) for i in range(min(10, len(res)))], "backgroundColor": _CORES[0]}],
         )
 
+    insights = []
+    if inp.metrica == "inativos":
+        insights.append(f"{len(rows)} clientes inativos sem compras aprovadas no período.")
+    else:
+        insights.append(f"Top cliente: {rows[0]['Cliente']} com {rows[0]['Faturamento Total']}" if rows else "Sem dados no período")
+        insights.append(f"{len(rows)} clientes com orçamentos aprovados no período")
+        insights.append(f"Faturamento total: {_brl(total_fat)}")
+
     return {
         "dominio": "clientes",
         "titulo": titulo_cli,
@@ -385,11 +394,7 @@ def _clientes(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id: in
             "faturamento_total": total_fat,
         },
         "chart_spec": chart_spec,
-        "insights_base": [
-            f"Top cliente: {rows[0]['Cliente']} com {rows[0]['Faturamento Total']}" if rows else "Sem dados no período",
-            f"{len(rows)} clientes com orçamentos aprovados no período",
-            f"Faturamento total: {_brl(total_fat)}",
-        ],
+        "insights_base": insights,
     }
 
 
@@ -616,13 +621,15 @@ def _servicos(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id: in
             Orcamento.status.in_(_STATUS_FATURADOS),
         )
         .group_by(ItemOrcamento.descricao)
-        .order_by(func.sum(ItemOrcamento.total).desc())
+        .order_by(
+            func.count(ItemOrcamento.id).desc() if inp.metrica == "quantidade" else func.sum(ItemOrcamento.total).desc()
+        )
         .limit(inp.limite)
         .all()
     )
 
     if inp.metrica == "quantidade":
-        res = sorted(res, key=lambda x: -x[1])
+        # Já vem ordenado do banco, apenas formatamos
         rows = [
             {
                 "Serviço": r[0] or "–",
