@@ -309,6 +309,142 @@ listar_orcamentos = ToolSpec(
 )
 
 
+# ── gerar_relatorio_orcamentos ───────────────────────────────────────────
+class GerarRelatorioOrcamentosInput(BaseModel):
+    status: Optional[str] = Field(
+        default=None,
+        description="Status do orçamento para o relatório (ex: RASCUNHO, ENVIADO, APROVADO, RECUSADO).",
+    )
+    cliente_id: Optional[int] = None
+    dias: int = Field(default=90, ge=1, le=730, description="Janela de dias para o relatório, baseado na data de criação.")
+    aprovado_em_de: Optional[date] = Field(
+        default=None,
+        description="Início do intervalo por data de aprovação (campo aprovado_em).",
+    )
+    aprovado_em_ate: Optional[date] = Field(
+        default=None,
+        description="Fim do intervalo por data de aprovação.",
+    )
+
+
+async def _gerar_relatorio_orcamentos(
+    inp: GerarRelatorioOrcamentosInput, *, db: Session, current_user: Usuario
+) -> dict[str, Any]:
+    RELATORIO_LIMITE_MAXIMO = 1001  # Busca 1 a mais para detectar se o limite foi excedido
+
+    use_aprovado_em = inp.aprovado_em_de is not None or inp.aprovado_em_ate is not None
+    if (
+        use_aprovado_em
+        and inp.aprovado_em_de is not None
+        and inp.aprovado_em_ate is not None
+        and inp.aprovado_em_de > inp.aprovado_em_ate
+    ):
+        return {
+            "error": "aprovado_em_de não pode ser maior que aprovado_em_ate",
+            "code": "invalid_input",
+        }
+
+    ts_col_name = "aprovado_em" if use_aprovado_em else "criado_em"
+    ts_sql = Orcamento.aprovado_em if use_aprovado_em else Orcamento.criado_em
+
+    q_base = (
+        db.query(Orcamento)
+        .options(selectinload(Orcamento.cliente))
+        .filter(Orcamento.empresa_id == current_user.empresa_id)
+        .order_by(ts_sql.desc(), Orcamento.id.desc())
+    )
+
+    if use_aprovado_em:
+        if inp.status:
+            try:
+                st = _resolver_status_orcamento_listar(inp.status)
+            except (KeyError, ValueError):
+                return { "error": f"status inválido: {inp.status}", "code": "invalid_input" }
+            if st != StatusOrcamento.APROVADO:
+                return {
+                    "error": "Ao filtrar por data de aprovação, use status APROVADO ou omita o campo.",
+                    "code": "invalid_input",
+                }
+        q_base = q_base.filter(
+            Orcamento.status == StatusOrcamento.APROVADO,
+            Orcamento.aprovado_em.isnot(None),
+        )
+        if inp.aprovado_em_de is not None:
+            q_base = q_base.filter(Orcamento.aprovado_em >= _dia_br_inicio_utc(inp.aprovado_em_de))
+        if inp.aprovado_em_ate is not None:
+            q_base = q_base.filter(Orcamento.aprovado_em < _dia_br_fim_exclusivo_utc(inp.aprovado_em_ate))
+    else:
+        desde = date.today() - timedelta(days=inp.dias)
+        q_base = q_base.filter(Orcamento.criado_em >= desde)
+
+    if inp.cliente_id:
+        q_base = q_base.filter(Orcamento.cliente_id == inp.cliente_id)
+
+    q = q_base
+    if inp.status and not use_aprovado_em:
+        try:
+            status_enum = _resolver_status_orcamento_listar(inp.status)
+            q = q.filter(Orcamento.status == status_enum)
+        except (ValueError, KeyError):
+            return {"error": f"status inválido: {inp.status}", "code": "invalid_input"}
+
+    rows = q.limit(RELATORIO_LIMITE_MAXIMO).all()
+    limite_excedido = len(rows) == RELATORIO_LIMITE_MAXIMO
+    items = rows[:RELATORIO_LIMITE_MAXIMO - 1] if limite_excedido else rows
+    
+    valor_total_relatorio = sum(o.total or Decimal(0) for o in items)
+
+    return {
+        "is_report": True,
+        "report_type": "orcamentos",
+        "itens_retornados": len(items),
+        "limite_excedido": limite_excedido,
+        "limite_maximo": RELATORIO_LIMITE_MAXIMO - 1,
+        "filtros": {
+            "status": inp.status,
+            **({"status_efetivo": StatusOrcamento.APROVADO.value} if use_aprovado_em else {}),
+            "cliente_id": inp.cliente_id,
+            "dias": inp.dias,
+            "aprovado_em_de": inp.aprovado_em_de.isoformat() if inp.aprovado_em_de else None,
+            "aprovado_em_ate": inp.aprovado_em_ate.isoformat() if inp.aprovado_em_ate else None,
+        },
+        "resumo": {
+            "valor_total_relatorio": float(valor_total_relatorio),
+        },
+        "orcamentos": [
+            {
+                "id": o.id,
+                "numero": o.numero,
+                "status": o.status.value if o.status else None,
+                "total": float(o.total or 0),
+                "cliente_id": o.cliente_id,
+                "cliente_nome": o.cliente.nome if o.cliente else None,
+                "criado_em": o.criado_em.isoformat() if o.criado_em else None,
+                "aprovado_em": o.aprovado_em.isoformat() if o.aprovado_em else None,
+            }
+            for o in items
+        ],
+        "_meta_notice": "Os dados para o relatório de orçamentos foram gerados. O frontend irá renderizar uma tabela completa com opções de impressão e exportação. Confirme para o usuário dizendo: 'Aqui está o relatório de orçamentos que você pediu:'.",
+    }
+
+
+gerar_relatorio_orcamentos = ToolSpec(
+    name="gerar_relatorio_orcamentos",
+    description=(
+        "Gera um relatório completo e não paginado de orçamentos, ideal para visualização em tabela e exportação. "
+        "Use para perguntas que implicam um relatório, como 'liste todos os orçamentos pendentes', 'gerar relatório de orçamentos aprovados este mês'. "
+        "Não use para perguntas rápidas sobre 'os últimos' orçamentos (para isso, use 'listar_orcamentos'). "
+        "O resultado é uma lista completa até um limite de segurança."
+    ),
+    input_model=GerarRelatorioOrcamentosInput,
+    handler=_gerar_relatorio_orcamentos,
+    destrutiva=False,
+    cacheable_ttl=30,
+    permissao_recurso="orcamentos",
+    permissao_acao="leitura",
+)
+
+
 # ── obter_orcamento ────────────────────────────────────────────────────────
 class ObterOrcamentoInput(BaseModel):
     id: int | str = Field(
