@@ -30,6 +30,7 @@ from pydantic import BaseModel, Field, validator
 from app.core.config import settings
 
 # Importar novos módulos refatorados
+from app.models.models import Usuario # Importado globalmente para type hints
 from app.services.ai_json_extractor import AIJSONExtractor
 from app.services.ai_prompt_loader import get_prompt_loader
 from app.services.ai_intention_classifier import (
@@ -1865,6 +1866,7 @@ async def assistente_unificado(
     usuario_id: int = 0,
     permissoes: dict | None = None,
     is_gestor: bool = False,
+    current_user: Usuario = None, # Adicionado current_user como parâmetro
 ) -> AIResponse:
     """
     Ponto de entrada único para o chat do assistente COTTE.
@@ -1912,7 +1914,6 @@ async def assistente_unificado(
     # NOVO: Roteamento determinístico para relatórios e listagens de orçamentos
     if intencao == "GERAR_RELATORIO" and "orçament" in mensagem.lower():
         from app.services.ai_tools.orcamento_tools import _gerar_relatorio_orcamentos, GerarRelatorioOrcamentosInput, _resolver_status_orcamento_listar
-        from app.models.models import Usuario # Importar Usuario para type hint
 
         status_match = re.search(r"pendentes|enviados|aprovados|recusados|rascunho", mensagem.lower())
         status_str = status_match.group(0) if status_match else None
@@ -1925,7 +1926,7 @@ async def assistente_unificado(
 
         # Simula a chamada da tool diretamente
         inp = GerarRelatorioOrcamentosInput(status=status_value)
-        dados = await _gerar_relatorio_orcamentos(inp, db=db, current_user=current_user) # Use current_user directly
+        dados = await _gerar_relatorio_orcamentos(inp, db=db, current_user=current_user)
         
         # Adapta a resposta para o formato AIResponse
         return AIResponse(
@@ -1943,7 +1944,6 @@ async def assistente_unificado(
 
     if intencao == "LISTAR_ORCAMENTOS":
         from app.services.ai_tools.orcamento_tools import _listar_orcamentos, ListarOrcamentosInput, _resolver_status_orcamento_listar
-        from app.models.models import Usuario # Importar Usuario para type hint
         
         status_match = re.search(r"pendentes|enviados|aprovados|recusados|rascunho", mensagem.lower())
         status_str = status_match.group(0) if status_match else None
@@ -1955,7 +1955,7 @@ async def assistente_unificado(
             status_value = None # Fallback to default if status is invalid
 
         inp = ListarOrcamentosInput(status=status_value)
-        dados = await _listar_orcamentos(inp, db=db, current_user=current_user) # Use current_user directly
+        dados = await _listar_orcamentos(inp, db=db, current_user=current_user)
 
         return AIResponse(
             sucesso=True,
