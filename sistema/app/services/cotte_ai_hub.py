@@ -2463,14 +2463,6 @@ def _v2_is_saldo_rapido_message(mensagem: str) -> bool:
     return _v2_detect_deterministic_intent(mensagem) == "SALDO_RAPIDO"
 
 
-def _v2_is_dashboard_financeiro_message(mensagem: str) -> bool:
-    return _v2_detect_deterministic_intent(mensagem) == "DASHBOARD"
-
-
-def _v2_is_clientes_devendo_message(mensagem: str) -> bool:
-    return _v2_detect_deterministic_intent(mensagem) == "INADIMPLENCIA"
-
-
 def _v2_is_orcamento_fastpath_message(mensagem: str) -> bool:
     return _v2_detect_deterministic_intent(mensagem) == "CRIAR_ORCAMENTO"
 
@@ -2700,18 +2692,6 @@ async def _v2_build_saldo_fastpath_response(db: Session, empresa_id: int) -> AIR
     from app.services.ai_intention_classifier import saldo_rapido_ia
 
     return await saldo_rapido_ia(db=db, empresa_id=empresa_id)
-
-
-async def _v2_build_dashboard_fastpath_response(
-    db: Session, empresa_id: int
-) -> AIResponse:
-    return await dashboard_financeiro_ia(db=db, empresa_id=empresa_id)
-
-
-async def _v2_build_inadimplencia_fastpath_response(
-    db: Session, empresa_id: int
-) -> AIResponse:
-    return await clientes_devendo_ia(db=db, empresa_id=empresa_id)
 
 
 async def _v2_build_orcamento_fastpath_response(
@@ -3233,24 +3213,6 @@ async def assistente_v2_stream_core(
 
     if _v2_is_saldo_rapido_message(mensagem):
         resposta = await _v2_build_saldo_fastpath_response(
-            db=db,
-            empresa_id=getattr(current_user, "empresa_id", 0),
-        )
-        async for event in _emit_fastpath_ai_response(resposta):
-            yield event
-        return
-
-    if _v2_is_dashboard_financeiro_message(mensagem):
-        resposta = await _v2_build_dashboard_fastpath_response(
-            db=db,
-            empresa_id=getattr(current_user, "empresa_id", 0),
-        )
-        async for event in _emit_fastpath_ai_response(resposta):
-            yield event
-        return
-
-    if _v2_is_clientes_devendo_message(mensagem):
-        resposta = await _v2_build_inadimplencia_fastpath_response(
             db=db,
             empresa_id=getattr(current_user, "empresa_id", 0),
         )
@@ -5524,32 +5486,6 @@ async def assistente_unificado_v2(
 
     if _v2_is_saldo_rapido_message(mensagem):
         resposta = await _v2_build_saldo_fastpath_response(
-            db=db,
-            empresa_id=getattr(current_user, "empresa_id", 0),
-        )
-        _v2_persist_fastpath_response(
-            sessao_id=sessao_id,
-            db=db,
-            current_user=current_user,
-            resposta=resposta.resposta or "",
-        )
-        return resposta
-
-    if _v2_is_dashboard_financeiro_message(mensagem):
-        resposta = await _v2_build_dashboard_fastpath_response(
-            db=db,
-            empresa_id=getattr(current_user, "empresa_id", 0),
-        )
-        _v2_persist_fastpath_response(
-            sessao_id=sessao_id,
-            db=db,
-            current_user=current_user,
-            resposta=resposta.resposta or "",
-        )
-        return resposta
-
-    if _v2_is_clientes_devendo_message(mensagem):
-        resposta = await _v2_build_inadimplencia_fastpath_response(
             db=db,
             empresa_id=getattr(current_user, "empresa_id", 0),
         )

@@ -292,6 +292,12 @@ class IntentionClassifier:
         # Faturamento como relatório
         r'\bfaturamento\s+(total|do\s+m[eê]s|anual)\b',
         r'\btotal\s+(faturado|de\s+vendas)\b',
+        # Novas visões analíticas
+        r'\bclientes?\s+inativos?\b',
+        r'\bdespesas?\s+por\s+categoria\b',
+        r'\bservi[çc]os?\s+mais\s+vendidos?\b',
+        r'\btaxa\s+de\s+cancelamento\b',
+        r'\btotal\s+em\s+aberto\b',
     ]
 
     LISTAR_ORCAMENTOS_KEYWORDS = [
