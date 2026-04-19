@@ -120,10 +120,22 @@ def _orcamentos(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id: 
 
     agrup = inp.agrupamento
     if not agrup:
-        if inp.metrica in ("faturamento", "total_vendido", "ticket_medio", "quantidade"):
-            agrup = "cliente"
+        if inp.metrica in ("faturamento", "total_vendido", "quantidade"):
+            agrup = "tempo"  # Faturamento agora exibe a linha do tempo por padrão, muito melhor!
+        elif inp.metrica == "ticket_medio":
+            agrup = "tempo"
+        elif inp.metrica == "taxa_conversao":
+            agrup = "funil"
         else:
             agrup = "status"
+
+    highlight_kpi = None
+    if inp.metrica == "taxa_conversao":
+        highlight_kpi = "taxa_conversao_pct"
+    elif inp.metrica == "ticket_medio":
+        highlight_kpi = "ticket_medio"
+    elif inp.metrica in ("faturamento", "total_vendido"):
+        highlight_kpi = "total_faturado"
 
     rows: list[dict] = []
     chart_spec = None
@@ -155,6 +167,72 @@ def _orcamentos(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id: 
             [r["Status"] for r in rows],
             [{"label": "Orçamentos", "data": [r["Qtd."] for r in rows], "backgroundColor": cores}],
         )
+
+    elif agrup == "funil":
+        titulo = "Funil de Conversão de Orçamentos"
+        rows = [
+            {"Etapa": "1. Criados", "Volume": total, "Conversão Etapa": "-"},
+            {"Etapa": "2. Enviados", "Volume": enviados, "Conversão Etapa": f"{round((enviados/total*100) if total else 0, 1)}%"},
+            {"Etapa": "3. Aprovados", "Volume": aprovados, "Conversão Etapa": f"{round((aprovados/enviados*100) if enviados else 0, 1)}%"},
+        ]
+        if rows:
+            chart_spec = _chart(
+                inp.tipo_grafico or "bar",
+                [r["Etapa"] for r in rows],
+                [{"label": "Volume", "data": [total, enviados, aprovados], "backgroundColor": [_CORES[0], _CORES[1], _COR_OK]}],
+            )
+            # Dica visual: o frontend pode plotar funil nativo depois.
+
+    elif agrup == "tempo":
+        titulo = "Evolução do Faturamento" if inp.metrica != "ticket_medio" else "Evolução do Ticket Médio"
+        
+        # Agrupar por data de criacao
+        from sqlalchemy import cast, Date
+        
+        res = (
+            db.query(
+                cast(Orcamento.criado_em, Date),
+                func.count(Orcamento.id),
+                func.sum(Orcamento.total)
+            )
+            .filter(
+                Orcamento.empresa_id == empresa_id,
+                Orcamento.criado_em >= inicio,
+                Orcamento.status.in_(_STATUS_FATURADOS),
+            )
+            .group_by(cast(Orcamento.criado_em, Date))
+            .order_by(cast(Orcamento.criado_em, Date).asc())
+            .limit(inp.limite if inp.limite > 0 else 30)
+            .all()
+        )
+        
+        rows = []
+        for r in res:
+            dia_str = str(r[0])  # YYYY-MM-DD
+            qtd = int(r[1] or 0)
+            fat = _f(r[2])
+            tk = fat / qtd if qtd > 0 else 0
+            rows.append({
+                "Data": dia_str,
+                "Orçamentos": qtd,
+                "Faturamento": _brl(fat),
+                "Ticket Médio": _brl(tk)
+            })
+
+        if rows:
+            labels = [r["Data"][-5:] for r in rows] # MM-DD
+            if inp.metrica == "ticket_medio":
+                data_pts = [float(str(r["Ticket Médio"]).replace("R$", "").replace(".", "").replace(",", ".").strip()) for r in rows]
+                label_grafico = "Ticket Médio (R$)"
+            else:
+                data_pts = [float(str(r["Faturamento"]).replace("R$", "").replace(".", "").replace(",", ".").strip()) for r in rows]
+                label_grafico = "Faturamento (R$)"
+            
+            chart_spec = _chart(
+                inp.tipo_grafico or "line",
+                labels,
+                [{"label": label_grafico, "data": data_pts, "backgroundColor": _CORES[0]}],
+            )
 
     elif agrup == "cliente":
         titulo = "Faturamento por Cliente"
@@ -280,6 +358,7 @@ def _orcamentos(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id: 
             "total_faturado": total_fat,
             "ticket_medio": ticket,
         },
+        "highlight_kpi": highlight_kpi,
         "chart_spec": chart_spec,
         "insights_base": [
             f"Total de {total} orçamentos no período",
