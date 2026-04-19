@@ -967,6 +967,12 @@ async function sendMessage() {
             }
         }
 
+        // Adicionado para renderizar relatórios de orçamentos
+        const reportData = finalData.dados && finalData.dados._meta_frontend_data;
+        if (reportData && reportData.is_report && reportData.report_type === 'orcamentos') {
+            renderOrcamentosReport(reportData);
+        }
+
         processAIResponse(finalData, loadingMessage, true);
 
     } catch (error) {
@@ -1064,3 +1070,94 @@ window.clearAssistentePromptEditor = clearAssistentePromptEditor;
 window.saveAssistentePromptLibraryItem = saveAssistentePromptLibraryItem;
 window.handleAssistentePromptLibraryAction = handleAssistentePromptLibraryAction;
 window.saveAssistenteContexto = saveAssistenteContexto;
+
+function renderOrcamentosReport(data) {
+    const reportContainer = document.getElementById('ai-report-container');
+    if (!reportContainer) {
+        console.error('Container de relatório #ai-report-container não encontrado.');
+        addMessage(buildAssistenteErrorCard("Erro de UI: O container de relatório não foi encontrado na página. (ID: ai-report-container)"), false, true);
+        return;
+    }
+
+    const orcamentos = data.orcamentos || [];
+    const totalValue = orcamentos.reduce((sum, orc) => sum + (orc.total || 0), 0);
+
+    let tableRows = orcamentos.map(orc => `
+        <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
+            <td class="py-3 px-4 text-left">${escapeHtml(orc.numero || '')}</td>
+            <td class="py-3 px-4 text-left">${escapeHtml(orc.cliente_nome || 'N/A')}</td>
+            <td class="py-3 px-4 text-center">
+                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-200 text-yellow-800">
+                    ${escapeHtml((orc.status || 'PENDENTE').replace('_', ' '))}
+                </span>
+            </td>
+            <td class="py-3 px-4 text-right">R$ ${orc.total.toFixed(2).replace('.', ',')}</td>
+            <td class="py-3 px-4 text-center">${new Date(orc.criado_em).toLocaleDateString('pt-BR')}</td>
+        </tr>
+    `).join('');
+
+    if (orcamentos.length === 0) {
+        tableRows = `<tr><td colspan="5" class="text-center py-4">Nenhum orçamento encontrado para este filtro.</td></tr>`;
+    }
+
+    reportContainer.innerHTML = `
+        <div class="bg-white dark:bg-gray-900 rounded-lg shadow-md p-4 mt-4">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200">Relatório de Orçamentos</h3>
+                <div class="flex items-center space-x-2">
+                    <button class="btn btn-secondary-outline btn-sm" onclick="window.print()">🖨️ Imprimir</button>
+                    <button class="btn btn-secondary-outline btn-sm" onclick="exportReportToCSV()">📄 Exportar CSV</button>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full bg-white dark:bg-gray-900">
+                    <thead class="bg-gray-100 dark:bg-gray-800">
+                        <tr>
+                            <th class="py-3 px-4 text-left text-sm font-semibold text-gray-600 dark:text-gray-300">Número</th>
+                            <th class="py-3 px-4 text-left text-sm font-semibold text-gray-600 dark:text-gray-300">Cliente</th>
+                            <th class="py-3 px-4 text-center text-sm font-semibold text-gray-600 dark:text-gray-300">Status</th>
+                            <th class="py-3 px-4 text-right text-sm font-semibold text-gray-600 dark:text-gray-300">Total</th>
+                            <th class="py-3 px-4 text-center text-sm font-semibold text-gray-600 dark:text-gray-300">Criado em</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-gray-700 dark:text-gray-300">
+                        ${tableRows}
+                    </tbody>
+                    <tfoot class="bg-gray-100 dark:bg-gray-800 font-semibold">
+                        <tr>
+                            <td colspan="3" class="py-3 px-4 text-right">Total:</td>
+                            <td class="py-3 px-4 text-right">R$ ${totalValue.toFixed(2).replace('.', ',')}</td>
+                            <td class="py-3 px-4"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+             ${data.limite_excedido ? `<p class="text-sm text-yellow-600 mt-2">Atenção: O relatório atingiu o limite máximo de ${data.limite_maximo} registros. Refine sua busca se necessário.</p>` : ''}
+        </div>
+    `;
+    reportContainer.scrollIntoView({ behavior: 'smooth', block: 'end' });
+}
+
+function exportReportToCSV() {
+    const table = document.querySelector("#ai-report-container table");
+    if (!table) return;
+
+    let csv = [];
+    const headers = Array.from(table.querySelectorAll("thead th")).map(th => th.innerText);
+    csv.push(headers.join(','));
+
+    const rows = table.querySelectorAll("tbody tr");
+    rows.forEach(row => {
+        const rowData = Array.from(row.querySelectorAll("td")).map(td => `"${td.innerText.replace(/"/g, '""')}"`);
+        csv.push(rowData.join(','));
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8," + csv.join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "relatorio_orcamentos.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}

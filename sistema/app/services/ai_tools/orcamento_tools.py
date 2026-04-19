@@ -394,23 +394,11 @@ async def _gerar_relatorio_orcamentos(
     
     valor_total_relatorio = sum(o.total or Decimal(0) for o in items)
 
-    return {
+    # Esta estrutura será passada para o frontend, mas não para o LLM.
+    # O frontend vai ler 'is_report' daqui.
+    frontend_data = {
         "is_report": True,
         "report_type": "orcamentos",
-        "itens_retornados": len(items),
-        "limite_excedido": limite_excedido,
-        "limite_maximo": RELATORIO_LIMITE_MAXIMO - 1,
-        "filtros": {
-            "status": inp.status,
-            **({"status_efetivo": StatusOrcamento.APROVADO.value} if use_aprovado_em else {}),
-            "cliente_id": inp.cliente_id,
-            "dias": inp.dias,
-            "aprovado_em_de": inp.aprovado_em_de.isoformat() if inp.aprovado_em_de else None,
-            "aprovado_em_ate": inp.aprovado_em_ate.isoformat() if inp.aprovado_em_ate else None,
-        },
-        "resumo": {
-            "valor_total_relatorio": float(valor_total_relatorio),
-        },
         "orcamentos": [
             {
                 "id": o.id,
@@ -424,6 +412,25 @@ async def _gerar_relatorio_orcamentos(
             }
             for o in items
         ],
+        "limite_excedido": limite_excedido,
+        "limite_maximo": RELATORIO_LIMITE_MAXIMO - 1,
+    }
+
+    # Resposta enxuta para o LLM
+    return {
+        "itens_retornados": len(items),
+        "valor_total_relatorio": float(valor_total_relatorio),
+        "is_report": True, # Deixamos um marcador simples para o LLM
+        "report_type": "orcamentos",
+        "filtros": {
+            "status": inp.status,
+            **({"status_efetivo": StatusOrcamento.APROVADO.value} if use_aprovado_em else {}),
+            "cliente_id": inp.cliente_id,
+            "dias": inp.dias,
+            "aprovado_em_de": inp.aprovado_em_de.isoformat() if inp.aprovado_em_de else None,
+            "aprovado_em_ate": inp.aprovado_em_ate.isoformat() if inp.aprovado_em_ate else None,
+        },
+        "_meta_frontend_data": frontend_data,
         "_meta_notice": "Os dados para o relatório de orçamentos foram gerados. O frontend irá renderizar uma tabela completa com opções de impressão e exportação. Confirme para o usuário dizendo: 'Aqui está o relatório de orçamentos que você pediu:'.",
     }
 
