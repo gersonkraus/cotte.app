@@ -2475,6 +2475,64 @@ def _v2_is_orcamento_fastpath_message(mensagem: str) -> bool:
     return _v2_detect_deterministic_intent(mensagem) == "CRIAR_ORCAMENTO"
 
 
+def _v2_is_listar_orcamentos_fastpath_message(mensagem: str) -> bool:
+    return _v2_detect_deterministic_intent(mensagem) == "LISTAR_ORCAMENTOS"
+
+
+async def _v2_build_listar_orcamentos_fastpath_response(
+    *,
+    mensagem: str,
+    db: Session,
+    current_user: Any,
+) -> AIResponse | None:
+    from app.services.ai_tools.orcamento_tools import (
+        _listar_orcamentos,
+        ListarOrcamentosInput,
+        _resolver_status_orcamento_listar,
+    )
+
+    status_match = re.search(
+        r"pendentes|enviados|aprovados|recusados|rascunho", mensagem.lower()
+    )
+    status_str = status_match.group(0) if status_match else None
+
+    try:
+        status_enum = (
+            _resolver_status_orcamento_listar(status_str) if status_str else None
+        )
+        status_value = status_enum.value if status_enum else None
+    except (KeyError, ValueError):
+        status_value = None
+
+    try:
+        inp = ListarOrcamentosInput(status=status_value)
+        res = await _listar_orcamentos(inp, db=db, current_user=current_user)
+    except Exception:
+        return None
+
+    if not isinstance(res, dict) or res.get("error"):
+        return None
+
+    total = res.get("total", 0)
+    status_label = status_str or "encontrado(s)"
+    resumo = f"Encontrei {total} orçamento(s) {status_label}."
+
+    return AIResponse(
+        sucesso=True,
+        resposta=resumo,
+        tipo_resposta="lista_orcamentos",
+        confianca=0.99,
+        modulo_origem="assistente_v2",
+        tool_trace=[{"tool": "listar_orcamentos", "status": "ok", "latencia_ms": 0}],
+        dados={
+            "_meta_frontend_data": res.get("_meta_frontend_data"),
+            "is_list": True,
+            "input_tokens": 0,
+            "output_tokens": 0,
+        },
+    )
+
+
 def _v2_is_operador_fastpath_message(mensagem: str) -> bool:
     """True se OPERADOR com ação + ID de orçamento claramente parseáveis (0 tokens LLM)."""
     if _v2_detect_deterministic_intent(mensagem) != "OPERADOR":
@@ -3131,6 +3189,17 @@ async def assistente_v2_stream_core(
         )
         if resposta_rel is not None:
             async for event in _emit_fastpath_ai_response(resposta_rel):
+                yield event
+            return
+
+    if _v2_is_listar_orcamentos_fastpath_message(mensagem):
+        resposta_lista = await _v2_build_listar_orcamentos_fastpath_response(
+            mensagem=mensagem,
+            db=db,
+            current_user=current_user,
+        )
+        if resposta_lista is not None:
+            async for event in _emit_fastpath_ai_response(resposta_lista):
                 yield event
             return
 
@@ -5611,6 +5680,21 @@ async def _assistente_unificado_v2_legacy(
                 "grafico": grafico,
             },
         )
+
+    if _v2_is_listar_orcamentos_fastpath_message(mensagem):
+        resposta_lista = await _v2_build_listar_orcamentos_fastpath_response(
+            mensagem=mensagem,
+            db=db,
+            current_user=current_user,
+        )
+        if resposta_lista is not None:
+            _v2_persist_fastpath_response(
+                sessao_id=sessao_id,
+                db=db,
+                current_user=current_user,
+                resposta=resposta_lista.resposta or "",
+            )
+            return resposta_lista
 
     # ── Fast-path: confirmação de ação destrutiva ────────────────────────
     # Quando o usuário clica "Confirmar" no card, o frontend reenvia a
