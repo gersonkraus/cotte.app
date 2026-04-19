@@ -281,6 +281,10 @@ class IntentionClassifier:
         r'\btaxa\s+de\s+convers[aã]o\b',
         r'\branking\s+de\b',
         r'\bticket\s+m[eé]dio\b',
+        r'\bcomiss[aã]o\b',
+        r'\bcomiss[õo]es\b',
+        r'\btop\s+\d+\b',
+        r'\bvendas\s+aprovadas\b',
         # Análise de desempenho
         r'\bdesempenho\s+(de|dos|por)\b',
         r'\bperformance\s+(de|dos|por)\b',

@@ -2789,7 +2789,7 @@ def _v2_parse_relatorio_params(mensagem: str) -> tuple[str, int, str | None, str
         agrupamento = "cliente"
     elif any(k in msg_low for k in ("faixa de atraso", "por faixa", "idade da d", "tempo de atraso")):
         agrupamento = "faixa_atraso"
-    elif any(k in msg_low for k in ("por vendedor", "por colaborador", "performance do vendedor")):
+    elif any(k in msg_low for k in ("por vendedor", "por colaborador", "performance do vendedor", "comissão", "comissao", "comissões")):
         agrupamento = "vendedor"
     elif any(k in msg_low for k in ("por serviço", "por servico")):
         agrupamento = "servico"
