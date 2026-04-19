@@ -2883,6 +2883,51 @@ def _v2_format_relatorio_resumo(
     return f"Relatório de {dominio} — {periodo_label}. {len(rows or [])} itens."
 
 
+async def _v2_parse_relatorio_params_semantico(mensagem: str, default_dominio: str, default_periodo: int) -> tuple[str, int, str | None, str | None]:
+    """Usa LLM para extrair parâmetros de relatório quando o Regex falha em encontrar um agrupamento."""
+    import os
+    import json
+    from litellm import acompletion
+    from app.services.ia_service import logger
+    
+    try:
+        model = os.getenv("AI_TECHNICAL_MODEL") or os.getenv("AI_MODEL") or "openrouter/google/gemini-2.5-flash"
+        if os.getenv("AI_PROVIDER") == "openrouter" and not model.startswith("openrouter/"):
+            model = f"openrouter/{model}"
+            
+        prompt = (
+            f"Você é um extrator de parâmetros JSON. Analise a mensagem: '{mensagem}'\n"
+            "Retorne APENAS um JSON válido com as seguintes chaves:\n"
+            "- agrupamento (string): pode ser 'cliente' (para rankings, maiores, melhores, quem comprou mais), 'vendedor', 'servico', 'tempo', 'status', 'categoria' ou null se não houver.\n"
+            "- metrica (string): 'taxa_conversao', 'ticket_medio', 'faturamento' ou null.\n"
+            "Exemplo: {"agrupamento": "cliente", "metrica": null}\n"
+            "Retorne apenas o JSON, sem markdown."
+        )
+        
+        resp = await acompletion(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.0,
+            max_tokens=30
+        )
+        
+        txt = resp.choices[0].message.content.strip()
+        if txt.startswith("```json"): txt = txt[7:]
+        if txt.startswith("```"): txt = txt[3:]
+        if txt.endswith("```"): txt = txt[:-3]
+        
+        dados = json.loads(txt.strip())
+        agrupamento = dados.get("agrupamento")
+        metrica = dados.get("metrica")
+        
+        if agrupamento in ["null", "None", "", "none"]: agrupamento = None
+        if metrica in ["null", "None", "", "none"]: metrica = None
+        
+        return default_dominio, default_periodo, agrupamento, metrica
+    except Exception as e:
+        logger.error(f"[Semantic Extract] Falhou: {e}")
+        return default_dominio, default_periodo, None, None
+
 async def _v2_build_relatorio_fastpath_response(
     *,
     mensagem: str,
@@ -2894,7 +2939,12 @@ async def _v2_build_relatorio_fastpath_response(
         _handler_gerar_relatorio_dinamico,
     )
 
+    # 1. Tenta extrair por Regex
     dominio, periodo_dias, agrupamento, metrica = _v2_parse_relatorio_params(mensagem)
+    
+    # 2. Extrator Semântico se o Regex não achou agrupamento mas sabemos que é um relatório
+    if not agrupamento:
+        dominio, periodo_dias, agrupamento, metrica = await _v2_parse_relatorio_params_semantico(mensagem, dominio, periodo_dias)
 
     try:
         inp = GerarRelatorioDinamicoInput(
@@ -3121,6 +3171,22 @@ async def assistente_v2_stream_core(
     except ImportError:
         execute_pending = None
 
+    from app.services.ai_intention_classifier import detectar_intencao_assistente_async
+    try:
+        classificacao = await detectar_intencao_assistente_async(mensagem)
+        intent_str = classificacao.intencao.value
+    except Exception:
+        intent_str = "CONVERSACAO"
+
+    from app.services.ai_intention_classifier import detectar_intencao_assistente_async
+
+    try:
+        classificacao = await detectar_intencao_assistente_async(mensagem)
+        intent_str = classificacao.intencao.value
+    except Exception:
+        intent_str = "CONVERSACAO"
+
+
     def _enc(d):
         return f"data: {json.dumps(d, ensure_ascii=False, default=str)}\n\n"
 
@@ -3235,7 +3301,7 @@ async def assistente_v2_stream_core(
         )
         return
 
-    if _v2_is_saldo_rapido_message(mensagem):
+    if intent_str == "SALDO_RAPIDO":
         resposta = await _v2_build_saldo_fastpath_response(
             db=db,
             empresa_id=getattr(current_user, "empresa_id", 0),
@@ -3244,7 +3310,7 @@ async def assistente_v2_stream_core(
             yield event
         return
 
-    if _v2_is_orcamento_fastpath_message(mensagem):
+    if intent_str == "CRIAR_ORCAMENTO":
         resposta = await _v2_build_orcamento_fastpath_response(
             mensagem=mensagem,
             db=db,
@@ -3255,7 +3321,7 @@ async def assistente_v2_stream_core(
             yield event
         return
 
-    if _v2_is_relatorio_fastpath_message(mensagem):
+    if intent_str in _V2_RELATORIO_INTENTS:
         resposta_rel = await _v2_build_relatorio_fastpath_response(
             mensagem=mensagem,
             db=db,
@@ -3266,7 +3332,7 @@ async def assistente_v2_stream_core(
                 yield event
             return
 
-    if _v2_is_listar_orcamentos_fastpath_message(mensagem):
+    if intent_str == "LISTAR_ORCAMENTOS":
         resposta_lista = await _v2_build_listar_orcamentos_fastpath_response(
             mensagem=mensagem,
             db=db,
@@ -5488,6 +5554,22 @@ async def assistente_unificado_v2(
         try_handle_semantic_autonomy,
     )
 
+    from app.services.ai_intention_classifier import detectar_intencao_assistente_async
+    try:
+        classificacao = await detectar_intencao_assistente_async(mensagem)
+        intent_str = classificacao.intencao.value
+    except Exception:
+        intent_str = "CONVERSACAO"
+
+    from app.services.ai_intention_classifier import detectar_intencao_assistente_async
+
+    try:
+        classificacao = await detectar_intencao_assistente_async(mensagem)
+        intent_str = classificacao.intencao.value
+    except Exception:
+        intent_str = "CONVERSACAO"
+
+
     if _v2_is_onboarding_bootstrap_message(mensagem):
         resposta, status = _v2_build_onboarding_fastpath_payload(
             db=db,
@@ -5508,7 +5590,7 @@ async def assistente_unificado_v2(
             modulo_origem="onboarding",
         )
 
-    if _v2_is_saldo_rapido_message(mensagem):
+    if intent_str == "SALDO_RAPIDO":
         resposta = await _v2_build_saldo_fastpath_response(
             db=db,
             empresa_id=getattr(current_user, "empresa_id", 0),
@@ -5521,7 +5603,7 @@ async def assistente_unificado_v2(
         )
         return resposta
 
-    if _v2_is_orcamento_fastpath_message(mensagem):
+    if intent_str == "CRIAR_ORCAMENTO":
         resposta = await _v2_build_orcamento_fastpath_response(
             mensagem=mensagem,
             db=db,
@@ -5729,7 +5811,7 @@ async def _assistente_unificado_v2_legacy(
             },
         )
 
-    if _v2_is_listar_orcamentos_fastpath_message(mensagem):
+    if intent_str == "LISTAR_ORCAMENTOS":
         resposta_lista = await _v2_build_listar_orcamentos_fastpath_response(
             mensagem=mensagem,
             db=db,

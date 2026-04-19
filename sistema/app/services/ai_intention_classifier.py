@@ -437,14 +437,7 @@ class IntentionClassifier:
 
     async def classificar(self, mensagem: str, usar_haiku: bool = True) -> ClassificacaoResult:
         """
-        Classifica a intenção do usuário usando apenas Regex.
-
-        Args:
-            mensagem: Texto da mensagem do usuário
-            usar_haiku: Mantido apenas por compatibilidade. Não é mais usado.
-        
-        Returns:
-            ClassificacaoResult com intenção e metadados
+        Classifica a intenção do usuário usando Regex + Semantic Fallback.
         """
         import time
         start_time = time.time()
@@ -469,16 +462,77 @@ class IntentionClassifier:
                 metodo="regex",
                 tempo_ms=tempo_ms
             )
+            
+        # ── ETAPA 2: SEMANTIC ROUTING (LiteLLM) ──────────────────────
+        intencao_semantica, confianca = await self._classificar_semantico(mensagem)
+        tempo_ms = (time.time() - start_time) * 1000
+        
+        if intencao_semantica != IntencaoUsuario.CONVERSACAO:
+            logger.debug(f"[IntentionClassifier] Semantic match: {intencao_semantica.value} ({tempo_ms:.1f}ms)")
+            return ClassificacaoResult(
+                intencao=intencao_semantica,
+                confianca=confianca,
+                metodo="semantic_llm",
+                tempo_ms=tempo_ms
+            )
         
         # ── FALLBACK ─────────────────────────────────────────────────
-        tempo_ms = (time.time() - start_time) * 1000
         return ClassificacaoResult(
             intencao=IntencaoUsuario.CONVERSACAO,
             confianca=0.5,
             metodo="fallback",
             tempo_ms=tempo_ms
         )
-    
+        
+    async def _classificar_semantico(self, mensagem: str) -> tuple[IntencaoUsuario, float]:
+        """Classificador semântico via LLM (Fallback para quando o Regex falha)."""
+        import os
+        from litellm import acompletion
+        
+        try:
+            model = os.getenv("AI_TECHNICAL_MODEL") or os.getenv("AI_MODEL") or "openrouter/google/gemini-2.5-flash"
+            
+            # Normalizar para openrouter se for o caso
+            if os.getenv("AI_PROVIDER") == "openrouter" and not model.startswith("openrouter/"):
+                model = f"openrouter/{model}"
+                
+            intents = [i.name for i in IntencaoUsuario if i.name not in ("CONVERSACAO", "AJUDA_SISTEMA", "ONBOARDING")]
+            prompt = (
+                "Classifique a intenção da mensagem do usuário em APENAS UMA das categorias abaixo:\n"
+                f"{', '.join(intents)}\n\n"
+
+                "Regras:\n"
+                "1. Responda APENAS com o nome da categoria exata. Sem aspas, sem pontuação.\n"
+                "2. Se não for nenhuma dessas, ou se for um bate-papo informal (como 'bom dia', 'oi', 'obrigado', ou conversa aberta), responda: CONVERSACAO.\n\n"
+
+                f"Mensagem do usuário: '{mensagem}'"
+            )
+            
+            response = await acompletion(
+                api_key=os.getenv("AI_API_KEY") or os.getenv("OPENROUTER_API_KEY"),
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.0,
+                max_tokens=15,
+                num_retries=1
+            )
+            
+            raw_text = response.choices[0].message.content.strip().upper()
+            
+            # Limpa formatação markdown
+            raw_text = raw_text.replace("`", "").replace("'", "").replace('"', "").strip()
+            
+            # Valida o enum
+            try:
+                intencao = IntencaoUsuario(raw_text)
+                return intencao, 0.75  # Confiança moderada para IA Semântica
+            except ValueError:
+                return IntencaoUsuario.CONVERSACAO, 0.5
+                
+        except Exception as e:
+            logger.error(f"[IntentionClassifier] Erro no roteamento semântico LLM: {e}")
+            return IntencaoUsuario.CONVERSACAO, 0.0
+
     def _classificar_regex(self, mensagem: str) -> IntencaoUsuario:
         """
         Classifica usando regex - O(1) latência.
