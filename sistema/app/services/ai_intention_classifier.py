@@ -283,7 +283,7 @@ class IntentionClassifier:
         r'\bticket\s+m[eé]dio\b',
         r'\bcomiss[aã]o\b',
         r'\bcomiss[õo]es\b',
-        r'\btop\s+\d+\b',
+        r'\btop\s+(?:\d+\s+)?(?:clientes?|servi[çc]os?|vendedores|colaboradores|funcion[aá]rios?)\b',
         r'\bvendas\s+aprovadas\b',
         # Análise de desempenho
         r'\bdesempenho\s+(de|dos|por)\b',
