@@ -47,6 +47,7 @@ class IntencaoUsuario(Enum):
     AGENDAMENTO_STATUS = "AGENDAMENTO_STATUS"
     AGENDAMENTO_CANCELAR = "AGENDAMENTO_CANCELAR"
     GERAR_RELATORIO = "GERAR_RELATORIO"
+    LISTAR_ORCAMENTOS = "LISTAR_ORCAMENTOS" # Adicionado para diferenciar listagem de relatório
 
     @classmethod
     def from_string(cls, value: str) -> "IntencaoUsuario":

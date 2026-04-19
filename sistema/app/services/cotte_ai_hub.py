@@ -1909,6 +1909,66 @@ async def assistente_unificado(
             mensagem=mensagem, db=db, empresa_id=empresa_id, usuario_id=usuario_id
         )
 
+    # NOVO: Roteamento determinístico para relatórios e listagens de orçamentos
+    if intencao == "GERAR_RELATORIO" and "orçament" in mensagem.lower():
+        from app.services.ai_tools.orcamento_tools import _gerar_relatorio_orcamentos, GerarRelatorioOrcamentosInput, _resolver_status_orcamento_listar
+        from app.models.models import Usuario # Importar Usuario para type hint
+
+        status_match = re.search(r"pendentes|enviados|aprovados|recusados|rascunho", mensagem.lower())
+        status_str = status_match.group(0) if status_match else None
+        
+        try:
+            status_enum = _resolver_status_orcamento_listar(status_str) if status_str else None
+            status_value = status_enum.value if status_enum else None
+        except (KeyError, ValueError):
+            status_value = None # Fallback to default if status is invalid
+
+        # Simula a chamada da tool diretamente
+        inp = GerarRelatorioOrcamentosInput(status=status_value)
+        dados = await _gerar_relatorio_orcamentos(inp, db=db, current_user=current_user) # Use current_user directly
+        
+        # Adapta a resposta para o formato AIResponse
+        return AIResponse(
+            sucesso=True,
+            resposta="Aqui está o relatório de orçamentos que você pediu:",
+            tipo_resposta="relatorio_dinamico",
+            dados={
+                "_meta_frontend_data": dados.get("_meta_frontend_data"),
+                "is_report": True,
+                "report_type": "orcamentos",
+            },
+            confianca=0.99,
+            modulo_origem="assistente_determinista",
+        )
+
+    if intencao == "LISTAR_ORCAMENTOS":
+        from app.services.ai_tools.orcamento_tools import _listar_orcamentos, ListarOrcamentosInput, _resolver_status_orcamento_listar
+        from app.models.models import Usuario # Importar Usuario para type hint
+        
+        status_match = re.search(r"pendentes|enviados|aprovados|recusados|rascunho", mensagem.lower())
+        status_str = status_match.group(0) if status_match else None
+
+        try:
+            status_enum = _resolver_status_orcamento_listar(status_str) if status_str else None
+            status_value = status_enum.value if status_enum else None
+        except (KeyError, ValueError):
+            status_value = None # Fallback to default if status is invalid
+
+        inp = ListarOrcamentosInput(status=status_value)
+        dados = await _listar_orcamentos(inp, db=db, current_user=current_user) # Use current_user directly
+
+        return AIResponse(
+            sucesso=True,
+            resposta="Aqui estão os orçamentos encontrados:",
+            tipo_resposta="lista_orcamentos",
+            dados={
+                "_meta_frontend_data": dados.get("_meta_frontend_data"),
+                "is_list": True
+            },
+            confianca=0.99,
+            modulo_origem="assistente_determinista",
+        )
+
     # Roteamento especial: saldo rápido determinístico (evita interpretação do LLM)
     if intencao == "SALDO_RAPIDO":
         from app.services.ai_intention_classifier import saldo_rapido_ia

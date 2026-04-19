@@ -968,9 +968,18 @@ async function sendMessage() {
         }
 
         // Adicionado para renderizar relatórios de orçamentos
-        const reportData = finalData.dados && finalData.dados._meta_frontend_data;
+        const reportData = finalData.dados && (finalData.dados._meta_frontend_data || (finalData.dados.is_report && finalData.dados));
         if (reportData && reportData.is_report && reportData.report_type === 'orcamentos') {
             renderOrcamentosReport(reportData);
+        }
+
+        // Adicionado para renderizar listas paginadas
+        const listData = finalData.dados && (finalData.dados._meta_frontend_data || (finalData.dados.is_list && finalData.dados));
+        if(listData && listData.is_list) {
+            // Aqui você chamaria a função que renderiza a tabela paginada
+            // Por exemplo: renderOrcamentosTabelaPaginada(listData);
+            // Como essa função não existe, vamos apenas logar por enquanto
+            console.log("Recebidos dados para lista paginada:", listData);
         }
 
         processAIResponse(finalData, loadingMessage, true);
