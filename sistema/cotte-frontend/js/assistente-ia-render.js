@@ -57,6 +57,11 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
         metaTracesHtml += `<div class="tool-trace" style="margin-top:12px;font-size:0.75rem;color:var(--ai-muted)">🧭 Formato aplicado: <strong>${escapeHtml(String(visPref.formato_preferido))}</strong></div>`;
     }
 
+    const intentDetectada = data?.dados?.intent_detectada || data?.metadata?.dados?.intent_detectada;
+    if (intentDetectada) {
+        metaTracesHtml += `<div class="tool-trace" style="margin-top:4px;font-size:0.75rem;color:var(--ai-muted)">🎯 Intenção detectada: <strong>${escapeHtml(intentDetectada)}</strong></div>`;
+    }
+
     if (Array.isArray(data.tool_trace) && data.tool_trace.length > 0) {
         const items = data.tool_trace.map(t => {
             const ico = t.status === 'ok' ? '✅' : (t.status === 'pending' ? '⏳' : '⚠️');

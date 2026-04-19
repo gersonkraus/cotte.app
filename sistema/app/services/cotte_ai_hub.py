@@ -3055,6 +3055,7 @@ async def assistente_v2_stream_core(
 
     resolved_engine = resolve_engine(engine)
     engine_policy = get_engine_policy(resolved_engine)
+    intent_detectada = _v2_detect_deterministic_intent(mensagem)
 
     if _v2_is_onboarding_bootstrap_message(mensagem):
         resposta, status = _v2_build_onboarding_fastpath_payload(
@@ -3504,6 +3505,7 @@ async def assistente_v2_stream_core(
     )
     adaptive_meta = {
         **runtime_meta,
+        "intent_detectada": intent_detectada,
         "visualizacao_recomendada": adaptive_ctx.get("preferencia_visualizacao_usuario")
         or {},
         "playbook_setor": adaptive_ctx.get("playbook_setor") or {},
