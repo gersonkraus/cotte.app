@@ -2900,7 +2900,7 @@ async def _v2_parse_relatorio_params_semantico(mensagem: str, default_dominio: s
             "Retorne APENAS um JSON válido com as seguintes chaves:\n"
             "- agrupamento (string): pode ser 'cliente' (para rankings, maiores, melhores, quem comprou mais), 'vendedor', 'servico', 'tempo', 'status', 'categoria' ou null se não houver.\n"
             "- metrica (string): 'taxa_conversao', 'ticket_medio', 'faturamento' ou null.\n"
-            "Exemplo: {"agrupamento": "cliente", "metrica": null}\n"
+            "Exemplo: {\"agrupamento\": \"cliente\", \"metrica\": null}\n"
             "Retorne apenas o JSON, sem markdown."
         )
         
