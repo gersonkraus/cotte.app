@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.models.models import (
     Cliente,
+    Empresa,
     HistoricoEdicao,
     ItemOrcamento,
     Orcamento,
@@ -580,50 +581,11 @@ async def _criar_orcamento(
         db.rollback()
         return {"error": str(e), "code": "internal_error"}
 
-    return {
-        "id": orcamento.id,
-        "numero": orcamento.numero,
-        "status": orcamento.status.value if orcamento.status else None,
-        "total": float(orcamento.total or 0),
-        "cliente_nome": cliente.nome,
-        "cliente_id": cliente.id,
-        "cliente_auto_criado": cliente_auto_criado,
-        "observacoes": orcamento.observacoes,
-        "materiais_novos_cadastrados": len(materiais_novos)
-        if inp.cadastrar_materiais_novos
-        else 0,
-        "itens": [
-            {
-                "descricao": i.descricao,
-                "quantidade": float(i.quantidade or 0),
-                "valor_unit": float(i.valor_unit or 0),
-                "total": float(i.total or 0),
-            }
-            for i in (orcamento.itens or [])
-        ],
-    }
-
-    for ir in itens_resolvidos:
-        qtd = Decimal(str(ir["quantidade"]))
-        vu = Decimal(str(ir["valor_unit"]))
-        db.add(
-            ItemOrcamento(
-                orcamento_id=orc.id,
-                descricao=ir["descricao"],
-                quantidade=qtd,
-                valor_unit=vu,
-                total=(qtd * vu).quantize(Decimal("0.01")),
-                servico_id=ir["servico_id"],
-            )
-        )
-
-    db.commit()
-    db.refresh(orc)
     # Recarrega com itens para exibir no card
     orc_com_itens = (
         db.query(Orcamento)
         .options(selectinload(Orcamento.itens), selectinload(Orcamento.cliente))
-        .filter(Orcamento.id == orc.id)
+        .filter(Orcamento.id == orcamento.id)
         .first()
     )
     return _build_orcamento_response(
@@ -631,6 +593,7 @@ async def _criar_orcamento(
         {
             "cliente_auto_criado": cliente_auto_criado,
             "materiais_novos": materiais_novos,
+            "materiais_novos_cadastrados": len(materiais_novos) if inp.cadastrar_materiais_novos else 0,
             "criado": True,
         },
     )
