@@ -275,28 +275,29 @@ class IntentionClassifier:
 
     # M2) GERAR RELATÓRIO — análise e exportação de dados
     GERAR_RELATORIO_KEYWORDS = [
+        # Palavras-chave explícitas
         r'\brelat[oó]rio\b',
         r'\bgerar\s+relat[oó]rio\b',
         r'\btaxa\s+de\s+convers[aã]o\b',
         r'\branking\s+de\b',
         r'\bticket\s+m[eé]dio\b',
+        # Intenção de ter "todos"
+        r'\btodos?\s+(os\s+)?or[çc]amentos?\b',
+        r'\blista\s+completa\s+de\s+or[çc]amentos?\b',
+        # Orçamentos com status específico (sem ser comando de operador)
+        r'\bor[çc]amentos?\s+(pendentes?|aprovados?|recusados?|enviados?)\b',
+        # Análise de desempenho
         r'\bdesempenho\s+(de|dos|por)\b',
         r'\bperformance\s+(de|dos|por)\b',
-        r'\bclientes?\s+(mais|que\s+mais)\s+(compraram?|gastaram?|pagaram?)\b',
-        r'\bservi[çc]os?\s+mais\s+(vendidos?|realizados?|executados?)\b',
-        r'\bestat[ií]sticas?\b',
-        r'\bm[eé]tricas?\s+(do|de|da)\b',
         r'\ban[aá]lise\s+(de|dos?|das?|por)\b',
         r'\bcomparativo\s+(mensal|semanal|anual|de\s+per[ií]odo)\b',
-        r'\bor[çc]amentos?\s+(aprovados?|recusados?|expirados?)\s+(do|no|este|neste|esse)\b',
-        r'\bfaturamento\s+(por|dos?|das?|do|de)\s+(cliente|servi[çc]o|m[eê]s|per[ií]odo|semana|dia)\b',
-        # Padrões adicionais para faturamento/aprovados como relatório
-        r'\bfaturamento\s+total\b',
-        r'\bfaturamento\s+(deste|do|neste|no)\s+(m[eê]s|ano|trimestre|semestre)\b',
-        r'\bfaturamento\s+(dos?\s+[úu]ltimos?)\b',
-        r'\btotal\s+(de\s+)?or[çc]amentos?\s+(aprovados?|faturados?|conclu[íi]dos?)\b',
-        r'\bquantos?\s+or[çc]amentos?\s+(foram?\s+)?(aprovados?|faturados?|conclu[íi]dos?)\b',
-        r'\bor[çc]amentos?\s+(aprovados?|conclu[íi]dos?)\s+(no|deste|do|neste)\b',
+        # Faturamento como relatório
+        r'\bfaturamento\s+(total|do\s+m[eê]s|anual)\b',
+        r'\btotal\s+(faturado|de\s+vendas)\b',
+    ]
+
+    LISTAR_ORCAMENTOS_KEYWORDS = [
+        r'\b(ultimos?|[úu]ltimos?|recentes?)\s+or[çc]amentos?\b'
     ]
 
     # I) OPERADOR — comandos de execução em orçamentos existentes
@@ -405,6 +406,7 @@ class IntentionClassifier:
             IntencaoUsuario.NEGOCIO: [re.compile(p, re.IGNORECASE) for p in self.NEGOCIO_KEYWORDS],
             IntencaoUsuario.CRIAR_ORCAMENTO: [re.compile(p, re.IGNORECASE) for p in self.CRIAR_ORCAMENTO_KEYWORDS],
             IntencaoUsuario.GERAR_RELATORIO: [re.compile(p, re.IGNORECASE) for p in self.GERAR_RELATORIO_KEYWORDS],
+            IntencaoUsuario.LISTAR_ORCAMENTOS: [re.compile(p, re.IGNORECASE) for p in self.LISTAR_ORCAMENTOS_KEYWORDS],
             IntencaoUsuario.OPERADOR: [re.compile(p, re.IGNORECASE) for p in self.OPERADOR_KEYWORDS],
             IntencaoUsuario.ONBOARDING: [re.compile(p, re.IGNORECASE) for p in self.ONBOARDING_KEYWORDS],
             IntencaoUsuario.AJUDA_SISTEMA: [re.compile(p, re.IGNORECASE) for p in self.AJUDA_SISTEMA_KEYWORDS],
@@ -505,6 +507,11 @@ class IntentionClassifier:
         for pattern in self._regex_patterns[IntencaoUsuario.GERAR_RELATORIO]:
             if pattern.search(mensagem_lower):
                 return IntencaoUsuario.GERAR_RELATORIO
+
+        # M3) LISTAR ORÇAMENTOS (paginado) - check após relatório
+        for pattern in self._regex_patterns[IntencaoUsuario.LISTAR_ORCAMENTOS]:
+            if pattern.search(mensagem_lower):
+                return IntencaoUsuario.LISTAR_ORCAMENTOS
 
         # B) FATURAMENTO
         for pattern in self._regex_patterns[IntencaoUsuario.FATURAMENTO]:
