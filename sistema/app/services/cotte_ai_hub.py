@@ -2505,8 +2505,28 @@ async def _v2_build_listar_orcamentos_fastpath_response(
     limite_match = re.search(r'limit(?:e)? (\d+)', mensagem.lower())
     limite_val = int(limite_match.group(1)) if limite_match else 10
     
-    cliente_match = re.search(r'cliente (\d+)', mensagem.lower())
-    cliente_id_val = int(cliente_match.group(1)) if cliente_match else None
+    cliente_id_val = None
+    cliente_match = re.search(r'(?:cliente|id|código|codigo)\s*(\d+)', mensagem.lower())
+    if cliente_match:
+        cliente_id_val = int(cliente_match.group(1))
+    else:
+        # Se não achou ID explícito, tenta achar o nome do cliente na frase
+        # ex: "orçamentos da ana julia"
+        nome_match = re.search(
+            r'(?:orçamentos?|or[çc]amentos?)\s+(?:da|do|de|para|cliente)\s+([\wÀ-ÿ ]+?)(?:\s+(?:nos?|últimos?|hoje|ontem|dias|id|código|limit|status|aprovado)|$)',
+            mensagem.lower()
+        )
+        if nome_match:
+            nome_busca = nome_match.group(1).strip()
+            if nome_busca:
+                from app.models.models import Cliente
+                # Faz uma busca leve (ilike) pelo nome
+                cliente_db = db.query(Cliente.id).filter(
+                    Cliente.empresa_id == getattr(current_user, "empresa_id", 0),
+                    Cliente.nome.ilike(f"%{nome_busca}%")
+                ).first()
+                if cliente_db:
+                    cliente_id_val = cliente_db[0]
 
     try:
         aprovado_de_match = re.search(r'aprovado_em_de ([\d-]+)', mensagem.lower())
