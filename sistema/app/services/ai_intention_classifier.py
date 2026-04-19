@@ -281,9 +281,6 @@ class IntentionClassifier:
         r'\btaxa\s+de\s+convers[aã]o\b',
         r'\branking\s+de\b',
         r'\bticket\s+m[eé]dio\b',
-        # Intenção de ter "todos"
-        r'\btodos?\s+(os\s+)?or[çc]amentos?\b',
-        r'\blista\s+completa\s+de\s+or[çc]amentos?\b',
         # Análise de desempenho
         r'\bdesempenho\s+(de|dos|por)\b',
         r'\bperformance\s+(de|dos|por)\b',
@@ -306,6 +303,9 @@ class IntentionClassifier:
         r'\bor[çc]amentos?\s+(pendentes?|aprovados?|recusados?|enviados?|em\s+aberto|rascunhos?)\b',
         r'\b(quais|ver|listar|liste|lista|meus|mostrar)\b.*\bor[çc]ament',
         r'\bor[çc]amentos?\s+(da|do|de|para|cliente)\b',
+        # Intenção de ter "todos" (listagem global)
+        r'\btodos?\s+(os\s+)?or[çc]amentos?\b',
+        r'\blista\s+completa\s+de\s+or[çc]amentos?\b',
     ]
 
     # I) OPERADOR — comandos de execução em orçamentos existentes
