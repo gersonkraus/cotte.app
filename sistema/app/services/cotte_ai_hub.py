@@ -2732,12 +2732,12 @@ async def _v2_build_orcamento_fastpath_response(
 _V2_RELATORIO_INTENTS = {"GERAR_RELATORIO", "FATURAMENTO", "CONVERSAO", "DASHBOARD", "INADIMPLENCIA", "ANALISE", "PREVISAO"}
 
 _V2_DOMINIO_KEYWORDS = {
-    "orcamentos": ("orcament", "orçament", "conversão", "conversao", "faturamento", "ticket", "pendente", "aprovado"),
-    "clientes": ("ranking de cliente", "melhores clientes", "top cliente", "inativo"),
-    "financeiro": ("fluxo de caixa", "financeir", "contas a receber", "contas a pagar", "receita", "despesa", "dashboard", "caixa", "resumo"),
-    "inadimplencia": ("inadimpl", "devendo", "atrasado", "vencid"),
+    "inadimplencia": ("inadimpl", "devendo", "atrasado", "vencid", "atraso"),
     "servicos": ("serviç", "servic", "mais vendid", "top serviç", "top servic"),
     "agendamentos": ("agendamento", "agenda"),
+    "clientes": ("ranking de cliente", "melhores clientes", "top cliente", "inativo"),
+    "orcamentos": ("orcament", "orçament", "conversão", "conversao", "faturamento", "ticket", "pendente", "aprovado"),
+    "financeiro": ("fluxo de caixa", "financeir", "contas a receber", "contas a pagar", "receita", "despesa", "dashboard", "caixa", "resumo"),
 }
 
 _V2_PERIODO_RE = re.compile(
@@ -2787,6 +2787,8 @@ def _v2_parse_relatorio_params(mensagem: str) -> tuple[str, int, str | None, str
     agrupamento: str | None = None
     if any(k in msg_low for k in ("por cliente", "ranking de cliente", "top cliente")):
         agrupamento = "cliente"
+    elif any(k in msg_low for k in ("faixa de atraso", "por faixa", "idade da d", "tempo de atraso")):
+        agrupamento = "faixa_atraso"
     elif any(k in msg_low for k in ("por vendedor", "por colaborador", "performance do vendedor")):
         agrupamento = "vendedor"
     elif any(k in msg_low for k in ("por serviço", "por servico")):

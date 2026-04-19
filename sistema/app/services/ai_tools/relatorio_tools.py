@@ -514,7 +514,87 @@ def _financeiro(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id: 
 # ── Domínio: inadimplencia ────────────────────────────────────────────────────
 
 def _inadimplencia(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id: int) -> dict:
+    from sqlalchemy import case, and_
+    from datetime import timedelta
+    
     hoje = date.today()
+
+    if inp.agrupamento == "faixa_atraso":
+        val_aberto = ContaFinanceira.valor - ContaFinanceira.valor_pago
+        
+        # Bucket 1: 1 a 7 dias (vencimento >= hoje - 7 e < hoje)
+        cond_1_7 = and_(ContaFinanceira.data_vencimento >= hoje - timedelta(days=7), ContaFinanceira.data_vencimento < hoje)
+        # Bucket 2: 8 a 30 dias (vencimento >= hoje - 30 e < hoje - 7)
+        cond_8_30 = and_(ContaFinanceira.data_vencimento >= hoje - timedelta(days=30), ContaFinanceira.data_vencimento < hoje - timedelta(days=7))
+        # Bucket 3: > 30 dias (vencimento < hoje - 30)
+        cond_30_mais = ContaFinanceira.data_vencimento < hoje - timedelta(days=30)
+        
+        res = (
+            db.query(
+                Cliente.nome,
+                func.sum(case((cond_1_7, val_aberto), else_=0)),
+                func.sum(case((cond_8_30, val_aberto), else_=0)),
+                func.sum(case((cond_30_mais, val_aberto), else_=0)),
+                func.sum(val_aberto),
+                func.count(ContaFinanceira.id)
+            )
+            .join(Orcamento, ContaFinanceira.orcamento_id == Orcamento.id, isouter=True)
+            .join(Cliente, Orcamento.cliente_id == Cliente.id, isouter=True)
+            .filter(
+                ContaFinanceira.empresa_id == empresa_id,
+                ContaFinanceira.tipo == TipoConta.RECEBER,
+                ContaFinanceira.status.in_([StatusConta.PENDENTE, StatusConta.PARCIAL, StatusConta.VENCIDO]),
+                ContaFinanceira.data_vencimento < hoje,
+                ContaFinanceira.excluido_em.is_(None),
+            )
+            .group_by(Cliente.id, Cliente.nome)
+            .order_by(func.sum(val_aberto).desc())
+            .limit(inp.limite)
+            .all()
+        )
+        
+        rows = [
+            {
+                "Cliente": r[0] or "Sem cliente",
+                "1-7 dias": _brl(r[1]),
+                "8-30 dias": _brl(r[2]),
+                "+30 dias": _brl(r[3]),
+                "Valor em aberto": _brl(r[4]),
+            }
+            for r in res
+        ]
+        total_inad = sum(_f(r[4]) for r in res)
+        
+        chart_spec = None
+        if rows:
+            chart_spec = _chart(
+                inp.tipo_grafico or "bar",
+                [r.get("Cliente", "–") for r in rows[:10]],
+                [
+                    {"label": "1-7 dias", "data": [_f(r[1]) for r in res[:10]], "backgroundColor": "#fcd34d"},
+                    {"label": "8-30 dias", "data": [_f(r[2]) for r in res[:10]], "backgroundColor": "#fb923c"},
+                    {"label": "+30 dias", "data": [_f(r[3]) for r in res[:10]], "backgroundColor": "#ef4444"},
+                ],
+            )
+            
+        return {
+            "dominio": "inadimplencia",
+            "titulo": "Relatório de Inadimplência",
+            "subtitulo": f"Contas vencidas por faixa de atraso até {hoje.strftime('%d/%m/%Y')}",
+            "periodo_label": "Vencidas até hoje",
+            "periodo_dias": inp.periodo_dias,
+            "rows": rows,
+            "metricas_resumo": {
+                "clientes_inadimplentes": len(rows),
+                "total_inadimplente": total_inad,
+            },
+            "chart_spec": chart_spec,
+            "insights_base": [
+                f"{len(rows)} clientes com contas em atraso",
+                f"Total inadimplente: {_brl(total_inad)}",
+                f"Maior devedor: {rows[0].get('Cliente', '–')} ({rows[0].get('Valor em aberto', '–')})" if rows else "Geral",
+            ],
+        }
 
     res = (
         db.query(
