@@ -284,8 +284,6 @@ class IntentionClassifier:
         # Intenção de ter "todos"
         r'\btodos?\s+(os\s+)?or[çc]amentos?\b',
         r'\blista\s+completa\s+de\s+or[çc]amentos?\b',
-        # Orçamentos com status específico (sem ser comando de operador)
-        r'\bor[çc]amentos?\s+(pendentes?|aprovados?|recusados?|enviados?)\b',
         # Análise de desempenho
         r'\bdesempenho\s+(de|dos|por)\b',
         r'\bperformance\s+(de|dos|por)\b',
@@ -297,7 +295,9 @@ class IntentionClassifier:
     ]
 
     LISTAR_ORCAMENTOS_KEYWORDS = [
-        r'\b(ultimos?|[úu]ltimos?|recentes?)\s+or[çc]amentos?\b'
+        r'\b(quais|liste|lista|ver|mostrar|mostre)\s+((os|meus)\s+)?or[çc]amentos?\b',
+        r'\b(ultimos?|[úu]ltimos?|recentes?)\s+or[çc]amentos?\b',
+        r'\bor[çc]amentos?\s+(pendentes?|aprovados?|recusados?|enviados?|em\s+aberto|rascunhos?)\b',
     ]
 
     # I) OPERADOR — comandos de execução em orçamentos existentes
