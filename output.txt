@@ -1,0 +1,28 @@
+claude-mem install
+  Version: 12.2.0
+  Platform: linux (x64)
+  Existing installation detected (v12.2.0).
+  Copying to marketplace directory...
+  Plugin files copied OK
+  Caching v12.2.0...
+  Plugin cached (v12.2.0) OK
+  Marketplace registered OK
+  Plugin registered OK
+  Plugin enabled OK
+  Running npm install...
+  Dependencies installed OK
+  Running smart-install...
+📦 Installing dependencies with Bun...
+Resolving dependencies
+Resolved, downloaded and extracted [0]
+warn: incorrect peer dependency "tree-sitter@0.21.1"
+Saved lockfile
+❌ Post-install check failed: missing modules: tree-sitter-cli, tree-sitter-c, tree-sitter-cpp, tree-sitter-go, tree-sitter-java, tree-sitter-javascript, tree-sitter-python, tree-sitter-ruby, tree-sitter-rust, tree-sitter-typescript, tree-sitter-kotlin, tree-sitter-swift, tree-sitter-php, tree-sitter-elixir, @tree-sitter-grammars/tree-sitter-lua, tree-sitter-scala, tree-sitter-bash, tree-sitter-haskell, @tree-sitter-grammars/tree-sitter-zig, tree-sitter-css, tree-sitter-scss, @tree-sitter-grammars/tree-sitter-toml, @tree-sitter-grammars/tree-sitter-yaml, @derekstride/tree-sitter-sql, @tree-sitter-grammars/tree-sitter-markdown
+⚠️  Retrying install with npm...
+npm warn config production Use `--omit=dev` instead.
+npm error path /home/gk/.claude/plugins/marketplaces/thedotmack/plugin/node_modules/tree-sitter-swift/node_modules/tree-sitter-cli
+npm error command failed
+npm error signal SIGTERM
+npm error command sh -c node install.js
+npm error Downloading https://github.com/tree-sitter/tree-sitter/releases/download/v0.23.2/tree-sitter-linux-x64.gz
+npm error A complete log of this run can be found in: /home/gk/.npm/_logs/2026-04-18T17_47_55_635Z-debug-0.log

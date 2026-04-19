@@ -259,7 +259,29 @@ function renderListaOrcamentos(dados) {
         const statusStr = item.status || '—';
         const statusKey = statusStr.toLowerCase();
         const badgeClass = badgeMap[statusKey] || 'badge-rascunho';
-        const criadoEm = item.criado_em ? new Date(item.criado_em).toLocaleDateString('pt-BR') : '—';
+
+        let dataExibicao = '—';
+        let colunaDataLabel = 'Emissão';
+        
+        if (filtros.aprovado_em_de || filtros.aprovado_em_ate) {
+            colunaDataLabel = 'Aprovado em';
+            if (item.aprovado_em) {
+                const dateObj = new Date(item.aprovado_em);
+                const dia = String(dateObj.getDate()).padStart(2, '0');
+                const mes = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const ano = dateObj.getFullYear();
+                const hora = String(dateObj.getHours()).padStart(2, '0');
+                const min = String(dateObj.getMinutes()).padStart(2, '0');
+                dataExibicao = `${dia}/${mes}/${ano} ${hora}:${min}`;
+            }
+        } else if (item.criado_em) {
+            const dateObj = new Date(item.criado_em);
+            const dia = String(dateObj.getDate()).padStart(2, '0');
+            const mes = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const ano = dateObj.getFullYear();
+            dataExibicao = `${dia}/${mes}/${ano}`;
+        }
+
         const valor = formatValue(item.total || 0);
 
         const actionBtn = item.id
@@ -269,22 +291,51 @@ function renderListaOrcamentos(dados) {
         return `<tr>
             <td><strong>${numero}</strong></td>
             <td>${cliente}</td>
-            <td>${criadoEm}</td>
+            <td>${dataExibicao}</td>
             <td><span class="opr-status-badge ${badgeClass}" style="font-size:0.7em; padding:2px 6px;">${escapeHtml(statusStr)}</span></td>
             <td><strong>${escapeHtml(valor)}</strong></td>
             <td>${actionBtn}</td>
         </tr>`;
     }).join('');
 
-    const printableRows = itens.map(item => ({
-        "Orçamento": item.numero || String(item.id || ''),
-        "Cliente": item.cliente_nome || '—',
-        "Emissão": item.criado_em ? new Date(item.criado_em).toLocaleDateString('pt-BR') : '—',
-        "Status": item.status || '—',
-        "Total": formatValue(item.total || 0)
-    }));
+    const itensImpressao = Array.isArray(dados.orcamentos_impressao) ? dados.orcamentos_impressao : itens;
+    const printableRows = itensImpressao.map(item => {
+        let dataExport = '—';
+        if (filtros.aprovado_em_de || filtros.aprovado_em_ate) {
+            if (item.aprovado_em) {
+                const dateObj = new Date(item.aprovado_em);
+                const dia = String(dateObj.getDate()).padStart(2, '0');
+                const mes = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const ano = dateObj.getFullYear();
+                const hora = String(dateObj.getHours()).padStart(2, '0');
+                const min = String(dateObj.getMinutes()).padStart(2, '0');
+                dataExport = `${dia}/${mes}/${ano} ${hora}:${min}`;
+            }
+        } else if (item.criado_em) {
+            const dateObj = new Date(item.criado_em);
+            const dia = String(dateObj.getDate()).padStart(2, '0');
+            const mes = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const ano = dateObj.getFullYear();
+            dataExport = `${dia}/${mes}/${ano}`;
+        }
+        
+        const rowData = {
+            "Orçamento": item.numero || String(item.id || ''),
+            "Cliente": item.cliente_nome || '—',
+            "Status": item.status || '—',
+            "Total": formatValue(item.total || 0)
+        };
 
-    const resumoImpresso = `Foram encontrados ${total} orçamentos. Exibindo ${itensRetornados} itens.`;
+        if (filtros.aprovado_em_de || filtros.aprovado_em_ate) {
+            rowData["Aprovado em"] = dataExport;
+        } else {
+            rowData["Emissão"] = dataExport;
+        }
+        
+        return rowData;
+    });
+
+    const resumoImpresso = `Foram encontrados ${total} orçamentos. Exibindo ${itensImpressao.length} itens.`;
     const printableObj = {
         title: titulo,
         summary: resumoImpresso,
@@ -331,9 +382,11 @@ function renderListaOrcamentos(dados) {
                 data-limit="${escapeHtmlAttr(String(limitLista || 10))}"
                 data-aprovado-em-de="${escapeHtmlAttr(String(aprovadoEmDe || ''))}"
                 data-aprovado-em-ate="${escapeHtmlAttr(String(aprovadoEmAte || ''))}"
-              >Carregar mais (${total - itensRetornados} restantes)</button>
+              >Carregar mais resultados</button>
            </div>`
         : '';
+
+    const tituloColData = (filtros.aprovado_em_de || filtros.aprovado_em_ate) ? 'Aprovado em' : 'Data';
 
     return `<div class="orc-list-card" data-testid="assistente-orc-list-card" style="padding: 0; background: transparent; border: none;">
         <div class="orc-list-card__header" style="margin-bottom: 8px;">
@@ -344,7 +397,7 @@ function renderListaOrcamentos(dados) {
         <div class="ai-table-wrapper">
             <table class="ai-table">
                 <thead>
-                    <tr><th>Num</th><th>Cliente</th><th>Data</th><th>Status</th><th>Total</th><th>Ações</th></tr>
+                    <tr><th>Num</th><th>Cliente</th><th>${tituloColData}</th><th>Status</th><th>Total</th><th>Ações</th></tr>
                 </thead>
                 <tbody>${trsDaTabela}</tbody>
             </table>
@@ -418,6 +471,24 @@ function renderTabelaRica(data, dados, isStreamed) {
                 }
             } else if (typeof val === 'boolean') {
                 val = val ? 'Sim' : 'Não';
+            } else if (typeof val === 'string' && val.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) {
+                // Formatting ISO dates like 2024-05-18T10:30:00
+                const dateObj = new Date(val);
+                const dia = String(dateObj.getDate()).padStart(2, '0');
+                const mes = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const ano = dateObj.getFullYear();
+                const hora = String(dateObj.getHours()).padStart(2, '0');
+                const min = String(dateObj.getMinutes()).padStart(2, '0');
+                
+                if (hora !== '00' || min !== '00') {
+                    val = `${dia}/${mes}/${ano} ${hora}:${min}`;
+                } else {
+                    val = `${dia}/${mes}/${ano}`;
+                }
+            } else if (typeof val === 'string' && val.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                // Formatting ISO dates like 2024-05-18
+                const [ano, mes, dia] = val.split('-');
+                val = `${dia}/${mes}/${ano}`;
             }
             return `<td><span class="ai-td-content">${escapeHtml(String(val ?? '—'))}</span></td>`;
         }).join('');
@@ -467,6 +538,25 @@ function renderSemanticTableRows(rows) {
                 }
             } else if (typeof val === 'boolean') {
                 val = val ? 'Sim' : 'Não';
+            } else if (typeof val === 'string' && val.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) {
+                // Formatting ISO dates like 2024-05-18T10:30:00
+                const dateObj = new Date(val);
+                const dia = String(dateObj.getDate()).padStart(2, '0');
+                const mes = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const ano = dateObj.getFullYear();
+                const hora = String(dateObj.getHours()).padStart(2, '0');
+                const min = String(dateObj.getMinutes()).padStart(2, '0');
+                
+                // Show time only if it's not midnight exactly (indicative of date-only field converted to datetime)
+                if (hora !== '00' || min !== '00') {
+                    val = `${dia}/${mes}/${ano} ${hora}:${min}`;
+                } else {
+                    val = `${dia}/${mes}/${ano}`;
+                }
+            } else if (typeof val === 'string' && val.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                // Formatting ISO dates like 2024-05-18
+                const [ano, mes, dia] = val.split('-');
+                val = `${dia}/${mes}/${ano}`;
             }
             return `<td><span class="ai-td-content">${escapeHtml(String(val ?? '—'))}</span></td>`;
         }).join('');

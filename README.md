@@ -128,14 +128,7 @@ A API está documentada automaticamente via Swagger UI:
 
 ## 🤖 Skills do Agente
 
-O projeto utiliza agentes especializados para diferentes tarefas:
 
-- **🏗️ Arquiteto (`cotte-arquiteto`):** Planejamento e arquitetura
-- **🐍 Backend (`cotte-backend`):** Desenvolvimento Python/FastAPI
-- **🐛 Debug (`cotte-debug`):** Diagnóstico de problemas
-- **💰 Financeiro (`cotte-financeiro`):** Módulos financeiros
-- **🎨 Frontend (`cotte-frontend`):** Interface Vanilla JS
-- **💬 WhatsApp (`cotte-whatsapp`):** Integração WhatsApp
 
 ## 📞 Contato
 

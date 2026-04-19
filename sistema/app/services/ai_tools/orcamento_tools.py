@@ -115,6 +115,10 @@ def _resolver_status_orcamento_listar(status_raw: Optional[str]) -> StatusOrcame
         "ABERTOS": "ENVIADO",
         "A_RECEBER": "APROVADO",
         "RECEBER": "APROVADO",
+        "APROVADOS": "APROVADO",
+        "RECUSADOS": "RECUSADO",
+        "RASCUNHOS": "RASCUNHO",
+        "ENVIADOS": "ENVIADO",
     }
     status_key = status_aliases.get(status_key, status_key)
     return StatusOrcamento[status_key]

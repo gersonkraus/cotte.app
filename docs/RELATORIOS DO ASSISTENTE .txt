@@ -1,0 +1,37 @@
+---
+    Domínio: Orçamentos
+    - Visão geral (total criados, enviados, aprovados, reprovados, expirados, taxa %)
+    - Distribuição por status → gráfico doughnut
+    - Performance por cliente → gráfico barras
+    - Performance por vendedor → gráfico barras
+    - Taxa de conversão (aprovados ÷ enviados × 100)
+    - Faturamento total do período
+    - Ticket médio
+
+    Domínio: Clientes
+    - Ranking por valor total comprado → gráfico barras
+    - Clientes inativos (sem aprovado no período)
+    - Top clientes por quantidade de orçamentos
+
+    Domínio: Financeiro
+    - Fluxo de caixa (entradas vs saídas) → gráfico linha
+    - Despesas por categoria → gráfico barras
+
+    Domínio: Inadimplência
+    - Contas vencidas por cliente
+    - Total em aberto (vencidas + pendentes)
+
+    Domínio: Serviços
+    - Serviços mais vendidos por quantidade → gráfico barras
+    - Serviços mais vendidos por valor
+    - Ticket médio por serviço
+
+    Domínio: Agendamentos
+    - Agendamentos por período
+    - Taxa de cancelamento
+
+    Domínio: Operacional
+    - KPIs combinados (orçamentos + financeiro + clientes numa visão única)
+
+    ---
+    Total: 19 relatórios em 7 domínios, todos com filtro de período (1–365 dias) e exportação PDF
