@@ -239,8 +239,8 @@ function renderListaOrcamentos(dados) {
     const aprovadoEmAte = filtros.aprovado_em_ate || '';
     const titulo = statusFiltro
         ? `Orçamentos (${escapeHtml(String(statusFiltro).toUpperCase())})`
-        : 'Orçamentos';
-        
+        : 'Orçamentos listados';
+
     const badgeMap = {
         'rascunho': 'badge-rascunho',
         'enviado': 'badge-enviado',
@@ -249,39 +249,66 @@ function renderListaOrcamentos(dados) {
         'expirado': 'badge-expirado'
     };
 
-    const listaHtml = itens.length
-        ? itens.map((item) => {
-            const numero = escapeHtml(item.numero || `#${item.id || '—'}`);
-            const cliente = escapeHtml(item.cliente_nome || 'Cliente não informado');
-            const statusStr = item.status || '—';
-            const statusKey = statusStr.toLowerCase();
-            const badgeClass = badgeMap[statusKey] || 'badge-rascunho';
-            
-            const criadoEm = item.criado_em
-                ? new Date(item.criado_em).toLocaleDateString('pt-BR')
-                : 'data não informada';
-            const valor = formatValue(item.total || 0);
-            
-            const actionBtn = item.id 
-                ? `<button type="button" class="btn btn-ghost" style="padding: 2px 8px; font-size: 11px; margin-left: 12px; height: 26px;" onclick="if(typeof abrirDetalhesOrcamento === 'function') abrirDetalhesOrcamento(${item.id})" title="Ver detalhes do orçamento">🔍 Ver</button>` 
-                : '';
+    if (itens.length === 0) {
+        return `<div class="orc-list-empty">Nenhum orçamento encontrado para os filtros selecionados.</div>`;
+    }
 
-            return `<div class="orc-list-card__item" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-                <div style="flex:1; min-width:180px;">
-                    <div class="orc-list-card__item-title" style="display:flex; align-items:center; gap: 6px;">
-                        ${numero}
-                        <span class="opr-status-badge ${badgeClass}" style="font-size:0.7em; padding:2px 6px;">${escapeHtml(statusStr)}</span>
-                    </div>
-                    <div class="orc-list-card__item-sub">${cliente} • ${criadoEm}</div>
+    const trsDaTabela = itens.map((item) => {
+        const numero = escapeHtml(item.numero || `#${item.id || '—'}`);
+        const cliente = escapeHtml(item.cliente_nome || 'Cliente não informado');
+        const statusStr = item.status || '—';
+        const statusKey = statusStr.toLowerCase();
+        const badgeClass = badgeMap[statusKey] || 'badge-rascunho';
+        const criadoEm = item.criado_em ? new Date(item.criado_em).toLocaleDateString('pt-BR') : '—';
+        const valor = formatValue(item.total || 0);
+
+        const actionBtn = item.id
+            ? `<button type="button" class="btn btn-ghost" style="padding: 2px 8px; font-size: 11px;" onclick="if(typeof abrirDetalhesOrcamento === 'function') abrirDetalhesOrcamento(${item.id})" title="Ver detalhes do orçamento">🔍 Ver</button>`
+            : '';
+
+        return `<tr>
+            <td><strong>${numero}</strong></td>
+            <td>${cliente}</td>
+            <td>${criadoEm}</td>
+            <td><span class="opr-status-badge ${badgeClass}" style="font-size:0.7em; padding:2px 6px;">${escapeHtml(statusStr)}</span></td>
+            <td><strong>${escapeHtml(valor)}</strong></td>
+            <td>${actionBtn}</td>
+        </tr>`;
+    }).join('');
+
+    const printableRows = itens.map(item => ({
+        "Orçamento": item.numero || String(item.id || ''),
+        "Cliente": item.cliente_nome || '—',
+        "Emissão": item.criado_em ? new Date(item.criado_em).toLocaleDateString('pt-BR') : '—',
+        "Status": item.status || '—',
+        "Total": formatValue(item.total || 0)
+    }));
+
+    const resumoImpresso = `Foram encontrados ${total} orçamentos. Exibindo ${itensRetornados} itens.`;
+    const printableObj = {
+        title: titulo,
+        summary: resumoImpresso,
+        rows: printableRows,
+        theme: { variant: 'professional' }
+    };
+    const printablePayloadEscaped = escapeHtmlAttr(JSON.stringify(printableObj));
+
+    const printableHtml = `
+        <div class="semantic-printable-card" data-testid="semantic-printable-card" style="margin-bottom: 12px; margin-top: 12px;">
+            <div class="semantic-printable-card__head">
+                <span class="semantic-printable-card__icon" aria-hidden="true">🖨️</span>
+                <div>
+                    <div class="semantic-printable-card__title">${escapeHtml(titulo)}</div>
+                    <div class="semantic-printable-card__sub">${escapeHtml(resumoImpresso)}</div>
                 </div>
-                <div style="display:flex; align-items:center;">
-                    <div class="orc-list-card__item-value" style="font-weight:600;">${escapeHtml(valor)}</div>
-                    ${actionBtn}
-                </div>
-            </div>`;
-        }).join('')
-        : `<div class="orc-list-empty">Nenhum orçamento encontrado para os filtros selecionados.</div>`;
-        
+            </div>
+            <div class="semantic-printable-card__actions">
+                <button type="button" class="btn btn-primary" data-semantic-print-now="${printablePayloadEscaped}">Imprimir</button>
+                <button type="button" class="btn btn-secondary" data-semantic-export-report="${printablePayloadEscaped}" data-export-format="csv">Exportar CSV</button>
+                <button type="button" class="btn btn-secondary" data-semantic-export-report="${printablePayloadEscaped}" data-export-format="pdf">Exportar PDF</button>
+            </div>
+        </div>`;
+
     const totaisPorStatus = dados.totais_por_status && typeof dados.totais_por_status === 'object'
         ? Object.entries(dados.totais_por_status)
         : [];
@@ -291,29 +318,40 @@ function renderListaOrcamentos(dados) {
             `<span class="orc-list-card__status-pill">${escapeHtml(status)}: ${escapeHtml(String(quantidade || 0))}</span>`,
         )
         .join('');
+
     const loadMoreBtn = hasMore && nextCursor
-        ? `<button type="button"
-            class="orc-list-card__load-more"
-            data-orcamentos-load-more="1"
-            data-cursor="${escapeHtmlAttr(nextCursor)}"
-            data-status="${escapeHtmlAttr(String(statusFiltro || ''))}"
-            data-cliente-id="${escapeHtmlAttr(String(clienteId || ''))}"
-            data-dias="${escapeHtmlAttr(String(dias || 30))}"
-            data-limit="${escapeHtmlAttr(String(limitLista || 10))}"
-            data-aprovado-em-de="${escapeHtmlAttr(String(aprovadoEmDe || ''))}"
-            data-aprovado-em-ate="${escapeHtmlAttr(String(aprovadoEmAte || ''))}"
-        >Carregar mais</button>`
+        ? `<div style="margin-top: 12px; display: flex; justify-content: center;">
+              <button type="button"
+                class="orc-list-card__load-more"
+                data-orcamentos-load-more="1"
+                data-cursor="${escapeHtmlAttr(nextCursor)}"
+                data-status="${escapeHtmlAttr(String(statusFiltro || ''))}"
+                data-cliente-id="${escapeHtmlAttr(String(clienteId || ''))}"
+                data-dias="${escapeHtmlAttr(String(dias || 30))}"
+                data-limit="${escapeHtmlAttr(String(limitLista || 10))}"
+                data-aprovado-em-de="${escapeHtmlAttr(String(aprovadoEmDe || ''))}"
+                data-aprovado-em-ate="${escapeHtmlAttr(String(aprovadoEmAte || ''))}"
+              >Carregar mais (${total - itensRetornados} restantes)</button>
+           </div>`
         : '';
-    return `<div class="orc-list-card" data-testid="assistente-orc-list-card">
-        <div class="orc-list-card__header">
-            <h4 class="orc-list-card__title">${titulo}</h4>
-            <div class="orc-list-card__meta">Mostrando ${itensRetornados} de ${total}</div>
+
+    return `<div class="orc-list-card" data-testid="assistente-orc-list-card" style="padding: 0; background: transparent; border: none;">
+        <div class="orc-list-card__header" style="margin-bottom: 8px;">
+            <h4 class="orc-list-card__title" style="font-size: 1.1rem;">${escapeHtml(titulo)}</h4>
+            <div class="orc-list-card__status-pills" style="margin-top: 6px;">${pillsHtml}</div>
         </div>
-        <div class="orc-list-card__body">${listaHtml}</div>
-        <div class="orc-list-card__footer">
-            <div class="orc-list-card__status-pills">${pillsHtml}</div>
-            ${loadMoreBtn}
+
+        <div class="ai-table-wrapper">
+            <table class="ai-table">
+                <thead>
+                    <tr><th>Num</th><th>Cliente</th><th>Data</th><th>Status</th><th>Total</th><th>Ações</th></tr>
+                </thead>
+                <tbody>${trsDaTabela}</tbody>
+            </table>
         </div>
+
+        ${printableHtml}
+        ${loadMoreBtn}
     </div>`;
 }
 function renderOnboarding(dados) {

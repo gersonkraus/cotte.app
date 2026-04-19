@@ -264,6 +264,7 @@ async def _listar_orcamentos(
             else None,
         },
         "totais_por_status": totais_por_status,
+        "_meta_notice": "A UI já renderizou essa lista na tela do usuário em formato de tabela interativa com suporte a impressão. NUNCA resuma, itere ou liste os orçamentos 1 a 1 no seu texto de resposta. Apenas concorde dizendo: 'Aqui estão os orçamentos encontrados:'.",
         "diagnostico": {
             "filtro_por_data_aprovacao": bool(use_aprovado_em),
             "aprovados_sem_data": aprovados_sem_data,
