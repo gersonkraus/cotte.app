@@ -298,6 +298,7 @@ class IntentionClassifier:
         r'\b(quais|liste|lista|ver|mostrar|mostre)\s+((os|meus)\s+)?or[çc]amentos?\b',
         r'\b(ultimos?|[úu]ltimos?|recentes?)\s+or[çc]amentos?\b',
         r'\bor[çc]amentos?\s+(pendentes?|aprovados?|recusados?|enviados?|em\s+aberto|rascunhos?)\b',
+        r'\b(quais|ver|listar|meus|mostrar)\b.*\bor[çc]ament',
     ]
 
     # I) OPERADOR — comandos de execução em orçamentos existentes
