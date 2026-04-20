@@ -47,6 +47,11 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
     const uiPolicy = typeof window.getAssistenteResponseUiPolicy === 'function'
         ? window.getAssistenteResponseUiPolicy(tipoResp)
         : { actionStatusLabel: '', hasOwnBanner: false, skipFeedback: false, isRichResponse: false };
+        
+    // Definir flags para controlar feedback e renderização de cards ricos
+    const responseHasText = (data.resposta && data.resposta.trim().length > 0) || (data.message && data.message.trim().length > 0);
+    const ehCardRico = uiPolicy.isRichResponse && data.dados;
+
     if (!isSemanticResponse && uiPolicy.actionStatusLabel && !uiPolicy.hasOwnBanner) {
         responseContent = `<div class="action-status-chip">✓ ${escapeHtml(uiPolicy.actionStatusLabel)}</div>${responseContent}`;
     }

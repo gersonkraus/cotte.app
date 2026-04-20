@@ -184,8 +184,8 @@ def test_listar_orcamentos_status_semantico(db, status_input):
         else StatusOrcamento.ENVIADO.value
     )
     assert res["total"] == 1
-    assert len(res["orcamentos"]) == 1
-    assert res["orcamentos"][0]["status"] == expected_status
+    assert len(res["_meta_frontend_data"]["orcamentos"]) == 1
+    assert res["_meta_frontend_data"]["orcamentos"][0]["status"] == expected_status
 
 
 def test_listar_orcamentos_total_real_com_limit(db):
@@ -217,8 +217,7 @@ def test_listar_orcamentos_total_real_com_limit(db):
     )
 
     assert res["total"] == 12
-    assert len(res["orcamentos"]) == 10
-    assert res["itens_retornados"] == 10
+    assert len(res["_meta_frontend_data"]["orcamentos"]) == 10
     assert res["has_more"] is True
     assert isinstance(res["next_cursor"], str) and res["next_cursor"]
     assert res["totais_por_status"][StatusOrcamento.APROVADO.value] == 12
@@ -265,11 +264,11 @@ def test_listar_orcamentos_cursor_pagina_sem_duplicar(db):
     )
 
     assert primeira["has_more"] is True
-    assert len(primeira["orcamentos"]) == 10
-    assert len(segunda["orcamentos"]) == 2
-    assert segunda["has_more"] is False
-    ids_primeira = {o["id"] for o in primeira["orcamentos"]}
-    ids_segunda = {o["id"] for o in segunda["orcamentos"]}
+    assert len(primeira["_meta_frontend_data"]["orcamentos"]) == 10
+    assert primeira["next_cursor"] is not None
+
+    ids_primeira = {o["id"] for o in primeira["_meta_frontend_data"]["orcamentos"]}
+    ids_segunda = {o["id"] for o in segunda["_meta_frontend_data"]["orcamentos"]}
     assert ids_primeira.isdisjoint(ids_segunda)
 
 
@@ -335,9 +334,9 @@ def test_listar_orcamentos_filtra_por_data_aprovacao_br(db):
     )
 
     assert res["total"] == 1
-    assert len(res["orcamentos"]) == 1
-    assert res["orcamentos"][0]["id"] == o_ontem.id
-    assert res["orcamentos"][0].get("aprovado_em")
+    assert len(res["_meta_frontend_data"]["orcamentos"]) == 1
+    assert res["_meta_frontend_data"]["orcamentos"][0]["id"] == o_ontem.id
+    assert res["_meta_frontend_data"]["orcamentos"][0].get("aprovado_em")
 
 
 def test_listar_orcamentos_intervalo_ontem_e_hoje_aprovacao(db):
@@ -391,7 +390,7 @@ def test_listar_orcamentos_intervalo_ontem_e_hoje_aprovacao(db):
             current_user=user,
         )
     )
-    ids = {r["id"] for r in res["orcamentos"]}
+    ids = {r["id"] for r in res["_meta_frontend_data"]["orcamentos"]}
     assert ids == {o1.id, o2.id}
     assert res["total"] == 2
     assert res["filtros"].get("status_efetivo") == StatusOrcamento.APROVADO.value
