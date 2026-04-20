@@ -15,10 +15,13 @@ from app.models.models import (
     ItemOrcamento,
     MovimentacaoCaixa,
     Orcamento,
+    PagamentoFinanceiro,
     StatusAgendamento,
     StatusConta,
     StatusOrcamento,
+    StatusPagamentoFinanceiro,
     TipoConta,
+    TipoPagamento,
     Usuario,
 )
 
@@ -483,6 +486,7 @@ def _financeiro(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id: 
     inicio = _inicio(inp.periodo_dias)
     inicio_date = inicio.date()
 
+    # ── Entradas e Saídas de MovimentacaoCaixa (lançamentos manuais) ────────────
     mov = (
         db.query(MovimentacaoCaixa.tipo, func.sum(MovimentacaoCaixa.valor))
         .filter(
@@ -492,8 +496,38 @@ def _financeiro(inp: "GerarRelatorioDinamicoInput", *, db: Session, empresa_id: 
         .group_by(MovimentacaoCaixa.tipo)
         .all()
     )
-    entradas = next((_f(r[1]) for r in mov if r[0] == "entrada"), 0.0)
-    saidas = next((_f(r[1]) for r in mov if r[0] == "saida"), 0.0)
+    entradas_caixa = next((_f(r[1]) for r in mov if r[0] == "entrada"), 0.0)
+    saidas_caixa = next((_f(r[1]) for r in mov if r[0] == "saida"), 0.0)
+
+    # ── Entradas confirmadas via PagamentoFinanceiro (recebimentos de orçamentos/contas) ──
+    entradas_pagamentos = _f(
+        db.query(func.sum(PagamentoFinanceiro.valor))
+        .join(ContaFinanceira, PagamentoFinanceiro.conta_id == ContaFinanceira.id)
+        .filter(
+            PagamentoFinanceiro.empresa_id == empresa_id,
+            PagamentoFinanceiro.status == StatusPagamentoFinanceiro.CONFIRMADO,
+            ContaFinanceira.tipo == TipoConta.RECEBER,
+            PagamentoFinanceiro.data_pagamento >= inicio_date,
+        )
+        .scalar()
+    )
+
+    # ── Saídas confirmadas via PagamentoFinanceiro (pagamentos de despesas) ──────
+    saidas_pagamentos = _f(
+        db.query(func.sum(PagamentoFinanceiro.valor))
+        .join(ContaFinanceira, PagamentoFinanceiro.conta_id == ContaFinanceira.id)
+        .filter(
+            PagamentoFinanceiro.empresa_id == empresa_id,
+            PagamentoFinanceiro.status == StatusPagamentoFinanceiro.CONFIRMADO,
+            ContaFinanceira.tipo == TipoConta.PAGAR,
+            PagamentoFinanceiro.data_pagamento >= inicio_date,
+        )
+        .scalar()
+    )
+
+    # ── Total combinado (MovimentacaoCaixa + PagamentoFinanceiro) ──────────────
+    entradas = entradas_caixa + entradas_pagamentos
+    saidas = saidas_caixa + saidas_pagamentos
     saldo = entradas - saidas
 
     a_receber = _f(
