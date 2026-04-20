@@ -2112,13 +2112,16 @@ class WebhookEvent(Base):
     )
 
 
+# ── TELEMETRIA DO ASSISTENTE ───────────────────────────────────────────────────
+
+
 class ToolCallLog(Base):
     """Auditoria de cada chamada de tool feita pelo assistente IA (Tool Use / function calling)."""
 
-    __tablename__ = "tool_call_log"
+    __tablename__ = "tool_call_logs"
 
     id = Column(Integer, primary_key=True, index=True)
-    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False, index=True)
     usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True, index=True)
     sessao_id = Column(String(64), nullable=True, index=True)
     tool = Column(String(100), nullable=False, index=True)
@@ -2127,12 +2130,16 @@ class ToolCallLog(Base):
     status = Column(
         String(20), nullable=False, index=True
     )  # ok|erro|forbidden|pending|invalid_input|unknown_tool
+    user_input = Column(String(500), nullable=True)  # Adicional para telemetria semântica
     latencia_ms = Column(Integer, nullable=True)
     input_tokens = Column(Integer, nullable=True)
     output_tokens = Column(Integer, nullable=True)
     criado_em = Column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )
+
+    empresa = relationship("Empresa", back_populates="tool_call_logs")
+    usuario = relationship("Usuario", back_populates="tool_call_logs")
 
 
 class SchemaDriftSnapshot(Base):
@@ -2174,6 +2181,7 @@ class AIChatSessao(TenantScopedMixin, Base):
 
 
 class AIChatMensagem(Base):
+
     """Mensagem de uma sessão de chat."""
 
     __tablename__ = "ai_chat_mensagens"
@@ -2190,27 +2198,4 @@ class AIChatMensagem(Base):
     criado_em = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
     sessao = relationship("AIChatSessao", back_populates="mensagens")
-
-
-# ── TELEMETRIA DO ASSISTENTE ───────────────────────────────────────────────────
-
-class ToolCallLog(Base):
-    __tablename__ = "tool_call_logs"
-
-    id = Column(Integer, primary_key=True, index=True)
-    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False, index=True)
-    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True, index=True)
-    sessao_id = Column(String(64), nullable=True, index=True)
-    tool = Column(String(100), nullable=False, index=True)
-    args_json = Column(JSON, nullable=True)
-    resultado_json = Column(JSON, nullable=True)
-    status = Column(String(50), nullable=False, index=True)
-    criado_em = Column(DateTime(timezone=True), server_default=func.now(), index=True)
-    user_input = Column(String(500), nullable=True)  # Adicional para telemetria semântica
-    latencia_ms = Column(Integer, nullable=True)
-    input_tokens = Column(Integer, nullable=True)
-    output_tokens = Column(Integer, nullable=True)
-
-    empresa = relationship("Empresa", back_populates="tool_call_logs")
-    usuario = relationship("Usuario", back_populates="tool_call_logs")
 
