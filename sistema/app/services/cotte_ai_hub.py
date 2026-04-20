@@ -945,6 +945,11 @@ class FallbackManual:
                     resultado["cliente_nome"] = nome.title()
                     break
 
+        # Se nenhuma ação foi encontrada mas foi passado um ID num formato curto (ex: "orçamento 138"), assume VER
+        if resultado["acao"] == "DESCONHECIDO" and resultado["orcamento_id"] is not None:
+            if len(mensagem.split()) <= 4:
+                resultado["acao"] = "VER"
+
         return resultado
 
     @staticmethod
@@ -954,7 +959,7 @@ class FallbackManual:
 
         # Identificar ação
         acoes = {
-            r"\b(ver|mostrar?|exibir)\b": "VER",
+            r"\b(ver|mostrar?|exibir|abrir|acessar|carregar|detalhes)\b": "VER",
             r"\b(aprovar?|aceitar)\b": "APROVAR",
             r"\b(recusar?|rejeitar|negar)\b": "RECUSAR",
             r"\b(enviar?|mandar|envia)\b": "ENVIAR",
@@ -978,6 +983,11 @@ class FallbackManual:
             nums = re.findall(r"\d+", mensagem)
             if nums:
                 resultado["orcamento_id"] = int(nums[-1])
+
+        # Se nenhuma ação foi encontrada mas foi passado um ID num formato curto (ex: "orçamento 138"), assume VER
+        if resultado["acao"] == "DESCONHECIDO" and resultado["orcamento_id"] is not None:
+            if len(mensagem.split()) <= 4:
+                resultado["acao"] = "VER"
 
         return resultado
 
@@ -1205,6 +1215,11 @@ class CotteAIHub:
             f"[AI Hub] {modulo}: confianca={confianca_final:.2f}, "
             f"sucesso={sucesso}, fallback={fallback_usado}, erros={len(todos_erros)}"
         )
+
+        # Se nenhuma ação foi encontrada mas foi passado um ID num formato curto (ex: "orçamento 138"), assume VER
+        if resultado["acao"] == "DESCONHECIDO" and resultado["orcamento_id"] is not None:
+            if len(mensagem.split()) <= 4:
+                resultado["acao"] = "VER"
 
         return resultado
 
@@ -2511,14 +2526,19 @@ async def _v2_build_listar_orcamentos_fastpath_response(
         cliente_id_val = int(cliente_match.group(1))
     else:
         # Se não achou ID explícito, tenta achar o nome do cliente na frase
-        # ex: "orçamentos da ana julia"
+        # ex: "orçamentos da ana julia", "lista orçamentos aprovados ana julia"
         nome_match = re.search(
-            r'(?:orçamentos?|or[çc]amentos?)\s+(?:da|do|de|para|cliente)\s+([\wÀ-ÿ ]+?)(?:\s+(?:nos?|últimos?|hoje|ontem|dias|id|código|limit|status|aprovado)|$)',
+            r'(?:or[çc]amentos?)\s+'
+            r'(?:(?:pendentes?|enviados?|aprovados?|recusados?|rascunhos?|status\s+\w+)\s+)?'
+            r'(?:(?:da|do|de|para|cliente)\s+)?'
+            r'([\wÀ-ÿ ]+?)'
+            r'(?:\s+(?:nos?|últimos?|hoje|ontem|dias|id|código|limit|status|aprovado)|$)',
             mensagem.lower()
         )
         if nome_match:
             nome_busca = nome_match.group(1).strip()
-            if nome_busca:
+            # Não buscar se bateu apenas em palavra reservada acidentalmente
+            if nome_busca and nome_busca not in ['pendentes', 'enviados', 'aprovados', 'recusados', 'rascunhos', 'pendente', 'enviado', 'aprovado', 'recusado', 'rascunho']:
                 from app.models.models import Cliente
                 # Faz uma busca leve (ilike) pelo nome
                 cliente_db = db.query(Cliente.id).filter(
@@ -5811,7 +5831,7 @@ async def _assistente_unificado_v2_legacy(
             },
         )
 
-    if intent_str == "LISTAR_ORCAMENTOS":
+    if _v2_is_listar_orcamentos_fastpath_message(mensagem):
         resposta_lista = await _v2_build_listar_orcamentos_fastpath_response(
             mensagem=mensagem,
             db=db,

@@ -180,24 +180,9 @@ function getOrcamentoFollowupSuggestions(data, parsedSuggestions, tipo) {
     const base = Array.isArray(parsedSuggestions) ? parsedSuggestions : [];
     const dados = data?.dados || data || {};
     const numero = String(dados.numero || '').trim();
-    const numeroLabel = numero || 'este orçamento';
-    const extra = tipo === 'orcamento_atualizado'
-        ? [
-            `Ver detalhes do ${numeroLabel}`,
-            `Enviar ${numeroLabel} por WhatsApp`,
-            `Enviar ${numeroLabel} por e-mail`,
-            `Aprovar ${numeroLabel}`,
-            `Duplicar ${numeroLabel}`,
-            'Mostrar próximos passos deste orçamento',
-        ]
-        : [
-            `Ver detalhes do ${numeroLabel}`,
-            `Duplicar ${numeroLabel}`,
-            `Simular desconto de 5% no ${numeroLabel}`,
-            `Gerar versão premium do ${numeroLabel}`,
-            'Criar mensagem de follow-up para aprovação',
-            'Mostrar próximos passos deste orçamento',
-        ];
+    const extra = typeof window.getAssistenteOrcamentoFollowups === 'function'
+        ? window.getAssistenteOrcamentoFollowups(tipo, numero)
+        : [];
     const merged = [...base, ...extra]
         .map((s) => String(s || '').trim())
         .filter(Boolean);
@@ -298,30 +283,9 @@ function _buildAssistenteContext(command = '', entity = '') {
 }
 
 function _extractAssistenteCommand(text) {
-    const source = _normalizeContextText(text).toLowerCase();
-    if (!source) return '';
-
-    const slashMatch = source.match(/(?:^|\s)(\/[^\s]+)/);
-    if (slashMatch) {
-        return slashMatch[1];
-    }
-
-    const intentMatchers = [
-        { label: 'Caixa', pattern: /\bcaixa\b|\bsaldo\b/ },
-        { label: 'Resumo financeiro', pattern: /\bresumo financeiro\b|\bfaturamento\b/ },
-        { label: 'Contas a receber', pattern: /\breceber\b|\bem aberto\b/ },
-        { label: 'Contas a pagar', pattern: /\bpagar\b/ },
-        { label: 'Clientes em atraso', pattern: /\bdevendo\b|\batraso\b|\binadimpl/i },
-        { label: 'Previsão de caixa', pattern: /\bprevis[aã]o\b/ },
-        { label: 'Novo orçamento', pattern: /\bgerar\b.*\bor[çc]amento\b|\bcriar\b.*\bor[çc]amento\b/ },
-        { label: 'Consultar orçamento', pattern: /\bver\b.*\bor[çc]amento\b|\bdetalhes?\b.*\bor[çc]amento\b/ },
-        { label: 'Orçamentos pendentes', pattern: /\bor[çc]amentos?\b.*\bpendentes?\b/ },
-        { label: 'Agendamentos', pattern: /\bagenda(r|mentos?)\b/ },
-        { label: 'Ajuda', pattern: /\bajuda\b|\bcomo usar\b/ },
-    ];
-
-    const match = intentMatchers.find((item) => item.pattern.test(source));
-    return match ? match.label : '';
+    if (typeof window.matchAssistenteIntent !== 'function') return '';
+    const matched = window.matchAssistenteIntent(_normalizeContextText(text));
+    return matched ? matched.label : '';
 }
 
 function _extractAssistenteEntityFromText(text) {

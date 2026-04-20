@@ -325,6 +325,9 @@ class IntentionClassifier:
         r'\bver\s+(or[çc]amento|orc|\d)',
         r'\bmostrar?\s+(or[çc]amento|orc)\b',
         r'\bdetalhes?\s+(do\s+)?(or[çc]amento|orc)\b',
+        r'\b(abrir|acessar|carregar)\s+(or[çc]amento|orc|\d)\b',
+        r'^or[çc]amentos?\s+(?:n[oó]mero|n[oó]|num|#)?\s*\d+$',
+        r'^orc\s+(?:n[oó]mero|n[oó]|num|#)?\s*\d+$',
         r'\bdesconto\s+(de\s+)?\d',
         r'\b\d+\s*%\s*(no|do|n[ao])\s+\d+\b',
         r'\badicionar?\s+item\b',
@@ -578,6 +581,11 @@ class IntentionClassifier:
             if pattern.search(mensagem_lower):
                 return IntencaoUsuario.GERAR_RELATORIO
 
+        # I) OPERADOR — executar ação em orçamento existente (antes de CRIAR para evitar conflito)
+        for pattern in self._regex_patterns[IntencaoUsuario.OPERADOR]:
+            if pattern.search(mensagem_lower):
+                return IntencaoUsuario.OPERADOR
+
         # M3) LISTAR ORÇAMENTOS (paginado) - check após relatório
         for pattern in self._regex_patterns[IntencaoUsuario.LISTAR_ORCAMENTOS]:
             if pattern.search(mensagem_lower):
@@ -633,10 +641,6 @@ class IntentionClassifier:
             if pattern.search(mensagem_normalized):
                 return IntencaoUsuario.NEGOCIO
 
-        # I) OPERADOR — executar ação em orçamento existente (antes de CRIAR para evitar conflito)
-        for pattern in self._regex_patterns[IntencaoUsuario.OPERADOR]:
-            if pattern.search(mensagem_lower):
-                return IntencaoUsuario.OPERADOR
 
         # H) CRIAR ORÇAMENTO
         for pattern in self._regex_patterns[IntencaoUsuario.CRIAR_ORCAMENTO]:

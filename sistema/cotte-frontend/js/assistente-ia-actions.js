@@ -249,7 +249,9 @@ window.abrirTimeline = function(id, num) {
 
 window.aprovarOrcamento = function(id, num) {
     // Envia o comando de aprovação direto no chat de forma silenciosa
-    const aprovarCmd = `aprovar ${num}`;
+    const aprovarCmd = typeof window.buildAssistenteApprovalCommand === 'function'
+        ? window.buildAssistenteApprovalCommand(num)
+        : `aprovar ${num}`;
     window._silentNextMessage = true;
     sendQuickMessage(aprovarCmd);
 };

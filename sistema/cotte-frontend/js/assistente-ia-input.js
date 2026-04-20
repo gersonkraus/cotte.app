@@ -343,18 +343,11 @@ function addMessage(
   return messageDiv;
 }
 
-// ── Inovação 3: card de rascunho ao vivo ─────────────────────────────────
-// Detecta: "orçamento para [cliente] de [serviço] por [preço]"
-const _DRAFT_RE = /or[cç]amento\s+para\s+(?<cliente>[\wÀ-ÿ][\wÀ-ÿ\s]{1,40}?)\s+de\s+(?<servico>[\wÀ-ÿ][\wÀ-ÿ\s]{1,40}?)\s+(?:por|a)\s+R?\$?\s*(?<preco>\d+(?:[.,]\d{1,2})?)/i;
-
 function _parseDraft(texto) {
-  const m = texto.match(_DRAFT_RE);
-  if (!m) return null;
-  return {
-    cliente: m.groups.cliente.trim(),
-    servico: m.groups.servico.trim(),
-    preco: parseFloat(m.groups.preco.replace(",", ".")),
-  };
+  if (typeof window.parseAssistenteDraftInput === 'function') {
+    return window.parseAssistenteDraftInput(texto);
+  }
+  return null;
 }
 
 function _hideDraftCard() {

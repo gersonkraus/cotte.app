@@ -699,7 +699,7 @@ function renderAnaliseTexto(dados, isStreamed) {
     }
     return content || (isStreamed ? '' : 'Resposta recebida.');
 }
-function formatAIResponse(data, isStreamed = false) {
+function resolveAssistenteRenderResult(data, isStreamed = false) {
     let dados = data.dados || data;
     let tipoResposta = (data.tipo_resposta && data.tipo_resposta !== 'geral') ? data.tipo_resposta : (dados.tipo || 'geral');
 
@@ -717,46 +717,165 @@ function formatAIResponse(data, isStreamed = false) {
     // FIX: Unificação da renderização do card
     const cardTypes = ['orcamento_preview', 'orcamento_criado', 'orcamento_aprovado', 'orcamento_recusado', 'orcamento_atualizado', 'orcamento_card_unificado'];
     if (cardTypes.includes(tipoResposta) && dados) {
-        return renderOrcamentoCardUnificado(dados);
+        return { html: renderOrcamentoCardUnificado(dados), rendererId: 'renderOrcamentoCardUnificado', tipoResposta, dados };
     }
 
     if (tipoResposta === 'catalogo_sugestao' && dados) {
-        return renderCatalogoSugestao(dados);
+        return { html: renderCatalogoSugestao(dados), rendererId: 'renderCatalogoSugestao', tipoResposta, dados };
     }
 
     const semanticContract = (dados && dados.semantic_contract) || data.semantic_contract || null;
     if (semanticContract && typeof semanticContract === 'object') {
-        return renderSemanticContract(data, semanticContract, isStreamed);
+        return { html: renderSemanticContract(data, semanticContract, isStreamed), rendererId: 'renderSemanticContract', tipoResposta, dados };
     }
     if (dados && Array.isArray(dados.orcamentos) && typeof dados.total !== 'undefined') {
-        return renderListaOrcamentos(dados);
+        return { html: renderListaOrcamentos(dados), rendererId: 'renderListaOrcamentos', tipoResposta, dados };
     }
     if (tipoResposta === 'operador_resultado') {
-        return renderOperadorResultado(data, dados);
+        return { html: renderOperadorResultado(data, dados), rendererId: 'renderOperadorResultado', tipoResposta, dados };
     }
     if (tipoResposta === 'saldo_caixa' || dados.tipo === 'saldo_caixa') {
-        return renderSaldoRapido(dados);
+        return { html: renderSaldoRapido(dados), rendererId: 'renderSaldoRapido', tipoResposta, dados };
     }
     if (tipoResposta === 'onboarding' && dados) {
-        return renderOnboarding(dados);
+        return { html: renderOnboarding(dados), rendererId: 'renderOnboarding', tipoResposta, dados };
     }
     const tabela = renderTabelaRica(data, dados, isStreamed);
-    if (tabela) return tabela;
+    if (tabela) return { html: tabela, rendererId: 'renderTabelaRica', tipoResposta, dados };
     if (data.resposta || dados.resposta) {
         const rawTxt = data.resposta || dados.resposta;
         if (isStreamed && data.stream_has_chunks) {
-            return '';
+            return { html: '', rendererId: 'streaming_chunks', tipoResposta, dados };
         }
-        return `<div class="resposta-direta">${textToHtmlRich(rawTxt)}</div>`;
+        return { html: `<div class="resposta-direta">${textToHtmlRich(rawTxt)}</div>`, rendererId: 'resposta-direta', tipoResposta, dados };
     }
-    return renderAnaliseTexto(dados, isStreamed);
+    
+    const analiseHtml = renderAnaliseTexto(dados, isStreamed);
+    const hasText = analiseHtml && String(analiseHtml).replace(/<[^>]*>/g, '').trim().length > 0;
+    
+    if (hasText) {
+        return { html: analiseHtml, rendererId: 'renderAnaliseTexto', tipoResposta, dados };
+    }
+
+    if (isStreamed && data.stream_has_chunks) {
+        return { html: '', rendererId: 'streaming_chunks_fallback', tipoResposta, dados };
+    }
+
+    const isSemanticResponse = !!((data && data.semantic_contract) || (dados && dados.semantic_contract));
+    const uiPolicy = typeof window.getAssistenteResponseUiPolicy === 'function'
+        ? window.getAssistenteResponseUiPolicy(tipoResposta)
+        : { isRichResponse: false };
+        
+    const ehCardRico = isSemanticResponse || !!uiPolicy.isRichResponse || data.pending_action || tipoResposta === 'operador_resultado';
+
+    if (!ehCardRico) {
+        return { html: `<div class="resposta-direta">Não consegui montar a resposta completa agora. Tente novamente em alguns segundos.</div>`, rendererId: 'fallback_erro', tipoResposta, dados };
+    }
+
+    return { html: analiseHtml, rendererId: 'renderAnaliseTexto', tipoResposta, dados };
 }
-// Abrir agendamento rápido a partir de orçamento aprovado
+
+function formatAIResponse(data, isStreamed = false) {
+    return resolveAssistenteRenderResult(data, isStreamed).html;
+}
+window.resolveAssistenteRenderResult = resolveAssistenteRenderResult;
+function formatAssistenteMetaTraces(data) {
+    let metaTracesHtml = '';
+    const visPref = data?.dados?.visualizacao_recomendada || null;
+    if (visPref && visPref.formato_preferido && visPref.formato_preferido !== 'auto') {
+        metaTracesHtml += `<div class="tool-trace" style="margin-top:12px;font-size:0.75rem;color:var(--ai-muted)">🧭 Formato aplicado: <strong>${escapeHtml(String(visPref.formato_preferido))}</strong></div>`;
+    }
+
+    const intentDetectada = data?.dados?.intent_detectada || data?.metadata?.dados?.intent_detectada;
+    if (intentDetectada) {
+        metaTracesHtml += `<div class="tool-trace" style="margin-top:4px;font-size:0.75rem;color:var(--ai-muted)">🎯 Intenção detectada: <strong>${escapeHtml(intentDetectada)}</strong></div>`;
+    }
+
+    if (Array.isArray(data.tool_trace) && data.tool_trace.length > 0) {
+        const items = data.tool_trace.map(t => {
+            const ico = t.status === 'ok' ? '✅' : (t.status === 'pending' ? '⏳' : '⚠️');
+            const rawReason = (typeof t.reason === 'string' && t.reason.trim())
+                ? t.reason.trim()
+                : ((typeof t.code === 'string' && t.code.trim()) ? t.code.trim() : '');
+            const reasonHtml = rawReason
+                ? ` <code class="tool-trace-reason">${escapeHtml(rawReason)}</code>`
+                : '';
+            return `<span class="tool-trace-item">${ico} ${escapeHtml(String(t.tool))}${reasonHtml}</span>`;
+        }).join(' ');
+        metaTracesHtml += `<div class="tool-trace" style="margin-top:4px;font-size:0.75rem;color:var(--ai-muted)">🛠️ ${items}</div>`;
+    }
+
+    const tIn = data.input_tokens;
+    const tOut = data.output_tokens;
+    if ((tIn != null && tIn > 0) || (tOut != null && tOut > 0)) {
+        const tin = tIn || 0;
+        const tout = tOut || 0;
+        metaTracesHtml += `<div class="token-usage-badge" title="Tokens consumidos nesta resposta">🔢 ${tin + tout} tokens (↑${tin} ↓${tout})</div>`;
+    }
+    return metaTracesHtml;
+}
+window.formatAssistenteMetaTraces = formatAssistenteMetaTraces;
 window.abrirModalAgendamentoRapido = function(orcamentoId, numero, clienteNome) {
     window.location.href = `agendamentos.html?novo=true&orcamento_id=${orcamentoId}&cliente=${encodeURIComponent(clienteNome)}`;
 };
 
 // ── Inovação 2: Sugestão por catálogo ────────────────────────────────────
+function renderPendingActionCard(pa) {
+    if (!pa || !pa.confirmation_token) return '';
+    const token = pa.confirmation_token;
+    const extras = pa.extras || {};
+    const resumo = formatPendingArgs(pa.tool, pa.args || {}, extras);
+    const temMateriaisNovos = Array.isArray(extras.materiais_novos) && extras.materiais_novos.length > 0;
+    const tokAttr = escapeHtmlAttr(token);
+    const btnCadastrar = temMateriaisNovos
+        ? `<button type="button" class="btn btn-confirm-alt" data-confirm-ia="${tokAttr}" data-cadastrar="1">Confirmar e cadastrar produto</button>`
+        : '';
+    return `
+        <div class="orc-card-v2 pending-action-card" role="dialog" aria-labelledby="pa-title-${token.slice(0,8)}" data-token="${tokAttr}">
+            <div class="orc-card-v2__banner orc-card-v2__banner--warning" id="pa-title-${token.slice(0,8)}">
+                <span class="orc-card-v2__banner-icon" aria-hidden="true" style="background:#f59e0b">⚠</span>
+                Confirmação necessária
+            </div>
+            <div class="orc-card-v2__body">
+                <div class="pending-action-tool">${humanizeToolName(pa.tool)}</div>
+                <div class="pending-action-summary">${resumo}</div>
+                <div class="orc-card-v2__action-row" style="margin-top:14px;">
+                    <button type="button" class="orc-card-v2__aprovar-btn orc-card-v2__aprovar-btn--compact" data-confirm-ia="${tokAttr}" style="background:var(--ai-green);color:white;">✅ Confirmar</button>
+                    ${btnCadastrar}
+                    <button type="button" class="orc-card-v2__compact-btn orc-card-v2__compact-btn--ghost pa-cancel-btn" data-cancel-ia="1">✕ Cancelar</button>
+                </div>
+            </div>
+        </div>`;
+}
+window.renderPendingActionCard = renderPendingActionCard;
+
+function renderRegistroCriadoCard(dados) {
+    if (!dados) return '';
+    const registroTipo = dados.tipo_registro || 'Registro';
+    const registroId = dados.id || '';
+    const registroNumero = dados.numero || '';
+
+    return `
+        <div class="confirmation-card">
+            <div class="confirmation-card-banner">
+                <span class="confirmation-card-banner__icon" aria-hidden="true">✓</span>
+                ${escapeHtml(registroTipo)} Criado
+            </div>
+            <div class="confirmation-card-body">
+                <div class="confirmation-card-field">
+                    <span class="confirmation-card-label">ID</span>
+                    <span class="confirmation-card-value">${escapeHtml(String(registroId))}</span>
+                </div>
+                ${registroNumero ? `
+                <div class="confirmation-card-field">
+                    <span class="confirmation-card-label">Número</span>
+                    <span class="confirmation-card-value">${escapeHtml(registroNumero)}</span>
+                </div>` : ''}
+            </div>
+        </div>`;
+}
+window.renderRegistroCriadoCard = renderRegistroCriadoCard;
+
 function renderCatalogoSugestao(dados) {
     const { sugestoes = [], termo_buscado = '', contexto_orcamento = {} } = dados;
     const clienteNome = contexto_orcamento.cliente_nome || '';

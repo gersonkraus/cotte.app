@@ -31,111 +31,35 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
         return;
     }
 
-    let responseContent = formatAIResponse(data, isStreamed);
+    const renderResult = typeof window.resolveAssistenteRenderResult === 'function'
+        ? window.resolveAssistenteRenderResult(data, isStreamed)
+        : {
+            html: formatAIResponse(data, isStreamed),
+            rendererId: 'desconhecido',
+            tipoResposta: (data.tipo_resposta && data.tipo_resposta !== 'geral') ? data.tipo_resposta : ((data.dados && data.dados.tipo) || 'geral'),
+        };
+    let responseContent = renderResult.html;
     const isSemanticResponse = !!(
         (data && data.semantic_contract)
         || (data && data.dados && data.dados.semantic_contract)
     );
-    const actionStatusMap = {
-        saldo_caixa: 'Saldo consultado',
-        resumo_financeiro: 'Resumo financeiro gerado',
-        orcamento_preview: 'Pré-visualização pronta',
-        orcamento_criado: 'Orçamento criado',
-        orcamento_atualizado: 'Orçamento atualizado',
-        registro_criado: 'Registro criado',
-        operador_resultado: 'Ação executada',
-    };
-    const actionStatusLabel = actionStatusMap[data.tipo_resposta];
-    // orcamento_criado e orcamento_atualizado já têm banner próprio no card
-    const tiposComBannerProprio = ['orcamento_criado', 'orcamento_atualizado'];
-    if (!isSemanticResponse && actionStatusLabel && !tiposComBannerProprio.includes(data.tipo_resposta)) {
-        responseContent = `<div class="action-status-chip">✓ ${escapeHtml(actionStatusLabel)}</div>${responseContent}`;
+    const tipoResp = renderResult.tipoResposta || ((data.tipo_resposta && data.tipo_resposta !== 'geral') ? data.tipo_resposta : ((data.dados && data.dados.tipo) || 'geral'));
+    const uiPolicy = typeof window.getAssistenteResponseUiPolicy === 'function'
+        ? window.getAssistenteResponseUiPolicy(tipoResp)
+        : { actionStatusLabel: '', hasOwnBanner: false, skipFeedback: false, isRichResponse: false };
+    if (!isSemanticResponse && uiPolicy.actionStatusLabel && !uiPolicy.hasOwnBanner) {
+        responseContent = `<div class="action-status-chip">✓ ${escapeHtml(uiPolicy.actionStatusLabel)}</div>${responseContent}`;
     }
-    let metaTracesHtml = '';
-    const visPref = data?.dados?.visualizacao_recomendada || null;
-    if (visPref && visPref.formato_preferido && visPref.formato_preferido !== 'auto') {
-        metaTracesHtml += `<div class="tool-trace" style="margin-top:12px;font-size:0.75rem;color:var(--ai-muted)">🧭 Formato aplicado: <strong>${escapeHtml(String(visPref.formato_preferido))}</strong></div>`;
+    const metaTracesHtml = typeof window.formatAssistenteMetaTraces === 'function'
+        ? window.formatAssistenteMetaTraces(data)
+        : '';
+
+    if (uiPolicy.extraCardRenderer && typeof window[uiPolicy.extraCardRenderer] === 'function' && data.dados) {
+        responseContent += window[uiPolicy.extraCardRenderer](data.dados);
     }
 
-    const intentDetectada = data?.dados?.intent_detectada || data?.metadata?.dados?.intent_detectada;
-    if (intentDetectada) {
-        metaTracesHtml += `<div class="tool-trace" style="margin-top:4px;font-size:0.75rem;color:var(--ai-muted)">🎯 Intenção detectada: <strong>${escapeHtml(intentDetectada)}</strong></div>`;
-    }
-
-    if (Array.isArray(data.tool_trace) && data.tool_trace.length > 0) {
-        const items = data.tool_trace.map(t => {
-            const ico = t.status === 'ok' ? '✅' : (t.status === 'pending' ? '⏳' : '⚠️');
-            const rawReason = (typeof t.reason === 'string' && t.reason.trim())
-                ? t.reason.trim()
-                : ((typeof t.code === 'string' && t.code.trim()) ? t.code.trim() : '');
-            const reasonHtml = rawReason
-                ? ` <code class="tool-trace-reason">${escapeHtml(rawReason)}</code>`
-                : '';
-            return `<span class="tool-trace-item">${ico} ${escapeHtml(String(t.tool))}${reasonHtml}</span>`;
-        }).join(' ');
-        metaTracesHtml += `<div class="tool-trace" style="margin-top:4px;font-size:0.75rem;color:var(--ai-muted)">🛠️ ${items}</div>`;
-    }
-
-    const tIn = data.input_tokens;
-    const tOut = data.output_tokens;
-    if ((tIn != null && tIn > 0) || (tOut != null && tOut > 0)) {
-        const tin = tIn || 0;
-        const tout = tOut || 0;
-        metaTracesHtml += `<div class="token-usage-badge" title="Tokens consumidos nesta resposta">🔢 ${tin + tout} tokens (↑${tin} ↓${tout})</div>`;
-    }
-
-    if (data.tipo_resposta === 'registro_criado' && data.dados) {
-        const dados = data.dados;
-        const registroTipo = dados.tipo_registro || 'Registro';
-        const registroId = dados.id || '';
-        const registroNumero = dados.numero || '';
-
-        responseContent += `
-            <div class="confirmation-card">
-                <div class="confirmation-card-banner">
-                    <span class="confirmation-card-banner__icon" aria-hidden="true">✓</span>
-                    ${escapeHtml(registroTipo)} Criado
-                </div>
-                <div class="confirmation-card-body">
-                    <div class="confirmation-card-field">
-                        <span class="confirmation-card-label">ID</span>
-                        <span class="confirmation-card-value">${escapeHtml(String(registroId))}</span>
-                    </div>
-                    ${registroNumero ? `
-                    <div class="confirmation-card-field">
-                        <span class="confirmation-card-label">Número</span>
-                        <span class="confirmation-card-value">${escapeHtml(registroNumero)}</span>
-                    </div>` : ''}
-                </div>
-            </div>`;
-    }
-
-    if (data.pending_action && data.pending_action.confirmation_token) {
-        const pa = data.pending_action;
-        const token = pa.confirmation_token;
-        const extras = pa.extras || {};
-        const resumo = formatPendingArgs(pa.tool, pa.args || {}, extras);
-        const temMateriaisNovos = Array.isArray(extras.materiais_novos) && extras.materiais_novos.length > 0;
-        const tokAttr = escapeHtmlAttr(token);
-        const btnCadastrar = temMateriaisNovos
-            ? `<button type="button" class="btn btn-confirm-alt" data-confirm-ia="${tokAttr}" data-cadastrar="1">Confirmar e cadastrar produto</button>`
-            : '';
-        responseContent += `
-            <div class="orc-card-v2 pending-action-card" role="dialog" aria-labelledby="pa-title-${token.slice(0,8)}" data-token="${tokAttr}">
-                <div class="orc-card-v2__banner orc-card-v2__banner--warning" id="pa-title-${token.slice(0,8)}">
-                    <span class="orc-card-v2__banner-icon" aria-hidden="true" style="background:#f59e0b">⚠</span>
-                    Confirmação necessária
-                </div>
-                <div class="orc-card-v2__body">
-                    <div class="pending-action-tool">${humanizeToolName(pa.tool)}</div>
-                    <div class="pending-action-summary">${resumo}</div>
-                    <div class="orc-card-v2__action-row" style="margin-top:14px;">
-                        <button type="button" class="orc-card-v2__aprovar-btn orc-card-v2__aprovar-btn--compact" data-confirm-ia="${tokAttr}" style="background:var(--ai-green);color:white;">✅ Confirmar</button>
-                        ${temMateriaisNovos ? `<button type="button" class="orc-card-v2__aprovar-btn orc-card-v2__aprovar-btn--compact pa-btn-cadastrar" data-confirm-ia="${tokAttr}" data-cadastrar="1" style="flex:1 1 100%">✅ ✏️ Cadastrar material</button>` : ''}
-                        <button type="button" class="orc-card-v2__compact-btn orc-card-v2__compact-btn--ghost pa-cancel-btn" data-cancel-ia="1">✕ Cancelar</button>
-                    </div>
-                </div>
-            </div>`;
+    if (data.pending_action && data.pending_action.confirmation_token && typeof window.renderPendingActionCard === 'function') {
+        responseContent += window.renderPendingActionCard(data.pending_action);
     }
 
     let sugestoes = [];
@@ -148,9 +72,18 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
         sugestoes = data.sugestoes;
     }
 
-    const tipoResp = (data.tipo_resposta && data.tipo_resposta !== 'geral') ? data.tipo_resposta : ((data.dados && data.dados.tipo) || 'geral');
     if (!isSemanticResponse && (tipoResp === 'orcamento_criado' || tipoResp === 'orcamento_atualizado')) {
         sugestoes = getOrcamentoFollowupSuggestions(data, sugestoes, tipoResp);
+    }
+
+    if (data.debug_ui && typeof data.debug_ui === 'object' && typeof window.buildAssistenteDebugIntentMeta === 'function') {
+        data.debug_ui.intent_resolution = window.buildAssistenteDebugIntentMeta({
+            userMessage: data.debug_ui.mensagem_debug_intent || data.debug_ui.mensagem_preview || '',
+            responseType: data.debug_ui.tipo_resposta_normalizado || tipoResp,
+            intentDetected: data?.dados?.intent_detectada || data?.debug_ui?.metadata?.intent_detectada || '',
+            followups: sugestoes,
+            rendererId: renderResult.rendererId,
+        });
     }
 
     if (Array.isArray(sugestoes) && sugestoes.length > 0) {
@@ -162,17 +95,6 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
             })
             .join('');
         responseContent += `<div class="sugestoes-container"><div class="sugestoes-header"><span class="sug-icon">✨</span> Próximos passos sugeridos</div>${chips}</div>`;
-    }
-
-    // Se o backend não mandou texto e também não é um dos cards ricos estruturados:
-    const ehCardRico = isSemanticResponse
-        || ['orcamento_criado', 'orcamento_atualizado', 'orcamento_preview', 'onboarding', 'registro_criado', 'saldo_caixa', 'resumo_financeiro', 'analise_financeira', 'analise_conversao', 'sugestao_negocio'].includes(tipoResp)
-        || data.pending_action
-        || (responseContent && responseContent.includes('opr-card'));
-    const responseHasText = (responseContent && responseContent.replace(/<[^>]*>/g, '').trim().length > 0) || (isStreamed && data.stream_has_chunks);
-
-    if (!responseHasText && !ehCardRico) {
-        responseContent = `<div class="resposta-direta">Não consegui montar a resposta completa agora. Tente novamente em alguns segundos.</div>`;
     }
 
     // Injeta os metas (tool_trace e formato) apenas na bolha de resposta e NÃO acima dos cards de bloco.
@@ -210,6 +132,28 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
         } catch (_) {
             safe = { erro: 'não foi possível clonar debug_ui' };
         }
+        const intentResolution = safe.intent_resolution && typeof safe.intent_resolution === 'object'
+            ? safe.intent_resolution
+            : null;
+        let debugSummaryHtml = '';
+        if (intentResolution) {
+            const requestLabel = intentResolution?.request_intent?.label || 'não identificada';
+            const responseLabel = intentResolution?.response_intent?.label || 'não identificada';
+            const normalizedTypeLabel = intentResolution?.response_type_normalized || 'geral';
+            const rendererLabel = intentResolution?.renderer?.id || 'desconhecido';
+            const followups = Array.isArray(intentResolution?.followups) ? intentResolution.followups : [];
+            const followupsHtml = followups.length > 0
+                ? followups.map((item) => `<span class="tool-trace-item">${escapeHtml(String(item))}</span>`).join(' ')
+                : '<span class="tool-trace-item">nenhum follow-up gerado</span>';
+            debugSummaryHtml = `
+                <div style="margin:10px 0 12px;display:grid;gap:8px;">
+                    <div class="tool-trace" style="margin-top:0;font-size:0.75rem;color:var(--ai-muted)">🧭 Intent da pergunta: <strong>${escapeHtml(requestLabel)}</strong></div>
+                    <div class="tool-trace" style="margin-top:0;font-size:0.75rem;color:var(--ai-muted)">🧩 Intent da resposta: <strong>${escapeHtml(responseLabel)}</strong></div>
+                    <div class="tool-trace" style="margin-top:0;font-size:0.75rem;color:var(--ai-muted)">🏷️ Tipo normalizado: <strong>${escapeHtml(normalizedTypeLabel)}</strong></div>
+                    <div class="tool-trace" style="margin-top:0;font-size:0.75rem;color:var(--ai-muted)">🖼️ Renderer: <strong>${escapeHtml(rendererLabel)}</strong></div>
+                    <div class="tool-trace" style="margin-top:0;font-size:0.75rem;color:var(--ai-muted)">✨ Follow-ups: ${followupsHtml}</div>
+                </div>`;
+        }
         let preJson;
         try {
             preJson = JSON.stringify(safe, null, 2);
@@ -217,11 +161,10 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
             preJson = '{"erro":"serialização falhou"}';
         }
         const pre = escapeHtml(preJson);
-        responseContent += `<details class="ai-debug-ui"><summary class="ai-debug-ui__summary">Debug UI (stream / metadata)</summary><pre class="ai-debug-ui__pre" tabindex="0">${pre}</pre><p class="ai-debug-ui__hint">Desative com <code>disableAssistenteDebugUi()</code> no console ou remova <code>?debug_ui=1</code> da URL.</p></details>`;
+        responseContent += `<details class="ai-debug-ui"><summary class="ai-debug-ui__summary">Debug UI (stream / metadata)</summary>${debugSummaryHtml}<pre class="ai-debug-ui__pre" tabindex="0">${pre}</pre><p class="ai-debug-ui__hint">Desative com <code>disableAssistenteDebugUi()</code> no console ou remova <code>?debug_ui=1</code> da URL.</p></details>`;
     }
 
-    const tipoSemFeedback = ['onboarding', 'orcamento_preview', 'operador_resultado', 'registro_criado'];
-    if (!tipoSemFeedback.includes(tipoResp) && !data.pending_action && (responseHasText || ehCardRico)) {
+    if (!uiPolicy.skipFeedback && !data.pending_action && (responseHasText || ehCardRico)) {
         const fbId = 'fb_' + Date.now();
         responseContent += `
             <div class="feedback-bar" id="${fbId}">
@@ -237,8 +180,6 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
         };
     }
 
-    const tiposV2Card = ['orcamento_criado', 'orcamento_atualizado', 'orcamento_preview', 'orcamento_aprovado', 'orcamento_recusado'];
-
     let msgEl;
     if (!isStreamed) {
         msgEl = addMessage(responseContent, false);
@@ -248,7 +189,7 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
             const bubble = loadingMessage.querySelector('.message-bubble');
             if (bubble) {
                 // Para cards v2, limpa texto streamed anterior (evita duplicação do status)
-                if (tiposV2Card.includes(tipoResp) || data.pending_action) {
+                if (uiPolicy.isV2Card || data.pending_action) {
                     bubble.innerHTML = '';
                 }
                 bubble.insertAdjacentHTML('beforeend', responseContent);
@@ -270,7 +211,7 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
     if (msgEl) msgEl.dataset.pergunta = '';
 
     // Bubble transparente para cards v2 (sem "card dentro de card")
-    if ((tiposV2Card.includes(tipoResp) || data.pending_action) && msgEl) {
+    if ((uiPolicy.isV2Card || data.pending_action) && msgEl) {
         const bubble = msgEl.querySelector('.message-bubble');
         if (bubble) bubble.classList.add('message-bubble--v2card');
     }

@@ -28,25 +28,54 @@ const ASSISTENTE_PROMPT_CATEGORIA_LABEL = {
     comparativo_mensal: 'Comparativo mensal',
 };
 
-const SLASH_COMMANDS = [
-    { cmd: '/caixa', desc: 'Ver saldo atual disponível', icon: '💰' },
-    { cmd: '/faturamento', desc: 'Total faturado em orçamentos', icon: '📈' },
-    { cmd: '/receber', desc: 'Valores em aberto a receber', icon: '📥' },
-    { cmd: '/pagar', desc: 'Valores em aberto a pagar', icon: '📤' },
-    { cmd: '/resumo', desc: 'Visão geral (Dashboard)', icon: '📊' },
-    { cmd: '/devendo', desc: 'Lista de clientes em atraso', icon: '🚨' },
-    { cmd: '/previsao', desc: 'Projeção de caixa futuro', icon: '🔮' },
-    { cmd: '/orcamento', desc: 'Criar um novo orçamento', icon: '📝' },
-    { cmd: '/agendar', desc: 'Fazer novo agendamento', icon: '📅' },
-    { cmd: '/agenda', desc: 'Ver agendamentos do dia', icon: '📆' },
-    { cmd: '/ajuda', desc: 'Dúvidas sobre como usar o sistema', icon: '❓' }
-];
+const SLASH_COMMANDS = (typeof window !== 'undefined' && typeof window.getAssistenteSlashCommands === 'function')
+    ? window.getAssistenteSlashCommands()
+    : [];
 
 const MOBILE_BREAKPOINT = 768;
 const INPUT_MIN_HEIGHT_MOBILE = 40;
 const INPUT_MIN_HEIGHT_DESKTOP = 44;
 const DEFAULT_MESSAGE_PLACEHOLDER = 'Pergunte algo ou dê um comando...';
 const MOBILE_MESSAGE_PLACEHOLDER = 'Digite sua mensagem...';
+
+function hydrateAssistenteShortcutContent() {
+    if (typeof window === 'undefined') return;
+
+    if (typeof window.getAssistenteShortcutGroups === 'function') {
+        const targets = {
+            'Financeiro': 'assistenteWelcomeShortcutsFinanceiro',
+            'Vendas & Serviços': 'assistenteWelcomeShortcutsVendas',
+            'Relatórios': 'assistenteWelcomeShortcutsRelatorios',
+        };
+
+        window.getAssistenteShortcutGroups().forEach((group) => {
+            const targetId = targets[group.title];
+            const el = targetId ? document.getElementById(targetId) : null;
+            if (!el) return;
+            el.innerHTML = (group.items || []).map((item) => `
+                <button type="button" class="shortcut" data-quick-message="${escapeHtmlAttr(item.message || '')}">
+                    <span class="shortcut-icon">${escapeHtml(item.icon || '✨')}</span>
+                    <span class="shortcut-label">${escapeHtml(item.label || item.message || '')}</span>
+                </button>
+            `).join('');
+        });
+    }
+
+    if (typeof window.getAssistenteQuickActions === 'function') {
+        const list = document.getElementById('assistenteQuickActionsList');
+        if (!list) return;
+        list.innerHTML = window.getAssistenteQuickActions().map((item) => `
+            <button type="button" class="quick-action-item" data-quick-action="${escapeHtmlAttr(item.message || '')}">
+                <span class="quick-action-icon">${escapeHtml(item.icon || '✨')}</span>
+                <span class="quick-action-content">
+                    <span class="quick-action-label">${escapeHtml(item.label || '')}</span>
+                    <span class="quick-action-desc">${escapeHtml(item.description || '')}</span>
+                </span>
+                <span class="quick-action-chevron">›</span>
+            </button>
+        `).join('');
+    }
+}
 
 /** Debug na tela: `?debug_ui=1` ou localStorage `cotte_assistente_debug_ui=1`. Não logar tokens. */
 function isAssistenteDebugUiEnabled() {
@@ -377,9 +406,7 @@ async function useAssistentePromptLibraryItem(promptId) {
         
         // Timeout para dar tempo de renderizar o fechar do modal
         setTimeout(() => {
-            const ev = new Event('submit', { bubbles: true, cancelable: true });
-            const form = document.getElementById('chatForm');
-            if (form) form.dispatchEvent(ev);
+            sendMessage();
         }, 100);
     }
 }
@@ -916,6 +943,16 @@ async function sendMessage() {
            output_tokens: (metadata && metadata.output_tokens != null) ? metadata.output_tokens : null,
         };
 
+        if (typeof window.normalizeAssistenteResponseType === 'function') {
+            finalData.tipo_resposta = window.normalizeAssistenteResponseType({
+                responseType: finalData.tipo_resposta,
+                intentDetected: (metadata && metadata.intent_detectada)
+                    || (finalData.dados && finalData.dados.intent_detectada)
+                    || '',
+                dadosType: finalData.dados && finalData.dados.tipo,
+            });
+        }
+
         const semanticContract = (
             (metadata && metadata.dados && metadata.dados.semantic_contract)
             || (metadata && metadata.semantic_contract)
@@ -953,6 +990,10 @@ async function sendMessage() {
                 mensagem_preview: message === '__confirmar_acao__'
                     ? '[confirmacao_silenciosa]'
                     : String(message || '').slice(0, 240),
+                mensagem_debug_intent: message === '__confirmar_acao__'
+                    ? ''
+                    : String(message || '').slice(0, 500),
+                tipo_resposta_normalizado: finalData.tipo_resposta,
                 stream_events: debugStreamEvents,
                 metadata: metadata || null,
             };
@@ -1080,8 +1121,22 @@ window.saveAssistentePromptLibraryItem = saveAssistentePromptLibraryItem;
 window.handleAssistentePromptLibraryAction = handleAssistentePromptLibraryAction;
 window.saveAssistenteContexto = saveAssistenteContexto;
 
+function getOrCreateAssistenteReportContainer() {
+    const existing = document.getElementById('ai-report-container');
+    if (existing) return existing;
+
+    const chatMessages = document.getElementById('chatMessages');
+    if (!chatMessages) return null;
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'message ai';
+    wrapper.innerHTML = '<div class="message-bubble"><div id="ai-report-container"></div></div>';
+    chatMessages.appendChild(wrapper);
+    return wrapper.querySelector('#ai-report-container');
+}
+
 function renderOrcamentosReport(data) {
-    const reportContainer = document.getElementById('ai-report-container');
+    const reportContainer = getOrCreateAssistenteReportContainer();
     if (!reportContainer) {
         console.error('Container de relatório #ai-report-container não encontrado.');
         addMessage(buildAssistenteErrorCard("Erro de UI: O container de relatório não foi encontrado na página. (ID: ai-report-container)"), false, true);
@@ -1170,3 +1225,7 @@ function exportReportToCSV() {
     link.click();
     document.body.removeChild(link);
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    hydrateAssistenteShortcutContent();
+});
