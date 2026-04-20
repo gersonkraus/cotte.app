@@ -945,10 +945,6 @@ class FallbackManual:
                     resultado["cliente_nome"] = nome.title()
                     break
 
-        # Se nenhuma ação foi encontrada mas foi passado um ID num formato curto (ex: "orçamento 138"), assume VER
-        if resultado["acao"] == "DESCONHECIDO" and resultado["orcamento_id"] is not None:
-            if len(mensagem.split()) <= 4:
-                resultado["acao"] = "VER"
 
         return resultado
 
@@ -1216,10 +1212,6 @@ class CotteAIHub:
             f"sucesso={sucesso}, fallback={fallback_usado}, erros={len(todos_erros)}"
         )
 
-        # Se nenhuma ação foi encontrada mas foi passado um ID num formato curto (ex: "orçamento 138"), assume VER
-        if resultado["acao"] == "DESCONHECIDO" and resultado["orcamento_id"] is not None:
-            if len(mensagem.split()) <= 4:
-                resultado["acao"] = "VER"
 
         return resultado
 
