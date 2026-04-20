@@ -6,7 +6,7 @@
 function renderOrcamentoCardUnificado(dados) {
     const orcId = dados.id || '';
     const orcNum = dados.numero || '';
-    const clienteNome = dados.cliente_nome || dados.cliente || 'Cliente não informado';
+    const clienteNome = dados.cliente_nome || (dados.cliente && dados.cliente.nome) || dados.cliente || 'Cliente não informado';
     const numEnc = encodeURIComponent(orcNum);
     const aprovarEnc = encodeURIComponent('aprovar ' + orcNum);
     const totalFmt = formatValue(dados.total);
@@ -144,61 +144,9 @@ function renderOperadorResultado(data, dados) {
     const acao = dados && dados.acao ? dados.acao : '';
     const icone = acaoIcones[acao] || '⚡';
     const linkHtml = dados && dados.id ? `<a href="orcamentos.html" class="opr-link">Ver orçamento →</a>` : '';
-    if (acao === 'VER' && dados) {
-        const itensHtml = (dados.itens || []).map((it, i) =>
-            `<div class="opr-field"><span>${i + 1}. ${escapeHtml(it.descricao)}</span><span>R$ ${Number(it.total).toFixed(2)}</span></div>`
-        ).join('');
-        const statusMap = { rascunho:'badge-rascunho', enviado:'badge-enviado', aprovado:'badge-aprovado', em_execucao:'badge-em-execucao', aguardando_pagamento:'badge-aguardando-pagamento', recusado:'badge-recusado', expirado:'badge-expirado' };
-        const statusKey = (dados.status || '').toLowerCase();
-        const badgeClass = statusMap[statusKey] || 'badge-rascunho';
-        const statusBadge = `<span class="opr-status-badge ${badgeClass}">${escapeHtml(dados.status || '')}</span>`;
-        const pagFmt = { a_vista:'À vista', pix:'PIX', '2x':'2×', '3x':'3×', '4x':'4×' };
-        const formaHtml = dados.forma_pagamento
-            ? `<div class="opr-field"><span>Pagamento</span><span>${escapeHtml(pagFmt[dados.forma_pagamento] || String(dados.forma_pagamento))}</span></div>` : '';
-        const validadeHtml = dados.validade_dias
-            ? `<div class="opr-field"><span>Validade</span><span>${escapeHtml(String(dados.validade_dias))} dias</span></div>` : '';
-        const obsHtml = dados.observacoes
-            ? `<div class="opr-field" style="flex-direction:column;align-items:flex-start;gap:3px;"><span style="font-size:0.75em;color:var(--ai-muted)">Observações</span><span class="operador-md" style="font-size:0.82em;">${textToHtmlRich(dados.observacoes)}</span></div>` : '';
-        const linkPublicoHtml = dados.link_publico
-            ? `<div class="opr-field"><span>Link público</span><button type="button" class="orc-action-btn" style="flex:unset;padding:3px 8px;font-size:0.74em;" data-copy-public-token="${escapeHtmlAttr(dados.link_publico)}">📋 Copiar link</button></div>` : '';
-        const orcId = dados.id || '';
-        const orcNum = dados.numero || '';
-        const numSeq = orcNum.replace(/^ORC-/, '').split('-')[0] || orcNum;
-        const numEnc = encodeURIComponent(orcNum);
-        const aprovarEnc = encodeURIComponent('aprovar ' + orcNum);
-        let botoesHtml = '';
-        if (['rascunho', 'enviado'].includes(statusKey)) {
-            const disWhats = dados.tem_telefone ? '' : 'disabled title="Cliente sem telefone"';
-            const disEmail = dados.tem_email ? '' : 'disabled title="Cliente sem e-mail"';
-            const linkTokenAttr = dados.link_publico ? `data-copy-public-token="${escapeHtmlAttr(dados.link_publico)}"` : 'disabled title="Link indisponível"';
-            botoesHtml = `
-                <div class="orc-card-v2__actions orc-card-v2__actions--inline">
-                    <div class="orc-card-v2__icon-btns orc-card-v2__icon-btns--compact">
-                        <button type="button" class="orc-card-v2__icon-btn btn-whats" ${disWhats} data-enviar-wa="${orcId}" data-orc-numero="${numEnc}" title="Enviar WhatsApp">💬 <span>Whats</span></button>
-                        <button type="button" class="orc-card-v2__icon-btn btn-link" ${linkTokenAttr} title="Copiar link">🔗 <span>Link</span></button>
-                        <button type="button" class="orc-card-v2__icon-btn btn-email" ${disEmail} data-enviar-email="${orcId}" data-orc-numero="${numEnc}" title="Enviar E-mail">✉️ <span>E-mail</span></button>
-                    </div>
-                    <button type="button" class="orc-card-v2__aprovar-btn orc-card-v2__aprovar-btn--compact btn-aprovar" data-quick-send="${aprovarEnc}" data-silent-send="true">✅ Aprovar</button>
-                </div>`;
-        } else if (statusKey === 'aprovado') {
-            const disWhats = dados.tem_telefone ? '' : 'disabled title="Cliente sem telefone"';
-            botoesHtml = `
-                <div class="orc-card-v2__actions orc-card-v2__actions--inline">
-                    <div class="orc-card-v2__icon-btns orc-card-v2__icon-btns--compact">
-                        <button type="button" class="orc-card-v2__icon-btn btn-whats" ${disWhats} data-enviar-wa="${orcId}" data-orc-numero="${numEnc}" title="Reenviar WhatsApp">💬 <span>Whats</span></button>
-                    </div>
-                </div>`;
-        }
-        return `<div class="opr-card">
-            <div class="opr-numero">${escapeHtml(orcNum)} &nbsp;${statusBadge}</div>
-            <div class="opr-body">
-                <div class="opr-field"><span>Cliente</span><span>${escapeHtml(dados.cliente || '—')}</span></div>
-                ${itensHtml}
-                <div class="opr-field"><span>Total</span><span><strong>${formatValue(dados.total || 0)}</strong></span></div>
-                ${formaHtml}${validadeHtml}${obsHtml}${linkPublicoHtml}
-                ${botoesHtml}
-            </div>
-        </div>`;
+    if (acao === 'VER' && dados && dados.id) {
+        // Aproveita o visual premium do card de orçamento ao invés de usar a estrutura antiga e quebrada
+        return renderOrcamentoCardUnificado(dados);
     }
     const respText = data.resposta || (dados && dados.resposta) || '';
     return `<div class="opr-result operador-md ${data.sucesso !== false ? 'opr-ok' : 'opr-err'}">
