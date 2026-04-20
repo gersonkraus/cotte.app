@@ -2293,17 +2293,18 @@ def _v2_selected_tool_names_for_message(
         return {"gerar_relatorio_dinamico"}, "relatorio_scoped"
 
     if intent in {"FATURAMENTO", "CONVERSAO", "ANALISE", "NEGOCIO", "PREVISAO"}:
-        return {"gerar_relatorio_dinamico", "listar_orcamentos"}, "analise_scoped"
+        return {"gerar_relatorio_dinamico", "listar_orcamentos", "gerar_relatorio_vendas", "gerar_relatorio_ranking_clientes", "gerar_relatorio_contas_a_receber"}, "analise_scoped"
 
     if intent in {"CONTAS_RECEBER", "CONTAS_PAGAR"}:
         return {
             "gerar_relatorio_dinamico",
             "listar_movimentacoes_financeiras",
             "listar_despesas",
+            "gerar_relatorio_contas_a_receber",
         }, "contas_scoped"
 
     if intent == "INADIMPLENCIA":
-        return {"gerar_relatorio_dinamico", "listar_clientes"}, "inadimplencia_scoped"
+        return {"gerar_relatorio_dinamico", "listar_clientes", "gerar_relatorio_contas_a_receber"}, "inadimplencia_scoped"
 
     # Identifica se é do domínio financeiro ou inadimplência
     is_financeiro = any(
@@ -2661,7 +2662,7 @@ async def _v2_build_operador_fastpath_response(
         return None
 
     tool_map: dict[str, tuple[str, dict]] = {
-        "VER":     ("obter_orcamento",          {"orcamento_id": orcamento_id}),
+        "VER":     ("obter_orcamento",          {"id": orcamento_id}),
         "APROVAR": ("aprovar_orcamento",         {"orcamento_id": orcamento_id}),
         "RECUSAR": ("recusar_orcamento",         {"orcamento_id": orcamento_id}),
         "ENVIAR":  ("enviar_orcamento_whatsapp", {"orcamento_id": orcamento_id}),
