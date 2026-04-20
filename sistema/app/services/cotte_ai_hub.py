@@ -2479,6 +2479,55 @@ def _v2_is_listar_orcamentos_fastpath_message(mensagem: str) -> bool:
     return _v2_detect_deterministic_intent(mensagem) == "LISTAR_ORCAMENTOS"
 
 
+def _v2_is_listar_clientes_fastpath_message(mensagem: str) -> bool:
+    return _v2_detect_deterministic_intent(mensagem) == "LISTAR_CLIENTES"
+
+
+async def _v2_build_listar_clientes_fastpath_response(
+    *,
+    mensagem: str,
+    db: Session,
+    current_user: Any,
+) -> AIResponse | None:
+    from app.services.ai_tools.cliente_tools import listar_clientes
+    import re
+
+    # Extrair filtros (busca, limit)
+    busca_match = re.search(r'buscar? "([^"]+)"', mensagem)
+    busca_val = busca_match.group(1) if busca_match else None
+
+    limite_match = re.search(r'limit(?:e)? (\d+)', mensagem.lower())
+    limite_val = int(limite_match.group(1)) if limite_match else 20
+
+    result = await listar_clientes(
+        db=db,
+        empresa_id=getattr(current_user, "empresa_id", 0),
+        busca=busca_val,
+        limit=limite_val,
+    )
+
+    if result.get("sucesso"):
+        clientes = result.get("clientes", [])
+        total = result.get("total", 0)
+
+        if not clientes:
+            resposta = "Não encontrei nenhum cliente cadastrado."
+        else:
+            resposta = f"Encontrei {len(clientes)} cliente(s)."
+            if total > len(clientes):
+                resposta += f" (Total: {total})"
+
+        return AIResponse(
+            sucesso=True,
+            resposta=resposta,
+            tipo_resposta="clientes_lista",
+            dados=result,
+            confianca=1.0,
+            modulo_origem="assistente_v2_fastpath",
+        )
+    return None
+
+
 async def _v2_build_listar_orcamentos_fastpath_response(
     *,
     mensagem: str,
@@ -5826,6 +5875,21 @@ async def _assistente_unificado_v2_legacy(
 
     if _v2_is_listar_orcamentos_fastpath_message(mensagem):
         resposta_lista = await _v2_build_listar_orcamentos_fastpath_response(
+            mensagem=mensagem,
+            db=db,
+            current_user=current_user,
+        )
+        if resposta_lista is not None:
+            _v2_persist_fastpath_response(
+                sessao_id=sessao_id,
+                db=db,
+                current_user=current_user,
+                resposta=resposta_lista.resposta or "",
+            )
+            return resposta_lista
+
+    if _v2_is_listar_clientes_fastpath_message(mensagem):
+        resposta_lista = await _v2_build_listar_clientes_fastpath_response(
             mensagem=mensagem,
             db=db,
             current_user=current_user,

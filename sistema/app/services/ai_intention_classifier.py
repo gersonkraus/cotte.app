@@ -53,7 +53,8 @@ class IntencaoUsuario(Enum):
     AGENDAMENTO_STATUS = "AGENDAMENTO_STATUS"
     AGENDAMENTO_CANCELAR = "AGENDAMENTO_CANCELAR"
     GERAR_RELATORIO = "GERAR_RELATORIO"
-    LISTAR_ORCAMENTOS = "LISTAR_ORCAMENTOS" # Adicionado para diferenciar listagem de relatório
+    LISTAR_ORCAMENTOS = "LISTAR_ORCAMENTOS"
+    LISTAR_CLIENTES = "LISTAR_CLIENTES"
 
     @classmethod
     def from_string(cls, value: str) -> "IntencaoUsuario":
@@ -322,6 +323,14 @@ class IntentionClassifier:
         r'^or[çc]amentos\s+(da|do|de|para|cliente)\b'
     ]
 
+    LISTAR_CLIENTES_KEYWORDS = [
+        r'\b(quais|liste|lista|ver|mostrar|mostre)\s+(mais\s+)?((os|meus)\s+)?clientes?\b',
+        r'\b(ultimos?|[úu]ltimos?|recentes?)\s+clientes?\b',
+        r'\b(quais|ver|listar|liste|lista|meus|mostrar)\b.*\bcliente',
+        r'\btodos?\s+(os\s+)?clientes?\b',
+        r'\blista\s+completa\s+de\s+clientes?\b',
+    ]
+
     # I) OPERADOR — comandos de execução em orçamentos existentes
     OPERADOR_KEYWORDS = [
         r'\baprovar?\b',
@@ -432,6 +441,7 @@ class IntentionClassifier:
             IntencaoUsuario.CRIAR_ORCAMENTO: [re.compile(p, re.IGNORECASE) for p in self.CRIAR_ORCAMENTO_KEYWORDS],
             IntencaoUsuario.GERAR_RELATORIO: [re.compile(p, re.IGNORECASE) for p in self.GERAR_RELATORIO_KEYWORDS],
             IntencaoUsuario.LISTAR_ORCAMENTOS: [re.compile(p, re.IGNORECASE) for p in self.LISTAR_ORCAMENTOS_KEYWORDS],
+            IntencaoUsuario.LISTAR_CLIENTES: [re.compile(p, re.IGNORECASE) for p in self.LISTAR_CLIENTES_KEYWORDS],
             IntencaoUsuario.OPERADOR: [re.compile(p, re.IGNORECASE) for p in self.OPERADOR_KEYWORDS],
             IntencaoUsuario.ONBOARDING: [re.compile(p, re.IGNORECASE) for p in self.ONBOARDING_KEYWORDS],
             IntencaoUsuario.AJUDA_SISTEMA: [re.compile(p, re.IGNORECASE) for p in self.AJUDA_SISTEMA_KEYWORDS],
@@ -596,6 +606,11 @@ class IntentionClassifier:
         for pattern in self._regex_patterns[IntencaoUsuario.LISTAR_ORCAMENTOS]:
             if pattern.search(mensagem_lower):
                 return IntencaoUsuario.LISTAR_ORCAMENTOS
+
+        # M4) LISTAR CLIENTES
+        for pattern in self._regex_patterns[IntencaoUsuario.LISTAR_CLIENTES]:
+            if pattern.search(mensagem_lower):
+                return IntencaoUsuario.LISTAR_CLIENTES
 
         # D) INADIMPLÊNCIA (Verificado ANTES de contas a receber)
         for pattern in self._regex_patterns[IntencaoUsuario.INADIMPLENCIA]:
@@ -884,4 +899,6 @@ INTENCAO_TO_FUNC = {
     IntencaoUsuario.CONVERSAO: "analisar_conversao_ia",
     IntencaoUsuario.NEGOCIO: "gerar_sugestoes_negocio_ia",
     IntencaoUsuario.CONVERSACAO: "processar_conversacao",
+    IntencaoUsuario.LISTAR_CLIENTES: "listar_clientes_ia",
+    IntencaoUsuario.LISTAR_ORCAMENTOS: "listar_orcamentos_ia",
 }

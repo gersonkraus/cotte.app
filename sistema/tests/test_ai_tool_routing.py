@@ -11,6 +11,12 @@ TEST_CASES = [
     ("relatório de orçamentos aprovados este mês", IntencaoUsuario.GERAR_RELATORIO),
     ("gerar relatório de orçamentos", IntencaoUsuario.GERAR_RELATORIO),
 
+    # --- Listagem de Clientes ---
+    ("listar meus clientes", IntencaoUsuario.LISTAR_CLIENTES),
+    ("quais são os meus clientes", IntencaoUsuario.LISTAR_CLIENTES),
+    ("todos os clientes", IntencaoUsuario.LISTAR_CLIENTES),
+    ("lista de clientes", IntencaoUsuario.LISTAR_CLIENTES),
+
     # --- Conflito 2: Faturamento (Relatório vs. Análise Simples) ---
     ("faturamento do mês", IntencaoUsuario.GERAR_RELATORIO),
     ("qual o faturamento dos últimos 90 dias", IntencaoUsuario.GERAR_RELATORIO),
