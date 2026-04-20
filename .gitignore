@@ -119,6 +119,9 @@ memory/.session-log
 # Patches temporários na raiz (experimentos / aplicação manual)
 /*.patch
 
+# Git worktrees locais
+.worktrees/
+
 # Resíduos de merge e patch (diff3, patch -r)
 *.orig
 *.rej

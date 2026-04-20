@@ -1,6 +1,10 @@
 import pytest
 import os
 from unittest.mock import patch, MagicMock
+from dotenv import load_dotenv
+
+# Carrega o .env da pasta sistema (estamos em sistema/tests/)
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 from app.services.ai_intention_classifier import (
     IntentionClassifier,
@@ -66,15 +70,24 @@ async def test_regex_classifier_base(classifier, mensagem, intent_esperada):
 @pytest.mark.asyncio
 async def test_llm_auto_healing_mutation(classifier):
     """
-    Uera mutações do prompt para testar se o classificador híbrido
+    Gera mutações do prompt para testar se o classificador híbrido
     (Regex + Semântica) consegue entender intenções mal formatadas.
     """
     from litellm import acompletion
     
+    # Busca configurações do ambiente para ser consistente com o sistema
+    model = os.getenv("AI_TECHNICAL_MODEL") or "google/gemini-2.0-flash"
+    api_key = os.getenv("AI_API_KEY") or os.getenv("OPENROUTER_API_KEY")
+    
+    # Se o modelo não tem prefixo e temos indicação de provedor, ajustamos
+    # No caso de OpenRouter, o LiteLLM espera openrouter/<modelo>
+    if "openrouter" not in model and (api_key or "").startswith("sk-or-"):
+        model = f"openrouter/{model}"
+
     # Gera variações coloquiais/erradas para "relatório de ranking de clientes"
     resp = await acompletion(
-        model="openrouter/google/gemini-2.5-flash",
-        api_key=os.getenv("AI_API_KEY") or os.getenv("OPENROUTER_API_KEY"),
+        model=model,
+        api_key=api_key,
         messages=[{
             "role": "user", 
             "content": "Gere 3 frases coloquiais curtas, com possíveis erros de português "
@@ -84,7 +97,9 @@ async def test_llm_auto_healing_mutation(classifier):
     )
     
     frases = resp.choices[0].message.content.strip().split("\n")
-    frases = [f.strip("- *") for f in frases if f.strip()]
+    frases = [f.strip("- *\"'") for f in frases if f.strip()]
+    
+    print(f"\n[Auto-Healing] Testando frases: {frases}")
     
     for frase in frases:
         resultado = await classifier.classificar(frase)
