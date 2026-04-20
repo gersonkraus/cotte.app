@@ -637,11 +637,13 @@ async def _gerar_relatorio_contas_a_receber(
         query = query.filter(ContaFinanceira.data_vencimento < date.today())
 
     if inp.agrupar_por == 'cliente':
+        from app.models.models import Orcamento
+        
         results = db.query(
             Cliente.nome.label("agrupador"),
             func.sum(ContaFinanceira.valor - func.coalesce(ContaFinanceira.valor_pago, 0)).label("total_devido"),
             func.count(ContaFinanceira.id).label("quantidade_contas")
-        ).join(Cliente).filter(
+        ).join(Orcamento, ContaFinanceira.orcamento_id == Orcamento.id).join(Cliente, Orcamento.cliente_id == Cliente.id).filter(
             ContaFinanceira.empresa_id == current_user.empresa_id,
             ContaFinanceira.tipo == 'receber',
             ContaFinanceira.status.in_([StatusConta.PENDENTE, StatusConta.VENCIDO])
@@ -649,7 +651,7 @@ async def _gerar_relatorio_contas_a_receber(
         if inp.apenas_vencidas:
             results = results.filter(ContaFinanceira.data_vencimento < date.today())
             
-        results = results.group_by(Cliente.nome).order_by(func.sum(ContaFinanceira.valor).desc()).limit(inp.limit).all()
+        results = results.group_by(Cliente.nome).order_by(func.sum(ContaFinanceira.valor - func.coalesce(ContaFinanceira.valor_pago, 0)).desc()).limit(inp.limit).all()
         
         detalhes = [
             {
@@ -676,7 +678,7 @@ async def _gerar_relatorio_contas_a_receber(
         {
             "id_conta": c.id,
             "descricao": c.descricao,
-            "cliente": c.cliente.nome if c.cliente else "N/A",
+            "cliente": c.orcamento.cliente.nome if c.orcamento and c.orcamento.cliente else "N/A",
             "valor_total": float(c.valor or 0),
             "valor_devido": float((c.valor or 0) - (c.valor_pago or 0)),
             "data_vencimento": c.data_vencimento.isoformat() if c.data_vencimento else None,
