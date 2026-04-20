@@ -15,7 +15,9 @@ from sqlalchemy import (
     JSON,
     text,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Mapped, mapped_column
+from typing import List, Optional
+from datetime import datetime
 from sqlalchemy.sql import func
 from app.core.database import Base
 from app.models.tenant import TenantScopedMixin
@@ -358,6 +360,7 @@ class Empresa(Base):
     bancos_pix = relationship(
         "BancoPIXEmpresa", back_populates="empresa", cascade="all, delete-orphan"
     )
+    tool_call_logs: Mapped[List["ToolCallLog"]] = relationship(back_populates="empresa")
 
 
 class BancoPIXEmpresa(TenantScopedMixin, Base):
@@ -462,6 +465,7 @@ class Usuario(Base):
     orcamentos = relationship(
         "Orcamento", back_populates="criado_por", foreign_keys="Orcamento.criado_por_id"
     )
+    tool_call_logs: Mapped[List["ToolCallLog"]] = relationship(back_populates="usuario")
 
 
 # ── AUDIT LOG ──────────────────────────────────────────────────────────────
@@ -2186,3 +2190,27 @@ class AIChatMensagem(Base):
     criado_em = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
     sessao = relationship("AIChatSessao", back_populates="mensagens")
+
+
+# ── TELEMETRIA DO ASSISTENTE ───────────────────────────────────────────────────
+
+class ToolCallLog(Base):
+    __tablename__ = "tool_call_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False, index=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True, index=True)
+    sessao_id = Column(String(64), nullable=True, index=True)
+    tool = Column(String(100), nullable=False, index=True)
+    args_json = Column(JSON, nullable=True)
+    resultado_json = Column(JSON, nullable=True)
+    status = Column(String(50), nullable=False, index=True)
+    criado_em = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    user_input = Column(String(500), nullable=True)  # Adicional para telemetria semântica
+    latencia_ms = Column(Integer, nullable=True)
+    input_tokens = Column(Integer, nullable=True)
+    output_tokens = Column(Integer, nullable=True)
+
+    empresa = relationship("Empresa", back_populates="tool_call_logs")
+    usuario = relationship("Usuario", back_populates="tool_call_logs")
+

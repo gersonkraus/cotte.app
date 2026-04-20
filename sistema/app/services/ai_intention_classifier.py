@@ -6,6 +6,12 @@ Este módulo implementa um classificador leve que:
 1. Usa Regex para comandos simples e determinísticos (performance)
 2. Evita fallback em LLM no roteamento para manter custo previsível
 
+⚠️ AVISO PARA DESENVOLVEDORES E AGENTES IA:
+Qualquer alteração neste arquivo (adição de intenção, mudança em regex, etc.) 
+pode causar conflitos de roteamento e sobrescrever regras existentes. 
+Você é OBRIGADO a rodar o seguinte comando após modificar este arquivo e garantir que 100% dos testes passem:
+`cd sistema && pytest tests/test_ai_tool_routing.py`
+
 Padrão Strategy: Prioriza velocidade e custo zero no roteamento.
 """
 
@@ -294,7 +300,7 @@ class IntentionClassifier:
         r'\ban[aá]lise\s+(de|dos?|das?|por)\b',
         r'\bcomparativo\s+(mensal|semanal|anual|de\s+per[ií]odo)\b',
         # Faturamento como relatório
-        r'\bfaturamento\s+(total|do\s+m[eê]s|anual)\b',
+        r'\bfaturamento\s+(total|do\s+m[eê]s|anual|dos?|das?|nos?)\b',
         r'\btotal\s+(faturado|de\s+vendas)\b',
         # Novas visões analíticas
         r'\bclientes?\s+inativos?\b',
@@ -322,7 +328,7 @@ class IntentionClassifier:
         r'\brecusar?\b',
         r'\benviar?\s+(or[çc]amento|orc|\d)',
         r'\bmand(a|ar)\s+(or[çc]amento|orc)\b',
-        r'\bver\s+(or[çc]amento|orc|\d)',
+        r'\bver\s+(o\s+)?(or[çc]amento|orc[-\s]?\d+)\b',
         r'\bmostrar?\s+(or[çc]amento|orc)\b',
         r'\bdetalhes?\s+(do\s+)?(or[çc]amento|orc)\b',
         r'\b(abrir|acessar|carregar)\s+(or[çc]amento|orc|\d)\b',
@@ -359,12 +365,12 @@ class IntentionClassifier:
 
     ONBOARDING_EXATO = {
         'ajuda', 'comecar', 'configurar', 'setup', 'inicio',
-        'onboarding', 'guia', 'tutorial',
+        'onboarding', 'guia', 'tutorial', 'preciso de ajuda'
     }
 
     # K) AJUDA_SISTEMA — dúvidas sobre como usar funcionalidades do sistema
     AJUDA_SISTEMA_KEYWORDS = [
-        r'como\s+(crio?|criar?|fa[çc]o|fazer|mont[ao]|montar|envio?|enviar|conect[ao]|conectar|uso?|usar|vejo?|ver|ativio?|ativar|acesso?|acessar|cancel[ao]|cancelar)\b',
+        r'como\s+(eu\s+)?(crio?|criar?|fa[çc]o|fazer|mont[ao]|montar|envio?|enviar|conect[ao]|conectar|uso?|usar|vejo?|ver|ativio?|ativar|acesso?|acessar|cancel[ao]|cancelar)\b',
         r'como\s+(funciona|funcionar)\b',
         r'como\s+(registro?|registrar|importo?|importar|exporto?|exportar|duplico?|duplicar|parcel[ao]|parcelar|aprovo?|aprovar)\b',
         r'o\s+que\s+[ée]\s+(o|a|um|uma)?\s*(or[çc]amento|cliente|cat[áa]logo|pipeline|lead|financeiro|caixa|whatsapp|bot|documento)',
@@ -591,6 +597,16 @@ class IntentionClassifier:
             if pattern.search(mensagem_lower):
                 return IntencaoUsuario.LISTAR_ORCAMENTOS
 
+        # D) INADIMPLÊNCIA (Verificado ANTES de contas a receber)
+        for pattern in self._regex_patterns[IntencaoUsuario.INADIMPLENCIA]:
+            if pattern.search(mensagem_normalized):
+                # Orçamento(s) pendente(s) = pipeline comercial (rascunho/enviado), não cobrança
+                if re.search(r"\bor[çc]amentos?\b", mensagem_lower) and re.search(
+                    r"\bpendentes?\b", mensagem_lower
+                ):
+                    continue
+                return IntencaoUsuario.INADIMPLENCIA
+
         # B) FATURAMENTO
         for pattern in self._regex_patterns[IntencaoUsuario.FATURAMENTO]:
             if pattern.search(mensagem_normalized):
@@ -610,16 +626,6 @@ class IntentionClassifier:
         for pattern in self._regex_patterns[IntencaoUsuario.PREVISAO]:
             if pattern.search(mensagem_normalized):
                 return IntencaoUsuario.PREVISAO
-
-        # D) INADIMPLÊNCIA
-        for pattern in self._regex_patterns[IntencaoUsuario.INADIMPLENCIA]:
-            if pattern.search(mensagem_normalized):
-                # Orçamento(s) pendente(s) = pipeline comercial (rascunho/enviado), não cobrança
-                if re.search(r"\bor[çc]amentos?\b", mensagem_lower) and re.search(
-                    r"\bpendentes?\b", mensagem_lower
-                ):
-                    continue
-                return IntencaoUsuario.INADIMPLENCIA
 
         # E) DASHBOARD
         for pattern in self._regex_patterns[IntencaoUsuario.DASHBOARD]:

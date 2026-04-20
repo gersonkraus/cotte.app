@@ -132,6 +132,9 @@ Sempre que fizer sentido:
 - validar build ou execução local
 - validar manualmente o fluxo alterado
 
+> **[REGRA CRÍTICA PARA INTELIGÊNCIA ARTIFICIAL (ROTEAMENTO)]:**
+> Qualquer alteração nos arquivos `ai_intention_classifier.py`, em descrições de ferramentas (tools) ou adição de novos gatilhos **OBRIGA** a execução do teste de regressão antes do término da tarefa: `cd sistema && pytest tests/test_ai_tool_routing.py`. Nenhuma PR ou commit dessa área deve seguir sem os testes verdes.
+
 Ao validar:
 - verificar resultado esperado e ausência de regressão óbvia
 - ler o resultado real antes de concluir
