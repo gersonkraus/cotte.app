@@ -1418,7 +1418,7 @@ async def criar_orcamento_ia(
             formatar_resposta_sugestao,
         )
 
-        sugestoes = await buscar_sugestoes_catalogo(db, empresa_id, preview["servico"])
+        sugestoes = buscar_sugestoes_catalogo(db, empresa_id, preview["servico"])
         if sugestoes:
             contexto_orc = {
                 "cliente_nome": preview["cliente_nome"],

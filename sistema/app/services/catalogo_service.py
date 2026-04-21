@@ -58,6 +58,7 @@ def _seed_servicos_demonstracao(empresa_id: int, db: Session) -> None:
 
 
 def seed_catalogo_padrao(empresa_id: int, db: Session) -> None:
-    """Executa todos os seeds padrão do catálogo para uma empresa."""
+    """Executa todos os seeds padrão do catálogo para uma empresa e comita."""
     _seed_categorias_padrao(empresa_id, db)
     _seed_servicos_demonstracao(empresa_id, db)
+    db.commit()

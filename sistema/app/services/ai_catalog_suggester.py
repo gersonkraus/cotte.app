@@ -6,33 +6,36 @@ formata a resposta no padrão AIResponse para o frontend exibir como card.
 """
 
 from typing import Optional
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 import logging
 
-from app.repositories.servico_repository import ServicoRepository
+from app.models.models import Servico
 
 logger = logging.getLogger(__name__)
 
-_repo = ServicoRepository()
 
-
-async def buscar_sugestoes_catalogo(
-    db: AsyncSession,
+def buscar_sugestoes_catalogo(
+    db: Session,
     empresa_id: int,
     termo: str,
     limite: int = 3,
 ) -> list:
     """
-    Busca serviços no catálogo da empresa com nome similar ao termo.
-    Retorna lista de Servico (apenas ativos, máx `limite` itens).
+    Busca serviços ativos no catálogo da empresa com nome similar ao termo.
+    Retorna lista de Servico (máx `limite` itens).
     """
     try:
-        resultados = await _repo.buscar_por_nome(
-            db, nome=termo, empresa_id=empresa_id, limit=limite * 2
+        resultados = (
+            db.query(Servico)
+            .filter(
+                Servico.empresa_id == empresa_id,
+                Servico.ativo == True,
+                Servico.nome.ilike(f"%{termo}%"),
+            )
+            .limit(limite)
+            .all()
         )
-        # Filtrar apenas ativos e limitar
-        ativos = [s for s in resultados if getattr(s, "ativo", True)]
-        return ativos[:limite]
+        return resultados
     except Exception as e:
         logger.warning(f"ai_catalog_suggester: erro ao buscar '{termo}': {e}")
         return []
@@ -46,9 +49,6 @@ def formatar_resposta_sugestao(
     """
     Monta o dict de resposta no formato AIResponse para o frontend renderizar
     o card 'catalogo_sugestao'.
-
-    contexto_orcamento: dados parciais do orçamento em andamento
-    (ex: cliente_nome, cliente_id) para o frontend usar ao confirmar.
     """
     sugestoes_json = []
     for s in servicos:

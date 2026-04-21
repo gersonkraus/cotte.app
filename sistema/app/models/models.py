@@ -560,6 +560,9 @@ class CategoriaCatalogo(TenantScopedMixin, Base):
 
 class Servico(TenantScopedMixin, Base):
     __tablename__ = "servicos"
+    __table_args__ = (
+        UniqueConstraint("empresa_id", "nome", name="uq_servicos_empresa_nome"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False, index=True)

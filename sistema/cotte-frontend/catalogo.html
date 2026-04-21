@@ -23,6 +23,7 @@
       <div class="page-sub" id="page-sub">Produtos e serviços cadastrados</div>
     </div>
     <div class="topbar-actions">
+      <button class="btn btn-ghost" id="btn-templates" onclick="abrirModalTemplates()" style="display:none">📐 Modelos</button>
       <button class="btn btn-ghost" id="btn-importar" onclick="abrirModalImportar()" style="display:none">📋 Importar</button>
       <button class="btn btn-primary" onclick="abrirModalNovo()">＋ Novo Item</button>
     </div>
@@ -377,11 +378,13 @@
       document.getElementById('page-sub').textContent =
         `${catalogoCache.filter(i => i.ativo).length} item(s) ativo(s)`;
 
-      // Oculta botão "Novo Item" e "Importar" se sem permissão
+      // Oculta botões de ação conforme permissão
       const btnNovo = document.querySelector('.topbar-actions .btn-primary');
       const btnImportar = document.getElementById('btn-importar');
+      const btnTemplates = document.getElementById('btn-templates');
       if (btnNovo) btnNovo.style.display = temPermCatalogo() ? '' : 'none';
       if (btnImportar) btnImportar.style.display = temPermCatalogo() ? '' : 'none';
+      if (btnTemplates) btnTemplates.style.display = temPermAdminCatalogo() ? '' : 'none';
 
       aplicarFiltro();
     } catch (err) {

@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session, joinedload
 from typing import List
-import os, shutil, uuid, csv, io
+import os, shutil, uuid, csv, io, time
+from collections import defaultdict
 
 from app.core.database import get_db
 from app.core.auth import exigir_permissao
@@ -16,7 +17,6 @@ from app.schemas.schemas import (
 )
 from app.services.ia_service import interpretar_tabela_catalogo
 from app.services.r2_service import r2_service
-from app.services.catalogo_service import seed_catalogo_padrao
 from app.services.template_segmento_service import (
     listar_segmentos,
     obter_template,
@@ -24,6 +24,23 @@ from app.services.template_segmento_service import (
 )
 
 router = APIRouter(prefix="/catalogo", tags=["Catálogo"])
+
+# Rate limit simples em memória: máx 10 chamadas de IA por empresa a cada 60s
+_ia_calls: dict = defaultdict(list)
+_IA_MAX_CALLS = 10
+_IA_JANELA_SEG = 60
+
+
+def _checar_rate_limit_ia(empresa_id: int) -> None:
+    agora = time.monotonic()
+    historico = _ia_calls[empresa_id]
+    _ia_calls[empresa_id] = [t for t in historico if agora - t < _IA_JANELA_SEG]
+    if len(_ia_calls[empresa_id]) >= _IA_MAX_CALLS:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Limite de {_IA_MAX_CALLS} análises por minuto atingido. Aguarde e tente novamente.",
+        )
+    _ia_calls[empresa_id].append(agora)
 
 IMAGES_DIR = "static/images"
 os.makedirs(IMAGES_DIR, exist_ok=True)
@@ -41,7 +58,6 @@ def listar_categorias(
     usuario: Usuario = Depends(exigir_permissao("catalogo", "leitura")),
 ):
     """Lista categorias do catálogo da empresa."""
-    seed_catalogo_padrao(usuario.empresa_id, db)
     return (
         db.query(CategoriaCatalogo)
         .filter(CategoriaCatalogo.empresa_id == usuario.empresa_id)
@@ -99,16 +115,17 @@ def listar_catalogo(
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(exigir_permissao("catalogo", "leitura")),
     apenas_ativos: bool = True,
+    categoria_id: int = None,
+    skip: int = 0,
+    limit: int = 500,
 ):
-    """Lista serviços do catálogo da empresa."""
-    # Reforça o escopo tenant na sessão desta rota.
+    """Lista serviços do catálogo da empresa com suporte a paginação e filtro."""
     set_tenant_context(
         db,
         empresa_id=usuario.empresa_id,
         usuario_id=usuario.id,
         is_superadmin=usuario.is_superadmin,
     )
-    seed_catalogo_padrao(usuario.empresa_id, db)
     query = (
         db.query(Servico)
         .options(joinedload(Servico.categoria))
@@ -116,7 +133,30 @@ def listar_catalogo(
     )
     if apenas_ativos:
         query = query.filter(Servico.ativo == True)
-    return query.order_by(Servico.nome).all()
+    if categoria_id is not None:
+        query = query.filter(Servico.categoria_id == categoria_id)
+    return query.order_by(Servico.nome).offset(skip).limit(limit).all()
+
+
+@router.get("/{servico_id}", response_model=ServicoOut)
+def obter_servico(
+    servico_id: int,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exigir_permissao("catalogo", "leitura")),
+):
+    """Retorna um único serviço pelo ID."""
+    srv = (
+        db.query(Servico)
+        .options(joinedload(Servico.categoria))
+        .filter(
+            Servico.id == servico_id,
+            Servico.empresa_id == usuario.empresa_id,
+        )
+        .first()
+    )
+    if not srv:
+        raise HTTPException(status_code=404, detail="Serviço não encontrado")
+    return srv
 
 
 @router.post("/", response_model=ServicoOut, status_code=status.HTTP_201_CREATED)
@@ -131,7 +171,9 @@ def criar_servico(
         nome=dados.nome,
         descricao=dados.descricao,
         preco_padrao=dados.preco_padrao,
+        preco_custo=dados.preco_custo,
         unidade=dados.unidade,
+        categoria_id=dados.categoria_id,
         ativo=True,
     )
     db.add(servico)
@@ -148,6 +190,33 @@ def atualizar_servico(
     usuario: Usuario = Depends(exigir_permissao("catalogo", "escrita")),
 ):
     """Atualiza os dados de um serviço existente."""
+    srv = (
+        db.query(Servico)
+        .filter(
+            Servico.id == servico_id,
+            Servico.empresa_id == usuario.empresa_id,
+        )
+        .first()
+    )
+    if not srv:
+        raise HTTPException(status_code=404, detail="Serviço não encontrado")
+
+    for campo, valor in dados.model_dump(exclude_unset=True).items():
+        setattr(srv, campo, valor)
+
+    db.commit()
+    db.refresh(srv)
+    return srv
+
+
+@router.patch("/{servico_id}", response_model=ServicoOut)
+def patch_servico(
+    servico_id: int,
+    dados: ServicoUpdate,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exigir_permissao("catalogo", "escrita")),
+):
+    """Atualização parcial de um serviço (ex: reativar item)."""
     srv = (
         db.query(Servico)
         .filter(
@@ -269,6 +338,7 @@ async def analisar_importacao(
     usuario: Usuario = Depends(exigir_permissao("catalogo", "escrita")),
 ):
     """Analisa texto colado para importação de catálogo."""
+    _checar_rate_limit_ia(usuario.empresa_id)
     texto = payload.get("texto", "").strip()
     if not texto:
         raise HTTPException(status_code=400, detail="Texto da tabela vazio")
@@ -299,8 +369,12 @@ async def analisar_arquivo(
     usuario: Usuario = Depends(exigir_permissao("catalogo", "escrita")),
 ):
     """Analisa arquivo (CSV/XLSX/PDF) para importação."""
+    _checar_rate_limit_ia(usuario.empresa_id)
+    MAX_SIZE = 5 * 1024 * 1024  # 5MB
     filename = (file.filename or "").lower()
     conteudo = await file.read()
+    if len(conteudo) > MAX_SIZE:
+        raise HTTPException(status_code=400, detail="Arquivo muito grande. Máximo permitido: 5MB")
 
     if filename.endswith(".csv"):
         try:
