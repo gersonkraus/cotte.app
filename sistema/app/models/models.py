@@ -928,6 +928,7 @@ class HistoricoEdicao(Base):
     )  # None = Sistema ou cliente (link/WhatsApp)
     editado_em = Column(DateTime(timezone=True), server_default=func.now())
     descricao = Column(Text)  # ex: "Itens atualizados, novo total R$ 1.200,00"
+    tipo = Column(String(64), nullable=True)  # ex: "agendamento_alterado", None = "editado"
 
     orcamento = relationship("Orcamento", back_populates="historico")
     editado_por = relationship("Usuario")
