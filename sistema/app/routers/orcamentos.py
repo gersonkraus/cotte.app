@@ -95,6 +95,12 @@ router = APIRouter(prefix="/orcamentos", tags=["Orçamentos"])
 
 logger = logging.getLogger(__name__)
 
+_LABEL_AGENDAMENTO = {
+    "NAO_USA": "Sem agendamento",
+    "OPCIONAL": "Com agendamento (opcional)",
+    "OBRIGATORIO": "Agendamento obrigatório",
+}
+
 
 def _aplicar_regra_pagamento(
     orcamento: Orcamento,
@@ -164,6 +170,7 @@ def _orcamento_para_list_item(o: Orcamento) -> OrcamentoListItem:
         itens=itens_out,
         validade_ate=validade_ate,
         descricao_resumo=primeira_desc,
+        agendamento_modo=o.agendamento_modo,
     )
 
 
@@ -287,7 +294,25 @@ async def editar_orcamento(
     orc.total = aplicar_desconto(subtotal, dados.desconto, dados.desconto_tipo)
     if dados.exigir_otp is not None:
         orc.exigir_otp = dados.exigir_otp
-    if dados.agendamento_modo is not None:
+    if dados.agendamento_modo is not None and dados.agendamento_modo != orc.agendamento_modo:
+        _modo_anterior = _LABEL_AGENDAMENTO.get(
+            orc.agendamento_modo.value if hasattr(orc.agendamento_modo, "value") else str(orc.agendamento_modo),
+            str(orc.agendamento_modo),
+        )
+        _modo_novo = _LABEL_AGENDAMENTO.get(
+            dados.agendamento_modo.value if hasattr(dados.agendamento_modo, "value") else str(dados.agendamento_modo),
+            str(dados.agendamento_modo),
+        )
+        orc.agendamento_modo = dados.agendamento_modo
+        db.add(
+            HistoricoEdicao(
+                orcamento_id=orc.id,
+                editado_por_id=usuario.id,
+                descricao=f"Agendamento alterado: {_modo_anterior} → {_modo_novo}",
+                tipo="agendamento_alterado",
+            )
+        )
+    elif dados.agendamento_modo is not None:
         orc.agendamento_modo = dados.agendamento_modo
 
     # Remove itens antigos e recria
