@@ -114,6 +114,7 @@ class HistoricoEdicaoOut(BaseModel):
     editado_por_nome: Optional[str] = None
     editado_em: datetime
     descricao: Optional[str] = None
+    tipo: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -524,6 +525,7 @@ class OrcamentoListItem(BaseModel):
     itens: List[ItemOrcamentoOut] = []
     validade_ate: Optional[datetime] = None
     descricao_resumo: Optional[str] = None
+    agendamento_modo: ModoAgendamentoOrcamento = ModoAgendamentoOrcamento.NAO_USA
 
     class Config:
         from_attributes = True

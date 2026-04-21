@@ -101,6 +101,10 @@ _LABEL_AGENDAMENTO = {
     "OBRIGATORIO": "Agendamento obrigatório",
 }
 
+_TITULO_POR_TIPO_HISTORICO = {
+    "agendamento_alterado": "Modo de agendamento alterado",
+}
+
 
 def _aplicar_regra_pagamento(
     orcamento: Orcamento,
@@ -1557,12 +1561,9 @@ def timeline_orcamento(
         )
 
     # 5. EDIÇÕES (HistoricoEdicao)
-    _TITULO_POR_TIPO = {
-        "agendamento_alterado": "Modo de agendamento alterado",
-    }
     for h in orc.historico or []:
         tipo_evento = h.tipo or "editado"
-        titulo_evento = _TITULO_POR_TIPO.get(tipo_evento, "Orçamento editado")
+        titulo_evento = _TITULO_POR_TIPO_HISTORICO.get(tipo_evento, "Orçamento editado")
         eventos.append(
             TimelineEventOut(
                 tipo=tipo_evento,
