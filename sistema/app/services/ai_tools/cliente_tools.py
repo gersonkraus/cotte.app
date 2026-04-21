@@ -18,6 +18,9 @@ class ListarClientesInput(BaseModel):
     busca: Optional[str] = Field(
         default=None, description="Filtro por nome/telefone/e-mail (parcial)."
     )
+    cursor: Optional[str] = Field(
+        default=None, description="Ponteiro para a próxima página (vindo de uma listagem anterior)."
+    )
     limit: int = Field(default=10, ge=1, le=50)
 
 
@@ -32,20 +35,45 @@ async def _listar_clientes(
             | (Cliente.telefone.ilike(termo))
             | (Cliente.email.ilike(termo))
         )
-    items = q.order_by(Cliente.nome.asc()).limit(inp.limit).all()
+    
+    # Suporte a cursor (baseado em ID por simplicidade e performance)
+    if inp.cursor:
+        try:
+            cursor_id = int(inp.cursor)
+            q = q.filter(Cliente.id > cursor_id)
+        except (ValueError, TypeError):
+            pass
+
+    # Ordenação por ID garante determinismo na paginação
+    items = q.order_by(Cliente.id.asc()).limit(inp.limit + 1).all()
+    
+    has_more = len(items) > inp.limit
+    if has_more:
+        items = items[:inp.limit]
+        next_cursor = str(items[-1].id)
+    else:
+        next_cursor = None
+
     return {
-        "total": len(items),
+        "total": len(items), # No contexto da página atual para manter retrocompatibilidade simples se necessário
+        "has_more": has_more,
+        "next_cursor": next_cursor,
+        "limit": inp.limit,
+        "filtros": {
+            "busca": inp.busca
+        },
         "instrucao_para_assistente": (
             "Use SEMPRE o campo 'id' deste payload para qualquer ação subsequente "
             "(excluir, editar). NUNCA invente IDs nem use a posição na lista."
         ),
         "clientes": [
             {
-                "id": c.id,  # ← USE ESTE CAMPO PARA AÇÕES (excluir/editar)
+                "id": c.id,
                 "nome_exibicao": f"[ID {c.id}] {c.nome}",
                 "nome": c.nome,
                 "telefone": c.telefone,
                 "email": c.email,
+                "criado_em": c.criado_em.isoformat() if hasattr(c, "criado_em") and c.criado_em else None,
             }
             for c in items
         ],

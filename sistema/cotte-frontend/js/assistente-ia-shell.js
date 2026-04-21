@@ -834,8 +834,36 @@ function initAssistenteChatDelegation() {
             if (clienteId) {
                 command += ` Cliente ${clienteId}.`;
             }
-            window._silentNextMessage = true;
-            sendQuickMessage(command);
+            if (window.sendMessage) {
+                window.sendMessage(command, { is_hidden: true });
+            } else {
+                window._silentNextMessage = true;
+                sendQuickMessage(command);
+            }
+            return;
+        }
+
+        const loadMoreClientesBtn = t.closest('[data-clientes-load-more]');
+        if (loadMoreClientesBtn) {
+            e.preventDefault();
+            const cursor = loadMoreClientesBtn.getAttribute('data-cursor') || '';
+            const busca = loadMoreClientesBtn.getAttribute('data-busca') || '';
+            const lim = loadMoreClientesBtn.getAttribute('data-limit') || '20';
+            
+            if (!cursor) return;
+            
+            let command = `Liste mais clientes com cursor "${cursor}", limite ${lim}`;
+            if (busca && busca !== 'null') {
+                command += `, buscar "${busca}"`;
+            }
+            command += '.';
+            
+            if (window.sendMessage) {
+                window.sendMessage(command, { is_hidden: true });
+            } else {
+                window._silentNextMessage = true;
+                sendQuickMessage(command);
+            }
             return;
         }
 

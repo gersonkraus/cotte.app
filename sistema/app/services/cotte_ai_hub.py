@@ -2821,6 +2821,7 @@ _V2_DOMINIO_KEYWORDS = {
     "clientes": ("ranking de cliente", "melhores clientes", "top cliente", "inativo"),
     "orcamentos": ("orcament", "orçament", "conversão", "conversao", "faturamento", "ticket", "pendente", "aprovado"),
     "financeiro": ("fluxo de caixa", "financeir", "contas a receber", "contas a pagar", "receita", "despesa", "dashboard", "caixa", "resumo"),
+    "inadimplencia": ("inadimplente", "devedor", "atraso", "devendo"),
 }
 
 _V2_PERIODO_RE = re.compile(
@@ -2829,16 +2830,19 @@ _V2_PERIODO_RE = re.compile(
 )
 
 
-def _v2_parse_relatorio_params(mensagem: str) -> tuple[str, int, str | None, str | None]:
+def _v2_parse_relatorio_params(mensagem: str, intent_str: str | None = None) -> tuple[str, int, str | None, str | None]:
     msg = _v2_normalize_bootstrap_message(mensagem) or ""
     msg_low = msg.lower()
 
     # domínio
     dominio = "orcamentos"
-    for dom, kws in _V2_DOMINIO_KEYWORDS.items():
-        if any(k in msg_low for k in kws):
-            dominio = dom
-            break
+    if intent_str == "INADIMPLENCIA":
+        dominio = "inadimplencia"
+    else:
+        for dom, kws in _V2_DOMINIO_KEYWORDS.items():
+            if any(k in msg_low for k in kws):
+                dominio = dom
+                break
 
     # período
     periodo_dias = 30
@@ -3016,6 +3020,7 @@ async def _v2_build_relatorio_fastpath_response(
     mensagem: str,
     db: Session,
     current_user: Any,
+    intent_str: str | None = None,
 ) -> AIResponse | None:
     from app.services.ai_tools.relatorio_tools import (
         GerarRelatorioDinamicoInput,
@@ -3023,7 +3028,7 @@ async def _v2_build_relatorio_fastpath_response(
     )
 
     # 1. Tenta extrair por Regex
-    dominio, periodo_dias, agrupamento, metrica = _v2_parse_relatorio_params(mensagem)
+    dominio, periodo_dias, agrupamento, metrica = _v2_parse_relatorio_params(mensagem, intent_str=intent_str)
     
     # 2. Extrator Semântico se o Regex não achou agrupamento mas sabemos que é um relatório
     if not agrupamento:
@@ -3409,6 +3414,7 @@ async def assistente_v2_stream_core(
             mensagem=mensagem,
             db=db,
             current_user=current_user,
+            intent_str=intent_str,
         )
         if resposta_rel is not None:
             async for event in _emit_fastpath_ai_response(resposta_rel):
