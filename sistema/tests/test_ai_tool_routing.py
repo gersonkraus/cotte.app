@@ -31,6 +31,8 @@ TEST_CASES = [
     ("contas a receber vencidas", IntencaoUsuario.INADIMPLENCIA),
     ("clientes devendo", IntencaoUsuario.INADIMPLENCIA),
     ("quem está inadimplente", IntencaoUsuario.INADIMPLENCIA),
+    ("clientes devedores", IntencaoUsuario.INADIMPLENCIA),
+    ("lista de clientes devedores", IntencaoUsuario.INADIMPLENCIA),
     ("contas a receber", IntencaoUsuario.CONTAS_RECEBER),
     
     # --- Gatilhos Gerais ---

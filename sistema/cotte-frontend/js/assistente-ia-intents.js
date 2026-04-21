@@ -81,7 +81,7 @@
             slash_commands: [
                 { cmd: '/devendo', desc: 'Lista de clientes em atraso', icon: '🚨' },
             ],
-            patterns: [/\bdevendo\b|\batraso\b|\binadimpl/i],
+            patterns: [/\bdevendo\b|\batraso\b|\binadimpl|\bdevedores\b/i],
         },
         {
             id: 'previsao_caixa',
@@ -140,14 +140,14 @@
         {
             id: 'listar_clientes',
             label: 'Clientes',
-            response_type: 'geral',
-            response_types: ['geral'],
-            renderer: 'resposta-direta',
+            response_type: 'clientes_lista',
+            response_types: ['clientes_lista', 'geral'],
+            renderer: 'renderListaClientes',
             data_minimos: [],
             quick_action_items: [
                 { label: 'Listar Clientes', description: 'Consultar base de clientes', icon: '👥', message: 'Listar meus clientes' },
             ],
-            patterns: [/\blistar\b.*\bclientes\b|\bmeus clientes\b/i],
+            patterns: [/\blistar\b.*\bclientes\b|\blista\b.*\bclientes\b|\bmeus clientes\b/i],
         },
         {
             id: 'taxa_conversao',

@@ -192,6 +192,7 @@ class IntentionClassifier:
     # D) INADIMPLÊNCIA
     INADIMPLENCIA_KEYWORDS = [
         r'devendo',
+        r'devedores',
         r'inadimplente',
         r'atraso',
         r'atrasado',
@@ -607,12 +608,7 @@ class IntentionClassifier:
             if pattern.search(mensagem_lower):
                 return IntencaoUsuario.LISTAR_ORCAMENTOS
 
-        # M4) LISTAR CLIENTES
-        for pattern in self._regex_patterns[IntencaoUsuario.LISTAR_CLIENTES]:
-            if pattern.search(mensagem_lower):
-                return IntencaoUsuario.LISTAR_CLIENTES
-
-        # D) INADIMPLÊNCIA (Verificado ANTES de contas a receber)
+        # D) INADIMPLÊNCIA — Verificado ANTES de LISTAR_CLIENTES (prioridade para "clientes devedores")
         for pattern in self._regex_patterns[IntencaoUsuario.INADIMPLENCIA]:
             if pattern.search(mensagem_normalized):
                 # Orçamento(s) pendente(s) = pipeline comercial (rascunho/enviado), não cobrança
@@ -621,6 +617,11 @@ class IntentionClassifier:
                 ):
                     continue
                 return IntencaoUsuario.INADIMPLENCIA
+
+        # M4) LISTAR CLIENTES
+        for pattern in self._regex_patterns[IntencaoUsuario.LISTAR_CLIENTES]:
+            if pattern.search(mensagem_lower):
+                return IntencaoUsuario.LISTAR_CLIENTES
 
         # B) FATURAMENTO
         for pattern in self._regex_patterns[IntencaoUsuario.FATURAMENTO]:
