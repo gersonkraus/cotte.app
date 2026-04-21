@@ -14,6 +14,26 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Para cada par (empresa_id, nome) duplicado, mantém o maior id.
+    # Antes de deletar os menores, redireciona as FKs em itens_orcamento.
+    op.execute("""
+        UPDATE itens_orcamento
+        SET servico_id = keepers.max_id
+        FROM (
+            SELECT id, MAX(id) OVER (PARTITION BY empresa_id, nome) AS max_id
+            FROM servicos
+        ) AS keepers
+        WHERE itens_orcamento.servico_id = keepers.id
+          AND keepers.id != keepers.max_id
+    """)
+    op.execute("""
+        DELETE FROM servicos
+        WHERE id NOT IN (
+            SELECT MAX(id)
+            FROM servicos
+            GROUP BY empresa_id, nome
+        )
+    """)
     op.create_unique_constraint(
         "uq_servicos_empresa_nome",
         "servicos",
