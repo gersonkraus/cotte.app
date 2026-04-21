@@ -1557,12 +1557,17 @@ def timeline_orcamento(
         )
 
     # 5. EDIÇÕES (HistoricoEdicao)
+    _TITULO_POR_TIPO = {
+        "agendamento_alterado": "Modo de agendamento alterado",
+    }
     for h in orc.historico or []:
+        tipo_evento = h.tipo or "editado"
+        titulo_evento = _TITULO_POR_TIPO.get(tipo_evento, "Orçamento editado")
         eventos.append(
             TimelineEventOut(
-                tipo="editado",
+                tipo=tipo_evento,
                 timestamp=h.editado_em,
-                titulo="Orçamento editado",
+                titulo=titulo_evento,
                 detalhe=h.descricao,
                 autor=h.editado_por.nome if h.editado_por else "Sistema",
             )
