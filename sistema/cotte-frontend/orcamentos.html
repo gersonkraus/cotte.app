@@ -1010,18 +1010,23 @@
     const container = document.createElement('div');
     container.className = 'form-group';
     container.style.marginTop = '6px';
-      container.innerHTML = `
-        <label>Agendamento neste orçamento</label>
-        <select id="orc-agendamento-modo" class="form-control"></select>
-        <p id="orc-agendamento-hint" class="text-muted" style="font-size:12px;margin:6px 0 0"></p>
-      `;
+    container.innerHTML = `
+      <label>Agendamento neste orçamento</label>
+      <select id="orc-agendamento-modo" class="form-control"></select>
+      <p id="orc-agendamento-hint" class="text-muted" style="font-size:12px;margin:6px 0 0"></p>
+    `;
 
     const otpGroup = document.getElementById('orc-exigir-otp')?.closest('.form-group');
     if (otpGroup && otpGroup.parentNode) {
       otpGroup.insertAdjacentElement('beforebegin', container);
-      return;
+    } else {
+      modalBody.prepend(container);
     }
-    modalBody.prepend(container);
+
+    // Alerta ao trocar para "Sem agendamento" quando há agendamento vinculado
+    document.getElementById('orc-agendamento-modo').addEventListener('change', function() {
+      _verificarAlertaRemocaoAgendamento(this.value);
+    });
   }
 
   async function _obterPadroesEmpresaModalOrc(forceRefresh = true) {
@@ -1084,6 +1089,27 @@
     if (hint) hint.textContent = hintText;
   }
 
+  // Alerta ao remover agendamento de orçamento com agendamento vinculado (Inovação 2)
+  let _agendamentoAlertaJaExibido = false;
+
+  async function _verificarAlertaRemocaoAgendamento(novoValor) {
+    if (!editandoId) return;
+    if (novoValor !== 'NAO_USA') { _agendamentoAlertaJaExibido = false; return; }
+    if (_agendamentoAlertaJaExibido) return;
+    try {
+      const result = await api.get('/agendamentos/?orcamento_id=' + editandoId + '&per_page=1');
+      if (result && result.length > 0) {
+        _agendamentoAlertaJaExibido = true;
+        showNotif(
+          '⚠️',
+          'Agendamento vinculado',
+          'Este orçamento já possui agendamento marcado. Remover o modo pode impactar o fluxo de confirmação do cliente.',
+          'warning'
+        );
+      }
+    } catch (_) { /* silencioso — alerta não é crítico */ }
+  }
+
   async function abrirModalNovoOrcamento(clienteIdPre = null, valorPre = null, descPre = null) {
     await Promise.all([garantirFormasPagamentoCarregadas(), garantirClientesCarregados()]);
     _garantirCampoAgendamentoModal();
@@ -1120,6 +1146,7 @@
   }
 
   function _resetarModal(validadePadraoDias = 7) {
+    _agendamentoAlertaJaExibido = false;
     editandoId = null;
     docsOrcamentoId = null;
     const btnDocs = document.getElementById('btn-docs-orc');
