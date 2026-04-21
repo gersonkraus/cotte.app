@@ -1978,6 +1978,19 @@ async def assistente_unificado(
             modulo_origem="assistente_determinista",
         )
 
+    if intencao == "LISTAR_CLIENTES":
+        from app.services.ai_tools.cliente_tools import _listar_clientes, ListarClientesInput
+        inp = ListarClientesInput(limit=20)
+        dados = await _listar_clientes(inp, db=db, current_user=current_user)
+        return AIResponse(
+            sucesso=True,
+            resposta="Aqui estão os clientes encontrados:",
+            tipo_resposta="clientes_lista",
+            dados=dados,
+            confianca=0.99,
+            modulo_origem="assistente_determinista",
+        )
+
     # Roteamento especial: saldo rápido determinístico (evita interpretação do LLM)
     if intencao == "SALDO_RAPIDO":
         from app.services.ai_intention_classifier import saldo_rapido_ia
@@ -2489,43 +2502,51 @@ async def _v2_build_listar_clientes_fastpath_response(
     db: Session,
     current_user: Any,
 ) -> AIResponse | None:
-    from app.services.ai_tools.cliente_tools import listar_clientes
+    from app.services.ai_tools.cliente_tools import _listar_clientes, ListarClientesInput
     import re
 
-    # Extrair filtros (busca, limit)
+    # Extrair filtros (busca, limit, cursor)
     busca_match = re.search(r'buscar? "([^"]+)"', mensagem)
     busca_val = busca_match.group(1) if busca_match else None
+
+    cursor_match = re.search(r'cursor "([^"]+)"', mensagem)
+    cursor_val = cursor_match.group(1) if cursor_match else None
 
     limite_match = re.search(r'limit(?:e)? (\d+)', mensagem.lower())
     limite_val = int(limite_match.group(1)) if limite_match else 20
 
-    result = await listar_clientes(
-        db=db,
-        empresa_id=getattr(current_user, "empresa_id", 0),
+    inp = ListarClientesInput(
         busca=busca_val,
+        cursor=cursor_val,
         limit=limite_val,
     )
+    result = await _listar_clientes(inp, db=db, current_user=current_user)
 
-    if result.get("sucesso"):
-        clientes = result.get("clientes", [])
-        total = result.get("total", 0)
+    clientes = result.get("clientes", [])
+    total = result.get("total", 0)
 
-        if not clientes:
+    if not clientes:
+        if cursor_val:
+            resposta = "Não há mais clientes para exibir."
+        else:
             resposta = "Não encontrei nenhum cliente cadastrado."
+    else:
+        if cursor_val:
+            resposta = f"Carreguei mais {len(clientes)} cliente(s)."
         else:
             resposta = f"Encontrei {len(clientes)} cliente(s)."
-            if total > len(clientes):
-                resposta += f" (Total: {total})"
+        
+        if result.get("has_more"):
+            resposta += " (Há mais resultados disponíveis)"
 
-        return AIResponse(
-            sucesso=True,
-            resposta=resposta,
-            tipo_resposta="clientes_lista",
-            dados=result,
-            confianca=1.0,
-            modulo_origem="assistente_v2_fastpath",
-        )
-    return None
+    return AIResponse(
+        sucesso=True,
+        resposta=resposta,
+        tipo_resposta="clientes_lista",
+        dados=result,
+        confianca=1.0,
+        modulo_origem="assistente_v2_fastpath",
+    )
 
 
 async def _v2_build_listar_orcamentos_fastpath_response(
@@ -3396,6 +3417,17 @@ async def assistente_v2_stream_core(
 
     if intent_str == "LISTAR_ORCAMENTOS":
         resposta_lista = await _v2_build_listar_orcamentos_fastpath_response(
+            mensagem=mensagem,
+            db=db,
+            current_user=current_user,
+        )
+        if resposta_lista is not None:
+            async for event in _emit_fastpath_ai_response(resposta_lista):
+                yield event
+            return
+
+    if intent_str == "LISTAR_CLIENTES":
+        resposta_lista = await _v2_build_listar_clientes_fastpath_response(
             mensagem=mensagem,
             db=db,
             current_user=current_user,
@@ -5620,17 +5652,10 @@ async def assistente_unificado_v2(
     try:
         classificacao = await detectar_intencao_assistente_async(mensagem)
         intent_str = classificacao.intencao.value
-    except Exception:
+        logger.info(f"[Assistente-V2] Intenção detectada: {intent_str} ({classificacao.metodo})")
+    except Exception as e:
+        logger.error(f"[Assistente-V2] Erro ao detectar intenção: {e}")
         intent_str = "CONVERSACAO"
-
-    from app.services.ai_intention_classifier import detectar_intencao_assistente_async
-
-    try:
-        classificacao = await detectar_intencao_assistente_async(mensagem)
-        intent_str = classificacao.intencao.value
-    except Exception:
-        intent_str = "CONVERSACAO"
-
 
     if _v2_is_onboarding_bootstrap_message(mensagem):
         resposta, status = _v2_build_onboarding_fastpath_payload(
@@ -5664,6 +5689,36 @@ async def assistente_unificado_v2(
             resposta=resposta.resposta or "",
         )
         return resposta
+
+    if intent_str == "LISTAR_ORCAMENTOS":
+        resposta_lista = await _v2_build_listar_orcamentos_fastpath_response(
+            mensagem=mensagem,
+            db=db,
+            current_user=current_user,
+        )
+        if resposta_lista is not None:
+            _v2_persist_fastpath_response(
+                sessao_id=sessao_id,
+                db=db,
+                current_user=current_user,
+                resposta=resposta_lista.resposta or "",
+            )
+            return resposta_lista
+
+    if intent_str == "LISTAR_CLIENTES":
+        resposta_lista = await _v2_build_listar_clientes_fastpath_response(
+            mensagem=mensagem,
+            db=db,
+            current_user=current_user,
+        )
+        if resposta_lista is not None:
+            _v2_persist_fastpath_response(
+                sessao_id=sessao_id,
+                db=db,
+                current_user=current_user,
+                resposta=resposta_lista.resposta or "",
+            )
+            return resposta_lista
 
     if intent_str == "CRIAR_ORCAMENTO":
         resposta = await _v2_build_orcamento_fastpath_response(
@@ -5872,36 +5927,6 @@ async def _assistente_unificado_v2_legacy(
                 "grafico": grafico,
             },
         )
-
-    if _v2_is_listar_orcamentos_fastpath_message(mensagem):
-        resposta_lista = await _v2_build_listar_orcamentos_fastpath_response(
-            mensagem=mensagem,
-            db=db,
-            current_user=current_user,
-        )
-        if resposta_lista is not None:
-            _v2_persist_fastpath_response(
-                sessao_id=sessao_id,
-                db=db,
-                current_user=current_user,
-                resposta=resposta_lista.resposta or "",
-            )
-            return resposta_lista
-
-    if _v2_is_listar_clientes_fastpath_message(mensagem):
-        resposta_lista = await _v2_build_listar_clientes_fastpath_response(
-            mensagem=mensagem,
-            db=db,
-            current_user=current_user,
-        )
-        if resposta_lista is not None:
-            _v2_persist_fastpath_response(
-                sessao_id=sessao_id,
-                db=db,
-                current_user=current_user,
-                resposta=resposta_lista.resposta or "",
-            )
-            return resposta_lista
 
     # ── Fast-path: confirmação de ação destrutiva ────────────────────────
     # Quando o usuário clica "Confirmar" no card, o frontend reenvia a

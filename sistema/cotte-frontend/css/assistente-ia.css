@@ -1163,7 +1163,7 @@ html:not([data-theme="dark"]) .shortcut {
 
 /* IA: cartão claro com sombra suave (Chat v2 Stitch) */
 .message.ai .message-bubble {
-  overflow: hidden;
+  overflow: visible;
   color: var(--ai-text);
   border: none;
   padding: 16px 20px 12px 22px;
@@ -1171,6 +1171,25 @@ html:not([data-theme="dark"]) .shortcut {
   letter-spacing: 0.01em;
   background: color-mix(in srgb, var(--ai-card) 94%, var(--ai-bg) 6%);
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+}
+
+/* Tabelas dentro do bubble podem expandir */
+.message.ai .message-bubble .ai-table-wrapper {
+  max-width: calc(82vw - 44px);
+  width: max-content;
+  min-width: 100%;
+}
+
+/* Lista de clientes dentro do bubble: largura total da tabela */
+.message.ai .message-bubble .orc-list-card {
+  max-width: none;
+  width: max-content;
+}
+
+/* Texto da mensagem IA mantém overflow hidden para não vazar */
+.message.ai .message-bubble > p,
+.message.ai .message-bubble > div:not(.orc-list-card):not(.ai-table-wrapper):not(.semantic-printable-card) {
+  overflow: hidden;
 }
 
 .message.ai .message-bubble::before {
@@ -3463,6 +3482,119 @@ body.embed-mode .chat-header-new-btn {
   border: 1px solid var(--ai-border);
   background: var(--ai-card);
   box-shadow: var(--ai-shadow-sm);
+  /* Garante scroll horizontal visível */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Lista de Clientes: alinhada com message-bubble ── */
+.orc-list-card[data-testid="assistente-clientes-list-card"] {
+  width: 100%;
+  /* Permite que a tabela interna expanda conforme necessário */
+}
+
+/* Wrapper da tabela: scroll horizontal quando necessário */
+.orc-list-card .ai-table-wrapper {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* Tabela de clientes: layout flexível, expande para caber conteúdo */
+.ai-table.clientes-table,
+.orc-list-card .ai-table {
+  width: max-content;
+  min-width: 100%;
+}
+
+/* Coluna ID: compacta */
+.orc-list-card .ai-table th:first-child,
+.orc-list-card .ai-table td:first-child {
+  width: 55px;
+  text-align: center;
+}
+
+/* Coluna Nome: maior e destacada */
+.orc-list-card .ai-table th:nth-child(2),
+.orc-list-card .ai-table td:nth-child(2) {
+  min-width: 140px;
+  max-width: 200px;
+}
+
+.orc-list-card .ai-table td:nth-child(2) {
+  font-weight: 600;
+}
+
+/* Coluna Telefone */
+.orc-list-card .ai-table th:nth-child(3),
+.orc-list-card .ai-table td:nth-child(3) {
+  min-width: 100px;
+  max-width: 120px;
+}
+
+/* Coluna Email: flexível */
+.orc-list-card .ai-table th:nth-child(4),
+.orc-list-card .ai-table td:nth-child(4) {
+  min-width: 130px;
+  max-width: 180px;
+}
+
+/* Coluna Cadastro: compacta */
+.orc-list-card .ai-table th:nth-child(5),
+.orc-list-card .ai-table td:nth-child(5) {
+  width: 85px;
+  white-space: nowrap;
+}
+
+/* Coluna Ações: centralizada */
+.orc-list-card .ai-table th:nth-child(6),
+.orc-list-card .ai-table td:nth-child(6) {
+  width: 75px;
+  white-space: nowrap;
+  text-align: center;
+}
+
+/* Botões de ação na tabela */
+.acoes-tabela {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.btn-acao-tabela {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--ai-border);
+  background: var(--ai-card);
+  color: var(--ai-text);
+  font-size: 0.9rem;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.btn-acao-tabela:hover {
+  background: var(--ai-accent);
+  border-color: var(--ai-accent);
+  color: #fff;
+  transform: scale(1.08);
+}
+
+.btn-acao-tabela:active {
+  transform: scale(0.95);
+}
+
+/* Conteúdo truncável nas células */
+.ai-table .td-truncate {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ai-table {
@@ -4535,4 +4667,146 @@ body.embed-mode .chat-header-new-btn {
   display: block;
   opacity: 0.7;
   letter-spacing: 0.02em;
+}
+
+/* ── Cards de Cliente para Mobile (Layout responsivo) ── */
+
+/* Por padrão: mostrar tabela, esconder cards */
+.cliente-lista-mobile {
+  display: none;
+}
+
+.cliente-lista-desktop {
+  display: block;
+}
+
+/* Em telas pequenas: esconder tabela, mostrar cards */
+@media (max-width: 640px) {
+  .cliente-lista-desktop {
+    display: none !important;
+  }
+
+  .cliente-lista-mobile {
+    display: flex !important;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 12px;
+  }
+}
+
+/* Card mobile individual */
+.cliente-card-mobile {
+  background: var(--ai-card);
+  border: 1px solid var(--ai-border);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: box-shadow 0.2s ease;
+}
+
+.cliente-card-mobile:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="dark"] .cliente-card-mobile:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.cliente-card-mobile__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--ai-accent) 8%, transparent);
+  border-bottom: 1px solid var(--ai-border);
+}
+
+.cliente-card-mobile__id {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--ai-accent);
+  background: color-mix(in srgb, var(--ai-accent) 12%, transparent);
+  padding: 2px 8px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.cliente-card-mobile__nome {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--ai-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cliente-card-mobile__body {
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cliente-card-mobile__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.cliente-card-mobile__label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--ai-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  min-width: 70px;
+  flex-shrink: 0;
+}
+
+.cliente-card-mobile__value {
+  font-size: 0.82rem;
+  color: var(--ai-text);
+  word-break: break-word;
+}
+
+.cliente-card-mobile__value--truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cliente-card-mobile__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 8px 14px;
+  background: color-mix(in srgb, var(--ai-bg) 50%, var(--ai-card) 50%);
+  border-top: 1px solid var(--ai-border);
+}
+
+.cliente-card-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--ai-border);
+  background: var(--ai-card);
+  color: var(--ai-text);
+  font-size: 1rem;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cliente-card-action:hover {
+  background: var(--ai-accent);
+  border-color: var(--ai-accent);
+  color: #fff;
+  transform: scale(1.05);
+}
+
+.cliente-card-action:active {
+  transform: scale(0.95);
 }

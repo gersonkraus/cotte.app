@@ -172,6 +172,172 @@ function renderSaldoRapido(dados) {
         </div>
     `;
 }
+function renderListaClientes(dados) {
+    const itens = Array.isArray(dados.clientes) ? dados.clientes : [];
+    const total = Number(dados.total || 0);
+    const hasMore = !!dados.has_more;
+    const nextCursor = dados.next_cursor || '';
+    const filtros = dados.filtros || {};
+    const buscaFiltro = filtros.busca || '';
+    const limitLista = Number(dados.limit || 10);
+    const titulo = buscaFiltro
+        ? `Clientes (Busca: "${escapeHtml(buscaFiltro)}")`
+        : 'Meus Clientes';
+
+    if (itens.length === 0) {
+        return `<div class="orc-list-empty">Nenhum cliente encontrado para os filtros selecionados.</div>`;
+    }
+
+    const buildItemData = (item) => {
+        const id = item.id || '—';
+        const nome = escapeHtml(item.nome || 'Sem nome');
+        const telefone = escapeHtml(item.telefone || '—');
+        const telefoneRaw = item.telefone || '';
+        const email = escapeHtml(item.email || '—');
+        
+        let dataExibicao = '—';
+        if (item.criado_em) {
+            const dateObj = new Date(item.criado_em);
+            const dia = String(dateObj.getDate()).padStart(2, '0');
+            const mes = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const ano = dateObj.getFullYear();
+            dataExibicao = `${dia}/${mes}/${ano}`;
+        }
+
+        return { id, nome, telefone, telefoneRaw, email, dataExibicao };
+    };
+
+    // ── Layout tabela (desktop) ───────────────────────────────────────────
+    const trsDaTabela = itens.map((item) => {
+        const d = buildItemData(item);
+
+        const waLink = d.telefoneRaw 
+            ? `<a href="https://wa.me/55${d.telefoneRaw.replace(/\D/g, '')}" target="_blank" class="btn-acao-tabela" title="Chamar no WhatsApp">💬</a>`
+            : '';
+
+        const actionBtn = item.id
+            ? `<button type="button" class="btn-acao-tabela" onclick="if(typeof abrirDetalhesCliente === 'function') abrirDetalhesCliente(${item.id})" title="Ver detalhes">🔍</button>`
+            : '';
+
+        return `<tr>
+            <td><strong>${d.id}</strong></td>
+            <td><span class="td-truncate">${d.nome}</span></td>
+            <td><span class="td-truncate">${d.telefone}</span></td>
+            <td><span class="td-truncate">${d.email}</span></td>
+            <td>${d.dataExibicao}</td>
+            <td><div class="acoes-tabela">${actionBtn}${waLink}</div></td>
+        </tr>`;
+    }).join('');
+
+    // ── Layout cards (mobile) ─────────────────────────────────────────────
+    const cardsMobile = itens.map((item) => {
+        const d = buildItemData(item);
+
+        const waLink = d.telefoneRaw 
+            ? `<a href="https://wa.me/55${d.telefoneRaw.replace(/\D/g, '')}" target="_blank" class="cliente-card-action" title="WhatsApp"><span aria-hidden="true">💬</span></a>`
+            : '';
+
+        const actionBtn = item.id
+            ? `<button type="button" class="cliente-card-action" onclick="if(typeof abrirDetalhesCliente === 'function') abrirDetalhesCliente(${item.id})" title="Ver detalhes"><span aria-hidden="true">🔍</span></button>`
+            : '';
+
+        return `<div class="cliente-card-mobile">
+            <div class="cliente-card-mobile__header">
+                <span class="cliente-card-mobile__id">#${d.id}</span>
+                <span class="cliente-card-mobile__nome">${d.nome}</span>
+            </div>
+            <div class="cliente-card-mobile__body">
+                <div class="cliente-card-mobile__row">
+                    <span class="cliente-card-mobile__label">Telefone</span>
+                    <span class="cliente-card-mobile__value">${d.telefone}</span>
+                </div>
+                <div class="cliente-card-mobile__row">
+                    <span class="cliente-card-mobile__label">Email</span>
+                    <span class="cliente-card-mobile__value cliente-card-mobile__value--truncate">${d.email}</span>
+                </div>
+                <div class="cliente-card-mobile__row">
+                    <span class="cliente-card-mobile__label">Cadastro</span>
+                    <span class="cliente-card-mobile__value">${d.dataExibicao}</span>
+                </div>
+            </div>
+            <div class="cliente-card-mobile__actions">
+                ${actionBtn}
+                ${waLink}
+            </div>
+        </div>`;
+    }).join('');
+
+    const printableRows = itens.map(item => ({
+        "ID": item.id || '',
+        "Nome": item.nome || '—',
+        "Telefone": item.telefone || '—',
+        "Email": item.email || '—',
+        "Cadastro": item.criado_em ? new Date(item.criado_em).toLocaleDateString('pt-BR') : '—'
+    }));
+
+    const resumoImpresso = `Foram encontrados ${total} clientes. Exibindo ${itens.length} itens.`;
+    const printableObj = {
+        title: titulo,
+        summary: resumoImpresso,
+        rows: printableRows,
+        theme: { variant: 'professional' }
+    };
+    const printablePayloadEscaped = escapeHtmlAttr(JSON.stringify(printableObj));
+
+    const printableHtml = `
+        <div class="semantic-printable-card" data-testid="semantic-printable-card" style="margin-bottom: 12px; margin-top: 12px;">
+            <div class="semantic-printable-card__head">
+                <span class="semantic-printable-card__icon" aria-hidden="true">🖨️</span>
+                <div>
+                    <div class="semantic-printable-card__title">${escapeHtml(titulo)}</div>
+                    <div class="semantic-printable-card__sub">${escapeHtml(resumoImpresso)}</div>
+                </div>
+            </div>
+            <div class="semantic-printable-card__actions">
+                <button type="button" class="btn btn-primary" data-semantic-print-now="${printablePayloadEscaped}">Imprimir</button>
+                <button type="button" class="btn btn-secondary" data-semantic-export-report="${printablePayloadEscaped}" data-export-format="csv">Exportar CSV</button>
+                <button type="button" class="btn btn-secondary" data-semantic-export-report="${printablePayloadEscaped}" data-export-format="pdf">Exportar PDF</button>
+            </div>
+        </div>`;
+
+    const loadMoreBtn = hasMore && nextCursor
+        ? `<div style="margin-top: 12px; display: flex; justify-content: center;">
+              <button type="button"
+                class="orc-list-card__load-more"
+                data-clientes-load-more="1"
+                data-cursor="${escapeHtmlAttr(nextCursor)}"
+                data-busca="${escapeHtmlAttr(String(buscaFiltro || ''))}"
+                data-limit="${escapeHtmlAttr(String(limitLista || 10))}"
+              >Carregar mais clientes</button>
+           </div>`
+        : '';
+
+    return `<div class="orc-list-card" data-testid="assistente-clientes-list-card" style="padding: 0; background: transparent; border: none;">
+        <div class="orc-list-card__header" style="margin-bottom: 8px;">
+            <h4 class="orc-list-card__title" style="font-size: 1.1rem;">${escapeHtml(titulo)}</h4>
+        </div>
+
+        <!-- Tabela para desktop -->
+        <div class="ai-table-wrapper cliente-lista-desktop">
+            <table class="ai-table">
+                <thead>
+                    <tr><th>ID</th><th>Nome</th><th>Telefone</th><th>Email</th><th>Cadastro</th><th>Ações</th></tr>
+                </thead>
+                <tbody>${trsDaTabela}</tbody>
+            </table>
+        </div>
+
+        <!-- Cards para mobile -->
+        <div class="cliente-lista-mobile">
+            ${cardsMobile}
+        </div>
+
+        ${printableHtml}
+        ${loadMoreBtn}
+    </div>`;
+}
+
+
 function renderListaOrcamentos(dados) {
     const itens = Array.isArray(dados.orcamentos) ? dados.orcamentos : [];
     const total = Number(dados.total || 0);
@@ -678,6 +844,9 @@ function resolveAssistenteRenderResult(data, isStreamed = false) {
     }
     if (dados && Array.isArray(dados.orcamentos) && typeof dados.total !== 'undefined') {
         return { html: renderListaOrcamentos(dados), rendererId: 'renderListaOrcamentos', tipoResposta, dados };
+    }
+    if (dados && Array.isArray(dados.clientes) && (typeof dados.total !== 'undefined' || ['clientes_lista', 'listar_clientes'].includes(tipoResposta))) {
+        return { html: renderListaClientes(dados), rendererId: 'renderListaClientes', tipoResposta, dados };
     }
     if (tipoResposta === 'operador_resultado') {
         return { html: renderOperadorResultado(data, dados), rendererId: 'renderOperadorResultado', tipoResposta, dados };
