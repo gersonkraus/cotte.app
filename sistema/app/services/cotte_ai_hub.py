@@ -971,7 +971,7 @@ class FallbackManual:
         # Extrair ID do orçamento — prioriza padrão explícito (O-N, ORC-N, "orçamento N")
         # antes de cair no primeiro número da frase (evita capturar "5" de "5%")
         match = re.search(
-            r"(?:O-|ORC-|orçamento\s*|orc\s*)(\d+)", mensagem, re.IGNORECASE
+            r"(?:[A-Za-z]+-|orçamento\s*|orc\s*)(\d+)", mensagem, re.IGNORECASE
         )
         if match:
             resultado["orcamento_id"] = int(match.group(1))
