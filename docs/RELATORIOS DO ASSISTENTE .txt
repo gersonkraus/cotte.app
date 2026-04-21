@@ -1,7 +1,7 @@
 ---
     Domínio: Orçamentos
     - Visão geral (total criados, enviados, aprovados, reprovados, expirados, taxa %)
-    - Distribuição por status → gráfico doughnut
+    - Distribuição por status → gráfico doughnut ok
     - Performance por cliente → gráfico barras
     - Performance por vendedor → gráfico barras
     - Taxa de conversão (aprovados ÷ enviados × 100)

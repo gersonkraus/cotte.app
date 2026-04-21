@@ -58,7 +58,7 @@ No ai_intention_classifier.py, a ordem de verificação é:
 8. PREVISAO
 9. INADIMPLENCIA
 ...
-Problema: "faturamento do mês" cai em GERAR_RELATORIO (tem regex para isso), mas "faturamento" sozinho cai em FATURAMENTO. Comportamento inconsistente.
+Problema: "/red" cai em GERAR_RELATORIO (tem regex para isso), mas "faturamento" sozinho cai em FATURAMENTO. Comportamento inconsistente.
 ---
 7. BUG: Sobreposição de Descrições de Tools
 gerar_relatorio_dinamico (relatorio_tools.py:1124):
@@ -108,3 +108,6 @@ Observações
 - Risco de regressão: Consolidar tools pode quebrar código existente que espera as tools antigas
 - Duplicação de código: _orcamentos em relatorio_tools.py e gerar_relatorio_orcamentos fazem queries similares
 - Documentação: O arquivo docs/gatilhos.md reflete os gatilhos ideais, mas a implementação pode divergir
+//////////////////////////Melhorias////////
+1. Definir um "Contrato de Intenção": Criar um arquivo YAML simples que mapeia explicitamente gatilhos ("ranking de clientes") para a tool canônica (gerar_relatorio_dinamico). O teste de regressão deve ler este arquivo e validar seu cumprimento.
+2.  Log Simples de Tool Calls: Começar com uma tabela tool_call_logs com (timestamp, user_id, session_id, tool_name, user_input) para iniciar a coleta de dados de telemetria com baixo esforço.
