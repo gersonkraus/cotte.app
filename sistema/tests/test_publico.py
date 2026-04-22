@@ -10,7 +10,7 @@ Cobre:
 - Criação de notificações in-app para cada evento
 """
 import pytest
-from app.models.models import Notificacao, StatusOrcamento
+from app.models.models import Notificacao, OrcamentoDocumento, StatusOrcamento
 from tests.conftest import make_cliente, make_empresa, make_orcamento, make_usuario
 
 
@@ -54,6 +54,68 @@ class TestVerOrcamentoPublico:
         from app.models.models import Orcamento
         orc = db.query(Orcamento).get(self.orc.id)
         assert orc.visualizado_em is not None
+
+
+class TestDocumentoPublicoHtml:
+    @pytest.fixture(autouse=True)
+    def setup(self, db):
+        emp = make_empresa(db)
+        usr = make_usuario(db, emp)
+        cli = make_cliente(db, emp, nome="Cliente HTML")
+        self.orc = make_orcamento(
+            db,
+            emp,
+            cli,
+            usr,
+            status=StatusOrcamento.ENVIADO,
+            link_publico="link-doc-html-001",
+            numero="ORC-HTML-001",
+        )
+        vinc = OrcamentoDocumento(
+            orcamento_id=self.orc.id,
+            documento_id=None,
+            ordem=1,
+            exibir_no_portal=True,
+            enviar_por_email=False,
+            enviar_por_whatsapp=False,
+            obrigatorio=False,
+            documento_nome="Contrato HTML",
+            documento_tipo="contrato",
+            arquivo_path=None,
+            mime_type="text/html",
+            conteudo_html="<p>Olá {cliente}, seu orçamento é {orcamento}.</p>",
+            permite_download=True,
+        )
+        db.add(vinc)
+        db.commit()
+        db.refresh(vinc)
+        self.vinc_id = vinc.id
+
+    @pytest.mark.asyncio
+    async def test_documento_html_publico_retorna_renderizado_sem_placeholders(
+        self, mock_services, setup_database
+    ):
+        from fastapi import FastAPI
+        from httpx import ASGITransport, AsyncClient
+
+        from app.core.database import get_db
+        from app.main import include_routers
+        from tests.conftest import override_get_db_sync
+
+        test_app = FastAPI()
+        test_app.dependency_overrides[get_db] = override_get_db_sync
+        include_routers(test_app)
+        transport = ASGITransport(app=test_app)
+        async with AsyncClient(transport=transport, base_url="http://testserver") as ac:
+            r = await ac.get(
+                f"/api/v1/o/{self.orc.link_publico}/documentos/{self.vinc_id}"
+            )
+        assert r.status_code == 200
+        body = r.text
+        assert "Cliente HTML" in body
+        assert "ORC-HTML-001" in body
+        assert "{cliente}" not in body
+        assert "{orcamento}" not in body
 
 
 class TestAceitarOrcamento:

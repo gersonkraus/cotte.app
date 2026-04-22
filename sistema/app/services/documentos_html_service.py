@@ -181,7 +181,8 @@ def gerar_valores_padrao(variaveis: List[str]) -> Dict[str, str]:
 def processar_documento_html_com_variaveis(
     html_content: str,
     valores_variaveis: Optional[Dict[str, Any]] = None,
-    variaveis_suportadas: Optional[List[str]] = None
+    variaveis_suportadas: Optional[List[str]] = None,
+    manter_variaveis_nao_encontradas: bool = True,
 ) -> Dict[str, Any]:
     """
     Processa um documento HTML com variáveis, realizando validação e substituição.
@@ -244,11 +245,11 @@ def processar_documento_html_com_variaveis(
     
     resultado['valores_utilizados'] = valores_para_substituir.copy()
     
-    # Realizar substituição (mantendo variáveis não encontradas)
+    # Realizar substituição
     conteudo_processado = substituir_variaveis_html(
         html_content, 
         valores_para_substituir,
-        manter_variaveis_nao_encontradas=True
+        manter_variaveis_nao_encontradas=manter_variaveis_nao_encontradas,
     )
     
     resultado['conteudo_processado'] = conteudo_processado

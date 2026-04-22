@@ -50,6 +50,7 @@ from app.services.email_service import (
 from app.services.rate_limit_service import public_endpoint_rate_limiter
 from app.services.pix_service import gerar_qrcode_pix, gerar_payload_pix
 from app.services.documentos_service import montar_nome_download, resolver_arquivo_path
+from app.services.documentos_html_service import processar_documento_html_com_variaveis
 from app.services import financeiro_service as fin_svc
 from app.utils.orcamento_utils import renomear_numero_aprovado
 
@@ -58,6 +59,20 @@ from app.utils.pdf_utils import get_orcamento_dict_for_pdf, get_empresa_dict_for
 router = APIRouter(prefix="/o", tags=["Público"])
 
 logger = logging.getLogger(__name__)
+
+
+def _get_valores_variaveis_documento_publico(orc: Orcamento) -> dict:
+    cliente = getattr(orc, "cliente", None)
+    empresa = getattr(orc, "empresa", None)
+    return {
+        "cliente": getattr(cliente, "nome", "") or "",
+        "nome": getattr(cliente, "nome", "") or "",
+        "email": getattr(cliente, "email", "") or "",
+        "telefone": getattr(cliente, "telefone", "") or "",
+        "empresa": getattr(empresa, "nome", "") or "",
+        "orcamento": getattr(orc, "numero", "") or "",
+        "valor": str(getattr(orc, "total", "") or ""),
+    }
 
 
 def _get_orcamento_publico(
@@ -336,8 +351,15 @@ def baixar_documento_publico(
 
     # Prioriza o snapshot de HTML se disponível no vínculo
     if (vinc.conteudo_html or "").strip():
+        valores = _get_valores_variaveis_documento_publico(orc)
+        resultado = processar_documento_html_com_variaveis(
+            vinc.conteudo_html,
+            valores_variaveis=valores,
+            variaveis_suportadas=None,
+            manter_variaveis_nao_encontradas=False,
+        )
         return HTMLResponse(
-            content=vinc.conteudo_html,
+            content=resultado.get("conteudo_processado") or vinc.conteudo_html,
             media_type="text/html; charset=utf-8",
         )
 
@@ -357,8 +379,15 @@ def baixar_documento_publico(
             and doc_emp.tipo_conteudo == TipoConteudoDocumento.HTML
             and (doc_emp.conteudo_html or "").strip()
         ):
+            valores = _get_valores_variaveis_documento_publico(orc)
+            resultado = processar_documento_html_com_variaveis(
+                doc_emp.conteudo_html,
+                valores_variaveis=valores,
+                variaveis_suportadas=doc_emp.variaveis_suportadas,
+                manter_variaveis_nao_encontradas=False,
+            )
             return HTMLResponse(
-                content=doc_emp.conteudo_html,
+                content=resultado.get("conteudo_processado") or doc_emp.conteudo_html,
                 media_type="text/html; charset=utf-8",
             )
     if path_vazio:
