@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-from app.models.models import ModoAgendamentoOrcamento, StatusOrcamento
+from app.models.models import HistoricoEdicao, ModoAgendamentoOrcamento, Notificacao, StatusOrcamento
 from app.services import agendamento_auto_service
 
 
@@ -27,7 +27,75 @@ def test_processar_enfileira_quando_somente_apos_liberacao():
     assert out == {"situacao": "fila_pre_agendamento", "orcamento_id": 5}
     assert orc.agendamento_opcoes_pendente_liberacao is True
     assert orc.aprovado_canal == "publico"
-    db.add.assert_called_once()
+    # Enfileirar pela primeira vez deve gerar Notificação + Histórico
+    assert db.add.call_count == 2
+    added = [c.args[0] for c in db.add.call_args_list]
+    assert any(isinstance(x, Notificacao) for x in added)
+    h = [x for x in added if isinstance(x, HistoricoEdicao)]
+    assert len(h) == 1
+    assert "Enfileirado no pré-agendamento" in (h[0].descricao or "")
+    assert "canal: publico" in (h[0].descricao or "")
+
+
+def test_processar_enfileira_mesmo_quando_empresa_desliga_automatico():
+    db = MagicMock()
+    orc = MagicMock()
+    orc.id = 6
+    orc.empresa_id = 1
+    orc.numero = "ORC-2-26"
+    orc.agendamento_modo = ModoAgendamentoOrcamento.OPCIONAL
+    orc.agendamento_opcoes_pendente_liberacao = False
+
+    emp = MagicMock()
+    emp.utilizar_agendamento_automatico = False
+    emp.agendamento_opcoes_somente_apos_liberacao = True
+
+    db.query.return_value.filter.return_value.first.return_value = emp
+
+    out = agendamento_auto_service.processar_agendamento_apos_aprovacao(
+        db, orc, canal="manual"
+    )
+    assert out == {"situacao": "fila_pre_agendamento", "orcamento_id": 6}
+    assert orc.agendamento_opcoes_pendente_liberacao is True
+    assert db.add.call_count == 2
+    added = [c.args[0] for c in db.add.call_args_list]
+    assert any(isinstance(x, Notificacao) for x in added)
+    h = [x for x in added if isinstance(x, HistoricoEdicao)]
+    assert len(h) == 1
+    assert "canal: manual" in (h[0].descricao or "")
+
+
+def test_processar_enfileira_nao_duplica_historico_em_reprocessamento():
+    db = MagicMock()
+    orc = MagicMock()
+    orc.id = 9
+    orc.empresa_id = 1
+    orc.numero = "ORC-9-26"
+    orc.agendamento_modo = ModoAgendamentoOrcamento.OPCIONAL
+    orc.agendamento_opcoes_pendente_liberacao = False
+
+    emp = MagicMock()
+    emp.utilizar_agendamento_automatico = True
+    emp.agendamento_opcoes_somente_apos_liberacao = True
+
+    db.query.return_value.filter.return_value.first.return_value = emp
+
+    out1 = agendamento_auto_service.processar_agendamento_apos_aprovacao(
+        db, orc, canal="whatsapp"
+    )
+    out2 = agendamento_auto_service.processar_agendamento_apos_aprovacao(
+        db, orc, canal="whatsapp"
+    )
+
+    assert out1 == {"situacao": "fila_pre_agendamento", "orcamento_id": 9}
+    assert out2 == {"situacao": "fila_pre_agendamento", "orcamento_id": 9}
+    # Só o primeiro enfileiramento adiciona Notificação + Histórico
+    assert db.add.call_count == 2
+    added = [c.args[0] for c in db.add.call_args_list]
+    assert sum(isinstance(x, Notificacao) for x in added) == 1
+    h = [x for x in added if isinstance(x, HistoricoEdicao)]
+    assert len(h) == 1
+    assert "canal: whatsapp" in (h[0].descricao or "")
 
 
 def test_processar_chama_criar_automatico_quando_imediato():

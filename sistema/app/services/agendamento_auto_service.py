@@ -19,6 +19,7 @@ from app.models.models import (
     Usuario,
     Empresa,
     Notificacao,
+    HistoricoEdicao,
     Cliente,
 )
 from app.services.agendamento_service import (
@@ -308,15 +309,6 @@ def processar_agendamento_apos_aprovacao(
     ):
         return None
 
-    if empresa is not None and not getattr(
-        empresa, "utilizar_agendamento_automatico", True
-    ):
-        logger.info(
-            "Agendamento automático desativado (orcamento_id=%s); metadados salvos.",
-            orcamento.id,
-        )
-        return None
-
     if empresa is not None and getattr(
         empresa, "agendamento_opcoes_somente_apos_liberacao", False
     ):
@@ -334,7 +326,28 @@ def processar_agendamento_apos_aprovacao(
                     ),
                 )
             )
+
+            canal_hist = (getattr(orcamento, "aprovado_canal", None) or canal or "manual")
+            db.add(
+                HistoricoEdicao(
+                    orcamento_id=orcamento.id,
+                    editado_por_id=usuario_id,
+                    tipo="pre_agendamento_enfileirado",
+                    descricao=f"Enfileirado no pré-agendamento (canal: {canal_hist}).",
+                )
+            )
         return {"situacao": "fila_pre_agendamento", "orcamento_id": orcamento.id}
+
+    # Se a empresa NÃO usa agendamento automático, mas também NÃO está em modo de fila,
+    # então apenas registra os metadados de aprovação (canal/data) e não cria agendamento.
+    if empresa is not None and not getattr(
+        empresa, "utilizar_agendamento_automatico", True
+    ):
+        logger.info(
+            "Agendamento automático desativado (orcamento_id=%s); metadados salvos.",
+            orcamento.id,
+        )
+        return None
 
     return criar_agendamento_automatico(db, orcamento, usuario_id=usuario_id)
 
