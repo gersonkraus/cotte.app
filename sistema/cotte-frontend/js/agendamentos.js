@@ -1268,6 +1268,15 @@ function _canalLabel(c) {
   return m[c] || c || '—';
 }
 
+function _modoLabel(modo) {
+  const v = String(modo || '').trim().toUpperCase();
+  if (!v) return '—';
+  if (v === 'NAO_USA') return 'Manual';
+  if (v === 'OPCIONAL') return 'Auto (Opcional)';
+  if (v === 'OBRIGATORIO') return 'Auto (Obrigatório)';
+  return '—';
+}
+
 // ── Canal filter chips ──────────────────────────────────────────────────────
 let _activeCanalFilter = '';
 
@@ -1422,6 +1431,7 @@ async function carregarPreAgendamentoFila() {
           <th>Pagamento</th>
           <th>Total</th>
           <th>Canal</th>
+          <th>Modo</th>
           <th>Aprovado</th>
           <th>Mensagem</th>
           <th class="pf-col-action"></th>
@@ -1433,6 +1443,7 @@ async function carregarPreAgendamentoFila() {
       const orcLink  = `<a class="pf-orc-link" href="orcamento-view.html?id=${r.orcamento_id}" target="_blank" rel="noopener">${r.numero || '#' + r.orcamento_id}</a>`;
       const dt       = r.aprovado_em ? new Date(r.aprovado_em).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
       const canalCls = 'pf-canal-' + (r.aprovado_canal || 'manual');
+      const modoLbl  = _modoLabel(r.agendamento_modo);
       const msg      = (r.aceite_mensagem || '').replace(/</g, '&lt;').slice(0, 70);
       const msgTitle = (r.aceite_mensagem || '').replace(/"/g, '&quot;');
       const dis      = r.pagamento_ok_para_liberar ? '' : ' disabled title="Pagamento 100% exigido pela empresa"';
@@ -1460,6 +1471,7 @@ async function carregarPreAgendamentoFila() {
         </td>
         <td><span class="pf-total-val">${totalVal}</span></td>
         <td><span class="pf-canal-badge ${canalCls}">${_canalLabel(r.aprovado_canal)}</span></td>
+        <td><span class="pf-canal-badge">${modoLbl}</span></td>
         <td class="pf-date-cell">${dt}</td>
         <td class="pf-msg-cell" title="${msgTitle}">${msg || '—'}</td>
         <td class="pf-col-action"><button type="button" class="pf-btn-liberar" data-orc-id="${r.orcamento_id}" onclick="liberarUmPreAgendamento(${r.orcamento_id})"${dis}>Liberar</button></td>
@@ -1474,6 +1486,7 @@ async function carregarPreAgendamentoFila() {
       const avatar   = `<div class="pf-avatar" style="background:${corAvatar(r.cliente_nome || '')}">${iniciaisDe(r.cliente_nome || '')}</div>`;
       const dt       = r.aprovado_em ? new Date(r.aprovado_em).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
       const canalCls = 'pf-canal-' + (r.aprovado_canal || 'manual');
+      const modoLbl  = _modoLabel(r.agendamento_modo);
       const dis      = r.pagamento_ok_para_liberar ? '' : ' disabled title="Pagamento 100% exigido pela empresa"';
       const { pct, pagoFmt, totalFmt, barCls, statusTxt, statusCls } = _renderPayProgress(r);
       const totalVal = r.total != null ? r.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—';
@@ -1489,7 +1502,10 @@ async function carregarPreAgendamentoFila() {
               <a class="pf-card-orc-link" href="orcamento-view.html?id=${r.orcamento_id}" target="_blank" rel="noopener">${r.numero || '#' + r.orcamento_id}</a>
             </div>
           </div>
-          <span class="pf-canal-badge ${canalCls}">${_canalLabel(r.aprovado_canal)}</span>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span class="pf-canal-badge ${canalCls}">${_canalLabel(r.aprovado_canal)}</span>
+            <span class="pf-canal-badge">${modoLbl}</span>
+          </div>
         </div>
         <div class="pf-card-section">
           <div class="pf-card-total-big">${totalVal}</div>
