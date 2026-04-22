@@ -18,8 +18,8 @@ EXTENSOES_PERMITIDAS = {".pdf"}
 
 def gerar_slug_documento(nome: str) -> str:
     s = (nome or "").strip().lower()
-    s = re.sub(r"[^a-z0-9\\s-]", "", s)
-    s = re.sub(r"\\s+", "-", s)
+    s = re.sub(r"[^a-z0-9\s-]", "", s)
+    s = re.sub(r"\s+", "-", s)
     s = re.sub(r"-{2,}", "-", s)
     s = s.strip("-")
     return s or "documento"
@@ -53,7 +53,10 @@ def salvar_upload_documento(empresa_id: int, file: UploadFile) -> dict:
     file.file.seek(0, 2)
     tamanho = file.file.tell()
     file.file.seek(0)
-    
+
+    if tamanho == 0:
+        raise HTTPException(status_code=400, detail="Arquivo vazio")
+
     if tamanho > MAX_DOCUMENTO_BYTES:
         raise HTTPException(status_code=400, detail="Arquivo muito grande")
 
@@ -100,8 +103,8 @@ def resolver_arquivo_path(arquivo_path: str) -> str:
 
 def montar_nome_download(nome_base: str, versao: Optional[str], ext: str = ".pdf") -> str:
     base = (nome_base or "documento").strip()
-    base = re.sub(r"[\\r\\n\\t]", " ", base)
-    base = re.sub(r"\\s+", " ", base).strip()
+    base = re.sub(r"[\r\n\t]", " ", base)
+    base = re.sub(r"\s+", " ", base).strip()
     base = re.sub(r"[^A-Za-z0-9À-ÿ _.-]", "", base)
     base = base[:80].strip() or "documento"
     if versao:

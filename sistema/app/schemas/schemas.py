@@ -361,6 +361,11 @@ class DocumentoEmpresaOut(BaseModel):
     versao: Optional[str] = None
     status: StatusDocumentoEmpresa
 
+    permite_download: bool = True
+    visivel_no_portal: bool = True
+    criado_em: Optional[datetime] = None
+    atualizado_em: Optional[datetime] = None
+
     class Config:
         from_attributes = True
 
