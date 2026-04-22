@@ -1,25 +1,33 @@
 import os
 import logging
 from typing import Any, Dict, List, Optional
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage, SystemMessage
-from langgraph.prebuilt import create_react_agent
-
-from app.services.monitor_ai_tools import (
-    get_sql_toolkit,
-    get_custom_tools,
-    log_reader_tool,
-    schema_inspector_tool,
-    code_rag_tool,
-)
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
 
-def get_llm() -> ChatOpenAI:
+def _import_langchain():
+    """Importa dependências opcionais do Monitor AI.
+
+    Mantém os imports lazy para não quebrar a aplicação/testes quando
+    langchain/langgraph não estiverem instalados.
+    """
+    try:
+        from langchain_openai import ChatOpenAI
+        from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+        from langgraph.prebuilt import create_react_agent
+    except ImportError as exc:  # pragma: no cover
+        raise ImportError(
+            "Dependências do Monitor AI não estão instaladas. "
+            "Instale 'langchain-openai', 'langchain-core' e 'langgraph' para habilitar o recurso."
+        ) from exc
+    return ChatOpenAI, AIMessage, HumanMessage, ToolMessage, create_react_agent
+
+
+def get_llm() -> Any:
     """Configura e retorna o LLM apontando para o OpenRouter."""
+    ChatOpenAI, _, _, _, _ = _import_langchain()
     api_key = getattr(settings, "AI_API_KEY", None) or os.getenv("OPENROUTER_API_KEY")
     if not api_key:
         logger.warning(
@@ -40,6 +48,11 @@ def get_llm() -> ChatOpenAI:
 
 def create_agent_executor():
     """Cria e configura o Agent (LangGraph) com as tools necessárias e o prompt do Superadmin."""
+    ChatOpenAI, _, _, _, create_react_agent = _import_langchain()
+
+    # Imports lazy para não quebrar app/testes quando deps do Monitor AI não existem.
+    from app.services.monitor_ai_tools import get_custom_tools, get_sql_toolkit
+
     llm = get_llm()
 
     # Prepara as tools
@@ -67,6 +80,15 @@ def process_monitor_query(
     query: str, history: List[Dict[str, str]] = None
 ) -> Dict[str, Any]:
     """Processa a query do usuário através do agente LangGraph e retorna o resultado."""
+    try:
+        _, AIMessage, HumanMessage, ToolMessage, _ = _import_langchain()
+    except ImportError as exc:
+        return {
+            "success": False,
+            "answer": str(exc),
+            "intermediate_steps": [],
+        }
+
     if history is None:
         history = []
 
