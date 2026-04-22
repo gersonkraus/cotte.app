@@ -1764,7 +1764,7 @@
   }
 
   carregar();
-
+ 
   // Abre modal de edição quando vindo do assistente IA (?editar=ID)
   const _editarId = new URLSearchParams(window.location.search).get('editar');
   if (_editarId) {
@@ -1772,6 +1772,24 @@
     if (_idNum) {
       // Aguarda o carregar() popular a lista antes de abrir o modal
       setTimeout(() => abrirModalEditarOrcamento(_idNum), 800);
+    }
+  }
+
+  // Abre modal de documentos quando vindo do assistente IA (?docs=ID)
+  const _docsId = new URLSearchParams(window.location.search).get('docs');
+  if (_docsId) {
+    const _idNum = parseInt(_docsId, 10);
+    if (_idNum) {
+      // Aguarda o carregar() popular a lista antes de abrir o modal
+      setTimeout(() => abrirModalDocsOrcamento(_idNum), 800);
+    }
+    // Remove apenas o parâmetro docs da URL (evita reabrir no refresh)
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('docs');
+      window.history.replaceState({}, document.title, url.pathname + (url.searchParams.toString() ? ('?' + url.searchParams.toString()) : ''));
+    } catch (_) {
+      // ignora
     }
   }
 

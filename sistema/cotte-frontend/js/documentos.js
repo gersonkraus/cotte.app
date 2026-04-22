@@ -156,7 +156,10 @@ function abrirModalEditarDocumento(docId) {
   // Configurar tipo de conteúdo
   const tipoConteudo = doc.tipo_conteudo || 'pdf';
   document.getElementById('doc-tipo-conteudo').value = tipoConteudo;
-  
+
+  // Alternar visualização baseada no tipo de conteúdo (e inicializar editor quando necessário)
+  alternarTipoConteudoDocumento();
+
   // Configurar campos comuns
   document.getElementById('doc-nome').value = doc.nome || '';
   document.getElementById('doc-tipo').value = doc.tipo || 'outro';
@@ -178,20 +181,17 @@ function abrirModalEditarDocumento(docId) {
     document.getElementById('doc-arquivo-obrigatorio').style.display = 'none';
     document.getElementById('btn-trocar-arquivo').style.display = 'none';
     document.getElementById('doc-arquivo-info').textContent = 'Documento HTML (editor de texto rico)';
-    
-    // Carregar conteúdo HTML no editor
-    if (doc.conteudo_html) {
-      definirConteudoHtmlEditor(doc.conteudo_html);
-    }
-    
+
     // Configurar variáveis suportadas
     if (doc.variaveis_suportadas && Array.isArray(doc.variaveis_suportadas)) {
       document.getElementById('doc-variaveis-suportadas').value = JSON.stringify(doc.variaveis_suportadas);
     }
-  }
 
-  // Alternar visualização baseada no tipo de conteúdo
-  alternarTipoConteudoDocumento();
+    // Carregar conteúdo HTML no editor (após alternar/garantir init do Quill)
+    if (doc.conteudo_html) {
+      definirConteudoHtmlEditor(doc.conteudo_html);
+    }
+  }
   
   // Abrir modal
   document.getElementById('modal-documento').classList.add('open');
@@ -204,18 +204,6 @@ function trocarArquivoDocumento() {
 
 function fecharModalDocumento() {
   document.getElementById('modal-documento').classList.remove('open');
-}
-
-function _limparFormDocumento() {
-  document.getElementById('doc-nome').value = '';
-  document.getElementById('doc-tipo').value = 'certificado_garantia';
-  document.getElementById('doc-versao').value = '';
-  document.getElementById('doc-status').value = 'ativo';
-  document.getElementById('doc-descricao').value = '';
-  document.getElementById('doc-permite-download').checked = true;
-  document.getElementById('doc-visivel-portal').checked = true;
-  const input = document.getElementById('doc-arquivo');
-  if (input) input.value = '';
 }
 
 async function salvarDocumento() {
@@ -364,7 +352,9 @@ async function baixarDocumento(id) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `documento-${id}.pdf`;
+    const doc = documentosCache.find(d => d.id === id);
+    const ext = (doc && (doc.tipo_conteudo === 'html' || doc.mime_type === 'text/html')) ? '.html' : '.pdf';
+    a.download = `documento-${id}${ext}`;
     a.click();
     URL.revokeObjectURL(url);
   } catch (err) {
@@ -435,6 +425,12 @@ function inicializarEditorQuill() {
     script.src = 'https://cdn.quilljs.com/1.3.7/quill.js';
     script.onload = () => {
       criarEditorQuill();
+    };
+    script.onerror = () => {
+      console.error('Falha ao carregar Quill.js');
+      if (typeof showNotif === 'function') {
+        showNotif('❌', 'Falha ao carregar editor', 'Não foi possível carregar o Quill.js. Verifique sua conexão e tente novamente.', 'error');
+      }
     };
     document.head.appendChild(script);
   } else {
@@ -930,13 +926,13 @@ function definirConteudoHtmlEditor(html) {
  */
 function abrirPreviewDocumento() {
   if (!quillEditor) {
-    mostrarNotificacao('Erro', 'Editor não inicializado', 'error');
+    showNotif('⚠️', 'Editor não inicializado', '', 'error');
     return;
   }
   
   const conteudoHtml = obterConteudoHtmlEditor();
   if (!conteudoHtml || conteudoHtml.trim() === '') {
-    mostrarNotificacao('Aviso', 'O documento está vazio', 'warning');
+    showNotif('⚠️', 'Documento vazio', 'Digite o conteúdo antes de visualizar.', 'error');
     return;
   }
   
