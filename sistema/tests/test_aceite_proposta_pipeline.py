@@ -1,6 +1,5 @@
 
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -11,6 +10,7 @@ from app.models.models import (
     Empresa, CommercialLead, PropostaPublica, PropostaEnviada, 
     StatusProposta, StatusPipeline
 )
+from tests.asgi_client import SyncASGIClient
 
 # Setup banco de dados de teste
 SQLALCHEMY_DATABASE_URL = "sqlite://"
@@ -29,9 +29,6 @@ def override_get_db():
     finally:
         db.close()
 
-app.dependency_overrides[get_db] = override_get_db
-client = TestClient(app)
-
 @pytest.fixture
 def db():
     Base.metadata.create_all(bind=engine)
@@ -40,7 +37,14 @@ def db():
     db.close()
     Base.metadata.drop_all(bind=engine)
 
-def test_aceite_proposta_atualiza_lead(db):
+
+@pytest.fixture
+def client(db):
+    app.dependency_overrides[get_db] = override_get_db
+    yield SyncASGIClient(app, raise_app_exceptions=False)
+    app.dependency_overrides.clear()
+
+def test_aceite_proposta_atualiza_lead(db, client):
     # 1. Criar Empresa
     empresa = Empresa(nome="Empresa Teste", ativo=True)
     db.add(empresa)
@@ -98,7 +102,7 @@ def test_aceite_proposta_atualiza_lead(db):
     assert proposta.status == StatusProposta.ACEITA
     assert proposta.aceita_por_nome == "Assinante Teste"
 
-def test_aceite_proposta_sem_lead_id(db):
+def test_aceite_proposta_sem_lead_id(db, client):
     # Garante que não quebra se o lead_id for nulo (retrocompatibilidade)
     empresa = Empresa(nome="Empresa Teste", ativo=True)
     db.add(empresa)

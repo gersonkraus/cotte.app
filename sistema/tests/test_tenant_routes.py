@@ -1,12 +1,12 @@
 import pytest
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
 
 from app.api.deps import get_db as get_api_db
 from app.core.auth import criar_token
 from app.core.database import Base, get_db as get_core_db
 from app.models.models import Cliente
 from app.routers.clientes import router as clientes_router
+from tests.asgi_client import SyncASGIClient
 from tests.conftest import (
     TestingSessionLocal,
     sync_engine_test,
@@ -20,7 +20,7 @@ API_V1 = "/api/v1"
 
 
 def _auth_headers(usuario) -> dict[str, str]:
-    token = criar_token({"sub": str(usuario.id), "v": int(usuario.token_versao or 1)})
+    token = criar_token({"sub": str(usuario["id"]), "v": int(usuario["v"] or 1)})
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -47,8 +47,7 @@ def tenant_http_client():
     app.dependency_overrides[get_core_db] = _override_db
     app.dependency_overrides[get_api_db] = _override_db
 
-    with TestClient(app, raise_server_exceptions=False) as client:
-        yield client
+    yield SyncASGIClient(app, raise_app_exceptions=False)
 
     app.dependency_overrides.clear()
 
@@ -62,12 +61,14 @@ def test_clientes_lista_nao_vaza_registros_de_outra_empresa(tenant_http_client):
     usuario_a.token_versao = 1
     make_usuario(db, empresa_b, email="tenant-list-b@teste.com").token_versao = 1
 
+    usuario_a_auth = {"id": usuario_a.id, "v": usuario_a.token_versao}
+
     make_cliente(db, empresa_a, nome="Cliente Empresa A", telefone="5511980010001")
     make_cliente(db, empresa_b, nome="Cliente Empresa B", telefone="5511980010002")
     db.commit()
     db.close()
 
-    r = tenant_http_client.get(f"{API_V1}/clientes/", headers=_auth_headers(usuario_a))
+    r = tenant_http_client.get(f"{API_V1}/clientes/", headers=_auth_headers(usuario_a_auth))
 
     assert r.status_code == 200
     data = r.json()
@@ -82,6 +83,7 @@ def test_cliente_por_id_de_outra_empresa_retorna_404(tenant_http_client):
 
     usuario_a = make_usuario(db, empresa_a, email="tenant-detail-a@teste.com")
     usuario_a.token_versao = 1
+    usuario_a_auth = {"id": usuario_a.id, "v": usuario_a.token_versao}
     cliente_b = make_cliente(
         db,
         empresa_b,
@@ -94,7 +96,7 @@ def test_cliente_por_id_de_outra_empresa_retorna_404(tenant_http_client):
 
     r = tenant_http_client.get(
         f"{API_V1}/clientes/{cliente_b_id}",
-        headers=_auth_headers(usuario_a),
+        headers=_auth_headers(usuario_a_auth),
     )
 
     assert r.status_code == 404
@@ -108,6 +110,7 @@ def test_criar_cliente_permanece_na_empresa_do_usuario_autenticado(tenant_http_c
     usuario_a = make_usuario(db, empresa_a, email="tenant-create-route@teste.com")
     usuario_a.token_versao = 1
     db.commit()
+    usuario_a_auth = {"id": usuario_a.id, "v": usuario_a.token_versao}
     empresa_a_id = empresa_a.id
     empresa_b_id = empresa_b.id
     db.close()
@@ -121,7 +124,7 @@ def test_criar_cliente_permanece_na_empresa_do_usuario_autenticado(tenant_http_c
     r = tenant_http_client.post(
         f"{API_V1}/clientes/",
         json=payload,
-        headers=_auth_headers(usuario_a),
+        headers=_auth_headers(usuario_a_auth),
     )
 
     assert r.status_code == 201

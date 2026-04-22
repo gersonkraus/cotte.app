@@ -24,10 +24,11 @@ os.environ.setdefault("API_V1_STR", "/api/v1")  # usado por alguns testes financ
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi import FastAPI, APIRouter, Depends # Importar FastAPI e APIRouter
-from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+
+from tests.asgi_client import SyncASGIClient
 
 from app.core.database import Base, get_db
 from app.models.models import (
@@ -55,15 +56,6 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=sync_
 def override_get_db():
     """Dependency sync para uso com TestClient (FastAPI síncrono)."""
     db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-def override_get_db_sync():  # Para rotas síncronas que ainda existam
-    # Isso deve ser removido quando todas as rotas forem async
-    db = sessionmaker(autocommit=False, autoflush=False, bind=create_engine("sqlite:///./test_cotte.db"))()
     try:
         yield db
     finally:
@@ -126,14 +118,12 @@ def mock_services():
 
 @pytest.fixture
 def http_client(mock_services, setup_database, clean_tables):
-    """TestClient síncrono (para testes públicos, webhook, etc.)."""
-    from app.main import FastAPI, include_routers
-    test_app = FastAPI()
-    test_app.dependency_overrides[get_db] = override_get_db_sync
-    include_routers(test_app)
-    with TestClient(test_app, raise_server_exceptions=False) as c:
-        yield c
-    test_app.dependency_overrides.clear()
+    """Cliente síncrono (para testes públicos, webhook, etc.)."""
+    from app.main import app as main_app
+
+    main_app.dependency_overrides[get_db] = override_get_db
+    yield SyncASGIClient(main_app, raise_app_exceptions=False)
+    main_app.dependency_overrides.clear()
 
 
 @pytest.fixture
@@ -197,28 +187,17 @@ async def admin_token(db_session: AsyncSession, empresa_id: int) -> str:
     return token
 
 
-@pytest.fixture
-def client(mock_services, setup_database):
+@pytest_asyncio.fixture
+async def client(mock_services, setup_database):
     """AsyncClient (httpx) para testes async com FastAPI."""
     from httpx import AsyncClient, ASGITransport
     from app.main import app as main_app
 
-    async def _override_async():
-        async with TestingAsyncSessionLocal() as session:
-            yield session
+    main_app.dependency_overrides[get_db] = override_get_db
 
-    def _override_sync():
-        db = TestingSessionLocal()
-        try:
-            yield db
-        finally:
-            db.close()
-
-    main_app.dependency_overrides[get_db] = _override_sync
-
-    transport = ASGITransport(app=main_app)
-    with TestClient(main_app, raise_server_exceptions=False):
-        yield AsyncClient(transport=transport, base_url="http://testserver")
+    transport = ASGITransport(app=main_app, raise_app_exceptions=False)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as c:
+        yield c
 
     main_app.dependency_overrides.clear()
 

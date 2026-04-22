@@ -27,6 +27,7 @@ from app.models.models import (
 from tests.conftest import (
     TestingSessionLocal, override_get_db, make_empresa, make_usuario,
 )
+from tests.asgi_client import SyncASGIClient
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -56,9 +57,7 @@ def admin_client(mock_services):
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_superadmin] = lambda: _superadmin_user()
 
-    from fastapi.testclient import TestClient
-    with TestClient(app, raise_server_exceptions=False) as c:
-        yield c
+    yield SyncASGIClient(app, raise_app_exceptions=False)
     app.dependency_overrides.clear()
 
 
@@ -70,9 +69,7 @@ def nonadmin_client(mock_services):
     app.dependency_overrides[get_db] = override_get_db
     # NÃO override get_superadmin — vai exigir token real
 
-    from fastapi.testclient import TestClient
-    with TestClient(app, raise_server_exceptions=False) as c:
-        yield c
+    yield SyncASGIClient(app, raise_app_exceptions=False)
     app.dependency_overrides.clear()
 
 

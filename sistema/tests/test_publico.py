@@ -91,25 +91,8 @@ class TestDocumentoPublicoHtml:
         db.refresh(vinc)
         self.vinc_id = vinc.id
 
-    @pytest.mark.asyncio
-    async def test_documento_html_publico_retorna_renderizado_sem_placeholders(
-        self, mock_services, setup_database
-    ):
-        from fastapi import FastAPI
-        from httpx import ASGITransport, AsyncClient
-
-        from app.core.database import get_db
-        from app.main import include_routers
-        from tests.conftest import override_get_db_sync
-
-        test_app = FastAPI()
-        test_app.dependency_overrides[get_db] = override_get_db_sync
-        include_routers(test_app)
-        transport = ASGITransport(app=test_app)
-        async with AsyncClient(transport=transport, base_url="http://testserver") as ac:
-            r = await ac.get(
-                f"/api/v1/o/{self.orc.link_publico}/documentos/{self.vinc_id}"
-            )
+    def test_documento_html_publico_retorna_renderizado_sem_placeholders(self, http_client):
+        r = http_client.get(f"/api/v1/o/{self.orc.link_publico}/documentos/{self.vinc_id}")
         assert r.status_code == 200
         body = r.text
         assert "Cliente HTML" in body
@@ -168,17 +151,17 @@ class TestAceitarOrcamento:
     def test_nao_pode_aceitar_ja_aprovado(self, http_client):
         r = http_client.post("/o/link-ja-aprovado/aceitar", json={"nome": "João"})
         assert r.status_code == 400
-        assert "aceito" in r.json()["detail"].lower()
+        assert "aceito" in r.json()["error"]["message"].lower()
 
     def test_nao_pode_aceitar_ja_recusado(self, http_client):
         r = http_client.post("/o/link-ja-recusado/aceitar", json={"nome": "João"})
         assert r.status_code == 400
-        assert "recusado" in r.json()["detail"].lower()
+        assert "recusado" in r.json()["error"]["message"].lower()
 
     def test_nao_pode_aceitar_expirado(self, http_client):
         r = http_client.post("/o/link-expirado/aceitar", json={"nome": "João"})
         assert r.status_code == 400
-        assert "expirado" in r.json()["detail"].lower()
+        assert "expirado" in r.json()["error"]["message"].lower()
 
     def test_link_invalido_retorna_404(self, http_client):
         r = http_client.post("/o/link-nao-existe/aceitar", json={"nome": "João"})
@@ -414,7 +397,7 @@ class TestRateLimiting:
             r = http_client.post("/o/rl-link-003/recusar", json={})
 
         assert r.status_code == 429
-        assert "Muitas tentativas" in r.json()["detail"]
+        assert "Muitas tentativas" in r.json()["error"]["message"]
 
     def test_get_nao_tem_rate_limit(self, http_client):
         """Leitura pública (GET) não deve ser bloqueada por rate limit."""
@@ -446,7 +429,10 @@ class TestBaixarPDFPublico:
 
     def test_retorna_pdf(self, http_client):
         from unittest.mock import patch
-        with patch("app.routers.publico.gerar_pdf_orcamento", return_value=b"%PDF-fake"):
+        with patch(
+            "app.routers.publico.gerar_pdf_orcamento",
+            return_value=b"%PDF-" + (b"x" * 200),
+        ):
             r = http_client.get("/o/link-pdf-001/pdf")
         assert r.status_code == 200
         assert r.headers["content-type"] == "application/pdf"

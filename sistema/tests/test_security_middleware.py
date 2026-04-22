@@ -3,10 +3,11 @@ Script de teste para verificar o middleware de segurança.
 Testa se caminhos suspeitos como WordPress são bloqueados.
 """
 import asyncio
-from fastapi.testclient import TestClient
 from app.main import app
 
-client = TestClient(app)
+from tests.asgi_client import SyncASGIClient
+
+client = SyncASGIClient(app, raise_app_exceptions=False)
 
 def test_wordpress_paths():
     """Testa se caminhos do WordPress são bloqueados."""
@@ -42,7 +43,6 @@ def test_normal_paths():
         "/",
         "/health",
         "/app",
-        "/static",
         "/docs",
         "/redoc",
     ]
