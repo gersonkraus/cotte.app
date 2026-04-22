@@ -1056,8 +1056,8 @@
 
     if (isEdicao) {
       html =
-        '<option value="NAO_USA">Sem agendamento</option>' +
-        '<option value="OPCIONAL">Com agendamento (opcional para o cliente)</option>' +
+        '<option value="NAO_USA">Não — sem agendamento</option>' +
+        '<option value="OPCIONAL">Sim — com agendamento (opcional para o cliente)</option>' +
         '<option value="OBRIGATORIO">Agendamento obrigatório</option>';
       valor = (modoSalvo || 'NAO_USA').toString().toUpperCase().replace(/-/g, '_');
       hintText = 'Altere como este orçamento se relaciona ao fluxo de agendamento.';
@@ -1075,11 +1075,12 @@
       hintText = 'Política da empresa: todos os orçamentos usam o fluxo de agendamento obrigatório.';
     } else {
       html =
-        '<option value="NAO_USA">Sem agendamento</option>' +
-        '<option value="OPCIONAL">Com agendamento (opcional para o cliente)</option>' +
-        '<option value="OBRIGATORIO">Agendamento obrigatório</option>';
+        '<option value="NAO_USA">Não — sem agendamento</option>' +
+        '<option value="OPCIONAL">Sim — com agendamento (opcional para o cliente)</option>';
       valor = modoEmp === 'OPCIONAL' ? 'OPCIONAL' : 'NAO_USA';
-      hintText = 'Padrão definido em Configurações; você pode alterar por proposta.';
+      hintText = modoEmp === 'OPCIONAL'
+        ? 'Padrão: com agendamento. Você pode alterar para "Não" se desejar.'
+        : 'Padrão: sem agendamento. Você pode alterar para "Sim" se desejar.';
     }
 
     sel.innerHTML = html;

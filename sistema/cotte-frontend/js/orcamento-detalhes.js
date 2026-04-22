@@ -56,6 +56,8 @@ async function abrirDetalhesOrcamento(id) {
       </div>`;
   }
 
+  const _AG_LABELS = { NAO_USA: 'Sem agendamento', OPCIONAL: 'Sim — opcional para o cliente', OBRIGATORIO: 'Obrigatório' };
+
   // Cards de info
   const cards = [
     { label: 'Cliente',   value: `<strong>${escapeHtml(orc.cliente?.nome || '')}</strong>` },
@@ -65,6 +67,9 @@ async function abrirDetalhesOrcamento(id) {
     { label: 'Pagamento', value: escapeHtml(_PAG_LABELS[orc.forma_pagamento] || orc.forma_pagamento || '') },
     { label: 'Número',    value: `<code style="font-size:12px;color:var(--muted)">${escapeHtml(orc.numero || '')}</code>` },
     ...(orc.lembrete_enviado_em ? [{ label: '🔔 Lembrete enviado', value: formatarData(orc.lembrete_enviado_em) }] : []),
+    ...(orc.agendamento_modo && orc.agendamento_modo !== 'NAO_USA'
+      ? [{ label: 'Agendamento', value: escapeHtml(_AG_LABELS[orc.agendamento_modo] || orc.agendamento_modo) }]
+      : []),
   ].map(c => `
     <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
       <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px;font-weight:600">${c.label}</div>
