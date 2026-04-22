@@ -1207,7 +1207,41 @@ function mostrarPainelPreFila() {
   const panel = document.getElementById('agd-pre-fila-panel');
   if (wrap) wrap.style.display = 'none';
   if (panel) panel.style.display = 'block';
+  _carregarMotivoPreFilaBanner();
   carregarPreAgendamentoFila();
+}
+
+let _pfEmpresaConfigCache = null;
+let _pfEmpresaConfigCacheAt = 0;
+
+async function _carregarMotivoPreFilaBanner(force = false) {
+  const banner = document.getElementById('pf-motivo-banner');
+  if (!banner) return;
+
+  try {
+    const now = Date.now();
+    const fresh = _pfEmpresaConfigCache && (now - _pfEmpresaConfigCacheAt) < 60_000;
+    const emp = (!force && fresh) ? _pfEmpresaConfigCache : await api.get('/empresa/');
+    _pfEmpresaConfigCache = emp;
+    _pfEmpresaConfigCacheAt = now;
+
+    const somentePos = emp && emp.agendamento_opcoes_somente_apos_liberacao === true;
+    const autoOn = !(emp && emp.utilizar_agendamento_automatico === false);
+
+    const pillSomenteCls = somentePos ? 'pf-motivo-pill pf-pill-on' : 'pf-motivo-pill pf-pill-off';
+    const pillAutoCls = autoOn ? 'pf-motivo-pill pf-pill-on' : 'pf-motivo-pill pf-pill-off';
+
+    banner.innerHTML = `
+      <span class="pf-motivo-title">Motivo da fila</span>
+      <span class="${pillSomenteCls}">Somente após liberação: ${somentePos ? 'Ativo' : 'Inativo'}</span>
+      <span class="${pillAutoCls}">Agendamento automático: ${autoOn ? 'Ligado' : 'Desligado'}</span>
+    `.trim();
+
+    banner.style.display = 'flex';
+  } catch (err) {
+    console.warn('[Pré-fila] Falha ao carregar motivo da fila:', err);
+    banner.style.display = 'none';
+  }
 }
 
 function atualizarBadgeContagemPreFila(n) {

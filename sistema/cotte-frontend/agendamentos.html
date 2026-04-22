@@ -998,6 +998,11 @@
 
     /* ═══ Pré-fila toolbar ═══ */
     .pf-toolbar { margin-bottom:16px; display:flex; flex-direction:column; gap:12px; }
+    .pf-motivo-banner { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:10px 12px; border-radius:12px; border:1px solid var(--border); background:var(--surface); box-shadow:var(--shadow); }
+    .pf-motivo-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-right:2px; }
+    .pf-motivo-pill { display:inline-flex; align-items:center; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:600; border:1px solid var(--border); background:var(--surface2); color:var(--text); white-space:nowrap; }
+    .pf-pill-on  { background:rgba(16,185,129,.10); color:#059669; border-color:rgba(16,185,129,.22); }
+    .pf-pill-off { background:rgba(239,68,68,.08); color:#ef4444; border-color:rgba(239,68,68,.22); }
     .pf-toolbar-row { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
     .pf-search-wrap { position:relative; flex:1; min-width:180px; max-width:340px; }
     .pf-search-wrap svg { position:absolute; left:12px; top:50%; transform:translateY(-50%); pointer-events:none; color:var(--agd-muted); }
@@ -1282,6 +1287,7 @@
     <div class="agd-calendar-area">
       <div id="agd-pre-fila-panel" class="agd-pre-fila" style="display:none">
         <div class="pf-toolbar">
+          <div id="pf-motivo-banner" class="pf-motivo-banner" style="display:none"></div>
           <div class="pf-toolbar-row">
             <div class="pf-search-wrap">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35" stroke-linecap="round"/></svg>
