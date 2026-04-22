@@ -432,7 +432,7 @@ function aoMudarDatas() {
 // MODAL
 // ══════════════════════════════════════════════════════════════════════════════
 
-function abrirModalCriar(dataInicial) {
+function abrirModalCriar(dataInicial, opcoes = {}) {
   fecharPopover();
   document.getElementById('modal-title').textContent = 'Novo Agendamento';
   document.getElementById('btn-salvar').textContent = 'Criar';
@@ -443,13 +443,14 @@ function abrirModalCriar(dataInicial) {
   document.getElementById('slots-section').style.display = 'none';
   document.getElementById('form-id').value = '';
 
-  document.getElementById('form-cliente').value = '';
-  document.getElementById('form-orcamento').value = '';
+  document.getElementById('form-cliente').value = opcoes.clienteId || '';
+  document.getElementById('form-orcamento').value = opcoes.orcamentoId || '';
   document.getElementById('form-tipo').value = 'servico';
   document.getElementById('form-responsavel').value = '';
   document.getElementById('form-duracao').value = 60;
   document.getElementById('form-endereco').value = '';
   document.getElementById('form-obs').value = '';
+  if (opcoes.orcamentoId) toggleCriarViaOrcamento();
 
   if (dataInicial) {
     document.getElementById('form-data').value = toLocalDatetime(new Date(dataInicial));
@@ -1081,6 +1082,16 @@ async function criarViaOrcamento() {
   if (obs) payload.observacoes = obs;
   try {
     await apiRequest('POST', `/agendamentos/criar-do-orcamento/${orcId}`, payload);
+    if (_liberandoPreAgId) {
+      const preAgId = _liberandoPreAgId;
+      _liberandoPreAgId = null;
+      try {
+        await apiRequest('POST', '/agendamentos/pre-agendamento/liberar', { orcamento_ids: [preAgId] });
+      } catch (le) {
+        console.warn('Falha ao liberar pré-agendamento após criação:', le);
+      }
+      carregarPreAgendamentoFila();
+    }
     toast('Agendamento criado via orçamento!');
     fecharModal();
     calendar.refetchEvents();
@@ -1474,7 +1485,12 @@ async function carregarPreAgendamentoFila() {
         <td><span class="pf-canal-badge">${modoLbl}</span></td>
         <td class="pf-date-cell">${dt}</td>
         <td class="pf-msg-cell" title="${msgTitle}">${msg || '—'}</td>
-        <td class="pf-col-action"><button type="button" class="pf-btn-liberar" data-orc-id="${r.orcamento_id}" onclick="liberarUmPreAgendamento(${r.orcamento_id})"${dis}>Liberar</button></td>
+        <td class="pf-col-action">
+          <div style="display:flex;gap:6px;justify-content:flex-end">
+            <button type="button" class="pf-btn-liberar" data-orc-id="${r.orcamento_id}" onclick="liberarUmPreAgendamento(${r.orcamento_id})"${dis}>Liberar</button>
+            <button type="button" class="pf-btn-liberar-ag"${dis} onclick="liberarEAgendar(${r.orcamento_id})">Liberar/Agendar</button>
+          </div>
+        </td>
       </tr>`;
     });
     tableHtml += '</tbody></table></div>';
@@ -1522,7 +1538,10 @@ async function carregarPreAgendamentoFila() {
         ${msgBlock}
         <div class="pf-card-footer">
           <span class="pf-card-date">${dt}</span>
-          <button type="button" class="pf-btn-liberar pf-btn-liberar-full" data-orc-id="${r.orcamento_id}" onclick="liberarUmPreAgendamento(${r.orcamento_id})"${dis}>Liberar</button>
+          <div style="display:flex;gap:6px">
+            <button type="button" class="pf-btn-liberar" data-orc-id="${r.orcamento_id}" onclick="liberarUmPreAgendamento(${r.orcamento_id})"${dis}>Liberar</button>
+            <button type="button" class="pf-btn-liberar-ag"${dis} onclick="liberarEAgendar(${r.orcamento_id})">Agendar</button>
+          </div>
         </div>
       </div>`;
     });
@@ -1533,6 +1552,13 @@ async function carregarPreAgendamentoFila() {
   } catch (e) {
     host.innerHTML = `<div style="color:#c5221f;padding:16px">Erro ao carregar fila: ${(e && e.message) || e}</div>`;
   }
+}
+
+let _liberandoPreAgId = null;
+
+function liberarEAgendar(orcamentoId) {
+  _liberandoPreAgId = orcamentoId;
+  abrirModalCriar(null, { orcamentoId });
 }
 
 async function liberarPreAgendamentoSelecionados() {

@@ -14,6 +14,7 @@ from app.models.models import (
     ModoAgendamentoOrcamento,
     ConfigAgendamento,
     Agendamento,
+    OrigemAgendamento,
     StatusAgendamento,
     StatusOrcamento,
     Usuario,
@@ -459,11 +460,31 @@ def liberar_pre_agendamento_lote(
         res = criar_agendamento_automatico(db, orc, usuario_id=usuario_id)
         aid = None
         err = None
-        if isinstance(res, dict):
+
+        if res is None:
+            # Empresa sem agendamento automático — criar Agendamento PENDENTE simples
+            from app.services.agendamento_service import _gerar_numero
+
+            responsavel_id = orc.criado_por_id or usuario_id
+            ag_simples = Agendamento(
+                empresa_id=empresa_id,
+                cliente_id=orc.cliente_id,
+                orcamento_id=orc.id,
+                criado_por_id=usuario_id,
+                responsavel_id=responsavel_id,
+                numero=_gerar_numero(db, empresa_id),
+                status=StatusAgendamento.PENDENTE,
+                origem=OrigemAgendamento.MANUAL,
+            )
+            db.add(ag_simples)
+            db.flush()
+            aid = ag_simples.id
+        elif isinstance(res, dict):
             aid = res.get("agendamento_id")
             err = res.get("erro")
+
         if not aid:
-            msg = err or "Não foi possível gerar o agendamento automático."
+            msg = err or "Não foi possível gerar o agendamento."
             resultados.append(
                 {
                     "orcamento_id": oid,
