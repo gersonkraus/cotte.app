@@ -734,6 +734,7 @@ def listar_documentos_disponiveis(
     orcamento_id: int,
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(exigir_permissao("orcamentos", "leitura")),
+    _permissao_documentos: Usuario = Depends(exigir_permissao("documentos", "leitura")),
     q: str | None = None,
 ):
     """Lista documentos da empresa disponíveis para vincular ao orçamento."""
