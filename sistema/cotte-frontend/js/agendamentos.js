@@ -811,21 +811,34 @@ function renderizarFiltrosStatus() {
     chip.style.cssText = isActive
       ? `background:${sc.border};border-color:${sc.border};`
       : '';
-    chip.innerHTML = `<span class="chip-dot" style="background:${sc.border}"></span>${sc.label}<span class="chip-count">${count}</span>`;
-     chip.onclick = () => {
-      try {
-        if (isActive) {
-          filtrosStatus.delete(status);
-        } else {
-          filtrosStatus.add(status);
-          abrirModalDash('status', status);
-        }
-        renderizarFiltrosStatus();
-        filtrarEventos();
-      } catch (e) {
-        console.error('ERRO FATAL NO CLICK DO CHIP:', e);
+
+    const dot = document.createElement('span');
+    dot.className = 'chip-dot';
+    dot.style.background = sc.border;
+
+    const badge = document.createElement('span');
+    badge.className = 'chip-count';
+    badge.textContent = count;
+    badge.title = 'Ver agendamentos';
+    badge.onclick = (e) => {
+      e.stopPropagation();
+      abrirModalDash('status', status);
+    };
+
+    chip.appendChild(dot);
+    chip.appendChild(document.createTextNode(sc.label));
+    chip.appendChild(badge);
+
+    chip.onclick = () => {
+      if (filtrosStatus.has(status)) {
+        filtrosStatus.delete(status);
+      } else {
+        filtrosStatus.add(status);
       }
-     };
+      renderizarFiltrosStatus();
+      filtrarEventos();
+    };
+
     container.appendChild(chip);
   });
 }
