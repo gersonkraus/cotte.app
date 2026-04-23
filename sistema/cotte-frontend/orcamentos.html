@@ -946,7 +946,7 @@
 
   function filtrarCatalogo(busca) {
     const q = (busca || '').toLowerCase().trim();
-    const lista = q ? catalogoCache.filter(i => i.nome.toLowerCase().includes(q) || (i.categoria && i.categoria.toLowerCase().includes(q))) : catalogoCache;
+    const lista = q ? catalogoCache.filter(i => i.nome.toLowerCase().includes(q) || (i.categoria && typeof i.categoria === 'string' ? i.categoria.toLowerCase().includes(q) : i.categoria?.nome?.toLowerCase().includes(q))) : catalogoCache;
     const cont = document.getElementById('catalogo-lista');
     if (!lista.length) {
       cont.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Nenhum item encontrado no catálogo.</div>';
