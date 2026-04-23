@@ -555,6 +555,39 @@ function _politicaAgendamentoSelectParaPayload(valorSelect) {
   }
 }
 
+// ── ASSISTENTE IA ──────────────────────────────────────────────────
+let _podeEditarInstrucoesAssistente = false;
+
+async function carregarInstrucoesAssistente() {
+  try {
+    const data = await api.get('/ai/assistente/preferencias');
+    const textarea = document.getElementById('emp-instrucoes-assistente');
+    if (textarea) {
+      textarea.value = data.instrucoes_empresa || '';
+    }
+    _podeEditarInstrucoesAssistente = !!data.pode_editar_instrucoes;
+    const card = document.getElementById('card-instrucoes-assistente');
+    if (card && !_podeEditarInstrucoesAssistente) {
+      card.style.display = 'none';
+    }
+  } catch (e) {
+    console.warn('Erro ao carregar instruções do assistente:', e);
+  }
+}
+
+async function salvarInstrucoesAssistente(btnEl) {
+  if (btnEl) setLoading(btnEl, true);
+  try {
+    const val = document.getElementById('emp-instrucoes-assistente').value.trim();
+    await api.patch('/ai/assistente/preferencias', { instrucoes_empresa: val });
+    showNotif('✅', 'Salvo!', 'Instruções da IA atualizadas.');
+  } catch (err) {
+    showNotif('❌', 'Erro', err.message, 'error');
+  } finally {
+    if (btnEl) setLoading(btnEl, false, 'Salvar instruções');
+  }
+}
+
 // ── CARREGAR DADOS ────────────────────────────────────────────────────
 async function carregarEmpresa() {
   try {
@@ -714,6 +747,7 @@ async function carregarEmpresa() {
     }
 
     await carregarBancosPix();
+    await carregarInstrucoesAssistente();
 
   } catch (err) {
     showNotif('❌', 'Erro', err.message, 'error');

@@ -132,8 +132,7 @@ function showAssistentePrefNotice(msg, isError = false) {
 function syncAssistenteGearSavedBadge(prefData) {
     const pref = prefData?.preferencia_visualizacao || {};
     const formato = pref?.formato_preferido || 'auto';
-    const instr = String(prefData?.instrucoes_empresa ?? '').trim();
-    const showPersonalizado = formato !== 'auto' || instr.length > 0;
+    const showPersonalizado = formato !== 'auto';
 
     const desktopBadge = document.getElementById('assistenteGearSavedBadgeDesktop');
     const mobileBadge = document.getElementById('assistenteGearSavedBadgeMobile');
@@ -477,13 +476,11 @@ function renderAssistentePreferencesCard(prefData) {
     const resumo = document.getElementById('assistentePreferenciasResumo');
     const setorTag = document.getElementById('assistenteSetorTag');
     const select = document.getElementById('assistenteFormatoSelect');
-    const txt = document.getElementById('assistenteInstrucoesInput');
     const btn = document.getElementById('btnSalvarPreferenciasAssistente');
-    if (!resumo || !setorTag || !select || !txt || !btn) return;
+    if (!resumo || !setorTag || !select || !btn) return;
 
     const pref = prefData?.preferencia_visualizacao || {};
     const playbook = prefData?.playbook_setor || {};
-    const podeEditar = !!prefData?.pode_editar_instrucoes;
     const setor = playbook?.setor || 'geral';
     const formato = pref?.formato_preferido || 'auto';
 
@@ -492,14 +489,7 @@ function renderAssistentePreferencesCard(prefData) {
     resumo.textContent = `Formato atual: ${formato}. Playbook ativo com janelas 7/30/90 dias.`;
 
     select.value = ['auto', 'resumo', 'tabela'].includes(formato) ? formato : 'auto';
-    txt.value = prefData?.instrucoes_empresa || '';
-    txt.disabled = !podeEditar;
     btn.disabled = false;
-    showAssistentePrefNotice(
-        podeEditar
-            ? 'Você pode editar as instruções da empresa.'
-            : 'Somente gestor/admin pode editar instruções da empresa.'
-    );
     syncAssistenteGearSavedBadge(prefData || {});
     syncAssistentePromptEditorVisibility();
 
@@ -547,17 +537,12 @@ async function loadAssistentePreferences() {
 async function saveAssistentePreferences() {
     if (!hasHttpClient() || typeof httpClient.patch !== 'function') return;
     const select = document.getElementById('assistenteFormatoSelect');
-    const txt = document.getElementById('assistenteInstrucoesInput');
     const btn = document.getElementById('btnSalvarPreferenciasAssistente');
-    if (!select || !txt || !btn) return;
-    const podeEditar = !!(_assistentePrefsCache && _assistentePrefsCache.pode_editar_instrucoes);
+    if (!select || !btn) return;
     const payload = {
         formato_preferido: select.value || 'auto',
         dominio: 'geral',
     };
-    if (podeEditar) {
-        payload.instrucoes_empresa = txt.value || '';
-    }
     btn.disabled = true;
     showAssistentePrefNotice('Salvando preferências...');
     try {

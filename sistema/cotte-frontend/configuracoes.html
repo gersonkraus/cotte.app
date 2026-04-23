@@ -1610,6 +1610,29 @@ Qualquer dúvida, estamos à disposição! 😊"></textarea>
           </div>
         </div>
 
+        <div class="cfg-block" id="card-instrucoes-assistente">
+          <div class="cfg-card">
+            <div class="cfg-card-header">
+              <div class="cfg-card-header-info">
+                <div class="cfg-card-title">Instruções do Assistente IA</div>
+                <div class="cfg-card-subtitle">Guardrails e regras para a IA ao criar orçamentos</div>
+              </div>
+            </div>
+            <div class="cfg-card-body">
+              <div class="cfg-fields-grid cols-1">
+                <div class="cfg-form-group">
+                  <label for="emp-instrucoes-assistente">Instruções da empresa</label>
+                  <textarea id="emp-instrucoes-assistente" rows="4" placeholder="Ex.: Sempre focar em margem de lucro, evitar termos técnicos..."></textarea>
+                  <div class="cfg-field-hint">Regras e guardrails que o assistente IA deve seguir ao criar orçamentos. Ex.: sempre focar em margem, evitar termos técnicos.</div>
+                </div>
+              </div>
+            </div>
+            <div class="cfg-card-footer">
+              <button class="btn btn-primary" onclick="salvarInstrucoesAssistente(this)" id="btn-salvar-instrucoes-assistente">Salvar instruções</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Card: Template do Orçamento (Unificado) -->
         <div class="cfg-block">
           <div class="cfg-card">
