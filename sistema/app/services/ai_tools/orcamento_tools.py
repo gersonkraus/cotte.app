@@ -931,6 +931,19 @@ async def _aprovar_orcamento(
             "error": f"Falha ao criar contas a receber: {e}",
             "code": "financeiro_error",
         }
+    try:
+        from app.services.agendamento_auto_service import (
+            processar_agendamento_apos_aprovacao,
+        )
+
+        processar_agendamento_apos_aprovacao(
+            db, orc, canal="ia", usuario_id=current_user.id
+        )
+    except Exception:
+        logger.exception(
+            "Falha ao processar agendamento pós-aprovação (ai_tool, orcamento_id=%s)",
+            orc.id,
+        )
     db.commit()
     db.refresh(orc)
     try:
