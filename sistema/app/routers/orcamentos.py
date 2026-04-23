@@ -282,6 +282,18 @@ async def editar_orcamento(
             "Reverta o status antes de editar.",
         )
 
+    # Atualiza cliente se informado
+    if dados.cliente_id is not None and dados.cliente_id != orc.cliente_id:
+        from app.models.models import Cliente
+        novo_cliente = (
+            db.query(Cliente)
+            .filter(Cliente.id == dados.cliente_id, Cliente.empresa_id == usuario.empresa_id)
+            .first()
+        )
+        if not novo_cliente:
+            raise HTTPException(status_code=404, detail="Cliente não encontrado")
+        orc.cliente_id = dados.cliente_id
+
     # Atualiza campos
     subtotal = sum(i.quantidade * i.valor_unit for i in dados.itens)
     max_pct = resolver_max_percent_desconto(usuario, usuario.empresa)

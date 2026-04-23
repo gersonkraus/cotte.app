@@ -429,6 +429,7 @@ class OrcamentoDocumentosReorderRequest(BaseModel):
 
 
 class OrcamentoUpdate(BaseModel):
+    cliente_id: Optional[int] = None
     itens: List[ItemOrcamentoCreate] = Field(..., min_length=1)
     forma_pagamento: FormaPagamento = FormaPagamento.PIX
     validade_dias: int = 7
