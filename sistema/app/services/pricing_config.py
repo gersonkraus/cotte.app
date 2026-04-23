@@ -9,9 +9,24 @@ logger = logging.getLogger(__name__)
 PRICING_PATH = Path("static/config/pricing.json")
 
 PRICING_DEFAULT: Dict[str, Dict[str, Any]] = {
-    "starter": {"preco": 49, "orcamentos": 200, "usuarios": 3},
-    "pro": {"preco": 119, "orcamentos": 1000, "usuarios": 10},
-    "business": {"preco": 299, "orcamentos": None, "usuarios": None},
+    "starter": {
+        "preco": 89,
+        "orcamentos": 200,
+        "usuarios": 3,
+        "descricao": "Para autônomos que querem enviar orçamentos rápido e parecer mais profissional do que a concorrência."
+    },
+    "pro": {
+        "preco": 129,
+        "orcamentos": 1000,
+        "usuarios": 10,
+        "descricao": "Para quem já fechou o primeiro serviço e quer escalar sem contratar mais gente."
+    },
+    "business": {
+        "preco": 189,
+        "orcamentos": None,
+        "usuarios": None,
+        "descricao": "Para empresas com equipe maior, alto volume de orçamentos e necessidade de suporte rápido."
+    },
 }
 
 

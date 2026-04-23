@@ -821,8 +821,8 @@
         <div class="pricing-grid">
           <article class="card price-card reveal">
             <p class="price-plan">Starter</p>
-            <p class="price-value">R$ 89<span style="font-size:0.95rem;color:var(--text-muted)">/mês</span></p>
-            <p class="price-desc">Para autônomos que querem enviar orçamentos rápido e parecer mais profissional do que a concorrência.</p>
+            <p class="price-value" id="price-starter-val">R$ 89<span style="font-size:0.95rem;color:var(--text-muted)">/mês</span></p>
+            <p class="price-desc" id="price-starter-desc">Para autônomos que querem enviar orçamentos rápido e parecer mais profissional do que a concorrência.</p>
             <ul class="price-list">
               <li>Até 200 orçamentos por mês</li>
               <li>Envio por WhatsApp com PDF</li>
@@ -834,8 +834,8 @@
           <article class="card price-card featured reveal">
             <span class="price-badge">Mais escolhido</span>
             <p class="price-plan">Pro</p>
-            <p class="price-value">R$ 129<span style="font-size:0.95rem;color:var(--text-muted)">/mês</span></p>
-            <p class="price-desc">Para quem já fechou o primeiro serviço e quer escalar sem contratar mais gente.</p>
+            <p class="price-value" id="price-pro-val">R$ 129<span style="font-size:0.95rem;color:var(--text-muted)">/mês</span></p>
+            <p class="price-desc" id="price-pro-desc">Para quem já fechou o primeiro serviço e quer escalar sem contratar mais gente.</p>
             <ul class="price-list">
               <li>Até 1.000 orçamentos por mês</li>
               <li>Múltiplos usuários na equipe</li>
@@ -846,8 +846,8 @@
           </article>
           <article class="card price-card reveal">
             <p class="price-plan">Business</p>
-            <p class="price-value">R$ 189<span style="font-size:0.95rem;color:var(--text-muted)">/mês</span></p>
-            <p class="price-desc">Para empresas com equipe maior, alto volume de orçamentos e necessidade de suporte rápido.</p>
+            <p class="price-value" id="price-business-val">R$ 189<span style="font-size:0.95rem;color:var(--text-muted)">/mês</span></p>
+            <p class="price-desc" id="price-business-desc">Para empresas com equipe maior, alto volume de orçamentos e necessidade de suporte rápido.</p>
             <ul class="price-list">
               <li>Orçamentos e usuários ilimitados</li>
               <li>Suporte prioritário direto no WhatsApp</li>
@@ -958,6 +958,42 @@
       <div class="footer-bottom"><span>© 2026 COTTE. Todos os direitos reservados.</span><span>Feito para profissionais de serviço no Brasil.</span></div>
     </div>
   </footer>
+
+  <script>
+    function sanitizeHTML(str) {
+      const allowed = ['strong', 'em', 'br'];
+      return str.replace(/<(\/?)(\w+)[^>]*>/g, (match, close, tag) => {
+        return allowed.includes(tag.toLowerCase()) ? match : '';
+      });
+    }
+
+    async function fetchPricing() {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch('/api/v1/config/pricing', { signal: controller.signal });
+        clearTimeout(timeout);
+        if (!res.ok) throw new Error('API error');
+        const data = await res.json();
+        
+        function formatPrice(val) {
+          return 'R$ ' + (Number(val) || 0).toLocaleString('pt-BR');
+        }
+
+        document.getElementById('price-starter-val').innerHTML = formatPrice(data.starter?.preco) + '<span style="font-size:0.95rem;color:var(--text-muted)">/mês</span>';
+        document.getElementById('price-starter-desc').innerHTML = sanitizeHTML(data.starter?.descricao || '');
+        document.getElementById('price-pro-val').innerHTML = formatPrice(data.pro?.preco) + '<span style="font-size:0.95rem;color:var(--text-muted)">/mês</span>';
+        document.getElementById('price-pro-desc').innerHTML = sanitizeHTML(data.pro?.descricao || '');
+        document.getElementById('price-business-val').innerHTML = formatPrice(data.business?.preco) + '<span style="font-size:0.95rem;color:var(--text-muted)">/mês</span>';
+        document.getElementById('price-business-desc').innerHTML = sanitizeHTML(data.business?.descricao || '');
+      } catch (e) {
+        console.log('Using fallback pricing:', e);
+      }
+    }
+
+    // Execute apos DOM pronto
+    document.addEventListener('DOMContentLoaded', fetchPricing);
+  </script>
 
   <script>
     // ── Funções compartilhadas do chat ───────────────────────────

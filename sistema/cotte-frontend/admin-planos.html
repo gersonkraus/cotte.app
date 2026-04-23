@@ -172,6 +172,10 @@
             <label class="precision-label">Usuários incluídos</label>
             <input type="number" class="precision-input" id="pricing-starter-usr" min="1" step="1">
           </div>
+          <div class="precision-field full">
+            <label class="precision-label">Descrição</label>
+            <textarea class="precision-input" id="pricing-starter-descricao" rows="2" placeholder="Ex: Perfeito para quem está começando."></textarea>
+          </div>
         </div>
       </div>
       
@@ -189,6 +193,10 @@
             <label class="precision-label">Usuários incluídos</label>
             <input type="number" class="precision-input" id="pricing-pro-usr" min="1" step="1">
           </div>
+          <div class="precision-field full">
+            <label class="precision-label">Descrição</label>
+            <textarea class="precision-input" id="pricing-pro-descricao" rows="2" placeholder="Ex: Para profissionais que buscam escala."></textarea>
+          </div>
         </div>
       </div>
       
@@ -205,6 +213,10 @@
           <div class="precision-field full">
             <label class="precision-label">Usuários incluídos</label>
             <input type="number" class="precision-input" id="pricing-business-usr" min="0" step="1">
+          </div>
+          <div class="precision-field full">
+            <label class="precision-label">Descrição</label>
+            <textarea class="precision-input" id="pricing-business-descricao" rows="2" placeholder="Ex: Solução completa para empresas."></textarea>
           </div>
         </div>
       </div>
@@ -452,14 +464,17 @@
       document.getElementById('pricing-starter-preco').value = st.preco ?? 49;
       document.getElementById('pricing-starter-orc').value   = st.orcamentos ?? 200;
       document.getElementById('pricing-starter-usr').value   = st.usuarios ?? 3;
+      document.getElementById('pricing-starter-descricao').value = st.descricao ?? '';
 
       document.getElementById('pricing-pro-preco').value = pr.preco ?? 119;
       document.getElementById('pricing-pro-orc').value   = pr.orcamentos ?? 1000;
       document.getElementById('pricing-pro-usr').value   = pr.usuarios ?? 10;
+      document.getElementById('pricing-pro-descricao').value = pr.descricao ?? '';
 
       document.getElementById('pricing-business-preco').value = bs.preco ?? 299;
       document.getElementById('pricing-business-orc').value   = bs.orcamentos ?? 0;
       document.getElementById('pricing-business-usr').value   = bs.usuarios ?? 0;
+      document.getElementById('pricing-business-descricao').value = bs.descricao ?? '';
     } catch(e) {
       showToast('Erro ao carregar preços: ' + e.message, 'error');
     }
@@ -472,16 +487,19 @@
         preco: Number(document.getElementById('pricing-starter-preco').value || 0),
         orcamentos: Number(document.getElementById('pricing-starter-orc').value || 0) || 0,
         usuarios: Number(document.getElementById('pricing-starter-usr').value || 0) || 0,
+        descricao: document.getElementById('pricing-starter-descricao').value || '',
       },
       pro: {
         preco: Number(document.getElementById('pricing-pro-preco').value || 0),
         orcamentos: Number(document.getElementById('pricing-pro-orc').value || 0) || 0,
         usuarios: Number(document.getElementById('pricing-pro-usr').value || 0) || 0,
+        descricao: document.getElementById('pricing-pro-descricao').value || '',
       },
       business: {
         preco: Number(document.getElementById('pricing-business-preco').value || 0),
         orcamentos: Number(document.getElementById('pricing-business-orc').value || 0) || 0,
         usuarios: Number(document.getElementById('pricing-business-usr').value || 0) || 0,
+        descricao: document.getElementById('pricing-business-descricao').value || '',
       },
     };
 
