@@ -51,8 +51,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   ]);
 
   atualizarLabelStatus();
-  inicializarCalendario();
+  
+  inicializarCalendario(); // Movido para o final
+  
   carregarDashboard();
+  
   atualizarBadgePreFila();
 
   const pfb = document.getElementById('pre-fila-busca');
@@ -565,16 +568,36 @@ async function salvarAgendamento(e) {
 // AÇÕES RÁPIDAS
 // ══════════════════════════════════════════════════════════════════════════════
 
-async function acaoRapida(id, novoStatus) {
+async function acaoRapida(id, novoStatus, skipConfirm = false) {
+  if (novoStatus === 'cancelado' && !skipConfirm) {
+    return abrirModalConfirmarCancelamento(id);
+  }
+
   fecharPopover();
+  const card = document.querySelector(`[onclick*="abrirModalEditar(${id})"]`)?.closest('.agd-dash-card');
+
   try {
     await apiRequest('PATCH', `/agendamentos/${id}/status`, { status: novoStatus });
     toast(`Status: ${STATUS_COLORS[novoStatus]?.label || novoStatus}`);
+
+    if (card) {
+      card.remove();
+      const body = document.getElementById('modal-dash-body');
+      if (body && !body.querySelectorAll('.agd-dash-card').length) {
+        body.innerHTML = '<div class="agd-dash-empty">Nenhum agendamento encontrado.</div>';
+      }
+    }
+
     calendar.refetchEvents();
     carregarDashboard();
   } catch (err) {
     toast(err?.detail || 'Erro ao atualizar status');
   }
+}
+
+async function abrirModalConfirmarCancelamento(id) {
+  if (!confirm('Tem certeza que deseja cancelar este agendamento?')) return;
+  await acaoRapida(id, 'cancelado', true);
 }
 
 async function cancelarAgendamento() {
@@ -789,15 +812,20 @@ function renderizarFiltrosStatus() {
       ? `background:${sc.border};border-color:${sc.border};`
       : '';
     chip.innerHTML = `<span class="chip-dot" style="background:${sc.border}"></span>${sc.label}<span class="chip-count">${count}</span>`;
-    chip.onclick = () => {
-      if (isActive) {
-        filtrosStatus.delete(status);
-      } else {
-        filtrosStatus.add(status);
+     chip.onclick = () => {
+      try {
+        if (isActive) {
+          filtrosStatus.delete(status);
+        } else {
+          filtrosStatus.add(status);
+          abrirModalDash('status', status);
+        }
+        renderizarFiltrosStatus();
+        filtrarEventos();
+      } catch (e) {
+        console.error('ERRO FATAL NO CLICK DO CHIP:', e);
       }
-      renderizarFiltrosStatus();
-      filtrarEventos();
-    };
+     };
     container.appendChild(chip);
   });
 }
@@ -844,7 +872,7 @@ async function abrirModalDash(tipo, status = null) {
 
   document.getElementById('modal-dash-titulo').textContent = typeof cfg.titulo === 'function' ? cfg.titulo(status) : cfg.titulo;
   document.getElementById('modal-dash-body').innerHTML = '<div class="agd-dash-empty">Carregando…</div>';
-  document.getElementById('modal-dash').style.display = 'flex';
+  document.getElementById('modal-dash').style.display = 'flex'; // Força a exibição do modal
 
   try {
     const params = new URLSearchParams(cfg.params(status));
