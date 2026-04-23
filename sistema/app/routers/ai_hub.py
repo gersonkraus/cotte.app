@@ -917,6 +917,12 @@ async def assistente_capabilities(
         "data": {
             **capabilities,
             "available_engines": available_engines,
+            "flags": {
+                **capabilities["flags"],
+                "mostrar_tour_onboarding": (
+                    current_user.empresa.total_mensagens_ia or 0
+                ) == 0,
+            },
         },
     }
 

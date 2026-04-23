@@ -415,6 +415,29 @@
             <!-- ── Chat Area ── -->
             <div class="chat-container">
                 <div class="chat-messages" id="chatMessages" role="log" aria-live="polite" aria-relevant="additions" aria-label="Mensagens do assistente">
+                    <!-- Tour de Onboarding (exibido apenas na primeira visita) -->
+                    <div id="assistente-tour" style="display:none;" role="region" aria-label="Tour de boas-vindas">
+                        <div class="tour-card">
+                            <div class="tour-header">
+                                <span class="tour-step-label" id="tourStepLabel">Passo 1 de 3</span>
+                                <button type="button" class="tour-skip-btn" id="tourSkipBtn" aria-label="Pular tour">Pular</button>
+                            </div>
+                            <div class="tour-body">
+                                <span class="tour-icon" id="tourIcon" aria-hidden="true"></span>
+                                <div class="tour-title" id="tourTitle"></div>
+                                <div class="tour-desc" id="tourDesc"></div>
+                                <button type="button" class="tour-example" id="tourExample" title="Clique para usar esta mensagem"></button>
+                            </div>
+                            <div class="tour-footer">
+                                <div class="tour-dots" id="tourDots" role="tablist" aria-label="Navegação entre passos"></div>
+                                <div class="tour-nav">
+                                    <button type="button" class="tour-nav-btn" id="tourPrevBtn" style="display:none;">← Anterior</button>
+                                    <button type="button" class="tour-nav-btn primary" id="tourNextBtn">Próximo →</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Welcome Message -->
                     <div class="message ai" id="welcomeState">
                         <div class="welcome-msg">
@@ -523,7 +546,14 @@
       }
       document.addEventListener('DOMContentLoaded', function() {
         if (window.CapabilityFlagsService && typeof window.CapabilityFlagsService.preload === 'function') {
-          window.CapabilityFlagsService.preload();
+          window.CapabilityFlagsService.preload().then(function() {
+            if (
+              window.CapabilityFlagsService.isEnabledSync('mostrar_tour_onboarding') &&
+              typeof window._initAssistenteTour === 'function'
+            ) {
+              window._initAssistenteTour();
+            }
+          });
         }
       });
     </script>
@@ -574,7 +604,7 @@
     <script src="js/chat-virtualization.js?v=1"></script>
     <script src="js/assistente-ia-intents.js?v=1"></script>
     <script src="js/assistente-ia.js?v=32"></script>
-    <script src="js/assistente-ia-shell.js?v=3"></script>
+    <script src="js/assistente-ia-shell.js?v=4"></script>
     <script src="js/assistente-ia-input.js?v=4"></script>
     <script src="js/assistente-ia-render-utils.js?v=2"></script>
     <script src="js/assistente-ia-render-types.js?v=3"></script>

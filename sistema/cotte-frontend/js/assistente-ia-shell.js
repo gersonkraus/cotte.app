@@ -1017,6 +1017,100 @@ function _initQuickActionsSheet() {
     });
 }
 
+/* === Tour de Onboarding === */
+(function () {
+    var SLIDES = [
+        {
+            icon: '🤖',
+            title: 'O que o Assistente IA faz',
+            desc: 'Gerenciar clientes, criar orçamentos, analisar financeiro e responder dúvidas do seu negócio — tudo por chat.',
+            example: 'Quais orçamentos estão pendentes hoje?',
+        },
+        {
+            icon: '📋',
+            title: 'Como pedir um orçamento',
+            desc: 'Descreva o cliente e o serviço. O assistente busca o catálogo e monta o orçamento pronto para enviar.',
+            example: 'Crie um orçamento para João — instalação elétrica residencial',
+        },
+        {
+            icon: '📊',
+            title: 'Como pedir relatório financeiro',
+            desc: 'Peça saldos, receitas, despesas ou análises do caixa. O assistente acessa os dados em tempo real.',
+            example: 'Quanto entrou esse mês e qual meu saldo atual?',
+        },
+    ];
+    var _step = 0;
+
+    function _renderStep() {
+        var s = SLIDES[_step];
+        var el = function (id) { return document.getElementById(id); };
+        el('tourStepLabel').textContent = 'Passo ' + (_step + 1) + ' de ' + SLIDES.length;
+        el('tourIcon').textContent = s.icon;
+        el('tourTitle').textContent = s.title;
+        el('tourDesc').textContent = s.desc;
+        el('tourExample').textContent = s.example;
+        el('tourPrevBtn').style.display = _step > 0 ? '' : 'none';
+        el('tourNextBtn').textContent = _step === SLIDES.length - 1 ? 'Concluir ✓' : 'Próximo →';
+        var dotsEl = el('tourDots');
+        dotsEl.innerHTML = '';
+        SLIDES.forEach(function (_, i) {
+            var dot = document.createElement('button');
+            dot.type = 'button';
+            dot.className = 'tour-dot' + (i === _step ? ' active' : '');
+            dot.setAttribute('aria-label', 'Passo ' + (i + 1));
+            dot.setAttribute('role', 'tab');
+            dot.setAttribute('aria-selected', i === _step ? 'true' : 'false');
+            dot.addEventListener('click', function () { _goTo(i); });
+            dotsEl.appendChild(dot);
+        });
+    }
+
+    function _goTo(i) {
+        _step = Math.max(0, Math.min(i, SLIDES.length - 1));
+        _renderStep();
+    }
+
+    function _finalizarTour() {
+        var tour = document.getElementById('assistente-tour');
+        if (tour) tour.remove();
+        var welcome = document.getElementById('welcomeState');
+        if (welcome) welcome.style.display = '';
+    }
+
+    function _bindEvents() {
+        var el = function (id) { return document.getElementById(id); };
+        el('tourSkipBtn').addEventListener('click', _finalizarTour);
+        el('tourPrevBtn').addEventListener('click', function () { _goTo(_step - 1); });
+        el('tourNextBtn').addEventListener('click', function () {
+            if (_step < SLIDES.length - 1) { _goTo(_step + 1); } else { _finalizarTour(); }
+        });
+        el('tourExample').addEventListener('click', function () {
+            var input = document.getElementById('messageInput');
+            if (input) {
+                input.value = SLIDES[_step].example;
+                if (typeof window.resizeMessageInput === 'function') window.resizeMessageInput();
+                input.focus();
+            }
+            _finalizarTour();
+        });
+    }
+
+    function initTour() {
+        var tour = document.getElementById('assistente-tour');
+        var welcome = document.getElementById('welcomeState');
+        if (!tour) return;
+        // Oculta o welcome card durante o tour
+        if (welcome) welcome.style.display = 'none';
+        _step = 0;
+        _renderStep();
+        _bindEvents();
+        tour.style.display = '';
+    }
+
+    window._initAssistenteTour = initTour;
+    window._finalizarTour = _finalizarTour;
+})();
+
 document.addEventListener('DOMContentLoaded', () => {
     _initQuickActionsSheet();
 });
