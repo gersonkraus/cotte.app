@@ -835,18 +835,19 @@ const DASH_CONFIG = {
   confirmados:{ titulo: 'Confirmados hoje',         params: () => { const d = new Date().toISOString().slice(0,10); return { status: 'confirmado', data_de: d, data_ate: d, per_page: 100 }; } },
   andamento:  { titulo: 'Em andamento',             params: () => ({ status: 'em_andamento', per_page: 100 }) },
   proximos:   { titulo: 'Próximos 7 dias',          params: () => { const d = new Date(); const fim = new Date(d); fim.setDate(fim.getDate() + 7); return { data_de: d.toISOString().slice(0,10), data_ate: fim.toISOString().slice(0,10), per_page: 100 }; } },
+  status:     { titulo: (status) => STATUS_COLORS[status]?.label || 'Agendamentos', params: (status) => ({ status: status, per_page: 100 }) },
 };
 
-async function abrirModalDash(tipo) {
+async function abrirModalDash(tipo, status = null) {
   const cfg = DASH_CONFIG[tipo];
   if (!cfg) return;
 
-  document.getElementById('modal-dash-titulo').textContent = cfg.titulo;
+  document.getElementById('modal-dash-titulo').textContent = typeof cfg.titulo === 'function' ? cfg.titulo(status) : cfg.titulo;
   document.getElementById('modal-dash-body').innerHTML = '<div class="agd-dash-empty">Carregando…</div>';
   document.getElementById('modal-dash').style.display = 'flex';
 
   try {
-    const params = new URLSearchParams(cfg.params());
+    const params = new URLSearchParams(cfg.params(status));
     const lista = await apiRequest('GET', `/agendamentos/?${params}`);
     renderizarModalDash(lista || []);
   } catch (e) {
@@ -866,11 +867,16 @@ function renderizarModalDash(lista) {
     const data = ag.data_agendada ? new Date(ag.data_agendada).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
     const tipo = TIPO_LABELS[ag.tipo] || ag.tipo || '';
     return `
-      <div class="agd-dash-card" onclick="fecharModalDash();abrirModalEditar(${ag.id})" style="cursor:pointer">
+      <div class="agd-dash-card" style="cursor:pointer">
         <span class="agd-dash-card-dot" style="background:${sc.border}"></span>
-        <div class="agd-dash-card-info">
+        <div class="agd-dash-card-info" onclick="fecharModalDash();abrirModalEditar(${ag.id})">
           <div class="agd-dash-card-nome">${ag.cliente_nome || '—'}</div>
           <div class="agd-dash-card-meta">${data}${tipo ? ' · ' + tipo : ''}${ag.responsavel_nome ? ' · ' + ag.responsavel_nome : ''}</div>
+          <div class="btn-action-container">
+            <button class="btn-action btn-action-edit" onclick="event.stopPropagation();fecharModalDash();abrirModalEditar(${ag.id})">Editar</button>
+            <button class="btn-action btn-action-confirm" onclick="event.stopPropagation();acaoRapida(${ag.id}, 'confirmado')">Confirmar</button>
+            <button class="btn-action btn-action-cancel" onclick="event.stopPropagation();acaoRapida(${ag.id}, 'cancelado')">Cancelar</button>
+          </div>
         </div>
         <span class="agd-dash-card-status" style="background:${sc.bg};color:${sc.text}">${sc.label}</span>
       </div>`;

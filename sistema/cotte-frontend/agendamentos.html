@@ -325,8 +325,33 @@
       font-size: 15px; font-weight: 700; color: var(--agd-text);
     }
     .agd-modal-dash-body {
-      overflow-y: auto; padding: 12px 20px; flex: 1;
+      padding: 12px 20px; flex: 1;
     }
+    .modal-dash-scroll {
+      max-height: 400px; 
+      overflow-y: auto;
+    }
+    .btn-action-container {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .btn-action {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      border: none;
+      transition: opacity 0.2s;
+    }
+    .btn-action:hover { opacity: 0.8; }
+    .btn-action-edit { background-color: #3b82f6; color: white; }
+    .btn-action-confirm { background-color: #22c55e; color: white; }
+    .btn-action-cancel { background-color: #ef4444; color: white; }
     .agd-dash-card {
       display: flex; align-items: flex-start; gap: 12px;
       padding: 10px 0; border-bottom: 1px solid var(--agd-border);
@@ -1356,7 +1381,7 @@
       <span class="agd-modal-dash-title" id="modal-dash-titulo"></span>
       <button class="agd-modal-close" onclick="fecharModalDash()">×</button>
     </div>
-    <div class="agd-modal-dash-body" id="modal-dash-body">
+    <div class="agd-modal-dash-body modal-dash-scroll" id="modal-dash-body">
       <div class="agd-dash-empty">Carregando…</div>
     </div>
   </div>
