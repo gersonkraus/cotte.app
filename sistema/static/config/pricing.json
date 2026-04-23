@@ -1,0 +1,20 @@
+{
+  "starter": {
+    "preco": 89.99,
+    "orcamentos": 200,
+    "usuarios": 3,
+    "descricao": "Para autônomos que querem enviar orçamentos rápido e parecer mais profissional do que a concorrência. Teste 123"
+  },
+  "pro": {
+    "preco": 129,
+    "orcamentos": 1000,
+    "usuarios": 10,
+    "descricao": "Para quem já fechou o primeiro serviço e quer escalar sem contratar mais gente"
+  },
+  "business": {
+    "preco": 189,
+    "orcamentos": 0,
+    "usuarios": 0,
+    "descricao": "Para empresas com equipe maior, alto volume de orçamentos e necessidade de suporte rápido."
+  }
+}

@@ -4,7 +4,7 @@
   "description": "Sistema de geração de orçamentos via WhatsApp com inteligência artificial (Claude).   Backend em FastAPI, frontend em HTML/CSS/JS; deploy no Railway.",
   "main": "index.js",
   "scripts": {
-    "test": "playwright test",
+    "test": "node tests/e2e/setup-test-user.js && playwright test",
     "test:unit": "node tests/unit/assistente-orcamento-confirmar-payload.test.js",
     "test:ui": "playwright test --ui",
     "test:report": "playwright show-report",
@@ -29,6 +29,9 @@
     "yaml": "^2.8.3"
   },
   "dependencies": {
-    "@ai-sdk/google-vertex": "^4.0.104"
+        "@ai-sdk/google-vertex": "^4.0.104",
+    "axios": "^1.7.2"
+,
+    "axios": "^1.15.2"
   }
 }
