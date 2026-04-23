@@ -219,6 +219,10 @@ async function carregarDashboard() {
       document.getElementById('dash-andamento').textContent = dash.em_andamento || 0;
       document.getElementById('dash-proximos').textContent = dash.proximos_7_dias || 0;
     }
+    if (dash.contagem_por_status) {
+      contagemStatus = dash.contagem_por_status;
+      renderizarFiltrosStatus();
+    }
   } catch (e) { console.error('Erro ao carregar dashboard:', e); }
 }
 
@@ -772,7 +776,7 @@ function renderizarFiltrosStatus() {
   if (!container) return;
   container.innerHTML = '';
 
-  const statusOrdem = ['pendente', 'aguardando_escolha', 'confirmado', 'em_andamento', 'concluido', 'reagendado', 'cancelado'];
+  const statusOrdem = ['pendente', 'aguardando_escolha', 'confirmado', 'em_andamento', 'concluido', 'reagendado', 'cancelado', 'nao_compareceu'];
   statusOrdem.forEach(status => {
     const sc = STATUS_COLORS[status];
     const isActive = filtrosStatus.has(status);
@@ -804,7 +808,7 @@ function atualizarLabelStatus() {
 }
 
 function selecionarTodosStatus() {
-  const todos = ['pendente', 'aguardando_escolha', 'confirmado', 'em_andamento', 'concluido', 'reagendado', 'cancelado'];
+  const todos = ['pendente', 'aguardando_escolha', 'confirmado', 'em_andamento', 'concluido', 'reagendado', 'cancelado', 'nao_compareceu'];
   filtrosStatus.clear();
   todos.forEach(s => filtrosStatus.add(s));
   renderizarFiltrosStatus();
@@ -818,17 +822,6 @@ function limparTodosStatus() {
 }
 
 function atualizarContagemStatus(eventos) {
-  contagemStatus = {};
-  const statusOrdem = ['pendente', 'aguardando_escolha', 'confirmado', 'em_andamento', 'concluido', 'reagendado', 'cancelado'];
-  statusOrdem.forEach(s => contagemStatus[s] = 0);
-
-  (eventos || []).forEach(ev => {
-    const st = ev.extendedProps?.status;
-    if (st && contagemStatus[st] !== undefined) {
-      contagemStatus[st]++;
-    }
-  });
-
   renderizarFiltrosStatus();
 }
 

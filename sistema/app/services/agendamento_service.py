@@ -1182,7 +1182,18 @@ def dashboard(db: Session, empresa_id: int) -> dict:
             .count()
         )
 
+    # Contagem por status
+    contagens = dict(
+        db.query(Agendamento.status, func.count(Agendamento.id))
+        .filter(Agendamento.empresa_id == empresa_id)
+        .group_by(Agendamento.status)
+        .all()
+    )
+    todos_status = [s.value for s in StatusAgendamento]
+    contagem_por_status = {s: contagens.get(s, 0) for s in todos_status}
+
     return {
+        "contagem_por_status": contagem_por_status,
         "total_hoje": _count(
             [
                 Agendamento.data_agendada >= inicio_hoje,

@@ -105,6 +105,8 @@ class AgendamentoDashboard(BaseModel):
     em_andamento: int = 0
     proximos_7_dias: int = 0
     cancelados_semana: int = 0
+    # Contagem para todos os 8 status: aguardando_escolha, pendente, confirmado, em_andamento, concluido, reagendado, cancelado, nao_compareceu
+    contagem_por_status: dict[str, int] = {}
 
 
 class SlotDisponivel(BaseModel):
