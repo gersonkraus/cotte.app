@@ -22,7 +22,7 @@ PLANO_CONFIG: Dict[str, Dict[str, Any]] = {
         "nome_exibicao": "Avaliação",
         "limite_orcamentos_total": 50,
         "limite_usuarios": 1,
-        "ia_automatica": False,
+        "ia_automatica": True,
         "lembretes_automaticos": False,
         "relatorios": False,
         "whatsapp_proprio": False,

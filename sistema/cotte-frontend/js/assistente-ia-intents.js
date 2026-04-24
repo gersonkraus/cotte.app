@@ -235,15 +235,13 @@
             'Enviar {numero} por e-mail',
             'Aprovar {numero}',
             'Duplicar {numero}',
-            'Mostrar próximos passos deste orçamento',
+            'Status do {numero}',
         ],
         default: [
             'Ver detalhes do {numero}',
             'Duplicar {numero}',
             'Simular desconto de 5% no {numero}',
-            'Gerar versão premium do {numero}',
-            'Criar mensagem de follow-up para aprovação',
-            'Mostrar próximos passos deste orçamento',
+            'Status do {numero}',
         ],
     };
 

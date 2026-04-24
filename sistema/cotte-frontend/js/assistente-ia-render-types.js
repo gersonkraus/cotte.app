@@ -139,14 +139,59 @@ function renderOrcamentoCardUnificado(dados) {
         </div>
     </div>`;
 }
+function renderOrcamentoSimulacao(dados) {
+    if (!dados) return '<div class="opr-result opr-err">Dados da simulação indisponíveis.</div>';
+    const num = escapeHtml(dados.numero || ('#' + (dados.id || '?')));
+    const clienteNome = escapeHtml(
+        (dados.cliente && dados.cliente.nome) || dados.cliente_nome || ''
+    );
+    const orcId = dados.id || null;
+    const pct = Number(dados.desconto_pct || 0);
+    const origFmt = escapeHtml(dados.total_original_fmt || '—');
+    const novoFmt = escapeHtml(dados.total_com_desconto_fmt || '—');
+    const econFmt = escapeHtml(dados.economia_fmt || '—');
+    const applyBtn = orcId
+        ? `<button type="button" class="orc-card-v2__aprovar-btn orc-card-v2__aprovar-btn--compact" data-apply-discount="${orcId}" data-desconto-pct="${pct}" style="margin-top:8px;">✅ Aplicar desconto</button>`
+        : '';
+    return `<div class="orc-card-v2">
+        <div class="orc-card-v2__banner" style="background:var(--ai-warning,#f59e0b);color:#1e293b;">
+            <span class="orc-card-v2__banner-icon" aria-hidden="true">🏷️</span>
+            Simulação de Desconto — ${num}
+        </div>
+        <div class="orc-card-v2__body">
+            ${clienteNome ? `<div class="orc-card-v2__client" style="margin-bottom:8px;">${clienteNome}</div>` : ''}
+            <div class="orc-card-v2__item-row">
+                <span>Total original</span><span>${origFmt}</span>
+            </div>
+            <div class="orc-card-v2__item-row" style="color:var(--ai-warning,#f59e0b);">
+                <span>Desconto (${pct}%)</span><span>− ${econFmt}</span>
+            </div>
+            <div class="orc-card-v2__total">
+                <span class="orc-card-v2__total-label">Novo total</span>
+                <div class="orc-card-v2__total-value">
+                    <span class="orc-card-v2__valor-final">${novoFmt}</span>
+                </div>
+            </div>
+            <div class="orc-card-v2__actions">${applyBtn}</div>
+        </div>
+    </div>`;
+}
+
 function renderOperadorResultado(data, dados) {
     const acaoIcones = { 'VER': '🔍', 'APROVADO': '✅', 'RECUSADO': '❌', 'ENVIADO': '📤', 'DESCONTO': '💰', 'ADICIONADO': '➕', 'REMOVIDO': '➖' };
     const acao = dados && dados.acao ? dados.acao : '';
     const icone = acaoIcones[acao] || '⚡';
     const linkHtml = dados && dados.id ? `<a href="orcamentos.html" class="opr-link">Ver orçamento →</a>` : '';
     if (acao === 'VER' && dados && dados.id) {
-        // Aproveita o visual premium do card de orçamento ao invés de usar a estrutura antiga e quebrada
-        return renderOrcamentoCardUnificado(dados);
+        // Abre o modal de detalhes diretamente para evitar duplicar o card já visível
+        const orcNum = dados.numero || ('#' + dados.id);
+        setTimeout(function () {
+            if (typeof abrirDetalhesOrcamento === 'function') abrirDetalhesOrcamento(dados.id);
+        }, 80);
+        return `<div class="opr-result opr-ok" style="gap:6px;">
+            <span class="opr-icon">🔍</span>
+            <span>Abrindo detalhes do <strong>${escapeHtml(orcNum)}</strong>…</span>
+        </div>`;
     }
     const respText = data.resposta || (dados && dados.resposta) || '';
     return `<div class="opr-result operador-md ${data.sucesso !== false ? 'opr-ok' : 'opr-err'}">
@@ -850,6 +895,9 @@ function resolveAssistenteRenderResult(data, isStreamed = false) {
     }
     if (tipoResposta === 'operador_resultado') {
         return { html: renderOperadorResultado(data, dados), rendererId: 'renderOperadorResultado', tipoResposta, dados };
+    }
+    if (tipoResposta === 'orcamento_simulacao') {
+        return { html: renderOrcamentoSimulacao(dados), rendererId: 'renderOrcamentoSimulacao', tipoResposta, dados };
     }
     if (tipoResposta === 'saldo_caixa' || dados.tipo === 'saldo_caixa') {
         return { html: renderSaldoRapido(dados), rendererId: 'renderSaldoRapido', tipoResposta, dados };

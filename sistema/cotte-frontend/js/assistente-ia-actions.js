@@ -259,3 +259,17 @@ window.aprovarOrcamento = function(id, num) {
 window.abrirModalDocsOrcamento = function(id) {
     window.location.href = `orcamentos.html?docs=${id}`;
 };
+
+window.aplicarDescontoIA = async function(orcamentoId, descontoPct) {
+    try {
+        const data = await httpClient.post('/ai/orcamento/aplicar-desconto', {
+            orcamento_id: orcamentoId,
+            desconto_pct: descontoPct,
+        });
+        if (typeof processAIResponse === 'function') {
+            processAIResponse(data, null);
+        }
+    } catch (e) {
+        console.error('[aplicarDescontoIA] Erro:', e);
+    }
+};

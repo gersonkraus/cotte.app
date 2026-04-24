@@ -1313,10 +1313,32 @@ async def _duplicar_orcamento(
         )
     db.commit()
     db.refresh(novo)
+
+    cliente = novo.cliente
+    tem_telefone = bool(cliente and getattr(cliente, "telefone", None))
+    tem_email = bool(cliente and getattr(cliente, "email", None))
+
     return {
         "id": novo.id,
         "numero": novo.numero,
+        "status": "rascunho",
         "total": float(novo.total or 0),
+        "desconto": float(novo.desconto or 0),
+        "observacoes": novo.observacoes,
+        "cliente_nome": cliente.nome if cliente else None,
+        "cliente": {"id": cliente.id, "nome": cliente.nome} if cliente else None,
+        "itens": [
+            {
+                "descricao": i.descricao,
+                "quantidade": float(i.quantidade or 0),
+                "valor_unit": float(i.valor_unit or 0),
+                "total": float(i.total or 0),
+            }
+            for i in (novo.itens or [])
+        ],
+        "tem_telefone": tem_telefone,
+        "tem_email": tem_email,
+        "link_publico": novo.link_publico,
         "duplicado_de": orc.id,
         "criado": True,
     }
@@ -1377,6 +1399,16 @@ async def _editar_orcamento(
             return {"error": "desconto_tipo inválido", "code": "invalid_input"}
         orc.desconto_tipo = inp.desconto_tipo
         mudou = True
+    # Recalcula total quando desconto ou tipo mudam (sem isso o total fica com valor original)
+    if (inp.desconto is not None or inp.desconto_tipo is not None) and inp.valor_total is None:
+        from app.utils.desconto import aplicar_desconto as _aplicar_desc
+        subtotal_items = sum(Decimal(str(i.total or 0)) for i in (orc.itens or []))
+        if subtotal_items > 0:
+            orc.total = _aplicar_desc(
+                subtotal_items,
+                orc.desconto or Decimal("0"),
+                orc.desconto_tipo or "percentual",
+            )
     if inp.validade_dias is not None:
         orc.validade_dias = inp.validade_dias
         mudou = True

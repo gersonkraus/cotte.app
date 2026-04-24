@@ -959,6 +959,7 @@ class FallbackManual:
             r"\b(aprovar?|aceitar)\b": "APROVAR",
             r"\b(recusar?|rejeitar|negar)\b": "RECUSAR",
             r"\b(enviar?|mandar|envia)\b": "ENVIAR",
+            r"\b(duplicar?|copiar?|clonar?|clone)\b": "DUPLICAR",
             r"\b(criar?|novo|adicionar?)\b": "CRIAR",
             r"\b(ajuda|help|\?)\b": "AJUDA",
         }
@@ -2706,7 +2707,7 @@ def _v2_is_operador_fastpath_message(mensagem: str) -> bool:
         return False
     cmd = FallbackManual.extrair_comando(mensagem)
     return (
-        cmd.get("acao") in {"APROVAR", "RECUSAR", "VER", "ENVIAR"}
+        cmd.get("acao") in {"APROVAR", "RECUSAR", "VER", "ENVIAR", "DUPLICAR"}
         and cmd.get("orcamento_id") is not None
     )
 
@@ -2732,10 +2733,11 @@ async def _v2_build_operador_fastpath_response(
         return None
 
     tool_map: dict[str, tuple[str, dict]] = {
-        "VER":     ("obter_orcamento",          {"id": orcamento_id}),
-        "APROVAR": ("aprovar_orcamento",         {"orcamento_id": orcamento_id}),
-        "RECUSAR": ("recusar_orcamento",         {"orcamento_id": orcamento_id}),
-        "ENVIAR":  ("enviar_orcamento_whatsapp", {"orcamento_id": orcamento_id}),
+        "VER":      ("obter_orcamento",          {"id": orcamento_id}),
+        "APROVAR":  ("aprovar_orcamento",         {"orcamento_id": orcamento_id}),
+        "RECUSAR":  ("recusar_orcamento",         {"orcamento_id": orcamento_id}),
+        "ENVIAR":   ("enviar_orcamento_whatsapp", {"orcamento_id": orcamento_id}),
+        "DUPLICAR": ("duplicar_orcamento",        {"orcamento_id": orcamento_id}),
     }
     tool_entry = tool_map.get(acao)
     if not tool_entry:
@@ -2789,6 +2791,87 @@ async def _v2_build_operador_fastpath_response(
 
     # erro ou forbidden: cai no LLM para mensagem de erro contextual
     return None
+
+
+_RE_SIMULAR_DESCONTO = re.compile(
+    r'simular\s+desconto\s+de\s+(\d+(?:[.,]\d+)?)\s*%\s+(?:n[oa]?\s+)?([A-Za-z]+-?\d+|\d+)',
+    re.IGNORECASE,
+)
+
+
+def _v2_is_simular_desconto_message(mensagem: str) -> bool:
+    return bool(_RE_SIMULAR_DESCONTO.search(mensagem))
+
+
+async def _v2_build_simular_desconto_response(
+    *,
+    mensagem: str,
+    db: Session,
+    current_user: Any,
+    request_id: Optional[str],
+) -> Optional[AIResponse]:
+    """Simula desconto percentual em orçamento sem chamar o LLM (0 tokens)."""
+    from app.services.tool_executor import execute as tool_execute
+    from decimal import Decimal
+
+    m = _RE_SIMULAR_DESCONTO.search(mensagem)
+    if not m:
+        return None
+
+    pct_raw = m.group(1).replace(",", ".")
+    orc_ref = m.group(2)
+    try:
+        pct = float(pct_raw)
+    except ValueError:
+        return None
+
+    # Resolve número do orçamento para ID
+    id_match = re.search(r'\d+', orc_ref)
+    if not id_match:
+        return None
+    orcamento_id = int(id_match.group())
+
+    tc_dict = {
+        "id": f"fast_sim_desc",
+        "type": "function",
+        "function": {"name": "obter_orcamento", "arguments": json.dumps({"id": orcamento_id})},
+    }
+    result = await tool_execute(tc_dict, db=db, current_user=current_user, sessao_id="", request_id=request_id)
+    if result.status != "ok" or not result.data:
+        return None
+
+    orc = result.data
+    total_orig = float(orc.get("total") or 0)
+    desconto_atual = float(orc.get("desconto") or 0)
+    total_com_desc = round(total_orig * (1 - pct / 100), 2)
+    economia = round(total_orig - total_com_desc, 2)
+
+    def fmt_brl(v: float) -> str:
+        return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+    return AIResponse(
+        sucesso=True,
+        resposta="",
+        tipo_resposta="orcamento_simulacao",
+        confianca=0.99,
+        modulo_origem="assistente_v2",
+        dados={
+            "acao": "SIMULAR_DESCONTO",
+            "id": orc.get("id"),
+            "numero": orc.get("numero"),
+            "cliente": orc.get("cliente"),
+            "total_original": total_orig,
+            "total_original_fmt": fmt_brl(total_orig),
+            "desconto_pct": pct,
+            "economia": economia,
+            "economia_fmt": fmt_brl(economia),
+            "total_com_desconto": total_com_desc,
+            "total_com_desconto_fmt": fmt_brl(total_com_desc),
+            "input_tokens": 0,
+            "output_tokens": 0,
+        },
+        tool_trace=[{"tool": "obter_orcamento", "status": "ok", "latencia_ms": 0}],
+    )
 
 
 async def _v2_build_saldo_fastpath_response(db: Session, empresa_id: int) -> AIResponse:
@@ -3694,6 +3777,19 @@ async def assistente_v2_stream_core(
             }
         )
         return
+
+    # ── Fast-path: simular desconto (0 tokens LLM) ───────────────────────────
+    if not confirmation_token and _v2_is_simular_desconto_message(mensagem):
+        resposta_sim = await _v2_build_simular_desconto_response(
+            mensagem=mensagem,
+            db=db,
+            current_user=current_user,
+            request_id=request_id,
+        )
+        if resposta_sim is not None:
+            async for event in _emit_fastpath_ai_response(resposta_sim):
+                yield event
+            return
 
     # ── Fast-path: operador (aprovar/recusar/ver/enviar com ID explícito) ────
     if not confirmation_token and _v2_is_operador_fastpath_message(mensagem):
@@ -5740,6 +5836,17 @@ async def assistente_unificado_v2(
             resposta=resposta.resposta or "",
         )
         return resposta
+
+    # Simular desconto fast-path: 0 tokens LLM
+    if _v2_is_simular_desconto_message(mensagem):
+        resposta_sim = await _v2_build_simular_desconto_response(
+            mensagem=mensagem,
+            db=db,
+            current_user=current_user,
+            request_id=request_id,
+        )
+        if resposta_sim is not None:
+            return resposta_sim
 
     # OPERADOR fast-path: aprovar/recusar/ver/enviar com ID explícito → 0 tokens LLM
     if _v2_is_operador_fastpath_message(mensagem):

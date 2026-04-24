@@ -796,6 +796,17 @@ function initAssistenteChatDelegation() {
             return;
         }
 
+        const applyDisc = t.closest('[data-apply-discount]');
+        if (applyDisc) {
+            e.preventDefault();
+            const orcId = parseInt(applyDisc.getAttribute('data-apply-discount'), 10);
+            const pct = parseFloat(applyDisc.getAttribute('data-desconto-pct') || '0');
+            if (orcId && typeof window.aplicarDescontoIA === 'function') {
+                window.aplicarDescontoIA(orcId, pct);
+            }
+            return;
+        }
+
         const cp = t.closest('[data-copy-public-token]');
         if (cp) {
             e.preventDefault();

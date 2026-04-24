@@ -490,6 +490,75 @@ async def confirmar_orcamento_ia(
 # ── Endpoints Especializados (conveniência) ───────────────────────────────
 
 
+class AplicarDescontoRequest(BaseModel):
+    orcamento_id: int
+    desconto_pct: float
+
+
+@router.post("/orcamento/aplicar-desconto", response_model=AIResponse)
+async def aplicar_desconto_orcamento_ia(
+    request: AplicarDescontoRequest,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
+):
+    """Aplica desconto percentual em um orçamento diretamente (sem LLM, sem confirmação dupla)."""
+    from decimal import Decimal
+    from app.models.models import Orcamento
+    from app.utils.desconto import aplicar_desconto
+    from sqlalchemy.orm import joinedload
+
+    orc = (
+        db.query(Orcamento)
+        .options(joinedload(Orcamento.cliente), joinedload(Orcamento.itens))
+        .filter(Orcamento.id == request.orcamento_id, Orcamento.empresa_id == current_user.empresa_id)
+        .first()
+    )
+    if not orc:
+        return AIResponse(
+            sucesso=False, resposta="Orçamento não encontrado.", tipo_resposta="erro",
+            confianca=0.0, erros=["not_found"], modulo_origem="aplicar_desconto",
+        )
+
+    subtotal = sum(Decimal(str(i.total or 0)) for i in (orc.itens or []))
+    pct = Decimal(str(request.desconto_pct))
+    orc.desconto = pct
+    orc.desconto_tipo = "percentual"
+    orc.total = aplicar_desconto(subtotal, pct, "percentual")
+    db.commit()
+    db.refresh(orc)
+
+    cliente = orc.cliente
+    tem_telefone = bool(cliente and getattr(cliente, "telefone", None))
+    tem_email = bool(cliente and getattr(cliente, "email", None))
+
+    dados = {
+        "id": orc.id,
+        "numero": orc.numero,
+        "status": orc.status.value if orc.status else "rascunho",
+        "total": float(orc.total or 0),
+        "desconto": float(orc.desconto or 0),
+        "desconto_tipo": orc.desconto_tipo,
+        "cliente_nome": cliente.nome if cliente else None,
+        "cliente": {"id": cliente.id, "nome": cliente.nome} if cliente else None,
+        "itens": [
+            {"descricao": i.descricao, "quantidade": float(i.quantidade or 0),
+             "valor_unit": float(i.valor_unit or 0), "total": float(i.total or 0)}
+            for i in (orc.itens or [])
+        ],
+        "tem_telefone": tem_telefone,
+        "tem_email": tem_email,
+        "link_publico": orc.link_publico,
+    }
+    return AIResponse(
+        sucesso=True,
+        resposta="",
+        tipo_resposta="orcamento_atualizado",
+        dados=dados,
+        confianca=1.0,
+        modulo_origem="aplicar_desconto",
+    )
+
+
 @router.post("/orcamento/interpretar", response_model=AIResponse)
 async def interpretar_orcamento_rapido(
     mensagem: str,
