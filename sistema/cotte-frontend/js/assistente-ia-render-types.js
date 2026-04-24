@@ -448,12 +448,12 @@ function renderListaOrcamentos(dados) {
             : '';
 
         return `<tr>
-            <td><strong>${numero}</strong></td>
-            <td>${cliente}</td>
-            <td>${dataExibicao}</td>
-            <td><span class="opr-status-badge ${badgeClass}" style="font-size:0.7em; padding:2px 6px;">${escapeHtml(statusStr)}</span></td>
-            <td><strong>${escapeHtml(valor)}</strong></td>
-            <td>${actionBtn}</td>
+            <td data-label="Num"><strong>${numero}</strong></td>
+            <td data-label="Cliente">${cliente}</td>
+            <td data-label="${colunaDataLabel}">${dataExibicao}</td>
+            <td data-label="Status"><span class="opr-status-badge ${badgeClass}" style="font-size:0.7em; padding:2px 6px;">${escapeHtml(statusStr)}</span></td>
+            <td data-label="Total"><strong>${escapeHtml(valor)}</strong></td>
+            <td data-label="Ações">${actionBtn}</td>
         </tr>`;
     }).join('');
 

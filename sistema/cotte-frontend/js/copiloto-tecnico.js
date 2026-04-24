@@ -22,6 +22,7 @@
         breaks: true,
         gfm: true,
         headerIds: false,
+        sanitize: true,
       });
       const renderer = new marked.Renderer();
       const linkRenderer = renderer.link;
@@ -50,17 +51,126 @@
     return html;
   }
 
-  function addMessage(text, role) {
-    if (!messagesEl) return;
+  function renderChart(config, containerId) {
+    try {
+      if (typeof Chart === 'undefined') {
+        console.error('Chart.js não carregado');
+        return null;
+      }
+      var container = document.getElementById(containerId);
+      if (!container) return null;
+      
+      var canvas = document.createElement('canvas');
+      container.appendChild(canvas);
+
+      // Usar variáveis CSS para cores quando possível
+      var rootStyle = getComputedStyle(document.documentElement);
+      var primaryColor = rootStyle.getPropertyValue('--primary-color').trim() || '#2563eb';
+      var secondaryColor = rootStyle.getPropertyValue('--secondary-color').trim() || '#10b981';
+      var palette = [
+        primaryColor, secondaryColor, '#f59e0b', '#ef4444', 
+        '#8b5cf6', '#ec4899', '#0ea5e9', '#f97316'
+      ];
+      
+      // Configuração padrão para responsividade
+      var chartConfig = Object.assign({
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: { position: 'bottom' }
+          }
+        }
+      }, config);
+
+      // Aplicar paleta se as cores não foram fornecidas
+      if (chartConfig.data && Array.isArray(chartConfig.data.datasets)) {
+        chartConfig.data.datasets.forEach(function(ds, idx) {
+          var isPie = ['pie', 'doughnut'].indexOf(chartConfig.type) !== -1;
+          if (!ds.backgroundColor) {
+            ds.backgroundColor = isPie ? palette : palette[idx % palette.length];
+          }
+          if (!ds.borderColor && chartConfig.type !== 'pie' && chartConfig.type !== 'doughnut') {
+            ds.borderColor = palette[idx % palette.length];
+          }
+        });
+      }
+      
+      return new Chart(canvas.getContext('2d'), chartConfig);
+    } catch (e) {
+      console.error('Erro ao renderizar gráfico:', e);
+      return null;
+    }
+  }
+
+  async function executeAction(action, btn) {
+    btn.disabled = true;
+    btn.textContent = 'Executando...';
+
+    try {
+      if (action.type === 'api_call') {
+        if (action.method && action.method.toUpperCase() === 'DELETE') {
+          if (!confirm('Tem certeza que deseja executar esta ação destrutiva?')) {
+            btn.textContent = action.label || 'Ação';
+            btn.disabled = false;
+            return;
+          }
+        }
+        await fetch(action.endpoint, {
+          method: action.method || 'POST',
+          headers: { 'Authorization': 'Bearer ' + (window.getToken ? getToken() : '') }
+        });
+        showToast('Ação executada com sucesso!');
+      } else if (action.type === 'navigate') {
+        window.location.href = action.url;
+      } else if (action.type === 'copy') {
+        navigator.clipboard.writeText(action.text);
+        showToast('Copiado para área de transferência!');
+      }
+    } catch (e) {
+      showToast('Erro ao executar ação');
+    } finally {
+      btn.textContent = action.label || 'Ação';
+      btn.disabled = false;
+    }
+  }
+
+  function renderActionButtons(actions, container) {
+    if (!Array.isArray(actions)) return;
+    var btnContainer = document.createElement('div');
+    btnContainer.className = 'action-buttons';
+    
+    actions.forEach(function(action) {
+      var btn = document.createElement('button');
+      btn.className = 'action-btn';
+      btn.textContent = action.label || 'Ação';
+      btn.dataset.type = action.type;
+      
+      btn.addEventListener('click', function() {
+        executeAction(action, btn);
+      });
+      
+      btnContainer.appendChild(btn);
+    });
+    
+    container.appendChild(btnContainer);
+  }
+
+  function addMessage(text, role, actions) {
+    if (!messagesEl) return null;
     var node = document.createElement("div");
     node.className = "cop-msg " + (role === "user" ? "user" : "bot");
     if (role === "bot") {
       node.innerHTML = parseMarkdown(text || "");
+      if(actions) {
+        renderActionButtons(actions, node)
+      }
     } else {
       node.textContent = text || "";
     }
     messagesEl.appendChild(node);
     messagesEl.scrollTop = messagesEl.scrollHeight;
+    return node;
   }
 
   function setSending(value) {
@@ -225,7 +335,7 @@
     URL.revokeObjectURL(url);
   }
 
-  function addDownloadButtons(container, data) {
+    function addDownloadButtons(container, data) {
     if (!Array.isArray(data) || data.length === 0) return;
     
     var btnContainer = document.createElement('div');
@@ -245,6 +355,76 @@
     btnContainer.appendChild(jsonBtn);
     container.appendChild(btnContainer);
   }
+
+  function submitForm(form, schema) {
+    var formData = new FormData(form);
+    var data = {};
+    formData.forEach(function(value, key) {
+      data[key] = value;
+    });
+    
+    var message = 'Filtrar com: ' + JSON.stringify(data);
+    if (inputEl) inputEl.value = message;
+    if (sendBtn) sendBtn.click();
+  }
+
+  function renderForm(schema, container) {
+    if (!schema || !schema.fields) return;
+    
+    var form = document.createElement('form');
+    form.className = 'dynamic-form';
+    
+    if (schema.title) {
+      var title = document.createElement('h4');
+      title.textContent = schema.title;
+      form.appendChild(title);
+    }
+    
+    schema.fields.forEach(function(field) {
+      var fieldWrapper = document.createElement('div');
+      fieldWrapper.className = 'form-field';
+      
+      var label = document.createElement('label');
+      label.textContent = field.label || field.name;
+      if (field.required) label.className += ' required';
+      
+      var input;
+      if (field.type === 'select') {
+        input = document.createElement('select');
+        (field.options || []).forEach(function(opt) {
+          var optEl = document.createElement('option');
+          optEl.value = opt;
+          optEl.textContent = opt;
+          input.appendChild(optEl);
+        });
+      } else {
+        input = document.createElement('input');
+        input.type = field.type || 'text';
+      }
+      
+      input.name = field.name;
+      if (field.required) input.required = true;
+      
+      fieldWrapper.appendChild(label);
+      fieldWrapper.appendChild(input);
+      form.appendChild(fieldWrapper);
+    });
+    
+    var submitBtn = document.createElement('button');
+    submitBtn.type = 'submit';
+    submitBtn.textContent = schema.submitLabel || 'Enviar';
+    submitBtn.className = 'btn-primary';
+    form.appendChild(submitBtn);
+    
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      submitForm(form, schema);
+    });
+    
+    container.appendChild(form);
+  }
+
+  async function sendMessage() {
     if (sending || !inputEl) return;
     var raw = (inputEl.value || "").trim();
     if (!raw) return;
@@ -268,7 +448,39 @@
       if (!botReply) {
         botReply = buildTechnicalFallbackReply(payload);
       }
-      addMessage(botReply || "Sem resposta do copiloto.", "bot");
+      
+      var chartConfig = payload.chart || 
+                        (payload.data && payload.data.chart) || 
+                         (payload.dados && payload.dados.chart);
+
+      var actions = payload.actions || 
+                    (payload.data && payload.data.actions) || 
+                    (payload.dados && payload.dados.actions);
+                         
+      var msgText = botReply || (chartConfig ? "" : "Sem resposta do copiloto.");
+      var msgNode = addMessage(msgText, "bot", actions);
+
+      if (chartConfig && msgNode) {
+        var chartWrap = document.createElement("div");
+        var chartId = "chart-" + Math.random().toString(36).substr(2, 9);
+        chartWrap.id = chartId;
+        chartWrap.style.width = "100%";
+        chartWrap.style.marginTop = "12px";
+        chartWrap.style.position = "relative";
+        msgNode.appendChild(chartWrap);
+        
+        renderChart(chartConfig, chartId);
+      }
+
+             
+      var formSchema = payload.form || 
+                       (payload.data && payload.data.form) || 
+                       (payload.dados && payload.dados.form);
+
+      if (formSchema && msgNode) {
+        renderForm(formSchema, msgNode);
+      }
+
       var tIn = payload.input_tokens;
       var tOut = payload.output_tokens;
       if ((tIn > 0 || tOut > 0) && messagesEl && messagesEl.lastElementChild) {
@@ -290,7 +502,7 @@
     style.textContent = `
       .download-buttons { margin-top: 0.5em; display: flex; gap: 0.5em; }
       .download-btn { padding: 0.25em 0.75em; font-size: 0.85em; border: 1px solid #ccc; border-radius: 4px; background: #f5f5f5; cursor: pointer; }
-      .download-btn:hover { background: #e5e5e5; }
+       .download-btn:hover { background: #e5e5e5; }\n      .action-buttons { margin-top: 0.75em; display: flex; flex-wrap: wrap; gap: 0.5em; }\n      .action-btn { padding: 0.35em 0.85em; font-size: 0.9em; border: 1px solid var(--border-color, #ccc); border-radius: 6px; background: var(--primary-color, #2563eb); color: #fff; cursor: pointer; transition: background-color 0.2s ease; }\n      .action-btn:hover { background: var(--primary-dark-color, #1d4ed8); }\n      .action-btn:disabled { background: #9ca3af; cursor: not-allowed; }\n
     `;
     document.head.appendChild(style);
   })();
@@ -303,6 +515,76 @@
     if (!available) {
       addMessage("Copiloto interno indisponível para seu perfil ou ambiente atual.", "bot");
       setSending(true);
+    }
+  }
+
+  function showToast(msg) {
+    var toast = document.getElementById('copilotoToast');
+    if (!toast) return;
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(function() {
+      toast.classList.remove('show');
+    }, 3000);
+  }
+
+  function updateCharCount() {
+    var ta = document.getElementById('skillTextarea');
+    var cc = document.getElementById('charCount');
+    if (ta && cc) {
+      cc.textContent = ta.value.length;
+    }
+  }
+
+  async function loadSkill() {
+    var ta = document.getElementById('skillTextarea');
+    var api = window.ApiService || window.api;
+    if (!api || typeof api.get !== 'function' || !ta) return;
+    
+    try {
+      ta.disabled = true;
+      var res = await api.get('/ai/copiloto-interno/skill');
+      ta.value = res.skill_text || '';
+      updateCharCount();
+    } catch (e) {
+      console.error('Erro ao carregar skill:', e);
+      showToast('Erro ao carregar skill');
+    } finally {
+      ta.disabled = false;
+      ta.focus();
+    }
+  }
+
+  async function saveSkill() {
+    var ta = document.getElementById('skillTextarea');
+    var api = window.ApiService || window.api;
+    if (!api || typeof api.put !== 'function' || !ta) return;
+    
+    var skillText = ta.value.trim();
+    if (skillText.length > 0 && skillText.length < 10) {
+      showToast('Skill deve ter pelo menos 10 caracteres');
+      return;
+    }
+    
+    var btn = document.getElementById('saveSkillBtn');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Salvando...';
+    }
+    
+    try {
+      await api.put('/ai/copiloto-interno/skill', { skill_text: skillText });
+      showToast('Skill salva com sucesso!');
+      var modal = document.getElementById('copilotoSettingsModal');
+      if (modal) modal.style.display = 'none';
+    } catch (e) {
+      console.error('Erro ao salvar skill:', e);
+      showToast('Erro ao salvar skill');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Salvar';
+      }
     }
   }
 
@@ -322,6 +604,33 @@
         sendMessage();
       }
     });
+
+    var settingsBtnEl = document.getElementById('copilotoSettingsBtn');
+    var modalEl = document.getElementById('copilotoSettingsModal');
+    var cancelBtnEl = document.getElementById('cancelSkillBtn');
+    var saveSkillBtnEl = document.getElementById('saveSkillBtn');
+    var taEl = document.getElementById('skillTextarea');
+
+    if (settingsBtnEl && modalEl) {
+      settingsBtnEl.addEventListener('click', function() {
+        modalEl.style.display = 'flex';
+        loadSkill();
+      });
+      if (cancelBtnEl) {
+        cancelBtnEl.addEventListener('click', function() {
+          modalEl.style.display = 'none';
+        });
+      }
+      if (saveSkillBtnEl) {
+        saveSkillBtnEl.addEventListener('click', saveSkill);
+      }
+      if (taEl) {
+        taEl.addEventListener('input', updateCharCount);
+      }
+      modalEl.addEventListener('click', function(e) {
+        if (e.target === modalEl) modalEl.style.display = 'none';
+      });
+    }
 
     bootstrapCapabilities();
   }

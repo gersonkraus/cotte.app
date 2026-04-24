@@ -25,12 +25,12 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_
 from sqlalchemy.future import select
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, model_validator, validator
 
 from app.core.config import settings
 
 # Importar novos módulos refatorados
-from app.models.models import Usuario # Importado globalmente para type hints
+from app.models.models import Usuario, CopilotoUserSkill # Importado globalmente para type hints
 from app.services.ai_json_extractor import AIJSONExtractor
 from app.services.ai_prompt_loader import get_prompt_loader
 from app.services.ai_intention_classifier import (
@@ -57,6 +57,150 @@ _prompt_loader = get_prompt_loader()
 # ── Schemas de Resposta ────────────────────────────────────────────────────
 
 
+def _normalize_chart_data(chart_data: Any) -> Optional[dict]:
+    if not isinstance(chart_data, dict):
+        return None
+
+    chart_type = chart_data.get("type") or chart_data.get("tipo")
+    data = chart_data.get("data")
+
+    if not isinstance(data, dict):
+        dados = chart_data.get("dados")
+        if isinstance(dados, dict):
+            data = {
+                "labels": list(dados.get("labels") or []),
+                "datasets": list(dados.get("datasets") or []),
+            }
+        elif "labels" in chart_data or "datasets" in chart_data:
+            data = {
+                "labels": list(chart_data.get("labels") or []),
+                "datasets": list(chart_data.get("datasets") or []),
+            }
+
+    normalized = dict(chart_data)
+    if chart_type:
+        normalized["type"] = chart_type
+    if isinstance(data, dict):
+        normalized["data"] = data
+
+    return normalized
+
+
+def _extract_chart_data_from_payload(payload: Any) -> Optional[dict]:
+    if not isinstance(payload, dict):
+        return None
+
+    direct_chart = _normalize_chart_data(payload.get("chart_data"))
+    if direct_chart:
+        return direct_chart
+
+    grafico = payload.get("grafico")
+    grafico_chart = _normalize_chart_data(grafico)
+    if grafico_chart:
+        return grafico_chart
+
+    semantic_contract = payload.get("semantic_contract")
+    if isinstance(semantic_contract, dict):
+        semantic_chart = semantic_contract.get("chart")
+        normalized_semantic = _normalize_chart_data(semantic_chart)
+        if normalized_semantic:
+            return normalized_semantic
+
+    return None
+
+
+def _extract_table_data_from_payload(payload: Any) -> Optional[list]:
+    if not isinstance(payload, dict):
+        return None
+
+    for key in ("table_data", "table", "rows"):
+        value = payload.get(key)
+        if isinstance(value, list):
+            return list(value)
+
+    semantic_contract = payload.get("semantic_contract")
+    if isinstance(semantic_contract, dict) and isinstance(semantic_contract.get("table"), list):
+        return list(semantic_contract.get("table") or [])
+
+    return None
+
+
+def _extract_actions_from_payload(payload: Any) -> Optional[list]:
+    if not isinstance(payload, dict):
+        return None
+
+    for key in ("actions", "suggested_actions"):
+        value = payload.get(key)
+        if isinstance(value, list):
+            return list(value)
+
+    semantic_contract = payload.get("semantic_contract")
+    if isinstance(semantic_contract, dict):
+        for key in ("actions", "suggested_actions"):
+            value = semantic_contract.get(key)
+            if isinstance(value, list):
+                return list(value)
+
+    return None
+
+
+def _extract_form_schema_from_payload(payload: Any) -> Optional[dict]:
+    if not isinstance(payload, dict):
+        return None
+
+    for key in ("form_schema", "form"):
+        value = payload.get(key)
+        if isinstance(value, dict):
+            return dict(value)
+
+    semantic_contract = payload.get("semantic_contract")
+    if isinstance(semantic_contract, dict):
+        for key in ("form_schema", "form"):
+            value = semantic_contract.get(key)
+            if isinstance(value, dict):
+                return dict(value)
+
+    return None
+
+
+def _extract_interactive_ai_payload(raw_text: str) -> Optional[dict]:
+    parsed = AIJSONExtractor.extract(raw_text)
+    if not isinstance(parsed, dict):
+        return None
+
+    supported_keys = {
+        "resposta",
+        "message",
+        "tipo",
+        "dados",
+        "chart_data",
+        "table_data",
+        "actions",
+        "form_schema",
+    }
+    if supported_keys.intersection(parsed.keys()):
+        return parsed
+
+    return None
+
+
+def _build_user_skill_instruction(db: Session, current_user: Any) -> str:
+    user_id = getattr(current_user, "id", None)
+    if not user_id:
+        return ""
+
+    skill = (
+        db.query(CopilotoUserSkill)
+        .filter(CopilotoUserSkill.usuario_id == user_id)
+        .first()
+    )
+    skill_text = (getattr(skill, "skill_text", "") or "").strip()
+    if not skill_text:
+        return ""
+
+    return f"Instrução do usuário: {skill_text}"
+
+
 class AIResponse(BaseModel):
     """Resposta padronizada do COTTE AI Hub"""
 
@@ -72,6 +216,23 @@ class AIResponse(BaseModel):
     modulo_origem: str
     pending_action: Optional[dict] = None
     tool_trace: Optional[list[dict]] = None
+    chart_data: Optional[dict] = None
+    table_data: Optional[list] = None
+    actions: Optional[list] = None
+    form_schema: Optional[dict] = None
+
+    @model_validator(mode="after")
+    def _populate_interactive_fields(self):
+        payload = self.dados or {}
+        if self.chart_data is None:
+            self.chart_data = _extract_chart_data_from_payload(payload)
+        if self.table_data is None:
+            self.table_data = _extract_table_data_from_payload(payload)
+        if self.actions is None:
+            self.actions = _extract_actions_from_payload(payload)
+        if self.form_schema is None:
+            self.form_schema = _extract_form_schema_from_payload(payload)
+        return self
 
     class Config:
         json_schema_extra = {
@@ -80,6 +241,10 @@ class AIResponse(BaseModel):
                 "dados": {"cliente_nome": "João", "valor": 500.0},
                 "confianca": 0.92,
                 "modulo_origem": "orcamentos",
+                "chart_data": None,
+                "table_data": None,
+                "actions": None,
+                "form_schema": None,
             }
         }
 
@@ -2064,9 +2229,16 @@ async def assistente_unificado(
     try:
         from app.services.ia_service import ia_service
 
+        # Adicionado para buscar a skill do usuário
+        skill = db.query(CopilotoUserSkill).filter(CopilotoUserSkill.usuario_id == current_user.id).first()
+        if skill:
+            SYSTEM_PROMPT_ASSISTENTE_TURBO = SYSTEM_PROMPT_ASSISTENTE + f"\n\nINSTRUÇÕES ADICIONAIS DO USUÁRIO:\n{skill.skill_text}"
+        else:
+            SYSTEM_PROMPT_ASSISTENTE_TURBO = SYSTEM_PROMPT_ASSISTENTE
+
         response = await ia_service.chat(
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT_ASSISTENTE},
+                {"role": "system", "content": SYSTEM_PROMPT_ASSISTENTE_TURBO},
                 *messages,
             ],
             temperature=0.3,
@@ -2761,19 +2933,25 @@ async def _v2_build_operador_fastpath_response(
     )
 
     if result.status == "pending":
+        pending_action = result.pending_action or {}
         return AIResponse(
             sucesso=True,
             resposta="",
             tipo_resposta="operador_action",
             confianca=0.95,
             modulo_origem="assistente_v2",
-            pending_action=result.pending_action,
+            pending_action=pending_action,
             tool_trace=[{
                 "tool": tool_name,
                 "status": "pending",
                 "latencia_ms": result.latencia_ms,
             }],
-            dados={"input_tokens": 0, "output_tokens": 0},
+            dados={
+                **(pending_action.get("args") or {}),
+                **(pending_action.get("extras") or {}),
+                "input_tokens": 0,
+                "output_tokens": 0,
+            },
         )
 
     if result.status == "ok":
@@ -5461,6 +5639,43 @@ def _v2_build_financial_chart_payload(movimentacoes: list[dict]) -> dict | None:
     }
 
 
+def _v2_requires_ranking_clientes_capability_fallback(mensagem: str) -> bool:
+    msg = _v2_normalize_bootstrap_message(mensagem) or ""
+    if "cliente" not in msg or "ranking" not in msg:
+        return False
+    return any(
+        token in msg
+        for token in (
+            "ticket medio",
+            "ticket médio",
+            "mes anterior",
+            "mês anterior",
+            "variacao",
+            "variação",
+        )
+    )
+
+
+def _v2_build_ranking_clientes_capability_fallback() -> AIResponse:
+    resposta = (
+        "Atualmente, não há uma ferramenta disponível para montar esse ranking de clientes com ticket médio "
+        "e a variação em relação ao mês anterior manualmente. Posso gerar um ranking básico por faturamento "
+        "ou seguir com uma análise simplificada dos clientes mais relevantes."
+    )
+    return AIResponse(
+        sucesso=True,
+        resposta=resposta,
+        tipo_resposta="capability_fallback",
+        confianca=0.9,
+        modulo_origem="assistente_v2",
+        dados={
+            "capability": "ranking_clientes_indisponivel",
+            "input_tokens": 0,
+            "output_tokens": 0,
+        },
+    )
+
+
 def _tool_trace_reason(
     *,
     status: str | None,
@@ -5787,6 +6002,16 @@ async def assistente_unificado_v2(
             db=db,
             empresa_id=getattr(current_user, "empresa_id", 0),
         )
+        _v2_persist_fastpath_response(
+            sessao_id=sessao_id,
+            db=db,
+            current_user=current_user,
+            resposta=resposta.resposta or "",
+        )
+        return resposta
+
+    if _v2_requires_ranking_clientes_capability_fallback(mensagem):
+        resposta = _v2_build_ranking_clientes_capability_fallback()
         _v2_persist_fastpath_response(
             sessao_id=sessao_id,
             db=db,
@@ -6160,7 +6385,12 @@ async def _assistente_unificado_v2_legacy(
         resolved_engine=resolved_engine,
         now=now,
     )
-    allow_context_enrichment = prompt_strategy != "minimal"
+    user_skill_instruction = _build_user_skill_instruction(db, current_user)
+    if user_skill_instruction:
+        system_prompt += f"\n\n{user_skill_instruction}"
+    allow_context_enrichment = (
+        prompt_strategy != "minimal" or _v2_message_likely_requires_tools(mensagem)
+    )
 
     semantic_ctx = {}
     rag_ctx = {}
@@ -6319,6 +6549,8 @@ async def _assistente_unificado_v2_legacy(
     total_in = 0
     total_out = 0
     final_text: Optional[str] = None
+    final_tipo_resposta: Optional[str] = None
+    final_interactive_payload: Optional[dict] = None
     expanded_tools_once = False
 
     modelo_injetado = (
@@ -6571,6 +6803,24 @@ async def _assistente_unificado_v2_legacy(
                 )
                 if result.status == "pending":
                     pending_action = result.pending_action
+                    if isinstance(pending_action, dict) and not pending_action.get("extras"):
+                        try:
+                            from app.services.ai_tools.destructive_preview import (
+                                build_destructive_extras,
+                            )
+
+                            pending_action["extras"] = await build_destructive_extras(
+                                (pending_action.get("tool") or ""),
+                                pending_action.get("args") or {},
+                                db=db,
+                                current_user=current_user,
+                            )
+                        except Exception:
+                            logger.debug(
+                                "Falha ao recomputar extras da ação pendente tool=%s",
+                                pending_action.get("tool"),
+                                exc_info=True,
+                            )
 
             if pending_action:
                 final_text = ""
@@ -6579,11 +6829,24 @@ async def _assistente_unificado_v2_legacy(
             continue
 
         # Sem tool_calls → resposta final
-        final_text = (
+        raw_final_text = (
             msg.get("content")
             if isinstance(msg, dict)
             else getattr(msg, "content", None)
         ) or ""
+        interactive_payload = _extract_interactive_ai_payload(raw_final_text)
+        if interactive_payload:
+            final_interactive_payload = interactive_payload
+            final_tipo_resposta = interactive_payload.get("tipo") or final_tipo_resposta
+            final_text = (
+                interactive_payload.get("resposta")
+                or interactive_payload.get("message")
+                or interactive_payload.get("summary")
+                or interactive_payload.get("resumo")
+                or raw_final_text
+            )
+        else:
+            final_text = raw_final_text
         if finish and finish != "stop" and finish != "tool_calls":
             logger.info("v2 finish_reason inesperado: %s", finish)
         break
@@ -6616,12 +6879,22 @@ async def _assistente_unificado_v2_legacy(
             **adaptive_meta,
         }
 
+    if isinstance(final_interactive_payload, dict):
+        llm_dados = final_interactive_payload.get("dados")
+        if isinstance(llm_dados, dict):
+            dados_out = {**llm_dados, **dados_out}
+
     return AIResponse(
         sucesso=True,
         resposta=final_text or "",
+        tipo_resposta=final_tipo_resposta,
         confianca=0.9 if final_text else 0.4,
         modulo_origem="assistente_v2",
         pending_action=pending_action,
         tool_trace=tool_trace or None,
         dados=dados_out,
+        chart_data=(final_interactive_payload or {}).get("chart_data") if final_interactive_payload else None,
+        table_data=(final_interactive_payload or {}).get("table_data") if final_interactive_payload else None,
+        actions=(final_interactive_payload or {}).get("actions") if final_interactive_payload else None,
+        form_schema=(final_interactive_payload or {}).get("form_schema") if final_interactive_payload else None,
     )

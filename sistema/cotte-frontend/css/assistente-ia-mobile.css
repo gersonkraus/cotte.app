@@ -171,3 +171,148 @@
         font-size: 0.82rem;
     }
 }
+
+/* ── Mobile: correções gerais de largura e layout ───────────────────────── */
+@media (max-width: 768px) {
+
+    /* 1. Bolhas da IA — 100% da área disponível */
+    .message.ai .message-bubble {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* 2. Mensagens do usuário — conteúdo dimensionado, alinhado à direita */
+    .message.user .message-bubble {
+        width: auto;
+        max-width: 88%;
+    }
+
+    /* 3. Loading bubble — 100% */
+    .ai-loading-bubble {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: unset !important;
+        box-sizing: border-box;
+    }
+
+    /* 4. Wrapper do card v2 — 100% */
+    .message.ai .message-bubble--v2card {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box;
+    }
+
+    /* 5. Tabelas dentro do bubble */
+    .message.ai .message-bubble .ai-table-wrapper {
+        max-width: 100%;
+        width: 100%;
+    }
+
+    /* 6. Action status chips — bloco que expande com o bubble */
+    .message.ai .message-bubble .action-status-chip,
+    .message-bubble .action-status-chip {
+        display: block;
+        max-width: 100%;
+        white-space: normal;
+        word-break: break-word;
+    }
+
+    /* 7. Tool running badge — não vazar horizontalmente */
+    .tool-running-badge {
+        max-width: 90%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* 8. orc-list-card — conter dentro do bubble (evita 605px) */
+    .message.ai .message-bubble .orc-list-card {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    /* 9. Tabela de orçamentos → 2 linhas compactas por card */
+    .orc-list-card .ai-table-wrapper {
+        overflow-x: visible;
+    }
+
+    .orc-list-card .ai-table,
+    .orc-list-card .ai-table thead,
+    .orc-list-card .ai-table tbody {
+        display: block;
+        width: 100%;
+    }
+
+    .orc-list-card .ai-table thead {
+        display: none;
+    }
+
+    /* Cada linha vira um card com grid nomeado */
+    .orc-list-card .ai-table tr {
+        display: grid;
+        grid-template-areas:
+            "num    total  status"
+            "cliente cliente ver"
+            "data   data   .";
+        grid-template-columns: auto 1fr max-content;
+        grid-template-rows: auto auto auto;
+        column-gap: 8px;
+        row-gap: 2px;
+        padding: 8px 10px;
+        border: 1px solid var(--ai-border);
+        border-radius: 10px;
+        margin-bottom: 6px;
+        background: var(--ai-card);
+        box-sizing: border-box;
+        width: 100%;
+    }
+
+    .orc-list-card .ai-table td {
+        display: block;
+        padding: 0;
+        border: none;
+        font-size: 0.83rem;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+
+    .orc-list-card .ai-table td::before { display: none; }
+
+    /* Linha 1 */
+    .orc-list-card .ai-table td:nth-child(1) { /* Num */
+        grid-area: num;
+        font-weight: 700;
+        color: var(--ai-accent-dark, var(--ai-accent));
+    }
+    .orc-list-card .ai-table td:nth-child(5) { /* Total */
+        grid-area: total;
+        font-weight: 700;
+        text-align: center;
+    }
+    .orc-list-card .ai-table td:nth-child(4) { /* Status */
+        grid-area: status;
+        text-align: right;
+        white-space: nowrap;
+        overflow: visible;
+    }
+
+    /* Linha 2: Cliente + Ver */
+    .orc-list-card .ai-table td:nth-child(2) { /* Cliente */
+        grid-area: cliente;
+        font-size: 0.78rem;
+    }
+    .orc-list-card .ai-table td:nth-child(6) { /* Ver */
+        grid-area: ver;
+        text-align: right;
+        font-size: 0.78rem;
+    }
+
+    /* Linha 3: Data abaixo do Cliente */
+    .orc-list-card .ai-table td:nth-child(3) { /* Data */
+        grid-area: data;
+        font-size: 0.7rem;
+        color: var(--ai-muted);
+    }
+}

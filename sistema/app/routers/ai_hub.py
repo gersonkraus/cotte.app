@@ -8,6 +8,7 @@ import logging
 import csv
 import io
 import base64
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -21,7 +22,7 @@ from app.core.database import get_db
 from app.services.cotte_ai_hub import ai_hub, AIResponse
 from app.services.ia_service import ia_service
 from app.core.auth import get_usuario_atual as get_current_user, exigir_permissao, exigir_modulo
-from app.models.models import Usuario, HistoricoEdicao, Empresa
+from app.models.models import Usuario, HistoricoEdicao, Empresa, CopilotoUserSkill
 from app.services.assistant_engine_registry import (
     DEFAULT_ENGINE,
     ENGINE_INTERNAL_COPILOT,
@@ -157,6 +158,14 @@ class AIAssistenteRequest(BaseModel):
 class AIReportExportRequest(BaseModel):
     format: Literal["csv", "txt", "html", "pdf"] = "csv"
     printable_payload: dict = Field(default_factory=dict)
+
+class CopilotoSkillRequest(BaseModel):
+    skill_text: str = Field(..., min_length=10, max_length=2000)
+
+class CopilotoSkillResponse(BaseModel):
+    skill_text: str
+    updated_at: Optional[datetime] = None
+
 
 
 class AIConfirmarOrcamentoRequest(BaseModel):
@@ -1250,6 +1259,65 @@ async def copiloto_tecnico_consulta(
     if status_code == 200:
         return payload
     return JSONResponse(status_code=status_code, content=payload)
+
+
+@router.get("/copiloto-interno/skill", response_model=CopilotoSkillResponse)
+async def get_copiloto_skill(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
+):
+    """Recupera a skill personalizada do copiloto para o usuário atual."""
+    is_superadmin = bool(getattr(current_user, "is_superadmin", False))
+    is_gestor = bool(getattr(current_user, "is_gestor", False))
+    if not can_use_internal_copilot(is_superadmin=is_superadmin, is_gestor=is_gestor):
+        raise HTTPException(
+            status_code=403,
+            detail="Acesso ao copiloto técnico restrito a usuários internos autorizados.",
+        )
+
+    skill = db.query(CopilotoUserSkill).filter(CopilotoUserSkill.usuario_id == current_user.id).first()
+
+    if not skill:
+        return CopilotoSkillResponse(skill_text="")
+
+    return CopilotoSkillResponse(
+        skill_text=skill.skill_text,
+        updated_at=skill.updated_at,
+    )
+
+
+@router.put("/copiloto-interno/skill", response_model=CopilotoSkillResponse)
+async def put_copiloto_skill(
+    request: CopilotoSkillRequest,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("ia", "escrita")),
+):
+    """Cria ou atualiza a skill personalizada do copiloto para o usuário atual."""
+    is_superadmin = bool(getattr(current_user, "is_superadmin", False))
+    is_gestor = bool(getattr(current_user, "is_gestor", False))
+    if not can_use_internal_copilot(is_superadmin=is_superadmin, is_gestor=is_gestor):
+        raise HTTPException(
+            status_code=403,
+            detail="Acesso ao copiloto técnico restrito a usuários internos autorizados.",
+        )
+
+    skill = db.query(CopilotoUserSkill).filter(CopilotoUserSkill.usuario_id == current_user.id).first()
+
+    if not skill:
+        skill = CopilotoUserSkill(usuario_id=current_user.id, skill_text=request.skill_text)
+        db.add(skill)
+    else:
+        skill.skill_text = request.skill_text
+        skill.updated_at = datetime.utcnow()
+    
+    db.commit()
+
+    return CopilotoSkillResponse(
+        skill_text=skill.skill_text,
+        updated_at=skill.updated_at,
+    )
+
+
 
 
 @router.get("/operacional/catalogo")
