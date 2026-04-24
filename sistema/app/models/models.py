@@ -26,6 +26,17 @@ import enum
 from datetime import date
 
 
+class CopilotoUserSkill(Base):
+    __tablename__ = "copiloto_user_skills"
+    id = Column(Integer, primary_key=True, index=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), unique=True, nullable=False)
+    skill_text = Column(Text, nullable=False, default="")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    usuario = relationship("Usuario", backref="copiloto_skill", uselist=False)
+
+
 # ── PACOTES E PLANOS (v11) ──────────────────────────────────────────────────
 
 

@@ -17,23 +17,34 @@
 
   function parseMarkdown(text) {
     if (!text) return "";
+    if (typeof marked !== "undefined") {
+      marked.setOptions({
+        breaks: true,
+        gfm: true,
+        headerIds: false,
+      });
+      const renderer = new marked.Renderer();
+      const linkRenderer = renderer.link;
+      renderer.link = function(href, title, text) {
+        const html = linkRenderer.call(renderer, href, title, text);
+        return html.replace(/^<a /, '<a target="_blank" rel="noopener noreferrer" ');
+      };
+      return marked.parse(text, { renderer: renderer });
+    }
+    
     var html = text
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;");
     
-    // Code blocks: ```language ... ```
     html = html.replace(/```([a-z0-9]*)\n([\s\S]*?)```/gi, function(match, lang, code) {
       return '<pre class="code-block" data-lang="' + (lang || 'code') + '"><code>' + code + '</code></pre>';
     });
     
-    // Inline code: `code`
     html = html.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
     
-    // Bold: **text**
     html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     
-    // Line breaks
     html = html.replace(/\n/g, '<br>');
     
     return html;
@@ -178,7 +189,62 @@
     return parts.join("\n\n").trim();
   }
 
-  async function sendMessage() {
+  function downloadCSV(data, filename) {
+    if (!Array.isArray(data) || data.length === 0) return;
+    
+    var headers = Object.keys(data[0]);
+    var csv = headers.join(',') + '\n';
+    data.forEach(function(row) {
+      csv += headers.map(function(h) {
+        var val = row[h];
+        if (val === null || val === undefined) return '';
+        if (typeof val === 'string' && (val.includes(',') || val.includes('"'))) {
+          return '"' + val.replace(/"/g, '""') + '"';
+        }
+        return String(val);
+      }).join(',') + '\n';
+    });
+    
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = filename || 'dados.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadJSON(data, filename) {
+    var json = JSON.stringify(data, null, 2);
+    var blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = filename || 'dados.json';
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function addDownloadButtons(container, data) {
+    if (!Array.isArray(data) || data.length === 0) return;
+    
+    var btnContainer = document.createElement('div');
+    btnContainer.className = 'download-buttons';
+    
+    var csvBtn = document.createElement('button');
+    csvBtn.textContent = 'Baixar CSV';
+    csvBtn.className = 'download-btn';
+    csvBtn.onclick = function() { downloadCSV(data, 'dados.csv'); };
+    
+    var jsonBtn = document.createElement('button');
+    jsonBtn.textContent = 'Baixar JSON';
+    jsonBtn.className = 'download-btn';
+    jsonBtn.onclick = function() { downloadJSON(data, 'dados.json'); };
+    
+    btnContainer.appendChild(csvBtn);
+    btnContainer.appendChild(jsonBtn);
+    container.appendChild(btnContainer);
+  }
     if (sending || !inputEl) return;
     var raw = (inputEl.value || "").trim();
     if (!raw) return;
@@ -218,6 +284,16 @@
       inputEl.focus();
     }
   }
+
+  (function injectStyles() {
+    var style = document.createElement('style');
+    style.textContent = `
+      .download-buttons { margin-top: 0.5em; display: flex; gap: 0.5em; }
+      .download-btn { padding: 0.25em 0.75em; font-size: 0.85em; border: 1px solid #ccc; border-radius: 4px; background: #f5f5f5; cursor: pointer; }
+      .download-btn:hover { background: #e5e5e5; }
+    `;
+    document.head.appendChild(style);
+  })();
 
   async function bootstrapCapabilities() {
     var caps = window.CapabilityFlagsService;
