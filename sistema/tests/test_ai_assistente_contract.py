@@ -42,6 +42,10 @@ async def test_assistente_sync_contract(client, admin_token, monkeypatch):
             dados={"input_tokens": 1, "output_tokens": 1},
             pending_action={"tool": "recusar_orcamento", "confirmation_token": "tok"},
             tool_trace=[{"tool": "recusar_orcamento", "status": "pending"}],
+            chart_data={"type": "bar", "data": {"labels": ["Jan"], "datasets": []}},
+            table_data=[{"mes": "Jan", "total": 1}],
+            actions=[{"type": "api_call", "label": "Aprovar"}],
+            form_schema={"title": "Filtrar", "fields": []},
         )
 
     monkeypatch.setattr(cotte_ai_hub, "assistente_unificado_v2", fake_v2)
@@ -55,6 +59,10 @@ async def test_assistente_sync_contract(client, admin_token, monkeypatch):
     assert data["sucesso"] is True
     assert "pending_action" in data and data["pending_action"]["confirmation_token"]
     assert isinstance(data.get("tool_trace"), list)
+    assert data.get("chart_data", {}).get("type") == "bar"
+    assert isinstance(data.get("table_data"), list)
+    assert isinstance(data.get("actions"), list)
+    assert data.get("form_schema", {}).get("title") == "Filtrar"
     assert captured.get("engine") == "operational"
 
 

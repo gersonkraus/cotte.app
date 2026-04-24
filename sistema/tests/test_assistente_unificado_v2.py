@@ -32,6 +32,7 @@ from app.services.cotte_context_builder import SessionStore
 from app.models.models import (
     AIChatMensagem,
     AIChatSessao,
+    CopilotoUserSkill,
     ContaFinanceira,
     MovimentacaoCaixa,
     OrigemRegistro,
@@ -133,9 +134,103 @@ def test_loop_resposta_direta(db, monkeypatch):
     )
     assert out.sucesso is True
     assert "Olá" in (out.resposta or "")
+    assert out.chart_data is None
+    assert out.table_data is None
+    assert out.actions is None
+    assert out.form_schema is None
     # histórico foi gravado
     hist = SessionStore.get_or_create("sess-1")
     assert any(m["role"] == "assistant" for m in hist)
+
+
+def test_v2_parseia_elementos_interativos_da_resposta(db, monkeypatch):
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+
+    payload = {
+        "resposta": "Relatório interativo pronto.",
+        "tipo": "relatorio_dinamico",
+        "chart_data": {
+            "type": "bar",
+            "data": {
+                "labels": ["Jan", "Fev"],
+                "datasets": [{"label": "Vendas", "data": [10, 20]}],
+            },
+        },
+        "table_data": [
+            {"mes": "Jan", "total": 10},
+            {"mes": "Fev", "total": 20},
+        ],
+        "actions": [
+            {
+                "type": "api_call",
+                "label": "Atualizar",
+                "endpoint": "/api/v1/relatorios/atualizar",
+                "method": "POST",
+            }
+        ],
+        "form_schema": {
+            "title": "Filtrar período",
+            "fields": [{"name": "data_inicio", "type": "date", "label": "Data inicial"}],
+        },
+    }
+
+    async def fake_chat(messages, tools=None, **kw):
+        return _fake_response(content=json.dumps(payload, ensure_ascii=False), finish="stop")
+
+    monkeypatch.setattr(ia_service_module.ia_service, "chat", fake_chat)
+
+    out = _run(
+        cotte_ai_hub.assistente_unificado_v2(
+            mensagem="oi",
+            sessao_id="sess-interactive-response",
+            db=db,
+            current_user=user,
+        )
+    )
+
+    assert out.sucesso is True
+    assert out.resposta == "Relatório interativo pronto."
+    assert out.tipo_resposta == "relatorio_dinamico"
+    assert (out.chart_data or {}).get("type") == "bar"
+    assert len(out.table_data or []) == 2
+    assert (out.actions or [{}])[0].get("label") == "Atualizar"
+    assert (out.form_schema or {}).get("title") == "Filtrar período"
+
+
+def test_v2_injeta_skill_do_usuario_no_system_prompt(db, monkeypatch):
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+    db.add(
+        CopilotoUserSkill(
+            usuario_id=user.id,
+            skill_text="Sempre priorize resposta com tabela e ação de exportação.",
+        )
+    )
+    db.commit()
+
+    captured = {"messages": None}
+
+    async def fake_chat(messages, tools=None, **kw):
+        captured["messages"] = messages
+        return _fake_response(content="ok", finish="stop")
+
+    monkeypatch.setattr(ia_service_module.ia_service, "chat", fake_chat)
+
+    out = _run(
+        cotte_ai_hub.assistente_unificado_v2(
+            mensagem="oi",
+            sessao_id="sess-user-skill-prompt",
+            db=db,
+            current_user=user,
+        )
+    )
+
+    assert out.sucesso is True
+    system_blobs = [m.get("content", "") for m in (captured["messages"] or []) if m.get("role") == "system"]
+    merged = "\n".join(system_blobs)
+    assert "Instrução do usuário:" in merged
+    assert "Sempre priorize resposta com tabela e ação de exportação." in merged
 
 
 def test_loop_com_tool_call_e_resposta_final(db, monkeypatch):
@@ -868,3 +963,132 @@ def test_intencao_orcamentos_pendentes_nao_dispara_inadimplencia():
 
     assert detectar_intencao_assistente("Quais orçamentos pendentes?") != "INADIMPLENCIA"
     assert detectar_intencao_assistente("Quem está devendo?") == "INADIMPLENCIA"
+
+
+def test_resposta_com_chart_data(db, monkeypatch):
+    """Deve retornar chart_data quando houver gráficos"""
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+    payload = {
+        "resposta": "Gráfico de vendas.",
+        "chart_data": {
+            "type": "bar",
+            "data": {
+                "labels": ["Jan", "Fev"],
+                "datasets": [{"label": "Vendas", "data": [10, 20]}],
+            },
+        },
+    }
+
+    async def fake_chat(messages, tools=None, **kw):
+        return _fake_response(content=json.dumps(payload, ensure_ascii=False), finish="stop")
+
+    monkeypatch.setattr(ia_service_module.ia_service, "chat", fake_chat)
+
+    out = _run(
+        cotte_ai_hub.assistente_unificado_v2(
+            mensagem="gráfico", sessao_id="sess-chart-data", db=db, current_user=user
+        )
+    )
+
+    assert out.sucesso is True
+    assert out.resposta == "Gráfico de vendas."
+    assert (out.chart_data or {}).get("type") == "bar"
+    assert out.actions is None
+    assert out.form_schema is None
+
+
+def test_resposta_com_actions(db, monkeypatch):
+    """Deve retornar actions quando houver botões de ação"""
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+    payload = {
+        "resposta": "Ações disponíveis.",
+        "actions": [
+            {
+                "type": "api_call",
+                "label": "Confirmar",
+                "endpoint": "/api/v1/confirmar",
+                "method": "POST",
+            }
+        ],
+    }
+
+    async def fake_chat(messages, tools=None, **kw):
+        return _fake_response(content=json.dumps(payload, ensure_ascii=False), finish="stop")
+
+    monkeypatch.setattr(ia_service_module.ia_service, "chat", fake_chat)
+
+    out = _run(
+        cotte_ai_hub.assistente_unificado_v2(
+            mensagem="ações", sessao_id="sess-actions", db=db, current_user=user
+        )
+    )
+
+    assert out.sucesso is True
+    assert out.resposta == "Ações disponíveis."
+    assert (out.actions or [{}])[0].get("label") == "Confirmar"
+    assert out.chart_data is None
+    assert out.form_schema is None
+
+
+def test_resposta_com_form_schema(db, monkeypatch):
+    """Deve retornar form_schema quando houver formulários"""
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+    payload = {
+        "resposta": "Preencha o formulário.",
+        "form_schema": {
+            "title": "Novo Cliente",
+            "fields": [{"name": "nome", "type": "text", "label": "Nome"}],
+        },
+    }
+
+    async def fake_chat(messages, tools=None, **kw):
+        return _fake_response(content=json.dumps(payload, ensure_ascii=False), finish="stop")
+
+    monkeypatch.setattr(ia_service_module.ia_service, "chat", fake_chat)
+
+    out = _run(
+        cotte_ai_hub.assistente_unificado_v2(
+            mensagem="form", sessao_id="sess-form-schema", db=db, current_user=user
+        )
+    )
+
+    assert out.sucesso is True
+    assert out.resposta == "Preencha o formulário."
+    assert (out.form_schema or {}).get("title") == "Novo Cliente"
+    assert out.chart_data is None
+    assert out.actions is None
+
+
+def test_skill_injetada_no_prompt(db, monkeypatch):
+    """Deve injetar skill do usuário no system prompt"""
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+    db.add(
+        CopilotoUserSkill(
+            usuario_id=user.id,
+            skill_text="Seja um especialista em vendas.",
+        )
+    )
+    db.commit()
+
+    captured = {"messages": None}
+
+    async def fake_chat(messages, tools=None, **kw):
+        captured["messages"] = messages
+        return _fake_response(content="ok", finish="stop")
+
+    monkeypatch.setattr(ia_service_module.ia_service, "chat", fake_chat)
+
+    _run(
+        cotte_ai_hub.assistente_unificado_v2(
+            mensagem="vendas", sessao_id="sess-skill-prompt-2", db=db, current_user=user
+        )
+    )
+
+    system_blobs = [m.get("content", "") for m in (captured["messages"] or []) if m.get("role") == "system"]
+    merged = "\n".join(system_blobs)
+    assert "Instrução do usuário:" in merged
+    assert "Seja um especialista em vendas." in merged

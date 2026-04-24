@@ -211,8 +211,27 @@ def make_empresa(db, nome="Empresa Teste", telefone_operador="5511999990001", pl
     return emp
 
 
-def make_usuario(db, empresa, nome="Gestor Teste", email=None, is_gestor=True):
+def make_usuario(
+    db, empresa, nome="Gestor Teste", email=None, is_gestor=True, permissoes=None
+):
+    """Cria um usuário de teste com empresa e permissões."""
     email = email or f"gestor_{empresa.id}@teste.com"
+    # As permissões no modelo legado são um JSON, não um array.
+    # O formato esperado é {"recurso": "acao"}, mas para testes,
+    # um dict simples com chaves de recurso e valor True/False funciona
+    # para verificações de acesso básicas. Para RBAC, o ideal seria
+    # popular a tabela de papéis.
+    perm_data = {}
+    if isinstance(permissoes, (list, set)):
+        for p_str in permissoes:
+            if ":" in p_str:
+                recurso, acao = p_str.split(":", 1)
+                perm_data[recurso] = acao
+            else:
+                perm_data[p_str] = "admin"
+    elif isinstance(permissoes, dict):
+        perm_data = permissoes
+
     u = Usuario(
         empresa_id=empresa.id,
         nome=nome,
@@ -220,6 +239,7 @@ def make_usuario(db, empresa, nome="Gestor Teste", email=None, is_gestor=True):
         senha_hash="$2b$12$fakehashfakehashfakehashfakehashfakehashfakehash12",
         ativo=True,
         is_gestor=is_gestor,
+        permissoes=perm_data or {},
     )
     db.add(u)
     db.flush()
