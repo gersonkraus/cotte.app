@@ -341,6 +341,7 @@ class IntentionClassifier:
         r'^[A-Za-z]+-\d+$',
         r'\baprovar?\b',
         r'\brecusar?\b',
+        r'\benviar?\s+(?:[A-Za-z]+-\d+|\d+)\b',
         r'\benviar?\s+(or[çc]amento|orc|\d)',
         r'\bmand(a|ar)\s+(or[çc]amento|orc)\b',
         r'\bver\s+(o\s+)?(or[çc]amento|orc[-\s]?\d+)\b',

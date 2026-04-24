@@ -367,6 +367,7 @@ REGRAS DE NEGÓCIO:
 - valor: número BRUTO (antes do desconto). "700 reais" → 700.0
 - desconto: número puro (10 para 10%, 50 para R$50)
 - desconto_tipo: "percentual" (se %) ou "fixo" (se R$)
+- servico: use o nome EXATO escrito pelo usuário — não corrija ortografia, não normalize nomes incomuns (ex: "iphoney" → "iphoney", nunca "iPhone" ou "reparo em iPhone")
 - sem valor → valor: 0.0, confianca: reduzida
 - sem cliente → cliente_nome: "A definir"
 - confianca < 0.5 se dados forem incompletos ou ambíguos""",
@@ -958,6 +959,7 @@ class FallbackManual:
             r"\b(ver|mostrar?|exibir|abrir|acessar|carregar|detalhes)\b": "VER",
             r"\b(aprovar?|aceitar)\b": "APROVAR",
             r"\b(recusar?|rejeitar|negar)\b": "RECUSAR",
+            r"\b(enviar?|mandar|envia)\b.*\be[-\s]?mail\b": "ENVIAR_EMAIL",
             r"\b(enviar?|mandar|envia)\b": "ENVIAR",
             r"\b(duplicar?|copiar?|clonar?|clone)\b": "DUPLICAR",
             r"\b(criar?|novo|adicionar?)\b": "CRIAR",
@@ -2707,7 +2709,7 @@ def _v2_is_operador_fastpath_message(mensagem: str) -> bool:
         return False
     cmd = FallbackManual.extrair_comando(mensagem)
     return (
-        cmd.get("acao") in {"APROVAR", "RECUSAR", "VER", "ENVIAR", "DUPLICAR"}
+        cmd.get("acao") in {"APROVAR", "RECUSAR", "VER", "ENVIAR", "ENVIAR_EMAIL", "DUPLICAR"}
         and cmd.get("orcamento_id") is not None
     )
 
@@ -2736,8 +2738,9 @@ async def _v2_build_operador_fastpath_response(
         "VER":      ("obter_orcamento",          {"id": orcamento_id}),
         "APROVAR":  ("aprovar_orcamento",         {"orcamento_id": orcamento_id}),
         "RECUSAR":  ("recusar_orcamento",         {"orcamento_id": orcamento_id}),
-        "ENVIAR":   ("enviar_orcamento_whatsapp", {"orcamento_id": orcamento_id}),
-        "DUPLICAR": ("duplicar_orcamento",        {"orcamento_id": orcamento_id}),
+        "ENVIAR":       ("enviar_orcamento_whatsapp", {"orcamento_id": orcamento_id}),
+        "ENVIAR_EMAIL": ("enviar_orcamento_email",    {"orcamento_id": orcamento_id}),
+        "DUPLICAR":     ("duplicar_orcamento",        {"orcamento_id": orcamento_id}),
     }
     tool_entry = tool_map.get(acao)
     if not tool_entry:
