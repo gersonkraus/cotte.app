@@ -448,6 +448,25 @@ async function carregarSidebar() {
         ? `<button type="button" onclick="abrirDropdownNotificacoes(event)" style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border:none;border-radius:10px;background:var(--surface2);color:var(--text);cursor:pointer;font-size:16px">🔔<span style="position:absolute;top:2px;right:2px;background:#ef4444;color:#fff;font-size:10px;min-width:16px;height:16px;border-radius:8px;display:flex;align-items:center;justify-content:center">${count > 99 ? '99+' : count}</span></button>`
         : `<button type="button" onclick="abrirDropdownNotificacoes(event)" style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border:none;border-radius:10px;background:var(--surface2);color:var(--muted);cursor:pointer;font-size:16px">🔔</button>`;
     }
+
+    // CRM tenant (módulo comercial): exige plano pago + permissão
+    const uNav = getUsuario();
+    const navTcm = document.getElementById('nav-tenant-comercial');
+    if (navTcm && uNav && !uNav.is_superadmin) {
+      const planoNav = (emp.plano || 'trial').toLowerCase();
+      const okPlano = planoNav !== 'trial';
+      const okPerm = typeof Permissoes !== 'undefined' && Permissoes.pode('comercial', 'leitura');
+      const permsLegacy = uNav.permissoes || {};
+      const papelPerms = Array.isArray(uNav?.papel?.permissoes) ? uNav.papel.permissoes : [];
+      const hasConfigComercial =
+        Object.prototype.hasOwnProperty.call(permsLegacy, 'comercial') ||
+        papelPerms.some((perm) => typeof perm === 'string' && perm.startsWith('comercial:'));
+      // Fallback de compatibilidade: se o plano permite e o usuário antigo não
+      // possui configuração explícita de permissão comercial, exibimos o menu.
+      if (okPlano && (okPerm || !hasConfigComercial)) {
+        navTcm.style.display = 'flex';
+      }
+    }
   } catch (_) { /* silencia — sidebar mostra dados parciais */ }
 }
 
@@ -696,19 +715,28 @@ window.Permissoes = {
     
     // Superadmin e Gestor sempre podem tudo
     if (u.is_superadmin || u.is_gestor) return true;
-    
-    // Verificação no novo campo JSON 'permissoes'
-    const perms = u.permissoes || {};
-    let userAcao = perms[recurso]; // ex: 'escrita'
-    
-    if (!userAcao) return false;
 
-    
-    // 'meus' (1.5) permite leitura, bloqueia escrita — espelha o backend
-    const niveis = { 'leitura': 1, 'meus': 1.5, 'escrita': 2, 'admin': 3 };
+    const niveis = { leitura: 1, meus: 1.5, escrita: 2, exclusao: 2.5, admin: 3 };
     const nivelExigido = niveis[acao] || 1;
-    const nivelUsuario  = niveis[userAcao] || 0;
-    
+
+    // RBAC: lista no papel (modo:acao) — fonte usada pelo backend
+    const listaPapel = (u.papel && u.papel.permissoes) ? u.papel.permissoes : null;
+    if (Array.isArray(listaPapel) && listaPapel.length) {
+      for (let i = 0; i < listaPapel.length; i++) {
+        const p = listaPapel[i];
+        if (typeof p !== 'string' || p.indexOf(':') < 0) continue;
+        const sep = p.indexOf(':');
+        const mod = p.slice(0, sep);
+        const ac = p.slice(sep + 1);
+        if (mod === recurso && (niveis[ac] || 0) >= nivelExigido) return true;
+      }
+    }
+
+    // Legado: dict JSON { catalogo: "escrita" }
+    const perms = u.permissoes || {};
+    const userAcao = perms[recurso];
+    if (!userAcao) return false;
+    const nivelUsuario = niveis[userAcao] || 0;
     return nivelUsuario >= nivelExigido;
   },
   

@@ -12,7 +12,7 @@
  *   </script>
  *
  * Chaves válidas: dashboard | orcamentos | clientes | catalogo |
- *                 documentos | relatorios | financeiro | agendamentos |
+ *                 documentos | relatorios | financeiro | agendamentos | tenant-comercial |
  *                 assistente-ia | copiloto-tecnico | ai-observabilidade | usuarios | configuracoes |
  *                 comercial | admin | admin-planos | admin-config
  * (whatsapp.html usa admin-config para destacar Config Admin no menu)
@@ -114,6 +114,16 @@ const _SIDEBAR_HTML = `
         </svg>
       </span>
       Agendamentos
+    </a>
+    <a class="nav-item" data-page="tenant-comercial" href="tenant-comercial.html" id="nav-tenant-comercial" style="display:none">
+      <span class="nav-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="20" x2="12" y2="10"/>
+          <line x1="18" y1="20" x2="18" y2="4"/>
+          <line x1="6" y1="20" x2="6" y2="16"/>
+        </svg>
+      </span>
+      Comercial
     </a>
 
     <a class="nav-item nav-ia-link" data-page="assistente-ia" href="assistente-ia.html" id="nav-ia">
@@ -311,6 +321,8 @@ function inicializarLayout(pageKey, opts = {}) {
       if (!p.pode('relatorios')) document.getElementById('nav-relatorios')?.remove();
       if (!p.pode('financeiro')) document.getElementById('nav-financeiro')?.remove();
       if (!p.pode('agendamentos')) document.getElementById('nav-agendamentos')?.remove();
+      // O item "Comercial" tenant é controlado em `carregarSidebar()` (api.js),
+      // pois depende de dados assíncronos de plano/módulo. Aqui não removemos.
       if (!p.pode('ia'))         document.getElementById('nav-ia')?.remove();
       if (!p.pode('ia'))         document.getElementById('nav-copiloto')?.remove();
       if (!p.pode('equipe'))     document.getElementById('nav-equipe')?.remove();
