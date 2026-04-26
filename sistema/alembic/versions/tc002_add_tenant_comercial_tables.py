@@ -9,7 +9,6 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 
 
 # revision identifiers, used by Alembic.
@@ -22,31 +21,6 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     bind = op.get_bind()
     insp = sa.inspect(bind)
-    tipo_interacao_enum = postgresql.ENUM(
-        "OBSERVACAO",
-        "WHATSAPP",
-        "EMAIL",
-        "PROPOSTA",
-        "MUDANCA_STATUS",
-        "TAREFA",
-        "LEMBRETE",
-        "OUTRO",
-        name="tipointeracao",
-        create_type=False,
-    )
-    canal_interacao_enum = postgresql.ENUM(
-        "WHATSAPP",
-        "EMAIL",
-        "SISTEMA",
-        "LIGACAO",
-        "REUNIAO",
-        "OUTRO",
-        name="canalinteracao",
-        create_type=False,
-    )
-    # Evita falha quando o tipo já existe por execução anterior/parcial.
-    tipo_interacao_enum.create(bind, checkfirst=True)
-    canal_interacao_enum.create(bind, checkfirst=True)
     # Schema já aplicado manualmente ou migr parcial — evita DuplicateTable
     if insp.has_table("tenant_pipeline_etapas"):
         return
@@ -166,12 +140,32 @@ def upgrade() -> None:
         sa.Column("lead_id", sa.Integer(), nullable=False),
         sa.Column(
             "tipo",
-            tipo_interacao_enum,
+            sa.Enum(
+                "OBSERVACAO",
+                "WHATSAPP",
+                "EMAIL",
+                "PROPOSTA",
+                "MUDANCA_STATUS",
+                "TAREFA",
+                "LEMBRETE",
+                "OUTRO",
+                name="tipointeracao",
+                native_enum=False,
+            ),
             nullable=False,
         ),
         sa.Column(
             "canal",
-            canal_interacao_enum,
+            sa.Enum(
+                "WHATSAPP",
+                "EMAIL",
+                "SISTEMA",
+                "LIGACAO",
+                "REUNIAO",
+                "OUTRO",
+                name="canalinteracao",
+                native_enum=False,
+            ),
             nullable=True,
         ),
         sa.Column("conteudo", sa.Text(), nullable=True),
