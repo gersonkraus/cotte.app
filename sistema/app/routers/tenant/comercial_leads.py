@@ -16,6 +16,8 @@ from app.models.models import (
     LeadScore,
     TenantCommercialInteraction,
     TenantCommercialLead,
+    TenantCommercialLeadSource,
+    TenantCommercialSegment,
     TenantPipelineEtapa,
     TipoInteracao,
     Usuario,
@@ -27,15 +29,23 @@ from app.routers.tenant.tenant_comercial_serialization import (
 
 
 class LeadBase(BaseModel):
-    nome: str
+    nome: Optional[str] = None
+    nome_responsavel: Optional[str] = None
     email: Optional[EmailStr] = None
     telefone: Optional[str] = None
+    whatsapp: Optional[str] = None
+    cidade: Optional[str] = None
     segmento: Optional[str] = None
+    segmento_id: Optional[int] = None
     origem: Optional[str] = None
+    origem_lead_id: Optional[int] = None
     etapa_pipeline_id: Optional[int] = None
     valor_estimado: Optional[Decimal] = None
+    valor_proposto: Optional[Decimal] = None
+    interesse_plano: Optional[str] = None
     observacoes: Optional[str] = None
     responsavel_id: Optional[int] = None
+    empresa_id: Optional[int] = None
     nome_empresa: Optional[str] = None
     status_pipeline: Optional[str] = None
     lead_score: Optional[LeadScore] = None
@@ -137,6 +147,37 @@ def create_lead(
     usuario: Usuario = Depends(exigir_permissao("comercial", "escrita")),
 ):
     lead_data = payload.model_dump(exclude_unset=True)
+    if not lead_data.get("nome") and lead_data.get("nome_responsavel"):
+        lead_data["nome"] = lead_data.get("nome_responsavel")
+    if not lead_data.get("telefone") and lead_data.get("whatsapp"):
+        lead_data["telefone"] = lead_data.get("whatsapp")
+    if lead_data.get("valor_estimado") is None and lead_data.get("valor_proposto") is not None:
+        lead_data["valor_estimado"] = lead_data.get("valor_proposto")
+    if not lead_data.get("segmento") and lead_data.get("segmento_id"):
+        seg = (
+            db.query(TenantCommercialSegment)
+            .filter(
+                TenantCommercialSegment.id == lead_data["segmento_id"],
+                TenantCommercialSegment.empresa_id == usuario.empresa_id,
+            )
+            .first()
+        )
+        if seg:
+            lead_data["segmento"] = seg.nome
+    if not lead_data.get("origem") and lead_data.get("origem_lead_id"):
+        origem = (
+            db.query(TenantCommercialLeadSource)
+            .filter(
+                TenantCommercialLeadSource.id == lead_data["origem_lead_id"],
+                TenantCommercialLeadSource.empresa_id == usuario.empresa_id,
+            )
+            .first()
+        )
+        if origem:
+            lead_data["origem"] = origem.nome
+    if not lead_data.get("nome"):
+        raise HTTPException(status_code=422, detail="Campo 'nome' (ou 'nome_responsavel') é obrigatório.")
+
     if lead_data.get("etapa_pipeline_id") is None:
         lead_data["etapa_pipeline_id"] = _etapa_padrao(db, usuario.empresa_id)
 
@@ -298,7 +339,36 @@ def update_lead(
     usuario: Usuario = Depends(exigir_permissao("comercial", "escrita")),
 ):
     lead = _buscar_lead(db, usuario.empresa_id, lead_id)
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    data = payload.model_dump(exclude_unset=True)
+    if not data.get("nome") and data.get("nome_responsavel"):
+        data["nome"] = data.get("nome_responsavel")
+    if not data.get("telefone") and data.get("whatsapp"):
+        data["telefone"] = data.get("whatsapp")
+    if data.get("valor_estimado") is None and data.get("valor_proposto") is not None:
+        data["valor_estimado"] = data.get("valor_proposto")
+    if not data.get("segmento") and data.get("segmento_id"):
+        seg = (
+            db.query(TenantCommercialSegment)
+            .filter(
+                TenantCommercialSegment.id == data["segmento_id"],
+                TenantCommercialSegment.empresa_id == usuario.empresa_id,
+            )
+            .first()
+        )
+        if seg:
+            data["segmento"] = seg.nome
+    if not data.get("origem") and data.get("origem_lead_id"):
+        origem = (
+            db.query(TenantCommercialLeadSource)
+            .filter(
+                TenantCommercialLeadSource.id == data["origem_lead_id"],
+                TenantCommercialLeadSource.empresa_id == usuario.empresa_id,
+            )
+            .first()
+        )
+        if origem:
+            data["origem"] = origem.nome
+    for field, value in data.items():
         setattr(lead, field, value)
     lead.atualizado_em = datetime.now(timezone.utc)
     sync_lead_status_from_etapa(db, lead)
