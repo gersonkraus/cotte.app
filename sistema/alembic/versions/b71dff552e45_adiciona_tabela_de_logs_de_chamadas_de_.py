@@ -31,6 +31,11 @@ def upgrade() -> None:
             return False
         return index_name in {idx["name"] for idx in inspect(bind).get_indexes(table_name)}
 
+    def has_column(table_name: str, column_name: str) -> bool:
+        if not has_table(table_name):
+            return False
+        return column_name in {col["name"] for col in inspect(bind).get_columns(table_name)}
+
     def has_fk(table_name: str, constraint_name: str) -> bool:
         if not has_table(table_name):
             return False
@@ -60,15 +65,15 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(['user_id'], ['usuarios.id'], ),
         sa.PrimaryKeyConstraint('id')
         )
-    if not has_index('tool_call_logs', op.f('ix_tool_call_logs_empresa_id')):
+    if has_column('tool_call_logs', 'empresa_id') and not has_index('tool_call_logs', op.f('ix_tool_call_logs_empresa_id')):
         op.create_index(op.f('ix_tool_call_logs_empresa_id'), 'tool_call_logs', ['empresa_id'], unique=False)
-    if not has_index('tool_call_logs', op.f('ix_tool_call_logs_id')):
+    if has_column('tool_call_logs', 'id') and not has_index('tool_call_logs', op.f('ix_tool_call_logs_id')):
         op.create_index(op.f('ix_tool_call_logs_id'), 'tool_call_logs', ['id'], unique=False)
-    if not has_index('tool_call_logs', op.f('ix_tool_call_logs_sessao_id')):
+    if has_column('tool_call_logs', 'sessao_id') and not has_index('tool_call_logs', op.f('ix_tool_call_logs_sessao_id')):
         op.create_index(op.f('ix_tool_call_logs_sessao_id'), 'tool_call_logs', ['sessao_id'], unique=False)
-    if not has_index('tool_call_logs', op.f('ix_tool_call_logs_tool_name')):
+    if has_column('tool_call_logs', 'tool_name') and not has_index('tool_call_logs', op.f('ix_tool_call_logs_tool_name')):
         op.create_index(op.f('ix_tool_call_logs_tool_name'), 'tool_call_logs', ['tool_name'], unique=False)
-    if not has_index('tool_call_logs', op.f('ix_tool_call_logs_user_id')):
+    if has_column('tool_call_logs', 'user_id') and not has_index('tool_call_logs', op.f('ix_tool_call_logs_user_id')):
         op.create_index(op.f('ix_tool_call_logs_user_id'), 'tool_call_logs', ['user_id'], unique=False)
     op.alter_column('assistente_preferencias_usuario', 'modulos_ativos',
                existing_type=postgresql.JSONB(astext_type=sa.Text()),
