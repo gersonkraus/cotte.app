@@ -143,9 +143,9 @@ def upgrade() -> None:
         "proposta_comercial",
         "email_comercial",
         name="tipotemplate",
-        create_type=False,
+        native_enum=False,
     )
-    canaltemplate = sa.Enum("whatsapp", "email", "ambos", name="canaltemplate", create_type=False)
+    canaltemplate = sa.Enum("whatsapp", "email", "ambos", name="canaltemplate", native_enum=False)
 
     op.create_table(
         "tenant_commercial_templates",
@@ -170,10 +170,10 @@ def upgrade() -> None:
     )
 
     statuslembrete = sa.Enum(
-        "pendente", "concluido", "atrasado", name="statuslembrete", create_type=False
+        "pendente", "concluido", "atrasado", name="statuslembrete", native_enum=False
     )
     canalsugerido = sa.Enum(
-        "whatsapp", "email", "ligacao", "reuniao", name="canalsugerido", create_type=False
+        "whatsapp", "email", "ligacao", "reuniao", name="canalsugerido", native_enum=False
     )
 
     op.create_table(
@@ -325,7 +325,7 @@ def upgrade() -> None:
         "expirada",
         "substituida",
         name="statusproposta",
-        create_type=False,
+        native_enum=False,
     )
 
     op.create_table(
