@@ -74,6 +74,11 @@ from app.routers.ai_hub import router as ai_hub_router
 from app.routers.admin_planos import router as admin_planos_router
 from app.routers.papeis import router as papeis_router
 from app.routers.agendamentos import router as agendamentos_router
+from app.routers.tenant.comercial_leads import router as tenant_comercial_leads_router
+from app.routers.tenant.comercial_pipeline import router as tenant_comercial_pipeline_router
+from app.routers.tenant.comercial_propostas import router as tenant_comercial_propostas_router
+from app.routers.tenant.comercial_dashboard import router as tenant_comercial_dashboard_router
+from app.routers.tenant.comercial_config import router as tenant_comercial_config_router
 
 
 # Rotas serão importadas e incluídas dinamicamente para facilitar os testes.
@@ -290,6 +295,11 @@ def include_routers(app: FastAPI):
         (admin_planos_router, "/api/v1"),
         (papeis_router, "/api/v1"),
         (agendamentos_router, "/api/v1"),
+        (tenant_comercial_leads_router, "/api/v1/tenant/comercial"),
+        (tenant_comercial_pipeline_router, "/api/v1/tenant/comercial"),
+        (tenant_comercial_propostas_router, "/api/v1/tenant/comercial"),
+        (tenant_comercial_dashboard_router, "/api/v1/tenant/comercial"),
+        (tenant_comercial_config_router, "/api/v1/tenant/comercial"),
     ]
 
     import logging

@@ -2,14 +2,21 @@
 Fixtures compartilhadas para todos os testes do COTTE.
 
 Estratégia:
-- Banco SQLite em memória (sem PostgreSQL necessário)
+- Banco SQLite em arquivo (sem PostgreSQL necessário)
 - Serviços externos mockados: WhatsApp, Claude AI, PDF
 - Fábricas de objetos para criar Empresa, Usuario, Cliente, Orcamento
 """
+
 import os
+import secrets
+from decimal import Decimal
+from unittest.mock import AsyncMock, patch
+
 import pytest
 import pytest_asyncio
-import secrets
+from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import Session, joinedload, sessionmaker
 
 # ── Variáveis de ambiente ANTES de qualquer import do app ──────────────────
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test_cotte.db")
@@ -19,42 +26,49 @@ os.environ.setdefault("WHATSAPP_PROVIDER", "zapi")
 os.environ.setdefault("ADMIN_SETUP_KEY", "test-admin-setup-key-only-for-tests")
 os.environ.setdefault("ZAPI_CLIENT_TOKEN", "test-zapi-client-token")
 os.environ.setdefault("EVOLUTION_API_KEY", "test-evolution-api-key")
-os.environ.setdefault("API_V1_STR", "/api/v1")  # usado por alguns testes financeiros
-
-from unittest.mock import AsyncMock, MagicMock, patch
-
-from fastapi import FastAPI, APIRouter, Depends # Importar FastAPI e APIRouter
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+os.environ.setdefault("API_V1_STR", "/api/v1")
 
 from tests.asgi_client import SyncASGIClient
 
 from app.core.database import Base, get_db
 from app.models.models import (
-    Cliente, Empresa, ItemOrcamento, Orcamento, StatusOrcamento, Usuario,
+    Cliente,
+    Empresa,
+    ItemOrcamento,
+    ModuloSistema,
+    Orcamento,
+    Plano,
+    PlanoModulo,
+    StatusOrcamento,
+    Usuario,
 )
 
-# ── Engine SQLite para testes ───────────────────────────────────────────────
+# ── Engines SQLite para testes ──────────────────────────────────────────────
 SQLITE_URL = "sqlite+aiosqlite:///./test_cotte.db"
 async_engine_test = create_async_engine(
-    SQLITE_URL, connect_args={"check_same_thread": False}
+    SQLITE_URL,
+    connect_args={"check_same_thread": False},
 )
-TestingAsyncSessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=async_engine_test, class_=AsyncSession)
+TestingAsyncSessionLocal = async_sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=async_engine_test,
+    class_=AsyncSession,
+)
 
-async def override_get_async_db():
-    async with TestingAsyncSessionLocal() as session:
-        yield session
-
-# ── Sync engine e session (para testes que usam TestClient síncrono) ───────────
 sync_engine_test = create_engine(
-    "sqlite:///./test_cotte.db", connect_args={"check_same_thread": False}
+    "sqlite:///./test_cotte.db",
+    connect_args={"check_same_thread": False},
 )
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=sync_engine_test)
+TestingSessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=sync_engine_test,
+)
 
 
 def override_get_db():
-    """Dependency sync para uso com TestClient (FastAPI síncrono)."""
+    """Dependency sync para uso com TestClient."""
     db = TestingSessionLocal()
     try:
         yield db
@@ -62,20 +76,26 @@ def override_get_db():
         db.close()
 
 
+async def override_get_async_db():
+    """Dependency async para uso com AsyncClient."""
+    async with TestingAsyncSessionLocal() as session:
+        yield session
+
+
 # ── Patches de serviços externos (aplicados em toda a sessão de testes) ─────
 PATCHES = [
-    patch("app.services.whatsapp_bot_service.enviar_mensagem_texto",    new_callable=AsyncMock),
+    patch("app.services.whatsapp_bot_service.enviar_mensagem_texto", new_callable=AsyncMock),
     patch("app.services.whatsapp_bot_service.enviar_orcamento_completo", new_callable=AsyncMock),
-    patch("app.services.whatsapp_bot_service.interpretar_mensagem",      new_callable=AsyncMock),
+    patch("app.services.whatsapp_bot_service.interpretar_mensagem", new_callable=AsyncMock),
     patch("app.services.whatsapp_bot_service.interpretar_comando_operador", new_callable=AsyncMock),
-    patch("app.services.whatsapp_bot_service.gerar_resposta_bot",        new_callable=AsyncMock),
-    patch("app.services.whatsapp_bot_service.gerar_pdf_orcamento",       return_value=b"%PDF-fake"),
-patch("app.services.whatsapp_bot_service.handle_quote_status_changed", new_callable=AsyncMock),
+    patch("app.services.whatsapp_bot_service.gerar_resposta_bot", new_callable=AsyncMock),
+    patch("app.services.whatsapp_bot_service.gerar_pdf_orcamento", return_value=b"%PDF-fake"),
+    patch("app.services.whatsapp_bot_service.handle_quote_status_changed", new_callable=AsyncMock),
     patch("app.routers.publico.notificar_operador_visualizacao", new_callable=AsyncMock),
-    patch("app.routers.publico.notificar_operador_recusa",   new_callable=AsyncMock),
+    patch("app.routers.publico.notificar_operador_recusa", new_callable=AsyncMock),
     patch("app.routers.publico.handle_quote_status_changed", new_callable=AsyncMock),
-    patch("app.routers.publico.enviar_mensagem_texto",       new_callable=AsyncMock),
-    patch("app.routers.publico.email_habilitado",            return_value=False),
+    patch("app.routers.publico.enviar_mensagem_texto", new_callable=AsyncMock),
+    patch("app.routers.publico.email_habilitado", return_value=False),
     patch("app.routers.publico.enviar_email_confirmacao_aceite", return_value=True),
     patch("app.services.plano_service.ia_automatica_habilitada", return_value=True),
     patch("app.services.plano_service.checar_limite_orcamentos", return_value=None),
@@ -91,7 +111,6 @@ async def setup_database():
     async with async_engine_test.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
     await async_engine_test.dispose()
-
 
 
 @pytest_asyncio.fixture
@@ -118,7 +137,7 @@ def mock_services():
 
 @pytest.fixture
 def http_client(mock_services, setup_database, clean_tables):
-    """Cliente síncrono (para testes públicos, webhook, etc.)."""
+    """Cliente síncrono para testes ASGI."""
     from app.main import app as main_app
 
     main_app.dependency_overrides[get_db] = override_get_db
@@ -128,7 +147,7 @@ def http_client(mock_services, setup_database, clean_tables):
 
 @pytest.fixture
 def db(setup_database):
-    """Sessão de banco de dados síncrona para uso com TestClient."""
+    """Sessão de banco síncrona para uso com TestClient."""
     db = TestingSessionLocal()
     try:
         yield db
@@ -138,16 +157,14 @@ def db(setup_database):
 
 @pytest_asyncio.fixture
 async def db_session(setup_database) -> AsyncSession:
-    """Sessão de banco de dados assíncrona por teste (isolamento completo)."""
+    """Sessão assíncrona por teste."""
     async with TestingAsyncSessionLocal() as session:
         yield session
 
 
-# ── Fixtures para testes financeiros (AsyncClient + auth) ──────────────────
-
 @pytest_asyncio.fixture
 async def empresa_id(db_session: AsyncSession) -> int:
-    """ID da empresa de teste criada por teste (isolamento)."""
+    """ID da empresa de teste criada por teste."""
     emp = Empresa(
         nome="Empresa Teste Financeiro",
         telefone_operador="5511999990001",
@@ -164,6 +181,7 @@ async def empresa_id(db_session: AsyncSession) -> int:
 async def admin_token(db_session: AsyncSession, empresa_id: int) -> str:
     """Token JWT válido para testes que exigem autenticação admin."""
     import uuid
+
     from app.core.auth import criar_token
 
     user = Usuario(
@@ -183,27 +201,81 @@ async def admin_token(db_session: AsyncSession, empresa_id: int) -> str:
         raise
     await db_session.refresh(user)
 
-    token = criar_token(data={"sub": str(user.id), "v": 1})
-    return token
+    return criar_token(data={"sub": str(user.id), "v": 1})
 
 
 @pytest_asyncio.fixture
 async def client(mock_services, setup_database):
-    """AsyncClient (httpx) para testes async com FastAPI."""
-    from httpx import AsyncClient, ASGITransport
+    """AsyncClient para testes async com FastAPI."""
+    from httpx import ASGITransport, AsyncClient
     from app.main import app as main_app
 
-    main_app.dependency_overrides[get_db] = override_get_db
+    main_app.dependency_overrides[get_db] = override_get_async_db
 
     transport = ASGITransport(app=main_app, raise_app_exceptions=False)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as c:
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://testserver",
+    ) as c:
         yield c
 
     main_app.dependency_overrides.clear()
 
 
-# ── Fábricas de objetos de teste ────────────────────────────────────────────
+# ── Fixtures de apoio ao módulo comercial tenant ────────────────────────────
+@pytest.fixture
+def seed_base_data(db: Session):
+    """Cria plano com módulo comercial habilitado."""
+    modulo = db.query(ModuloSistema).filter(ModuloSistema.slug == "comercial").first()
+    if modulo is None:
+        modulo = ModuloSistema(
+            nome="Comercial",
+            slug="comercial",
+            descricao="CRM de leads, pipeline e propostas",
+            acoes=["leitura", "escrita", "exclusao", "admin"],
+        )
+        db.add(modulo)
+        db.flush()
 
+    plano = Plano(
+        nome="Plano Comercial Teste",
+        preco_mensal=Decimal("99.90"),
+        ativo=True,
+    )
+    db.add(plano)
+    db.flush()
+
+    db.add(PlanoModulo(plano_id=plano.id, modulo_id=modulo.id))
+    db.commit()
+
+    return (
+        db.query(Plano)
+        .options(joinedload(Plano.modulos))
+        .filter(Plano.id == plano.id)
+        .first()
+    )
+
+
+@pytest.fixture
+def empresa_com_plano(db: Session, seed_base_data: Plano):
+    """Cria empresa com plano que possui o módulo comercial."""
+    empresa = Empresa(
+        nome=f"Empresa Teste Comercial {seed_base_data.id}",
+        telefone_operador="5511999990001",
+        ativo=True,
+        plano_id=seed_base_data.id,
+    )
+    db.add(empresa)
+    db.commit()
+    return (
+        db.query(Empresa)
+        .options(joinedload(Empresa.pacote).joinedload(Plano.modulos))
+        .filter(Empresa.id == empresa.id)
+        .first()
+    )
+
+
+# ── Fábricas de objetos de teste ────────────────────────────────────────────
 def make_empresa(db, nome="Empresa Teste", telefone_operador="5511999990001", plano="pro"):
     emp = Empresa(nome=nome, telefone_operador=telefone_operador, plano=plano)
     db.add(emp)
@@ -212,15 +284,15 @@ def make_empresa(db, nome="Empresa Teste", telefone_operador="5511999990001", pl
 
 
 def make_usuario(
-    db, empresa, nome="Gestor Teste", email=None, is_gestor=True, permissoes=None
+    db,
+    empresa,
+    nome="Gestor Teste",
+    email=None,
+    is_gestor=True,
+    permissoes=None,
 ):
     """Cria um usuário de teste com empresa e permissões."""
     email = email or f"gestor_{empresa.id}@teste.com"
-    # As permissões no modelo legado são um JSON, não um array.
-    # O formato esperado é {"recurso": "acao"}, mas para testes,
-    # um dict simples com chaves de recurso e valor True/False funciona
-    # para verificações de acesso básicas. Para RBAC, o ideal seria
-    # popular a tabela de papéis.
     perm_data = {}
     if isinstance(permissoes, (list, set)):
         for p_str in permissoes:
@@ -254,14 +326,17 @@ def make_cliente(db, empresa, nome="Cliente Teste", telefone="5511988880001"):
 
 
 def make_orcamento(
-    db, empresa, cliente, usuario,
+    db,
+    empresa,
+    cliente,
+    usuario,
     status=StatusOrcamento.ENVIADO,
     total=500.0,
     link_publico=None,
     numero=None,
 ):
     link_publico = link_publico or secrets.token_urlsafe(12)
-    numero = numero or f"ORC-1-26"
+    numero = numero or "ORC-1-26"
     orc = Orcamento(
         empresa_id=empresa.id,
         cliente_id=cliente.id,

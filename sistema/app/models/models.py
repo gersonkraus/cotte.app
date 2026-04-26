@@ -1281,6 +1281,104 @@ class PropostaVisualizacao(Base):
     proposta_enviada = relationship("PropostaEnviada", back_populates="visualizacoes")
 
 
+# ── Tenant Commercial Models ──────────────────────────────────────────────────
+
+
+class TenantCommercialLead(TenantScopedMixin, Base):
+    __tablename__ = "tenant_commercial_leads"
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False, index=True)
+    nome = Column(String(200), nullable=False)
+    email = Column(String(150), nullable=True)
+    telefone = Column(String(20), nullable=True)
+    segmento = Column(String(100), nullable=True)
+    origem = Column(String(100), nullable=True)
+    etapa_pipeline_id = Column(Integer, ForeignKey("tenant_pipeline_etapas.id"), nullable=True)
+    valor_estimado = Column(Numeric(12, 2), nullable=True)
+    observacoes = Column(Text, nullable=True)
+    ativo = Column(Boolean, default=True)
+    criado_em = Column(DateTime(timezone=True), server_default=func.now())
+    atualizado_em = Column(DateTime(timezone=True), onupdate=func.now())
+
+    interacoes = relationship(
+        "TenantCommercialInteraction",
+        back_populates="lead",
+        cascade="all, delete-orphan",
+        order_by="TenantCommercialInteraction.criado_em.desc()",
+    )
+    empresa = relationship("Empresa")
+    responsavel_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    responsavel = relationship("Usuario")
+
+
+class TipoInteracao(str, enum.Enum):
+    OBSERVACAO = "observacao"
+    WHATSAPP = "whatsapp"
+    EMAIL = "email"
+    PROPOSTA = "proposta"
+    MUDANCA_STATUS = "mudanca_status"
+    TAREFA = "tarefa"
+    LEMBRETE = "lembrete"
+    OUTRO = "outro"
+
+class CanalInteracao(str, enum.Enum):
+    WHATSAPP = "whatsapp"
+    EMAIL = "email"
+    SISTEMA = "sistema"
+    LIGACAO = "ligacao"
+    REUNIAO = "reuniao"
+    OUTRO = "outro"
+
+class TenantCommercialInteraction(TenantScopedMixin, Base):
+    """Histórico de interações com leads comerciais do tenant."""
+
+    __tablename__ = "tenant_commercial_interactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False, index=True)
+    lead_id = Column(
+        Integer, ForeignKey("tenant_commercial_leads.id"), nullable=False, index=True
+    )
+    tipo = Column(Enum(TipoInteracao), nullable=False)
+    canal = Column(Enum(CanalInteracao), nullable=True)
+    conteudo = Column(Text, nullable=True)
+    criado_em = Column(DateTime(timezone=True), server_default=func.now())
+
+    lead = relationship("TenantCommercialLead", back_populates="interacoes")
+
+
+class TenantPipelineEtapa(TenantScopedMixin, Base):
+    __tablename__ = "tenant_pipeline_etapas"
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False, index=True)
+    nome = Column(String(100), nullable=False)
+    ordem = Column(Integer, default=0)
+    cor = Column(String(7), default="#6B7280")
+    ativo = Column(Boolean, default=True)
+
+
+class TenantProposta(TenantScopedMixin, Base):
+    __tablename__ = "tenant_propostas"
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False, index=True)
+    lead_id = Column(Integer, ForeignKey("tenant_commercial_leads.id"), nullable=False)
+    titulo = Column(String(200), nullable=False)
+    descricao = Column(Text, nullable=True)
+    valor_total = Column(Numeric(12, 2), nullable=True)
+    status = Column(String(50), default="rascunho")
+    enviada_em = Column(DateTime(timezone=True), nullable=True)
+    criado_em = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class TenantConfig(TenantScopedMixin, Base):
+    __tablename__ = "tenant_configs"
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False, index=True)
+    tipo = Column(String(50), nullable=False)
+    nome = Column(String(100), nullable=False)
+    ativo = Column(Boolean, default=True)
+
+
 # ── Lead Comercial (refatorado) ──────────────────────────────────────────
 
 
