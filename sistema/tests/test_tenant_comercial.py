@@ -28,7 +28,17 @@ from app.models.models import (
     TenantProposta,
     Usuario,
 )
-from app.routers.tenant import comercial_dashboard, comercial_leads, comercial_pipeline, comercial_propostas
+from app.routers.tenant import (
+    comercial_campaigns,
+    comercial_dashboard,
+    comercial_import,
+    comercial_interacoes,
+    comercial_leads,
+    comercial_pipeline,
+    comercial_propostas,
+    comercial_propostas_publicas,
+    comercial_templates,
+)
 from tests.conftest import make_empresa, make_usuario
 
 
@@ -66,16 +76,29 @@ def _tenant_readonly_user(empresa):
 
 @pytest.fixture
 def empresa_com_modulo(db):
-    modulo = ModuloSistema(
-        nome="Comercial",
-        slug="comercial",
-        descricao="CRM tenant",
-        acoes=["leitura", "escrita", "exclusao", "admin"],
-    )
+    modulo = db.query(ModuloSistema).filter(ModuloSistema.slug == "comercial").first()
+    if modulo is None:
+        modulo = ModuloSistema(
+            nome="Comercial",
+            slug="comercial",
+            descricao="CRM tenant",
+            acoes=["leitura", "escrita", "exclusao", "admin"],
+        )
+        db.add(modulo)
+        db.flush()
     plano = Plano(nome="Plano Comercial", preco_mensal=99.90, ativo=True)
-    db.add_all([modulo, plano])
+    db.add(plano)
     db.flush()
-    db.add(PlanoModulo(plano_id=plano.id, modulo_id=modulo.id))
+    if (
+        db.query(PlanoModulo)
+        .filter(
+            PlanoModulo.plano_id == plano.id,
+            PlanoModulo.modulo_id == modulo.id,
+        )
+        .first()
+        is None
+    ):
+        db.add(PlanoModulo(plano_id=plano.id, modulo_id=modulo.id))
     empresa = Empresa(
         nome="Empresa Comercial",
         telefone_operador="5511999990001",
@@ -119,16 +142,21 @@ def make_tenant_etapa(db, empresa_id, nome="Novo", ordem=1, cor="#3498db"):
 
 def make_tenant_lead(db, empresa_id, responsavel_id=None, **overrides):
     if responsavel_id is None:
-        empresa = db.query(Empresa).filter_by(id=empresa_id).first()
-        usuario = make_usuario(
-            db,
-            empresa,
-            nome="Lead Responsavel",
-            email=f"lead_resp_{empresa_id}@test.com",
-            is_gestor=False,
-            permissoes={"comercial": "escrita"},
-        )
-        responsavel_id = usuario.id
+        email_r = f"lead_resp_{empresa_id}@test.com"
+        existente = db.query(Usuario).filter(Usuario.email == email_r).first()
+        if existente:
+            responsavel_id = existente.id
+        else:
+            empresa = db.query(Empresa).filter_by(id=empresa_id).first()
+            usuario = make_usuario(
+                db,
+                empresa,
+                nome="Lead Responsavel",
+                email=email_r,
+                is_gestor=False,
+                permissoes={"comercial": "escrita"},
+            )
+            responsavel_id = usuario.id
 
     etapa = (
         db.query(TenantPipelineEtapa)
@@ -323,10 +351,10 @@ class TestTenantDashboard:
         make_tenant_lead(db, empresa_com_modulo.id, nome="Lead 2")
         db.commit()
         data = comercial_dashboard.get_dashboard(db=db, usuario=user)
-        assert data["total_leads"] >= 2
-        assert "leads_por_etapa" in data
-        assert "leads_novos_hoje" in data
-        assert "leads_recentes" in data
+        assert data.total_leads >= 2
+        assert data.novos >= 0
+        assert data.propostas_enviadas >= 0
+        assert data.follow_ups_hoje >= 0
 
 
 class TestTenantIsolation:
@@ -340,8 +368,8 @@ class TestTenantIsolation:
         db.commit()
 
         data = comercial_leads.list_leads(db=db, usuario=user)
-        assert any(item.id == lead_a.id for item in data["items"])
-        assert all(item.id != lead_b.id for item in data["items"])
+        assert any(item["id"] == lead_a.id for item in data["items"])
+        assert all(item["id"] != lead_b.id for item in data["items"])
 
         with pytest.raises(HTTPException) as exc:
             comercial_leads.get_lead(lead_b.id, db=db, usuario=user)
@@ -359,3 +387,15 @@ class TestTenantIsolation:
         etapas = comercial_pipeline.list_etapas(db=db, usuario=user)
         assert any(item.id == etapa_a.id for item in etapas)
         assert all(item.id != etapa_b.id for item in etapas)
+
+
+class TestTenantGuardrails:
+    def test_tenant_nao_cria_empresa_do_lead(self):
+        with pytest.raises(HTTPException) as exc:
+            comercial_leads.tenant_forbidden_criar_empresa(1)
+        assert exc.value.status_code == 403
+
+    def test_tenant_nao_reenvia_senha_do_lead(self):
+        with pytest.raises(HTTPException) as exc:
+            comercial_leads.tenant_forbidden_reenviar_senha(1)
+        assert exc.value.status_code == 403

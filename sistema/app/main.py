@@ -76,9 +76,19 @@ from app.routers.papeis import router as papeis_router
 from app.routers.agendamentos import router as agendamentos_router
 from app.routers.tenant.comercial_leads import router as tenant_comercial_leads_router
 from app.routers.tenant.comercial_pipeline import router as tenant_comercial_pipeline_router
+from app.routers.tenant.comercial_pipeline import (
+    router_stages as tenant_comercial_pipeline_stages_router,
+)
 from app.routers.tenant.comercial_propostas import router as tenant_comercial_propostas_router
 from app.routers.tenant.comercial_dashboard import router as tenant_comercial_dashboard_router
 from app.routers.tenant.comercial_config import router as tenant_comercial_config_router
+from app.routers.tenant.comercial_templates import router as tenant_comercial_templates_router
+from app.routers.tenant.comercial_interacoes import router as tenant_comercial_interacoes_router
+from app.routers.tenant.comercial_import import router as tenant_comercial_import_router
+from app.routers.tenant.comercial_campaigns import router as tenant_comercial_campaigns_router
+from app.routers.tenant.comercial_propostas_publicas import (
+    router as tenant_comercial_propostas_publicas_router,
+)
 
 
 # Rotas serão importadas e incluídas dinamicamente para facilitar os testes.
@@ -297,9 +307,15 @@ def include_routers(app: FastAPI):
         (agendamentos_router, "/api/v1"),
         (tenant_comercial_leads_router, "/api/v1/tenant/comercial"),
         (tenant_comercial_pipeline_router, "/api/v1/tenant/comercial"),
+        (tenant_comercial_pipeline_stages_router, "/api/v1/tenant/comercial"),
         (tenant_comercial_propostas_router, "/api/v1/tenant/comercial"),
         (tenant_comercial_dashboard_router, "/api/v1/tenant/comercial"),
         (tenant_comercial_config_router, "/api/v1/tenant/comercial"),
+        (tenant_comercial_templates_router, "/api/v1/tenant/comercial"),
+        (tenant_comercial_interacoes_router, "/api/v1/tenant/comercial"),
+        (tenant_comercial_import_router, "/api/v1/tenant/comercial"),
+        (tenant_comercial_campaigns_router, "/api/v1/tenant/comercial"),
+        (tenant_comercial_propostas_publicas_router, "/api/v1/tenant/comercial"),
     ]
 
     import logging

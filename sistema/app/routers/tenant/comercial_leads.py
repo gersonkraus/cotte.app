@@ -1,14 +1,29 @@
+"""Leads comerciais tenant — CRUD, listagem filtrada, dashboard aux, interações (sem criar usuário/senha)."""
+
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Optional
+from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, EmailStr
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.auth import exigir_modulo, exigir_permissao
 from app.core.database import get_db
-from app.models.models import TenantCommercialLead, TenantPipelineEtapa, Usuario
+from app.models.models import (
+    CanalInteracao,
+    LeadScore,
+    TenantCommercialInteraction,
+    TenantCommercialLead,
+    TenantPipelineEtapa,
+    TipoInteracao,
+    Usuario,
+)
+from app.routers.tenant.tenant_comercial_serialization import (
+    sync_lead_status_from_etapa,
+    tenant_lead_to_out,
+)
 
 
 class LeadBase(BaseModel):
@@ -21,6 +36,10 @@ class LeadBase(BaseModel):
     valor_estimado: Optional[Decimal] = None
     observacoes: Optional[str] = None
     responsavel_id: Optional[int] = None
+    nome_empresa: Optional[str] = None
+    status_pipeline: Optional[str] = None
+    lead_score: Optional[LeadScore] = None
+    proximo_contato_em: Optional[datetime] = None
 
 
 class LeadCreate(LeadBase):
@@ -37,6 +56,11 @@ class LeadUpdate(BaseModel):
     valor_estimado: Optional[Decimal] = None
     observacoes: Optional[str] = None
     responsavel_id: Optional[int] = None
+    nome_empresa: Optional[str] = None
+    status_pipeline: Optional[str] = None
+    lead_score: Optional[LeadScore] = None
+    proximo_contato_em: Optional[datetime] = None
+    ultimo_contato_em: Optional[datetime] = None
     ativo: Optional[bool] = None
 
 
@@ -60,6 +84,19 @@ class MoveEtapaRequest(BaseModel):
     etapa_id: int
 
 
+class ObservacaoBody(BaseModel):
+    conteudo: str
+
+
+class MensagemBody(BaseModel):
+    mensagem: str
+
+
+class EmailBody(BaseModel):
+    assunto: str
+    mensagem: str
+
+
 router = APIRouter(
     prefix="/leads",
     tags=["Tenant Comercial Leads"],
@@ -67,16 +104,14 @@ router = APIRouter(
 )
 
 
-def _buscar_lead(db: Session, empresa_id: int, lead_id: int) -> TenantCommercialLead:
-    lead = (
-        db.query(TenantCommercialLead)
-        .filter(
-            TenantCommercialLead.id == lead_id,
-            TenantCommercialLead.empresa_id == empresa_id,
-            TenantCommercialLead.ativo.is_(True),
-        )
-        .first()
+def _buscar_lead(db: Session, empresa_id: int, lead_id: int, incluir_inativos: bool = False) -> TenantCommercialLead:
+    q = db.query(TenantCommercialLead).filter(
+        TenantCommercialLead.id == lead_id,
+        TenantCommercialLead.empresa_id == empresa_id,
     )
+    if not incluir_inativos:
+        q = q.filter(TenantCommercialLead.ativo.is_(True))
+    lead = q.first()
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
     return lead
@@ -101,48 +136,158 @@ def create_lead(
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(exigir_permissao("comercial", "escrita")),
 ):
-    lead_data = payload.model_dump()
+    lead_data = payload.model_dump(exclude_unset=True)
     if lead_data.get("etapa_pipeline_id") is None:
         lead_data["etapa_pipeline_id"] = _etapa_padrao(db, usuario.empresa_id)
 
     agora = datetime.now(timezone.utc)
     lead = TenantCommercialLead(
-        **lead_data,
+        **{k: v for k, v in lead_data.items() if k in LeadCreate.model_fields},
         empresa_id=usuario.empresa_id,
         ativo=True,
         criado_em=agora,
         atualizado_em=agora,
     )
     db.add(lead)
+    db.flush()
+    sync_lead_status_from_etapa(db, lead)
     db.commit()
     db.refresh(lead)
     return lead
 
 
-@router.get("/", response_model=LeadListResponse)
+@router.get("/", response_model=dict[str, Any])
 def list_leads(
-    skip: int = 0,
-    limit: int = 100,
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+    origem_lead_id: Optional[int] = None,
+    lead_score: Optional[LeadScore] = None,
+    ativo: Optional[bool] = True,
+    follow_up_hoje: Optional[bool] = None,
+    status_pipeline_notin: Optional[str] = None,
+    order_by: str = "criado_em",
+    order_dir: str = "desc",
+    page: int = 1,
+    per_page: int = 50,
+    skip: Optional[int] = None,
+    limit: Optional[int] = None,
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(exigir_permissao("comercial", "leitura")),
 ):
-    query = db.query(TenantCommercialLead).filter(
-        TenantCommercialLead.empresa_id == usuario.empresa_id,
-        TenantCommercialLead.ativo.is_(True),
-    )
+    """Lista leads (formato paginado tipo superadmin ou skip/limit legado)."""
+    eid = usuario.empresa_id
+    query = db.query(TenantCommercialLead).filter(TenantCommercialLead.empresa_id == eid)
+
+    if ativo is not None:
+        query = query.filter(TenantCommercialLead.ativo == ativo)
+    if status:
+        query = query.filter(TenantCommercialLead.status_pipeline == status)
+    if lead_score:
+        query = query.filter(TenantCommercialLead.lead_score == lead_score)
+    if search:
+        term = f"%{search}%"
+        query = query.filter(
+            or_(
+                TenantCommercialLead.nome.ilike(term),
+                TenantCommercialLead.nome_empresa.ilike(term),
+                TenantCommercialLead.email.ilike(term),
+                TenantCommercialLead.telefone.ilike(term),
+                TenantCommercialLead.segmento.ilike(term),
+                TenantCommercialLead.origem.ilike(term),
+            )
+        )
+    if origem_lead_id:
+        query = query.filter(False)
+
+    agora = datetime.now(timezone.utc)
+    if follow_up_hoje:
+        query = query.filter(TenantCommercialLead.proximo_contato_em.isnot(None))
+        query = query.filter(TenantCommercialLead.proximo_contato_em <= agora)
+        query = query.filter(
+            TenantCommercialLead.status_pipeline.notin_(["fechado_ganho", "fechado_perdido"])
+        )
+
+    if status_pipeline_notin:
+        excluir = [s.strip() for s in status_pipeline_notin.split(",") if s.strip()]
+        if excluir:
+            query = query.filter(TenantCommercialLead.status_pipeline.notin_(excluir))
+
+    col = getattr(TenantCommercialLead, order_by, TenantCommercialLead.criado_em)
+    if order_dir == "asc":
+        query = query.order_by(col.asc())
+    else:
+        query = query.order_by(col.desc())
+
+    total = query.count()
+
+    if skip is not None and limit is not None:
+        leads = query.offset(skip).limit(limit).all()
+        return {
+            "items": [tenant_lead_to_out(db, l) for l in leads],
+            "total": total,
+        }
+
+    offset = (page - 1) * per_page
+    leads = query.offset(offset).limit(per_page).all()
+    pages = (total + per_page - 1) // per_page if per_page else 1
     return {
-        "items": query.order_by(TenantCommercialLead.id.desc()).offset(skip).limit(limit).all(),
-        "total": query.count(),
+        "items": [tenant_lead_to_out(db, l) for l in leads],
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "pages": pages,
     }
 
 
-@router.get("/{lead_id}", response_model=LeadResponse)
+@router.get("/follow-ups-hoje", response_model=list[dict[str, Any]])
+def follow_ups_hoje(
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exigir_permissao("comercial", "leitura")),
+):
+    agora = datetime.now(timezone.utc)
+    leads = (
+        db.query(TenantCommercialLead)
+        .filter(
+            TenantCommercialLead.empresa_id == usuario.empresa_id,
+            TenantCommercialLead.ativo.is_(True),
+            TenantCommercialLead.proximo_contato_em.isnot(None),
+            TenantCommercialLead.proximo_contato_em <= agora,
+            TenantCommercialLead.status_pipeline.notin_(["fechado_ganho", "fechado_perdido"]),
+        )
+        .order_by(TenantCommercialLead.proximo_contato_em.asc())
+        .limit(50)
+        .all()
+    )
+    return [tenant_lead_to_out(db, l) for l in leads]
+
+
+@router.get("/recentes", response_model=list[dict[str, Any]])
+def leads_recentes(
+    limit: int = 5,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exigir_permissao("comercial", "leitura")),
+):
+    leads = (
+        db.query(TenantCommercialLead)
+        .filter(
+            TenantCommercialLead.empresa_id == usuario.empresa_id,
+            TenantCommercialLead.ativo.is_(True),
+        )
+        .order_by(TenantCommercialLead.criado_em.desc())
+        .limit(limit)
+        .all()
+    )
+    return [tenant_lead_to_out(db, l) for l in leads]
+
+
+@router.get("/{lead_id}", response_model=dict[str, Any])
 def get_lead(
     lead_id: int,
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(exigir_permissao("comercial", "leitura")),
 ):
-    return _buscar_lead(db, usuario.empresa_id, lead_id)
+    lead = _buscar_lead(db, usuario.empresa_id, lead_id)
+    return tenant_lead_to_out(db, lead)
 
 
 @router.put("/{lead_id}", response_model=LeadResponse)
@@ -156,6 +301,7 @@ def update_lead(
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(lead, field, value)
     lead.atualizado_em = datetime.now(timezone.utc)
+    sync_lead_status_from_etapa(db, lead)
     db.commit()
     db.refresh(lead)
     return lead
@@ -194,8 +340,97 @@ def move_lead_stage(
     if etapa is None:
         raise HTTPException(status_code=404, detail="Etapa não encontrada")
 
+    old = lead.status_pipeline
     lead.etapa_pipeline_id = etapa.id
+    sync_lead_status_from_etapa(db, lead)
     lead.atualizado_em = datetime.now(timezone.utc)
+    db.add(
+        TenantCommercialInteraction(
+            empresa_id=usuario.empresa_id,
+            lead_id=lead.id,
+            tipo=TipoInteracao.MUDANCA_STATUS,
+            canal=CanalInteracao.SISTEMA,
+            conteudo=f"Status alterado de '{old}' para '{lead.status_pipeline}'",
+        )
+    )
     db.commit()
     db.refresh(lead)
     return lead
+
+
+@router.post("/{lead_id}/observacao")
+def add_observacao(
+    lead_id: int,
+    body: ObservacaoBody,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exigir_permissao("comercial", "escrita")),
+):
+    lead = _buscar_lead(db, usuario.empresa_id, lead_id)
+    db.add(
+        TenantCommercialInteraction(
+            empresa_id=usuario.empresa_id,
+            lead_id=lead.id,
+            tipo=TipoInteracao.OBSERVACAO,
+            canal=CanalInteracao.SISTEMA,
+            conteudo=body.conteudo,
+        )
+    )
+    lead.atualizado_em = datetime.now(timezone.utc)
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/{lead_id}/whatsapp")
+def log_whatsapp(
+    lead_id: int,
+    body: MensagemBody,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exigir_permissao("comercial", "escrita")),
+):
+    lead = _buscar_lead(db, usuario.empresa_id, lead_id)
+    lead.ultimo_contato_em = datetime.now(timezone.utc)
+    db.add(
+        TenantCommercialInteraction(
+            empresa_id=usuario.empresa_id,
+            lead_id=lead.id,
+            tipo=TipoInteracao.WHATSAPP,
+            canal=CanalInteracao.WHATSAPP,
+            conteudo=body.mensagem,
+        )
+    )
+    db.commit()
+    return {"ok": True, "detail": "Registrado (disparo WhatsApp real depende da integração da empresa)."}
+
+
+@router.post("/{lead_id}/email")
+def log_email(
+    lead_id: int,
+    body: EmailBody,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exigir_permissao("comercial", "escrita")),
+):
+    lead = _buscar_lead(db, usuario.empresa_id, lead_id)
+    lead.ultimo_contato_em = datetime.now(timezone.utc)
+    db.add(
+        TenantCommercialInteraction(
+            empresa_id=usuario.empresa_id,
+            lead_id=lead.id,
+            tipo=TipoInteracao.EMAIL,
+            canal=CanalInteracao.EMAIL,
+            conteudo=f"[{body.assunto}] {body.mensagem}",
+        )
+    )
+    db.commit()
+    return {"ok": True, "detail": "Registrado (envio de e-mail real depende da configuração da empresa)."}
+
+
+@router.post("/{lead_id}/criar-empresa", include_in_schema=False)
+def tenant_forbidden_criar_empresa(lead_id: int):
+    """Bloqueado no CRM tenant: criação de conta a partir de lead é exclusiva do superadmin."""
+    raise HTTPException(status_code=403, detail="Operação não disponível no comercial da empresa.")
+
+
+@router.post("/{lead_id}/reenviar-senha", include_in_schema=False)
+def tenant_forbidden_reenviar_senha(lead_id: int):
+    """Bloqueado no CRM tenant."""
+    raise HTTPException(status_code=403, detail="Operação não disponível no comercial da empresa.")

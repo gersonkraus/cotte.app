@@ -1289,6 +1289,7 @@ class TenantCommercialLead(TenantScopedMixin, Base):
     id = Column(Integer, primary_key=True, index=True)
     empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False, index=True)
     nome = Column(String(200), nullable=False)
+    nome_empresa = Column(String(150), nullable=True)
     email = Column(String(150), nullable=True)
     telefone = Column(String(20), nullable=True)
     segmento = Column(String(100), nullable=True)
@@ -1296,6 +1297,10 @@ class TenantCommercialLead(TenantScopedMixin, Base):
     etapa_pipeline_id = Column(Integer, ForeignKey("tenant_pipeline_etapas.id"), nullable=True)
     valor_estimado = Column(Numeric(12, 2), nullable=True)
     observacoes = Column(Text, nullable=True)
+    status_pipeline = Column(String(50), default="novo", index=True)
+    lead_score = Column(Enum(LeadScore), default=LeadScore.FRIO)
+    proximo_contato_em = Column(DateTime(timezone=True), nullable=True)
+    ultimo_contato_em = Column(DateTime(timezone=True), nullable=True)
     ativo = Column(Boolean, default=True)
     criado_em = Column(DateTime(timezone=True), server_default=func.now())
     atualizado_em = Column(DateTime(timezone=True), onupdate=func.now())
@@ -1305,6 +1310,12 @@ class TenantCommercialLead(TenantScopedMixin, Base):
         back_populates="lead",
         cascade="all, delete-orphan",
         order_by="TenantCommercialInteraction.criado_em.desc()",
+    )
+    lembretes = relationship(
+        "TenantCommercialReminder",
+        back_populates="lead",
+        cascade="all, delete-orphan",
+        order_by="TenantCommercialReminder.data_hora.desc()",
     )
     empresa = relationship("Empresa")
     responsavel_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
@@ -1352,6 +1363,7 @@ class TenantPipelineEtapa(TenantScopedMixin, Base):
     id = Column(Integer, primary_key=True, index=True)
     empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False, index=True)
     nome = Column(String(100), nullable=False)
+    slug = Column(String(50), nullable=True, index=True)
     ordem = Column(Integer, default=0)
     cor = Column(String(7), default="#6B7280")
     ativo = Column(Boolean, default=True)
@@ -1377,6 +1389,222 @@ class TenantConfig(TenantScopedMixin, Base):
     tipo = Column(String(50), nullable=False)
     nome = Column(String(100), nullable=False)
     ativo = Column(Boolean, default=True)
+
+
+class TenantCommercialSegment(TenantScopedMixin, Base):
+    """Segmentos de mercado por empresa (CRM tenant)."""
+
+    __tablename__ = "tenant_commercial_segments"
+    __table_args__ = (
+        UniqueConstraint("empresa_id", "nome", name="uq_tenant_segment_empresa_nome"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False, index=True)
+    nome = Column(String(100), nullable=False)
+    ativo = Column(Boolean, default=True)
+    criado_em = Column(DateTime(timezone=True), server_default=func.now())
+    atualizado_em = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class TenantCommercialLeadSource(TenantScopedMixin, Base):
+    """Origens de lead por empresa (CRM tenant)."""
+
+    __tablename__ = "tenant_commercial_lead_sources"
+    __table_args__ = (
+        UniqueConstraint("empresa_id", "nome", name="uq_tenant_origem_empresa_nome"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False, index=True)
+    nome = Column(String(100), nullable=False)
+    ativo = Column(Boolean, default=True)
+    criado_em = Column(DateTime(timezone=True), server_default=func.now())
+    atualizado_em = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class TenantCommercialTemplate(TenantScopedMixin, Base):
+    """Templates de mensagem do comercial tenant."""
+
+    __tablename__ = "tenant_commercial_templates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False, index=True)
+    nome = Column(String(150), nullable=False)
+    tipo = Column(Enum(TipoTemplate), nullable=False)
+    canal = Column(Enum(CanalTemplate), nullable=False)
+    assunto = Column(String(200), nullable=True)
+    conteudo = Column(Text, nullable=False)
+    ativo = Column(Boolean, default=True)
+    criado_em = Column(DateTime(timezone=True), server_default=func.now())
+    atualizado_em = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class TenantCommercialReminder(TenantScopedMixin, Base):
+    """Lembretes de leads comerciais do tenant."""
+
+    __tablename__ = "tenant_commercial_reminders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False, index=True)
+    lead_id = Column(
+        Integer, ForeignKey("tenant_commercial_leads.id"), nullable=False, index=True
+    )
+    titulo = Column(String(200), nullable=False)
+    descricao = Column(Text, nullable=True)
+    data_hora = Column(DateTime(timezone=True), nullable=False)
+    status = Column(Enum(StatusLembrete), default=StatusLembrete.PENDENTE)
+    canal_sugerido = Column(Enum(CanalSugerido), nullable=True)
+    criado_em = Column(DateTime(timezone=True), server_default=func.now())
+    concluido_em = Column(DateTime(timezone=True), nullable=True)
+
+    lead = relationship("TenantCommercialLead", back_populates="lembretes")
+
+
+class TenantCommercialCampaign(TenantScopedMixin, Base):
+    """Campanhas de disparo (leads tenant)."""
+
+    __tablename__ = "tenant_commercial_campaigns"
+
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False, index=True)
+    nome = Column(String(200), nullable=False)
+    template_id = Column(
+        Integer, ForeignKey("tenant_commercial_templates.id"), nullable=False, index=True
+    )
+    canal = Column(String(20), nullable=False)
+    status = Column(String(20), default="agendada")
+    total_leads = Column(Integer, default=0)
+    enviados = Column(Integer, default=0)
+    entregues = Column(Integer, default=0)
+    respondidos = Column(Integer, default=0)
+    criado_em = Column(DateTime(timezone=True), server_default=func.now())
+    atualizado_em = Column(DateTime(timezone=True), onupdate=func.now())
+
+    empresa = relationship("Empresa")
+    template = relationship("TenantCommercialTemplate")
+
+
+class TenantCampaignLead(Base):
+    """Associação campanha x lead tenant."""
+
+    __tablename__ = "tenant_campaign_leads"
+
+    id = Column(Integer, primary_key=True, index=True)
+    campaign_id = Column(
+        Integer, ForeignKey("tenant_commercial_campaigns.id"), nullable=False, index=True
+    )
+    lead_id = Column(
+        Integer, ForeignKey("tenant_commercial_leads.id"), nullable=False, index=True
+    )
+    status = Column(String(20), default="pendente")
+    data_envio = Column(DateTime(timezone=True), nullable=True)
+    data_entrega = Column(DateTime(timezone=True), nullable=True)
+    data_resposta = Column(DateTime(timezone=True), nullable=True)
+    criado_em = Column(DateTime(timezone=True), server_default=func.now())
+
+    campaign = relationship("TenantCommercialCampaign")
+    lead = relationship("TenantCommercialLead")
+
+
+class TenantLeadImportacao(TenantScopedMixin, Base):
+    """Importações em massa de leads tenant."""
+
+    __tablename__ = "tenant_lead_importacoes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False, index=True)
+    criado_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    nome = Column(String(200), nullable=False)
+    metodo = Column(String(20), nullable=False)
+    total_importados = Column(Integer, default=0)
+    total_validos = Column(Integer, default=0)
+    total_invalidos = Column(Integer, default=0)
+    criado_em = Column(DateTime(timezone=True), server_default=func.now())
+    atualizado_em = Column(DateTime(timezone=True), onupdate=func.now())
+
+    empresa = relationship("Empresa")
+    criado_por = relationship("Usuario")
+
+
+class TenantLeadImportacaoItem(Base):
+    """Itens de uma importação tenant."""
+
+    __tablename__ = "tenant_lead_importacao_itens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    importacao_id = Column(
+        Integer, ForeignKey("tenant_lead_importacoes.id"), nullable=False, index=True
+    )
+    nome_responsavel = Column(String(100), nullable=False)
+    nome_empresa = Column(String(150), nullable=False)
+    whatsapp = Column(String(20), nullable=True)
+    email = Column(String(100), nullable=True)
+    cidade = Column(String(100), nullable=True)
+    observacoes = Column(Text, nullable=True)
+    status = Column(String(20), default="valido")
+    erro = Column(Text, nullable=True)
+    lead_id = Column(
+        Integer, ForeignKey("tenant_commercial_leads.id"), nullable=True, index=True
+    )
+    criado_em = Column(DateTime(timezone=True), server_default=func.now())
+
+    importacao = relationship("TenantLeadImportacao")
+    lead = relationship("TenantCommercialLead")
+
+
+class TenantPropostaEnviada(TenantScopedMixin, Base):
+    """Proposta pública enviada a um lead do CRM tenant (não confundir com PropostaEnviada do superadmin)."""
+
+    __tablename__ = "tenant_propostas_publicas_enviadas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False, index=True)
+    proposta_publica_id = Column(
+        Integer, ForeignKey("propostas_publicas.id"), nullable=False, index=True
+    )
+    tenant_lead_id = Column(
+        Integer, ForeignKey("tenant_commercial_leads.id"), nullable=False, index=True
+    )
+    slug = Column(String(36), unique=True, nullable=False, index=True)
+    dados_personalizados = Column(JSON, default=dict)
+    validade_dias = Column(Integer, default=7)
+    expira_em = Column(DateTime(timezone=True), nullable=True)
+    status = Column(Enum(StatusProposta), default=StatusProposta.RASCUNHO)
+    aceita_em = Column(DateTime(timezone=True), nullable=True)
+    aceita_por_nome = Column(String(100), nullable=True)
+    aceita_por_email = Column(String(100), nullable=True)
+    criado_em = Column(DateTime(timezone=True), server_default=func.now())
+    atualizado_em = Column(DateTime(timezone=True), onupdate=func.now())
+
+    proposta_template = relationship("PropostaPublica")
+    tenant_lead = relationship("TenantCommercialLead")
+    visualizacoes = relationship(
+        "TenantPropostaVisualizacao",
+        back_populates="proposta_enviada",
+        cascade="all, delete-orphan",
+    )
+
+
+class TenantPropostaVisualizacao(Base):
+    """Visualizações de proposta enviada ao lead tenant."""
+
+    __tablename__ = "tenant_propostas_visualizacoes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    proposta_enviada_id = Column(
+        Integer,
+        ForeignKey("tenant_propostas_publicas_enviadas.id"),
+        nullable=False,
+        index=True,
+    )
+    ip = Column(String(45), nullable=True)
+    user_agent = Column(Text, nullable=True)
+    secao_mais_vista = Column(String(50), nullable=True)
+    tempo_segundos = Column(Integer, default=0)
+    criado_em = Column(DateTime(timezone=True), server_default=func.now())
+
+    proposta_enviada = relationship("TenantPropostaEnviada", back_populates="visualizacoes")
 
 
 # ── Lead Comercial (refatorado) ──────────────────────────────────────────

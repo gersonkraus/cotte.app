@@ -140,11 +140,11 @@ async def enviar_proposta(
         raise HTTPException(status_code=400, detail="Canal inválido")
 
     mensagem = f"Proposta: {proposta.titulo}"
-    if canal in {"whatsapp", "ambos"}:
+    if canal in {"whatsapp", "ambos"} and lead.telefone:
         resultado = enviar_mensagem_texto(lead.telefone, mensagem)
         if inspect.isawaitable(resultado):
             await resultado
-    if canal in {"email", "ambos"}:
+    if canal in {"email", "ambos"} and lead.email:
         send_email_simples(
             destinatario=lead.email,
             assunto=proposta.titulo,
@@ -155,5 +155,4 @@ async def enviar_proposta(
     proposta.enviada_em = datetime.now(timezone.utc)
     db.commit()
     db.refresh(proposta)
-
     return {"ok": True, "status": proposta.status, "proposta_id": proposta.id}
