@@ -147,6 +147,8 @@ def create_lead(
     usuario: Usuario = Depends(exigir_permissao("comercial", "escrita")),
 ):
     lead_data = payload.model_dump(exclude_unset=True)
+    # empresa_id vem do contexto autenticado do tenant e não deve vir do payload.
+    lead_data.pop("empresa_id", None)
     if not lead_data.get("nome") and lead_data.get("nome_responsavel"):
         lead_data["nome"] = lead_data.get("nome_responsavel")
     if not lead_data.get("telefone") and lead_data.get("whatsapp"):
