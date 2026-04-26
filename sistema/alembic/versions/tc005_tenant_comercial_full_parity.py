@@ -1,7 +1,7 @@
 """tenant comercial: segmentos, templates, campanhas, import, propostas enviadas tenant, colunas lead/etapa
 
 Revision ID: tc005_tenant_comercial_full_parity
-Revises: tc004_tenant_commercial_leads_responsavel
+Revises: tc003_add_modulo_comercial
 Create Date: 2026-04-25
 """
 
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "tc005_tenant_comercial_full_parity"
-down_revision: Union[str, None] = "tc004_tenant_commercial_leads_responsavel"
+down_revision: Union[str, None] = "tc003_add_modulo_comercial"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -38,6 +38,22 @@ def upgrade() -> None:
     cols_lead = {c["name"] for c in insp.get_columns("tenant_commercial_leads")} if insp.has_table(
         "tenant_commercial_leads"
     ) else set()
+    if "responsavel_id" not in cols_lead and insp.has_table("tenant_commercial_leads"):
+        op.add_column(
+            "tenant_commercial_leads",
+            sa.Column("responsavel_id", sa.Integer(), nullable=True),
+        )
+        try:
+            op.create_foreign_key(
+                "fk_tenant_commercial_leads_responsavel_id_usuarios",
+                "tenant_commercial_leads",
+                "usuarios",
+                ["responsavel_id"],
+                ["id"],
+            )
+        except Exception:
+            # Base já pode ter FK criada por execução prévia do tc004.
+            pass
     if "nome_empresa" not in cols_lead and insp.has_table("tenant_commercial_leads"):
         op.add_column(
             "tenant_commercial_leads",
