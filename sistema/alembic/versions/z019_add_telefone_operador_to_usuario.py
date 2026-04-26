@@ -10,6 +10,7 @@ Create Date: 2026-04-09
 from typing import Union
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 revision = 'z019_add_telefone_operador_to_usuario'
 down_revision = ('z018_pre_agendamento_fila', 'z_merge_p_and_e_heads')
@@ -18,17 +19,34 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        'usuarios',
-        sa.Column('telefone_operador', sa.String(20), nullable=True),
-    )
-    op.create_index(
-        'ix_usuario_telefone_operador',
-        'usuarios',
-        ['telefone_operador'],
-    )
+    bind = op.get_bind()
+    inspector = inspect(bind)
+    columns = {col["name"] for col in inspector.get_columns("usuarios")}
+    indexes = {idx["name"] for idx in inspector.get_indexes("usuarios")}
+
+    if "telefone_operador" not in columns:
+        op.add_column(
+            "usuarios",
+            sa.Column("telefone_operador", sa.String(20), nullable=True),
+        )
+
+    # Alguns bancos antigos já têm a coluna e podem estar com o índice novo ou o legado.
+    if "ix_usuario_telefone_operador" not in indexes and "ix_usuarios_telefone_operador" not in indexes:
+        op.create_index(
+            "ix_usuario_telefone_operador",
+            "usuarios",
+            ["telefone_operador"],
+        )
 
 
 def downgrade() -> None:
-    op.drop_index('ix_usuario_telefone_operador', table_name='usuarios')
-    op.drop_column('usuarios', 'telefone_operador')
+    bind = op.get_bind()
+    inspector = inspect(bind)
+    columns = {col["name"] for col in inspector.get_columns("usuarios")}
+    indexes = {idx["name"] for idx in inspector.get_indexes("usuarios")}
+
+    if "ix_usuario_telefone_operador" in indexes:
+        op.drop_index("ix_usuario_telefone_operador", table_name="usuarios")
+
+    if "telefone_operador" in columns:
+        op.drop_column("usuarios", "telefone_operador")
