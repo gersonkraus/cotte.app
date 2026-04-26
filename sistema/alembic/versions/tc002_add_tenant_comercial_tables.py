@@ -32,6 +32,7 @@ def upgrade() -> None:
         "LEMBRETE",
         "OUTRO",
         name="tipointeracao",
+        create_type=False,
     )
     canal_interacao_enum = postgresql.ENUM(
         "WHATSAPP",
@@ -41,6 +42,7 @@ def upgrade() -> None:
         "REUNIAO",
         "OUTRO",
         name="canalinteracao",
+        create_type=False,
     )
     # Evita falha quando o tipo já existe por execução anterior/parcial.
     tipo_interacao_enum.create(bind, checkfirst=True)
@@ -164,32 +166,12 @@ def upgrade() -> None:
         sa.Column("lead_id", sa.Integer(), nullable=False),
         sa.Column(
             "tipo",
-            sa.Enum(
-                "OBSERVACAO",
-                "WHATSAPP",
-                "EMAIL",
-                "PROPOSTA",
-                "MUDANCA_STATUS",
-                "TAREFA",
-                "LEMBRETE",
-                "OUTRO",
-                name="tipointeracao",
-                create_type=False,
-            ),
+            tipo_interacao_enum,
             nullable=False,
         ),
         sa.Column(
             "canal",
-            sa.Enum(
-                "WHATSAPP",
-                "EMAIL",
-                "SISTEMA",
-                "LIGACAO",
-                "REUNIAO",
-                "OUTRO",
-                name="canalinteracao",
-                create_type=False,
-            ),
+            canal_interacao_enum,
             nullable=True,
         ),
         sa.Column("conteudo", sa.Text(), nullable=True),
