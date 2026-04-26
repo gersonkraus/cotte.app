@@ -183,9 +183,28 @@ def create_lead(
     if lead_data.get("etapa_pipeline_id") is None:
         lead_data["etapa_pipeline_id"] = _etapa_padrao(db, usuario.empresa_id)
 
+    campos_modelo_lead = {
+        "nome",
+        "nome_empresa",
+        "email",
+        "telefone",
+        "segmento",
+        "origem",
+        "etapa_pipeline_id",
+        "valor_estimado",
+        "observacoes",
+        "status_pipeline",
+        "lead_score",
+        "proximo_contato_em",
+        "ultimo_contato_em",
+        "responsavel_id",
+        "ativo",
+    }
+    lead_data_modelo = {k: v for k, v in lead_data.items() if k in campos_modelo_lead}
+
     agora = datetime.now(timezone.utc)
     lead = TenantCommercialLead(
-        **{k: v for k, v in lead_data.items() if k in LeadCreate.model_fields},
+        **lead_data_modelo,
         empresa_id=usuario.empresa_id,
         ativo=True,
         criado_em=agora,
