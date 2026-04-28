@@ -42,7 +42,7 @@
       <!-- Tabs -->
       <div class="admin-tabs" role="tablist" aria-label="Menu Comercial">
         <button class="admin-tab active" data-tab="hoje" role="tab" aria-selected="true" aria-controls="tab-hoje" id="tab-hoje-btn">
-          <span class="admin-tab-icon">🧠</span> Hoje <span class="badge" id="badge-briefing" style="display:none;background:#ef4444;color:#fff;border-radius:10px;padding:1px 7px;font-size:0.7rem;margin-left:2px">0</span>
+          <span class="admin-tab-icon">🧠</span> Hoje <span class="badge" id="badge-briefing" style="display:none;background:#ef4444;color:#fff;border-radius:10px;padding:1px 7px;font-size:0.7rem;margin-left:2px"></span>
         </button>
         <button class="admin-tab" data-tab="dashboard" role="tab" aria-selected="false" aria-controls="tab-dashboard" id="tab-dashboard-btn">
           <span class="admin-tab-icon">📊</span> Dashboard
@@ -126,10 +126,10 @@
       </div>
 
       <!-- ═══ TAB: Pipeline ═══ -->
-      <div class="tab-panel" id="tab-pipeline">
+      <div class="tab-panel" id="tab-pipeline" role="tabpanel" aria-labelledby="tab-pipeline-btn">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
           <div style="font-size:13px;color:var(--muted)">Arraste os cards entre colunas para atualizar o status</div>
-          <button class="btn btn-secondary btn-sm" id="btn-toggle-fechados">👁 Mostrar fechados</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-toggle-fechados">👁 Mostrar fechados</button>
         </div>
         <div class="kanban" id="kanban-board">
           <div class="loading"><div class="spinner"></div></div>
@@ -137,7 +137,7 @@
       </div>
 
       <!-- ═══ TAB: Leads ═══ -->
-      <div class="tab-panel" id="tab-leads">
+      <div class="tab-panel" id="tab-leads" role="tabpanel" aria-labelledby="tab-leads-btn">
         <div id="leads-followup-banner" class="leads-followup-banner" style="display:none" role="status" aria-live="polite"></div>
         <div class="leads-toolbar">
           <input type="search" class="search-input" id="leads-search" placeholder="Buscar por empresa, responsável ou contato..." autocomplete="off">
@@ -182,7 +182,7 @@
       </div>
 
       <!-- ═══ TAB: Templates ═══ -->
-      <div class="tab-panel" id="tab-templates">
+      <div class="tab-panel" id="tab-templates" role="tabpanel" aria-labelledby="tab-templates-btn">
         <div class="sec">
           <div class="sec-head">
             <div class="sec-title">📝 Templates de Mensagem</div>
@@ -227,7 +227,7 @@
       </div>
 
       <!-- ═══ TAB: Campanhas ═══ -->
-      <div class="tab-panel" id="tab-campanhas">
+      <div class="tab-panel" id="tab-campanhas" role="tabpanel" aria-labelledby="tab-campanhas-btn">
         <div class="sec">
           <div class="sec-head">
             <div class="sec-title">📧 Campanhas</div>
@@ -244,7 +244,7 @@
       </div>
 
       <!-- ═══ TAB: Lembretes ═══ -->
-      <div class="tab-panel" id="tab-lembretes">
+      <div class="tab-panel" id="tab-lembretes" role="tabpanel" aria-labelledby="tab-lembretes-btn">
         <div class="sec">
           <div class="sec-head">
             <div class="sec-title">⏰ Lembretes</div>
@@ -266,12 +266,12 @@
       </div>
 
       <!-- ═══ TAB: Cadastros ═══ -->
-      <div class="tab-panel" id="tab-cadastros">
+      <div class="tab-panel" id="tab-cadastros" role="tabpanel" aria-labelledby="tab-cadastros-btn">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
           <div class="sec">
             <div class="sec-head">
               <div class="sec-title">🏷️ Segmentos</div>
-              <button class="btn btn-primary btn-sm" id="btn-novo-segmento">+ Novo</button>
+              <button type="button" class="btn btn-primary btn-sm" id="btn-novo-segmento">+ Novo</button>
             </div>
             <div style="overflow-x:auto">
               <table class="crud-table"><thead><tr><th>Nome</th><th>Status</th><th>Ações</th></tr></thead>
@@ -282,7 +282,7 @@
           <div class="sec">
             <div class="sec-head">
               <div class="sec-title">📍 Origens</div>
-              <button class="btn btn-primary btn-sm" id="btn-nova-origem">+ Nova</button>
+              <button type="button" class="btn btn-primary btn-sm" id="btn-nova-origem">+ Nova</button>
             </div>
             <div style="overflow-x:auto">
               <table class="crud-table"><thead><tr><th>Nome</th><th>Status</th><th>Ações</th></tr></thead>
@@ -294,7 +294,7 @@
         <div class="sec">
           <div class="sec-head">
             <div class="sec-title">🔄 Etapas do Pipeline</div>
-            <button class="btn btn-primary btn-sm">+ Nova</button>
+            <button type="button" class="btn btn-primary btn-sm" id="btn-nova-etapa-pipeline">+ Nova</button>
           </div>
           <div style="overflow-x:auto">
             <table class="crud-table">
@@ -302,7 +302,7 @@
               <tbody id="pipeline-stages-tbody"></tbody>
               </table>
             </div>
-            <div class="mobile-cards-list" id="historico-cards-mobile"></div>
+            <div class="mobile-cards-list" id="pipeline-stages-cards-mobile"></div>
           </div>
       </div>
 
@@ -396,7 +396,7 @@ Exemplos de formatos aceitos:
               </div>
 
               <div style="display:flex;gap:10px;margin-top:16px;justify-content:space-between">
-                <button class="btn btn-ghost" id="btn-voltar-import-step1">← Voltar e editar</button>
+                <button type="button" class="btn btn-ghost" id="btn-voltar-import-step1">← Voltar e editar</button>
                 <button class="btn btn-primary" id="btn-importar">Continuar →</button>
               </div>
             </div>
@@ -453,8 +453,8 @@ Exemplos de formatos aceitos:
               </div>
 
               <div style="display:flex;gap:10px;margin-top:20px;justify-content:space-between">
-                <button class="btn btn-ghost">📥 Nova importação</button>
-                <button class="btn btn-primary">Ver leads →</button>
+                <button type="button" class="btn btn-ghost" id="btn-nova-importacao">📥 Nova importação</button>
+                <button type="button" class="btn btn-primary" id="btn-ver-leads-importados">Ver leads →</button>
               </div>
             </div>
           </div>
@@ -490,7 +490,7 @@ Exemplos de formatos aceitos:
       </div>
 
       <!-- ═══ TAB: Config ═══ -->
-      <div class="tab-panel" id="tab-config">
+      <div class="tab-panel" id="tab-config" role="tabpanel" aria-labelledby="tab-config-btn">
         <div class="sec" style="max-width:640px">
           <div class="sec-head">
             <div class="sec-title">⚙️ Configurações do Comercial</div>
@@ -515,7 +515,7 @@ Exemplos de formatos aceitos:
               <label class="fl">Assinatura comercial</label>
               <textarea class="ft" id="cfg-assinatura" rows="3" placeholder="Assinatura para e-mails e mensagens"></textarea>
             </div>
-            <button class="btn btn-primary">Salvar Configurações</button>
+            <button type="button" class="btn btn-primary" id="btn-salvar-config">Salvar Configurações</button>
           </div>
         </div>
       </div>
@@ -590,7 +590,7 @@ Exemplos de formatos aceitos:
         </form>
       </div>
       <footer class="modal-footer">
-        <button class="btn btn-secondary">Cancelar</button>
+        <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-lead')">Cancelar</button>
         <button class="btn btn-primary" id="btn-salvar-lead">Salvar Lead</button>
       </footer>
     </div>
@@ -616,7 +616,7 @@ Exemplos de formatos aceitos:
         <div id="wa-preview-area" style="display:none"><div class="fl">Preview</div><div class="tpl-preview" id="wa-preview"></div></div>
       </div>
       <footer class="modal-footer">
-        <button type="button" class="btn btn-secondary">Cancelar</button>
+        <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-whatsapp')">Cancelar</button>
         <button type="button" class="btn btn-primary">Enviar</button>
       </footer>
     </div>
@@ -635,7 +635,7 @@ Exemplos de formatos aceitos:
         <div class="fg"><label class="fl">Mensagem</label><textarea class="ft" id="em-mensagem" rows="6"></textarea></div>
       </div>
       <footer class="modal-footer">
-        <button type="button" class="btn btn-secondary">Cancelar</button>
+        <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-email')">Cancelar</button>
         <button type="button" class="btn btn-primary">Enviar</button>
       </footer>
     </div>
@@ -664,8 +664,8 @@ Exemplos de formatos aceitos:
         </div>
       </div>
       <footer class="modal-footer">
-        <button class="btn btn-secondary">Cancelar</button>
-        <button class="btn btn-primary">Salvar</button>
+        <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-campanha')">Cancelar</button>
+        <button type="button" class="btn btn-primary">Salvar</button>
       </footer>
     </div>
   </div>
@@ -691,7 +691,7 @@ Exemplos de formatos aceitos:
         </div>
       </div>
       <footer class="modal-footer">
-        <button class="btn btn-secondary">Fechar</button>
+        <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-campanha-metricas')">Fechar</button>
       </footer>
     </div>
   </div>
@@ -764,8 +764,8 @@ Exemplos de formatos aceitos:
         </div>
       </div>
       <footer class="modal-footer">
-        <button class="btn btn-secondary">Cancelar</button>
-        <button class="btn btn-primary">Salvar</button>
+        <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-lembrete')">Cancelar</button>
+        <button type="button" class="btn btn-primary">Salvar</button>
       </footer>
     </div>
   </div>
@@ -782,8 +782,8 @@ Exemplos de formatos aceitos:
         <div class="fg"><label class="fl">Nome *</label><input type="text" class="fi" id="seg-nome" required></div>
       </div>
       <footer class="modal-footer">
-        <button class="btn btn-secondary">Cancelar</button>
-        <button class="btn btn-primary">Salvar</button>
+        <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-segmento')">Cancelar</button>
+        <button type="button" class="btn btn-primary">Salvar</button>
       </footer>
     </div>
   </div>
@@ -800,8 +800,8 @@ Exemplos de formatos aceitos:
         <div class="fg"><label class="fl">Nome *</label><input type="text" class="fi" id="ori-nome" required></div>
       </div>
       <footer class="modal-footer">
-        <button class="btn btn-secondary">Cancelar</button>
-        <button class="btn btn-primary">Salvar</button>
+        <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-origem')">Cancelar</button>
+        <button type="button" class="btn btn-primary">Salvar</button>
       </footer>
     </div>
   </div>
@@ -828,8 +828,8 @@ Exemplos de formatos aceitos:
         </div>
       </div>
       <footer class="modal-footer">
-        <button class="btn btn-secondary">Cancelar</button>
-        <button class="btn btn-primary">Salvar</button>
+        <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-pipeline-stage')">Cancelar</button>
+        <button type="button" class="btn btn-primary">Salvar</button>
       </footer>
     </div>
   </div>
@@ -859,7 +859,7 @@ Exemplos de formatos aceitos:
         </div>
       </div>
       <footer class="modal-footer">
-        <button class="btn btn-secondary">Cancelar</button>
+        <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-enviar-proposta')">Cancelar</button>
         <button class="btn btn-primary" id="btn-confirmar-envio-proposta">Enviar Proposta</button>
       </footer>
     </div>
@@ -878,7 +878,7 @@ Exemplos de formatos aceitos:
         </div>
       </div>
       <footer class="modal-footer">
-        <button class="btn btn-secondary">Fechar</button>
+        <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-analytics-proposta')">Fechar</button>
       </footer>
     </div>
   </div>
@@ -938,7 +938,8 @@ Exemplos de formatos aceitos:
         adminTabs.forEach(tab => {
           const item = document.createElement('div');
           item.className = 'mobile-tabs-item';
-          item.role = 'menuitem';
+          item.setAttribute('role', 'menuitem');
+          item.setAttribute('tabindex', '0');
           
           if (tab.classList.contains('active')) {
             item.classList.add('active');
