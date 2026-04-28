@@ -316,6 +316,218 @@
         width: 100%;
         margin-top: 8px;
       }
+
+      .copiloto-wrap {
+        background: color-mix(in srgb, var(--bg, #f4f7fb) 88%, #d8e4f1);
+      }
+      .topbar {
+        gap: 10px;
+        background: var(--surface, #fff);
+        border: 1px solid var(--border, #e1e7f0);
+        border-radius: 12px;
+        padding: 10px 12px;
+      }
+      .topbar-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .topbar-copy small {
+        color: var(--muted, #64748b);
+        font-size: 12px;
+      }
+      .copiloto-alert {
+        background: color-mix(in srgb, var(--surface, #fff) 70%, #dbe9f6);
+        border: 1px solid color-mix(in srgb, var(--border, #e1e7f0) 70%, #8fb3d9);
+        color: var(--text, #0f172a);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .chip-interno {
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 3px 8px;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.08);
+        color: var(--muted, #64748b);
+        font-weight: 700;
+      }
+      .copiloto-shell {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 16px;
+        min-height: 0;
+        flex: 1;
+      }
+      .copiloto-chat {
+        border-radius: 16px;
+        border: 1px solid var(--border, #e1e7f0);
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+      }
+      .copiloto-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px;
+        border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+        background: color-mix(in srgb, var(--surface2, #f8fafc) 75%, #eef4fb);
+      }
+      .copiloto-toolbar-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .copiloto-toolbar-meta {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .meta-pill {
+        font-size: 11px;
+        padding: 4px 8px;
+        border-radius: 999px;
+        border: 1px solid rgba(15, 23, 42, 0.12);
+        color: var(--muted, #64748b);
+        background: var(--surface, #fff);
+      }
+      .cop-msg {
+        max-width: min(90%, 900px);
+        padding: 12px 14px;
+        border-radius: 14px;
+        line-height: 1.5;
+      }
+      .cop-msg.user {
+        background: color-mix(in srgb, var(--accent, #06b6d4) 15%, #fff);
+        border: 1px solid color-mix(in srgb, var(--accent, #06b6d4) 40%, #fff);
+      }
+      .cop-msg.bot {
+        background: color-mix(in srgb, var(--surface2, #f8fafc) 92%, #dce8f7);
+        border: 1px solid var(--border, #e1e7f0);
+      }
+      .copiloto-input {
+        align-items: flex-end;
+      }
+      .copiloto-input-wrap {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        gap: 8px;
+      }
+      .copiloto-input textarea {
+        background: color-mix(in srgb, var(--surface2, #f8fafc) 78%, #eef4fb);
+        border-radius: 12px;
+        min-height: 52px;
+      }
+      .composer-help {
+        font-size: 12px;
+        color: var(--muted, #64748b);
+        margin: 0 0 0 4px;
+      }
+      .copiloto-side {
+        background: var(--surface, #fff);
+        border: 1px solid var(--border, #e1e7f0);
+        border-radius: 16px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+        padding: 14px;
+        overflow-y: auto;
+        min-height: 0;
+      }
+      .side-section + .side-section { margin-top: 16px; }
+      .side-section h3 {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted, #64748b);
+        margin-bottom: 8px;
+      }
+      .side-section p {
+        font-size: 13px;
+        color: var(--text, #0f172a);
+        line-height: 1.45;
+      }
+      .quick-prompts {
+        display: grid;
+        gap: 8px;
+      }
+      .quick-prompt-btn {
+        text-align: left;
+        border: 1px solid var(--border, #e1e7f0);
+        background: var(--surface2, #f8fafc);
+        color: var(--text, #0f172a);
+        border-radius: 10px;
+        padding: 9px 10px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: border-color 0.2s ease, transform 0.2s ease;
+      }
+      .quick-prompt-btn:hover {
+        border-color: var(--accent, #06b6d4);
+        transform: translateY(-1px);
+      }
+      .quick-prompt-btn:focus-visible,
+      .copiloto-side-toggle:focus-visible {
+        outline: 2px solid var(--accent, #06b6d4);
+        outline-offset: 2px;
+      }
+      .copiloto-side-toggle {
+        display: none;
+        border: 1px solid var(--border, #e1e7f0);
+        border-radius: 999px;
+        background: var(--surface, #fff);
+        color: var(--text, #0f172a);
+        font-size: 12px;
+        font-weight: 600;
+        padding: 6px 10px;
+        cursor: pointer;
+      }
+      @media (max-width: 980px) {
+        .copiloto-shell { grid-template-columns: 1fr; }
+        .copiloto-side {
+          display: none;
+        }
+        .copiloto-side.is-open {
+          display: block;
+        }
+        .copiloto-side-toggle {
+          display: inline-flex;
+        }
+      }
+      @media (max-width: 640px) {
+        .copiloto-main {
+          padding: 16px 12px 16px;
+          gap: 12px;
+        }
+        .copiloto-alert {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        .cop-msg {
+          max-width: 100%;
+          font-size: 13.5px;
+        }
+        .copiloto-input {
+          padding: 10px;
+        }
+        .copiloto-input textarea {
+          max-height: 140px;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .settings-btn,
+        .quick-prompt-btn,
+        #copilotoToast,
+        .modal,
+        .modal-content {
+          transition: none !important;
+          animation: none !important;
+          transform: none !important;
+        }
+      }
   </style>
 </head>
 <body>
@@ -323,7 +535,10 @@
 
   <main class="main copiloto-wrap">
     <div class="topbar">
-      <div class="page-title">Copiloto Técnico Interno</div>
+      <div class="topbar-copy">
+        <div class="page-title">Copiloto Técnico Interno</div>
+        <small>Console de suporte interno para diagnóstico e orientação técnica.</small>
+      </div>
       <button id="copilotoSettingsBtn" class="settings-btn" title="Configurar skill">
         ⚙️
       </button>
@@ -331,17 +546,63 @@
 
     <section class="copiloto-main">
       <div class="copiloto-alert">
-        Canal interno técnico. Não use para atendimento operacional de clientes.
+        <span><strong>Escopo:</strong> canal interno técnico. Evite atendimento operacional de clientes.</span>
+        <span class="chip-interno">interno</span>
       </div>
 
-      <div class="copiloto-chat">
-        <div id="copilotoMessages" class="copiloto-messages">
-          <div class="cop-msg bot">Pronto para apoiar com dúvidas técnicas internas do COTTE.</div>
+      <div class="copiloto-shell">
+        <div class="copiloto-chat">
+          <div class="copiloto-toolbar">
+            <div class="copiloto-toolbar-meta">
+              <span class="meta-pill">Sessão técnica ativa</span>
+              <span class="meta-pill">Modo: copiloto interno</span>
+            </div>
+            <div class="copiloto-toolbar-right">
+              <button
+                type="button"
+                class="copiloto-side-toggle"
+                id="copilotoSideToggleBtn"
+                aria-expanded="false"
+                aria-controls="copilotoSidePanel"
+              >
+                Utilidades
+              </button>
+              <span class="meta-pill" id="copilotoStatusPill">Pronto</span>
+            </div>
+          </div>
+          <div id="copilotoMessages" class="copiloto-messages">
+            <div class="cop-msg bot"><strong>Pronto para análise técnica.</strong>
+
+Você pode pedir investigação de erro, leitura de stack trace, revisão de contrato de API e sugestões de correção segura.</div>
+          </div>
+          <div class="copiloto-input">
+            <div class="copiloto-input-wrap">
+              <textarea id="copilotoInput" placeholder="Descreva sua dúvida técnica, erro ou contexto..." aria-label="Entrada do copiloto"></textarea>
+              <p class="composer-help">Enter envia. Shift + Enter quebra linha.</p>
+            </div>
+            <button id="copilotoSendBtn" class="btn btn-primary" type="button">Enviar</button>
+          </div>
         </div>
-        <div class="copiloto-input">
-          <textarea id="copilotoInput" placeholder="Descreva sua dúvida técnica..."></textarea>
-          <button id="copilotoSendBtn" class="btn btn-primary" type="button">Enviar</button>
-        </div>
+
+        <aside class="copiloto-side" id="copilotoSidePanel" aria-label="Painel auxiliar do copiloto">
+          <div class="side-section">
+            <h3>Atalhos técnicos</h3>
+            <div class="quick-prompts">
+              <button type="button" class="quick-prompt-btn" data-prompt="Investigue este erro e proponha uma correção segura com baixo risco de regressão.">Investigar erro com baixo risco</button>
+              <button type="button" class="quick-prompt-btn" data-prompt="Explique este stack trace em passos e aponte a causa raiz provável.">Explicar stack trace</button>
+              <button type="button" class="quick-prompt-btn" data-prompt="Revise este payload e valide o contrato da API com possíveis inconsistências.">Revisar payload e contrato</button>
+              <button type="button" class="quick-prompt-btn" data-prompt="Proponha um plano de correção incremental com validações objetivas.">Plano de correção incremental</button>
+            </div>
+          </div>
+          <div class="side-section">
+            <h3>Uso seguro</h3>
+            <p>Use este canal para dúvidas técnicas internas, diagnóstico e melhorias de código. Evite pedidos operacionais de atendimento ao cliente.</p>
+          </div>
+          <div class="side-section">
+            <h3>Configuração</h3>
+            <p>Ajuste o comportamento do copiloto pelo botão de configuração no topo para adaptar profundidade e estilo de resposta.</p>
+          </div>
+        </aside>
       </div>
     </section>
   </main>

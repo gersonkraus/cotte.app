@@ -173,12 +173,187 @@
     return node;
   }
 
+  function _extractTabularRows(payload) {
+    if (!payload || typeof payload !== "object") return [];
+    var dados = payload.dados && typeof payload.dados === "object" ? payload.dados : null;
+    var data = payload.data && typeof payload.data === "object" ? payload.data : null;
+    var dataNested = data && data.data && typeof data.data === "object" ? data.data : null;
+    var dadosNested = dados && dados.dados && typeof dados.dados === "object" ? dados.dados : null;
+    var metaDados = dados && dados._meta_frontend_data && typeof dados._meta_frontend_data === "object"
+      ? dados._meta_frontend_data
+      : null;
+    var metaData = data && data._meta_frontend_data && typeof data._meta_frontend_data === "object"
+      ? data._meta_frontend_data
+      : null;
+    var metaDataNested = dataNested && dataNested._meta_frontend_data && typeof dataNested._meta_frontend_data === "object"
+      ? dataNested._meta_frontend_data
+      : null;
+    var metaDadosNested = dadosNested && dadosNested._meta_frontend_data && typeof dadosNested._meta_frontend_data === "object"
+      ? dadosNested._meta_frontend_data
+      : null;
+
+    var directOrcamentos = payload.orcamentos || (dados && dados.orcamentos) || (data && data.orcamentos) || (dataNested && dataNested.orcamentos);
+    if (Array.isArray(directOrcamentos) && directOrcamentos.length) return directOrcamentos;
+
+    var orcamentos =
+      (metaDados && metaDados.orcamentos) ||
+      (metaData && metaData.orcamentos) ||
+      (metaDataNested && metaDataNested.orcamentos) ||
+      (metaDadosNested && metaDadosNested.orcamentos);
+    if (Array.isArray(orcamentos) && orcamentos.length) return orcamentos;
+
+    var directClientes = payload.clientes || (dados && dados.clientes) || (data && data.clientes) || (dataNested && dataNested.clientes);
+    if (Array.isArray(directClientes) && directClientes.length) return directClientes;
+
+    var clientes =
+      (metaDados && metaDados.clientes) ||
+      (metaData && metaData.clientes) ||
+      (metaDataNested && metaDataNested.clientes) ||
+      (metaDadosNested && metaDadosNested.clientes);
+    if (Array.isArray(clientes) && clientes.length) return clientes;
+
+    var sqlRows = data && data.sql_result && Array.isArray(data.sql_result.rows)
+      ? data.sql_result.rows
+      : null;
+    if (Array.isArray(sqlRows) && sqlRows.length) return sqlRows;
+
+    return [];
+  }
+
+  function renderDataTable(container, rows) {
+    if (!container || !Array.isArray(rows) || !rows.length) return;
+    var headers = Object.keys(rows[0] || {});
+    if (!headers.length) return;
+
+    var pageSize = 12;
+    var currentPage = 1;
+    var sortState = { key: null, dir: "asc" };
+    var workingRows = rows.slice();
+
+    var wrap = document.createElement("div");
+    wrap.style.marginTop = "12px";
+    wrap.style.overflowX = "auto";
+
+    var table = document.createElement("table");
+    table.style.width = "100%";
+    table.style.borderCollapse = "collapse";
+    table.style.fontSize = "0.9rem";
+
+    var thead = document.createElement("thead");
+    var headerRow = document.createElement("tr");
+    headers.forEach(function (header) {
+      var th = document.createElement("th");
+      th.textContent = header;
+      th.style.textAlign = "left";
+      th.style.padding = "8px";
+      th.style.borderBottom = "1px solid var(--border-color, #d1d5db)";
+      th.style.cursor = "pointer";
+      th.title = "Clique para ordenar";
+      th.addEventListener("click", function () {
+        var nextDir = "asc";
+        if (sortState.key === header && sortState.dir === "asc") nextDir = "desc";
+        sortState.key = header;
+        sortState.dir = nextDir;
+        workingRows.sort(function (a, b) {
+          var va = a && Object.prototype.hasOwnProperty.call(a, header) ? a[header] : null;
+          var vb = b && Object.prototype.hasOwnProperty.call(b, header) ? b[header] : null;
+          var sa = va === null || va === undefined ? "" : String(va).toLowerCase();
+          var sb = vb === null || vb === undefined ? "" : String(vb).toLowerCase();
+          if (sa < sb) return nextDir === "asc" ? -1 : 1;
+          if (sa > sb) return nextDir === "asc" ? 1 : -1;
+          return 0;
+        });
+        currentPage = 1;
+        renderRows();
+      });
+      headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+
+    var tbody = document.createElement("tbody");
+    function renderRows() {
+      tbody.innerHTML = "";
+      var totalPages = Math.max(1, Math.ceil(workingRows.length / pageSize));
+      if (currentPage > totalPages) currentPage = totalPages;
+      var start = (currentPage - 1) * pageSize;
+      var end = start + pageSize;
+      var pageRows = workingRows.slice(start, end);
+
+      pageRows.forEach(function (row) {
+        var tr = document.createElement("tr");
+        headers.forEach(function (header) {
+          var td = document.createElement("td");
+          var val = row && Object.prototype.hasOwnProperty.call(row, header) ? row[header] : "";
+          td.textContent = val === null || val === undefined ? "" : String(val);
+          td.style.padding = "8px";
+          td.style.borderBottom = "1px solid var(--border-color, #f0f0f0)";
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+
+      if (pageInfo) {
+        pageInfo.textContent = "Página " + currentPage + " de " + totalPages + " (" + workingRows.length + " itens)";
+      }
+      if (prevBtn) prevBtn.disabled = currentPage <= 1;
+      if (nextBtn) nextBtn.disabled = currentPage >= totalPages;
+    }
+
+    table.appendChild(tbody);
+
+    var controls = document.createElement("div");
+    controls.style.display = "flex";
+    controls.style.alignItems = "center";
+    controls.style.gap = "8px";
+    controls.style.marginTop = "10px";
+
+    var prevBtn = document.createElement("button");
+    prevBtn.textContent = "Anterior";
+    prevBtn.className = "download-btn";
+    prevBtn.addEventListener("click", function () {
+      if (currentPage > 1) {
+        currentPage -= 1;
+        renderRows();
+      }
+    });
+
+    var nextBtn = document.createElement("button");
+    nextBtn.textContent = "Próxima";
+    nextBtn.className = "download-btn";
+    nextBtn.addEventListener("click", function () {
+      var totalPages = Math.max(1, Math.ceil(workingRows.length / pageSize));
+      if (currentPage < totalPages) {
+        currentPage += 1;
+        renderRows();
+      }
+    });
+
+    var pageInfo = document.createElement("span");
+    pageInfo.style.fontSize = "0.85rem";
+    pageInfo.style.opacity = "0.85";
+
+    controls.appendChild(prevBtn);
+    controls.appendChild(nextBtn);
+    controls.appendChild(pageInfo);
+
+    wrap.appendChild(table);
+    wrap.appendChild(controls);
+    container.appendChild(wrap);
+    renderRows();
+    addDownloadButtons(container, rows);
+  }
+
   function setSending(value) {
     sending = !!value;
     if (!sendBtn || !inputEl) return;
     sendBtn.disabled = sending;
     inputEl.disabled = sending;
     sendBtn.textContent = sending ? "Enviando..." : "Enviar";
+    var statusPill = document.getElementById("copilotoStatusPill");
+    if (statusPill) {
+      statusPill.textContent = sending ? "Processando" : "Pronto";
+    }
   }
 
   function _firstNonEmptyString(values) {
@@ -460,6 +635,11 @@
       var msgText = botReply || (chartConfig ? "" : "Sem resposta do copiloto.");
       var msgNode = addMessage(msgText, "bot", actions);
 
+      var tableRows = _extractTabularRows(payload);
+      if (msgNode && Array.isArray(tableRows) && tableRows.length) {
+        renderDataTable(msgNode, tableRows);
+      }
+
       if (chartConfig && msgNode) {
         var chartWrap = document.createElement("div");
         var chartId = "chart-" + Math.random().toString(36).substr(2, 9);
@@ -604,6 +784,24 @@
         sendMessage();
       }
     });
+
+    var quickPromptButtons = document.querySelectorAll(".quick-prompt-btn");
+    quickPromptButtons.forEach(function (button) {
+      button.addEventListener("click", function () {
+        if (!inputEl || sending) return;
+        inputEl.value = button.dataset.prompt || "";
+        inputEl.focus();
+      });
+    });
+
+    var sidePanelEl = document.getElementById("copilotoSidePanel");
+    var sideToggleEl = document.getElementById("copilotoSideToggleBtn");
+    if (sidePanelEl && sideToggleEl) {
+      sideToggleEl.addEventListener("click", function () {
+        var open = sidePanelEl.classList.toggle("is-open");
+        sideToggleEl.setAttribute("aria-expanded", open ? "true" : "false");
+      });
+    }
 
     var settingsBtnEl = document.getElementById('copilotoSettingsBtn');
     var modalEl = document.getElementById('copilotoSettingsModal');
