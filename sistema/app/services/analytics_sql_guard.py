@@ -84,7 +84,7 @@ def _risk_score(complexity: dict[str, int]) -> int:
     )
 
 
-def validate_analytics_sql(sql: str) -> SqlValidationResult:
+def validate_analytics_sql(sql: str, *, allow_cross_tenant: bool = False) -> SqlValidationResult:
     raw = (sql or "").strip()
     if not raw:
         return SqlValidationResult(ok=False, error="SQL vazio.", code="invalid_input")
@@ -143,12 +143,15 @@ def validate_analytics_sql(sql: str) -> SqlValidationResult:
                 error=f"Fonte SQL não permitida: {source}",
                 code="sql_not_allowed_source",
             )
-    if not _TENANT_SCOPE_RE.search(raw):
-        return SqlValidationResult(
-            ok=False,
-            error="SQL analítico deve filtrar por empresa_id usando :empresa_id.",
-            code="sql_missing_tenant_scope",
-        )
+    
+    if not allow_cross_tenant:
+        if not _TENANT_SCOPE_RE.search(raw):
+            return SqlValidationResult(
+                ok=False,
+                error="SQL analítico deve filtrar por empresa_id usando :empresa_id.",
+                code="sql_missing_tenant_scope",
+            )
+    
     complexity = _build_complexity(raw)
     score = _risk_score(complexity)
     max_risk = int(os.getenv("ANALYTICS_SQL_MAX_RISK_SCORE", "20"))

@@ -1085,6 +1085,10 @@ class GerarRelatorioDinamicoInput(BaseModel):
             "'ticket_medio', 'total_vendido'."
         ),
     )
+    empresa_id_filtro: Optional[int] = Field(
+        default=None,
+        description="ID da empresa para filtrar (apenas superadmin). Se None, usa empresa do usuário.",
+    )
 
 
 # ── Handler principal ─────────────────────────────────────────────────────────
@@ -1103,6 +1107,21 @@ _HANDLERS: dict[str, Callable] = {
 async def _handler_gerar_relatorio_dinamico(
     inp: GerarRelatorioDinamicoInput, *, db: Session, current_user: Usuario
 ) -> dict[str, Any]:
+    is_superadmin = bool(getattr(current_user, "is_superadmin", False))
+
+    if inp.empresa_id_filtro is not None:
+        if not is_superadmin:
+            return {
+                "erro": "Apenas superadmin pode especificar empresa_id_filtro.",
+                "code": "forbidden_cross_tenant",
+                "rows": [],
+                "metricas_resumo": {},
+                "insights_base": [],
+            }
+        empresa_id_alvo = inp.empresa_id_filtro
+    else:
+        empresa_id_alvo = current_user.empresa_id
+
     dominio = inp.dominio.lower().strip()
     handler_fn = _HANDLERS.get(dominio)
     if not handler_fn:
@@ -1114,7 +1133,9 @@ async def _handler_gerar_relatorio_dinamico(
             "metricas_resumo": {},
             "insights_base": [],
         }
-    return handler_fn(inp, db=db, empresa_id=current_user.empresa_id)
+    result = handler_fn(inp, db=db, empresa_id=empresa_id_alvo)
+    result["empresa_id_consultado"] = empresa_id_alvo
+    return result
 
 
 # ── ToolSpec ──────────────────────────────────────────────────────────────────

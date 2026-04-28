@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 from sqlalchemy import text
@@ -18,6 +18,10 @@ from ._base import ToolSpec
 class ExecutarSqlAnaliticoInput(BaseModel):
     sql: str = Field(min_length=5, max_length=4000)
     limit: int = Field(default=50, ge=1, le=200)
+    empresa_id_filtro: Optional[int] = Field(
+        default=None,
+        description="ID da empresa para filtrar (apenas superadmin). Se None, usa empresa do usuário.",
+    )
 
 
 def _ensure_limit(sql: str, limit: int) -> str:
@@ -27,10 +31,23 @@ def _ensure_limit(sql: str, limit: int) -> str:
 async def _executar_sql_analitico(
     inp: ExecutarSqlAnaliticoInput, *, db: Session, current_user: Usuario
 ) -> dict[str, Any]:
-    if not getattr(current_user, "empresa_id", None):
-        return {"error": "Usuário sem escopo de empresa.", "code": "tenant_scope_required"}
+    is_superadmin = bool(getattr(current_user, "is_superadmin", False))
+    empresa_id_alvo: int
 
-    validation = validate_analytics_sql(inp.sql)
+    if inp.empresa_id_filtro is not None:
+        if not is_superadmin:
+            return {
+                "error": "Apenas superadmin pode especificar empresa_id_filtro.",
+                "code": "forbidden_cross_tenant"
+            }
+        empresa_id_alvo = inp.empresa_id_filtro
+    else:
+        if not getattr(current_user, "empresa_id", None):
+            return {"error": "Usuário sem escopo de empresa.", "code": "tenant_scope_required"}
+        empresa_id_alvo = int(current_user.empresa_id)
+
+    allow_cross_tenant = is_superadmin and inp.empresa_id_filtro is not None
+    validation = validate_analytics_sql(inp.sql, allow_cross_tenant=allow_cross_tenant)
     if not validation.ok:
         return {
             "error": validation.error or "SQL inválido",
@@ -44,7 +61,7 @@ async def _executar_sql_analitico(
         result = db.execute(
             text(sql_final),
             {
-                "empresa_id": int(current_user.empresa_id),
+                "empresa_id": empresa_id_alvo,
                 "_agent_limit": int(inp.limit),
             },
         )
@@ -58,7 +75,7 @@ async def _executar_sql_analitico(
         usuario=current_user,
         acao="analytics_sql_agent_query",
         recurso="analytics_sql",
-        recurso_id=str(current_user.empresa_id),
+        recurso_id=str(empresa_id_alvo),
         detalhes={
             "sql_original": inp.sql,
             "sql_final": sql_final,
@@ -66,7 +83,11 @@ async def _executar_sql_analitico(
             "limit": inp.limit,
             "risk_score": validation.risk_score,
             "complexity": validation.complexity or {},
-            "tenant_scope": {"empresa_id_param": int(current_user.empresa_id)},
+            "tenant_scope": {
+                "empresa_id_param": empresa_id_alvo,
+                "empresa_id_filtro": inp.empresa_id_filtro,
+                "is_cross_tenant": inp.empresa_id_filtro is not None and inp.empresa_id_filtro != current_user.empresa_id,
+            },
         },
     )
     return {
@@ -76,6 +97,7 @@ async def _executar_sql_analitico(
         "sql_final": sql_final,
         "risk_score": validation.risk_score,
         "complexity": validation.complexity or {},
+        "empresa_id_consultado": empresa_id_alvo,
     }
 
 
@@ -83,7 +105,7 @@ executar_sql_analitico = ToolSpec(
     name="executar_sql_analitico",
     description=(
         "Executa SQL analítico em modo read-only com whitelist de fontes e bloqueio de DML/DDL. "
-        "Aceita apenas SELECT/CTE."
+        "Aceita apenas SELECT/CTE. Superadmin pode consultar outras empresas via empresa_id_filtro."
     ),
     input_model=ExecutarSqlAnaliticoInput,
     handler=_executar_sql_analitico,

@@ -134,6 +134,8 @@ ENGINE_POLICIES: dict[str, EnginePolicy] = {
             "gerar_relatorio_contas_a_receber",
             "gerar_relatorio_vendas",
             "gerar_relatorio_dinamico",
+            "listar_clientes",
+            "listar_orcamentos",
         ),
         allow_tenant_rag=False,
         allow_business_context=False,
