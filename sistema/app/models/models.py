@@ -1094,14 +1094,6 @@ class TipoInteracao(str, enum.Enum):
     LEMBRETE = "lembrete"
 
 
-class CanalInteracao(str, enum.Enum):
-    WHATSAPP = "whatsapp"
-    EMAIL = "email"
-    LIGACAO = "ligacao"
-    REUNIAO = "reuniao"
-    OUTRO = "outro"
-
-
 class StatusProposta(str, enum.Enum):
     RASCUNHO = "rascunho"
     ENVIADA = "enviada"

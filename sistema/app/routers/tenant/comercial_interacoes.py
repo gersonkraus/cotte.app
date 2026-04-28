@@ -64,32 +64,39 @@ def create_lembrete(
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(exigir_permissao("comercial", "escrita")),
 ):
-    lead = _lead(db, usuario.empresa_id, data.lead_id)
-    reminder = TenantCommercialReminder(
-        empresa_id=usuario.empresa_id,
-        lead_id=data.lead_id,
-        titulo=data.titulo,
-        descricao=data.descricao,
-        data_hora=data.data_hora,
-        canal_sugerido=data.canal_sugerido,
-        status=StatusLembrete.PENDENTE,
-    )
-    db.add(reminder)
-    db.add(
-        TenantCommercialInteraction(
+    try:
+        lead = _lead(db, usuario.empresa_id, data.lead_id)
+        reminder = TenantCommercialReminder(
             empresa_id=usuario.empresa_id,
             lead_id=data.lead_id,
-            tipo=TipoInteracao.LEMBRETE,
-            canal=CanalInteracao.SISTEMA,
-            conteudo=f"Lembrete criado: {data.titulo}",
+            titulo=data.titulo,
+            descricao=data.descricao,
+            data_hora=data.data_hora,
+            canal_sugerido=data.canal_sugerido,
+            status=StatusLembrete.PENDENTE,
         )
-    )
-    db.commit()
-    db.refresh(reminder)
-    out = {c.name: getattr(reminder, c.name) for c in reminder.__table__.columns}
-    out["lead_nome_empresa"] = lead.nome_empresa or lead.nome
-    out["lead_nome_responsavel"] = lead.nome
-    return out
+        db.add(reminder)
+        db.add(
+            TenantCommercialInteraction(
+                empresa_id=usuario.empresa_id,
+                lead_id=data.lead_id,
+                tipo=TipoInteracao.LEMBRETE,
+                canal=CanalInteracao.SISTEMA,
+                conteudo=f"Lembrete criado: {data.titulo}",
+            )
+        )
+        db.commit()
+        db.refresh(reminder)
+        out = {c.name: getattr(reminder, c.name) for c in reminder.__table__.columns}
+        out["lead_nome_empresa"] = lead.nome_empresa or lead.nome
+        out["lead_nome_responsavel"] = lead.nome
+        return out
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
 
 
 @router.get("/lembretes")
