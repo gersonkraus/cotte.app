@@ -31,6 +31,37 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
         return;
     }
 
+    const isSilentLoadMore = window._isSilentLoadMoreOrcamentos || window._isSilentLoadMoreClientes;
+    console.log('[load more] isSilentLoadMore:', isSilentLoadMore, '_isSilentLoadMoreOrcamentos:', window._isSilentLoadMoreOrcamentos);
+    if (isSilentLoadMore) {
+        const dados = data.dados || data;
+        const isOrcamentos = window._isSilentLoadMoreOrcamentos && Array.isArray(dados.orcamentos) && dados.orcamentos.length > 0;
+        const isClientes = window._isSilentLoadMoreClientes && Array.isArray(dados.clientes) && dados.clientes.length > 0;
+        console.log('[load more] isOrcamentos:', isOrcamentos, 'isClientes:', isClientes, 'dados:', dados);
+        
+        window._isSilentLoadMoreOrcamentos = false;
+        window._isSilentLoadMoreClientes = false;
+        
+        if (isOrcamentos) {
+            if (!isStreamed && loadingMessage && loadingMessage.remove) {
+                loadingMessage.remove();
+            } else if (isStreamed && loadingMessage && loadingMessage.remove) {
+                loadingMessage.remove();
+            }
+            _appendOrcamentosToExistingTable(dados);
+            return;
+        }
+        if (isClientes) {
+            if (!isStreamed && loadingMessage && loadingMessage.remove) {
+                loadingMessage.remove();
+            } else if (isStreamed && loadingMessage && loadingMessage.remove) {
+                loadingMessage.remove();
+            }
+            _appendClientesToExistingTable(dados);
+            return;
+        }
+    }
+
     const renderResult = typeof window.resolveAssistenteRenderResult === 'function'
         ? window.resolveAssistenteRenderResult(data, isStreamed)
         : {
@@ -274,3 +305,178 @@ window.formatPendingArgs = formatPendingArgs;
 window.confirmarAcaoIA = confirmarAcaoIA;
 window.cancelarAcaoIA = cancelarAcaoIA;
 window.renderChart = renderChart;
+
+function _appendOrcamentosToExistingTable(dados) {
+    console.log('[load more] dados recebidos:', dados);
+    const chatMessages = document.getElementById('chatMessages');
+    if (!chatMessages) {
+        console.log('[load more] chatMessages não encontrado');
+        return;
+    }
+    
+    const lastOrcamentosCard = chatMessages.querySelector('.orc-list-card[data-testid="assistente-orc-list-card"]');
+    if (!lastOrcamentosCard) {
+        console.log('[load more] tabela de orçamentos não encontrada');
+        return;
+    }
+    
+    const tbody = lastOrcamentosCard.querySelector('.ai-table tbody');
+    if (!tbody) {
+        console.log('[load more] tbody não encontrado');
+        return;
+    }
+    
+    const itens = Array.isArray(dados.orcamentos) ? dados.orcamentos : [];
+    console.log('[load more] itens para adicionar:', itens.length);
+    const filtros = dados.filtros || {};
+    const badgeMap = {
+        'rascunho': 'badge-rascunho',
+        'enviado': 'badge-enviado',
+        'aprovado': 'badge-aprovado',
+        'recusado': 'badge-recusado',
+        'expirado': 'badge-expirado'
+    };
+    
+    itens.forEach((item) => {
+        const numero = escapeHtml(item.numero || `#${item.id || '—'}`);
+        const cliente = escapeHtml(item.cliente_nome || 'Cliente não informado');
+        const statusStr = item.status || '—';
+        const statusKey = statusStr.toLowerCase();
+        const badgeClass = badgeMap[statusKey] || 'badge-rascunho';
+        
+        let dataExibicao = '—';
+        let colunaDataLabel = 'Emissão';
+        
+        if (filtros.aprovado_em_de || filtros.aprovado_em_ate) {
+            colunaDataLabel = 'Aprovado em';
+            if (item.aprovado_em) {
+                const dateObj = new Date(item.aprovado_em);
+                const dia = String(dateObj.getDate()).padStart(2, '0');
+                const mes = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const ano = dateObj.getFullYear();
+                const hora = String(dateObj.getHours()).padStart(2, '0');
+                const min = String(dateObj.getMinutes()).padStart(2, '0');
+                dataExibicao = `${dia}/${mes}/${ano} ${hora}:${min}`;
+            }
+        } else if (item.criado_em) {
+            const dateObj = new Date(item.criado_em);
+            const dia = String(dateObj.getDate()).padStart(2, '0');
+            const mes = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const ano = dateObj.getFullYear();
+            dataExibicao = `${dia}/${mes}/${ano}`;
+        }
+        
+        const valor = typeof formatValue === 'function' ? formatValue(item.total || 0) : (item.total || 0);
+        
+        const actionBtn = item.id
+            ? `<button type="button" class="btn btn-ghost" style="padding: 2px 8px; font-size: 11px;" onclick="if(typeof abrirDetalhesOrcamento === 'function') abrirDetalhesOrcamento(${item.id})" title="Ver detalhes do orçamento">🔍 Ver</button>`
+            : '';
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td data-label="Num"><strong>${numero}</strong></td>
+            <td data-label="Cliente">${cliente}</td>
+            <td data-label="${colunaDataLabel}">${dataExibicao}</td>
+            <td data-label="Status"><span class="opr-status-badge ${badgeClass}" style="font-size:0.7em; padding:2px 6px;">${escapeHtml(statusStr)}</span></td>
+            <td data-label="Total"><strong>${escapeHtml(valor)}</strong></td>
+            <td data-label="Ações">${actionBtn}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+    
+    const existingLoadMore = lastOrcamentosCard.querySelector('[data-orcamentos-load-more]');
+    if (existingLoadMore) {
+        const hasMore = !!dados.has_more;
+        const nextCursor = dados.next_cursor || '';
+        if (!hasMore || !nextCursor) {
+            existingLoadMore.parentElement.remove();
+        } else {
+            const status = filtros.status || '';
+            const clienteId = filtros.cliente_id || '';
+            const dias = Number(filtros.dias || 30);
+            const limitLista = Number(dados.limit || 10);
+            const aprovadoDe = filtros.aprovado_em_de || '';
+            const aprovadoAte = filtros.aprovado_em_ate || '';
+            
+            existingLoadMore.setAttribute('data-cursor', nextCursor);
+            existingLoadMore.setAttribute('data-status', String(status));
+            existingLoadMore.setAttribute('data-cliente-id', String(clienteId));
+            existingLoadMore.setAttribute('data-dias', String(dias));
+            existingLoadMore.setAttribute('data-limit', String(limitLista));
+            existingLoadMore.setAttribute('data-aprovado-em-de', String(aprovadoDe));
+            existingLoadMore.setAttribute('data-aprovado-em-ate', String(aprovadoAte));
+            existingLoadMore.textContent = 'Carregar mais resultados';
+        }
+    }
+    
+    if (typeof saveChatHistory === 'function') {
+        setTimeout(saveChatHistory, 500);
+    }
+}
+
+function _appendClientesToExistingTable(dados) {
+    const chatMessages = document.getElementById('chatMessages');
+    if (!chatMessages) return;
+    
+    const lastClientesCard = chatMessages.querySelector('.orc-list-card[data-testid="assistente-clientes-list-card"]');
+    if (!lastClientesCard) return;
+    
+    const tbody = lastClientesCard.querySelector('.ai-table tbody');
+    const cardsMobile = lastClientesCard.querySelector('.cliente-lista-mobile');
+    
+    const itens = Array.isArray(dados.clientes) ? dados.clientes : [];
+    
+    itens.forEach((item) => {
+        const id = escapeHtml(item.id || '—');
+        const nome = escapeHtml(item.nome || '—');
+        const telefone = escapeHtml(item.telefone || '—');
+        const email = escapeHtml(item.email || '—');
+        const criadoEm = item.criado_em ? new Date(item.criado_em).toLocaleDateString('pt-BR') : '—';
+        
+        if (tbody) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td data-label="ID">${id}</td>
+                <td data-label="Nome">${nome}</td>
+                <td data-label="Telefone">${telefone}</td>
+                <td data-label="Email">${email}</td>
+                <td data-label="Cadastro">${criadoEm}</td>
+            `;
+            tbody.appendChild(tr);
+        }
+        
+        if (cardsMobile) {
+            const card = document.createElement('div');
+            card.className = 'cliente-card-mobile';
+            card.innerHTML = `
+                <div class="cliente-card-mobile__header">
+                    <span class="cliente-card-mobile__nome">${nome}</span>
+                </div>
+                <div class="cliente-card-mobile__info">
+                    <span>📞 ${telefone}</span>
+                    <span>✉️ ${email}</span>
+                </div>
+            `;
+            cardsMobile.appendChild(card);
+        }
+    });
+    
+    const existingLoadMore = lastClientesCard.querySelector('[data-clientes-load-more]');
+    if (existingLoadMore) {
+        const hasMore = !!dados.has_more;
+        const nextCursor = dados.next_cursor || '';
+        if (!hasMore || !nextCursor) {
+            existingLoadMore.parentElement.remove();
+        } else {
+            existingLoadMore.setAttribute('data-cursor', nextCursor);
+            existingLoadMore.textContent = 'Carregar mais clientes';
+        }
+    }
+    
+    if (typeof saveChatHistory === 'function') {
+        setTimeout(saveChatHistory, 500);
+    }
+}
+
+window._appendOrcamentosToExistingTable = _appendOrcamentosToExistingTable;
+window._appendClientesToExistingTable = _appendClientesToExistingTable;

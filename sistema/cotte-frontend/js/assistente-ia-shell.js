@@ -943,12 +943,9 @@ function initAssistenteChatDelegation() {
             if (clienteId) {
                 command += ` Cliente ${clienteId}.`;
             }
-            if (window.sendMessage) {
-                window.sendMessage(command, { is_hidden: true });
-            } else {
-                window._silentNextMessage = true;
-                sendQuickMessage(command);
-            }
+            window._isSilentLoadMoreOrcamentos = true;
+            window._silentNextMessage = true;
+            sendQuickMessage(command);
             return;
         }
 
@@ -967,12 +964,9 @@ function initAssistenteChatDelegation() {
             }
             command += '.';
             
-            if (window.sendMessage) {
-                window.sendMessage(command, { is_hidden: true });
-            } else {
-                window._silentNextMessage = true;
-                sendQuickMessage(command);
-            }
+            window._isSilentLoadMoreClientes = true;
+            window._silentNextMessage = true;
+            sendQuickMessage(command);
             return;
         }
 
