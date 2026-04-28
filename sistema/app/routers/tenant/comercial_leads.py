@@ -1,11 +1,13 @@
 """Leads comerciais tenant — CRUD, listagem filtrada, dashboard aux, interações (sem criar usuário/senha)."""
 
 import asyncio
+import re
+import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -19,10 +21,13 @@ from app.models.models import (
     TenantCommercialLead,
     TenantCommercialLeadSource,
     TenantCommercialSegment,
+    TenantLeadImportacao,
+    TenantLeadImportacaoItem,
     TenantPipelineEtapa,
     TipoInteracao,
     Usuario,
 )
+from app.services.ia_service import analisar_leads
 from app.routers.tenant.tenant_comercial_serialization import (
     sync_lead_status_from_etapa,
     tenant_lead_to_out,
@@ -429,6 +434,195 @@ async def get_briefing(
     }
 
 
+def _parse_fallback(texto: str) -> list:
+    items = []
+    for line in texto.split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        email_m = re.search(r"[\w\.-]+@[\w\.-]+\.\w+", line)
+        email = email_m.group(0) if email_m else ""
+        phone_m = re.search(r"\(?\d{2}\)?[\s\-]?\d{4,5}[\s\-]?\d{4}", line)
+        whatsapp = re.sub(r"\D", "", phone_m.group(0)) if phone_m else ""
+        if whatsapp and len(whatsapp) < 10:
+            whatsapp = ""
+        if not email and not whatsapp:
+            continue
+        ref = line.split(email)[0] if email else (line.split(phone_m.group(0))[0] if phone_m else line)
+        nome = " ".join(ref.strip().split()[:3])
+        items.append({"nome_responsavel": nome, "nome_empresa": "", "whatsapp": whatsapp,
+                      "email": email, "cidade": "", "segmento_nome": "", "origem_nome": ""})
+    return items
+
+
+@router.post("/analisar-importacao")
+async def analisar_importacao_tenant(
+    data: dict = Body(...),
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exigir_permissao("comercial", "escrita")),
+):
+    texto = (data.get("texto") or "").strip()
+    if not texto:
+        raise HTTPException(status_code=400, detail="Texto vazio")
+
+    segmentos = {
+        s.nome.lower(): s.id
+        for s in db.query(TenantCommercialSegment)
+        .filter(TenantCommercialSegment.empresa_id == usuario.empresa_id, TenantCommercialSegment.ativo.is_(True))
+        .all()
+    }
+    origens = {
+        o.nome.lower(): o.id
+        for o in db.query(TenantCommercialLeadSource)
+        .filter(TenantCommercialLeadSource.empresa_id == usuario.empresa_id, TenantCommercialLeadSource.ativo.is_(True))
+        .all()
+    }
+
+    try:
+        resposta = await analisar_leads(texto)
+        if not resposta or not resposta.get("items"):
+            resposta = {"items": _parse_fallback(texto)}
+    except Exception:
+        resposta = {"items": _parse_fallback(texto)}
+
+    if not resposta["items"]:
+        raise HTTPException(status_code=400, detail="Nenhum lead identificado no texto")
+
+    items = []
+    for item in resposta["items"]:
+        nr = (item.get("nome_responsavel") or item.get("nome") or "").strip()
+        ne = (item.get("nome_empresa") or item.get("empresa") or "").strip()
+        if not nr and ne:
+            item["nome_responsavel"] = ne
+        whatsapp = re.sub(r"\D", "", (item.get("whatsapp") or ""))
+        if whatsapp and len(whatsapp) < 10:
+            whatsapp = ""
+        email = (item.get("email") or "").strip()
+        if not whatsapp and not email:
+            continue
+        item["whatsapp"] = whatsapp
+        dup_filters = []
+        if whatsapp:
+            dup_filters.append(TenantCommercialLead.telefone == whatsapp)
+        if email:
+            dup_filters.append(TenantCommercialLead.email == email)
+        duplicado = (
+            db.query(TenantCommercialLead)
+            .filter(TenantCommercialLead.empresa_id == usuario.empresa_id, or_(*dup_filters))
+            .first()
+        ) if dup_filters else None
+        item["duplicado"] = bool(duplicado)
+        item["selecionado"] = not bool(duplicado)
+        item["segmento_id"] = segmentos.get((item.get("segmento_nome") or "").strip().lower())
+        item["origem_lead_id"] = origens.get((item.get("origem_nome") or "").strip().lower())
+        items.append(item)
+
+    return {"items": items}
+
+
+@router.post("/importar")
+async def importar_leads_tenant(
+    payload: dict = Body(...),
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exigir_permissao("comercial", "escrita")),
+):
+    leads_data = payload.get("leads", [])
+    if not leads_data:
+        raise HTTPException(status_code=400, detail="Nenhum lead para importar")
+
+    importacao = TenantLeadImportacao(
+        empresa_id=usuario.empresa_id,
+        criado_por_id=usuario.id,
+        nome=f"Importação {datetime.now().strftime('%d/%m/%Y %H:%M')} - {uuid.uuid4().hex[:6]}",
+        metodo=payload.get("metodo", "ia"),
+        total_importados=len(leads_data),
+        total_validos=0,
+        total_invalidos=0,
+    )
+    db.add(importacao)
+    db.flush()
+
+    sucesso = 0
+    erros = 0
+    leads_criados = []
+    erros_detalhes = []
+
+    for item in leads_data:
+        try:
+            nr = (item.get("nome_responsavel") or item.get("nome_empresa") or "").strip()
+            if not nr:
+                raise ValueError("Nome obrigatório")
+            whatsapp = re.sub(r"\D", "", str(item.get("whatsapp") or ""))
+            if whatsapp and len(whatsapp) < 10:
+                raise ValueError("WhatsApp inválido")
+            email = (item.get("email") or "").strip() or None
+
+            dup_filters = []
+            if whatsapp:
+                dup_filters.append(TenantCommercialLead.telefone == whatsapp)
+            if email:
+                dup_filters.append(TenantCommercialLead.email == email)
+            if dup_filters:
+                dup = db.query(TenantCommercialLead).filter(
+                    TenantCommercialLead.empresa_id == usuario.empresa_id, or_(*dup_filters)
+                ).first()
+                if dup:
+                    raise ValueError(f"Lead duplicado (ID: {dup.id})")
+
+            lead = TenantCommercialLead(
+                empresa_id=usuario.empresa_id,
+                nome=nr,
+                nome_empresa=item.get("nome_empresa") or nr,
+                telefone=whatsapp or None,
+                email=email,
+                observacoes=item.get("observacoes"),
+                status_pipeline="novo",
+                lead_score=LeadScore.FRIO,
+                ativo=True,
+            )
+            db.add(lead)
+            db.flush()
+            db.add(TenantLeadImportacaoItem(
+                importacao_id=importacao.id,
+                nome_responsavel=nr,
+                nome_empresa=item.get("nome_empresa") or nr,
+                whatsapp=whatsapp or None,
+                email=email,
+                cidade=item.get("cidade"),
+                observacoes=item.get("observacoes"),
+                status="valido",
+                lead_id=lead.id,
+            ))
+            leads_criados.append({"id": lead.id, "nome_responsavel": nr,
+                                   "nome_empresa": lead.nome_empresa})
+            sucesso += 1
+        except Exception as e:
+            erros += 1
+            erros_detalhes.append({"lead": item.get("nome_responsavel") or item.get("nome_empresa") or "?",
+                                    "erro": str(e)})
+            db.add(TenantLeadImportacaoItem(
+                importacao_id=importacao.id,
+                nome_responsavel=item.get("nome_responsavel") or "",
+                nome_empresa=item.get("nome_empresa") or "",
+                whatsapp=item.get("whatsapp"),
+                email=item.get("email"),
+                status="erro",
+                erro=str(e),
+            ))
+
+    importacao.total_validos = sucesso
+    importacao.total_invalidos = erros
+    db.commit()
+
+    return {
+        "sucesso": sucesso,
+        "erros": erros,
+        "leads_criados": leads_criados,
+        "erros_detalhes": erros_detalhes,
+        "importacao_id": importacao.id,
+    }
+
+
 @router.get("/{lead_id}", response_model=dict[str, Any])
 def get_lead(
     lead_id: int,
@@ -600,6 +794,52 @@ def log_email(
     )
     db.commit()
     return {"ok": True, "detail": "Registrado (envio de e-mail real depende da configuração da empresa)."}
+
+
+@router.patch("/{lead_id}", response_model=LeadResponse)
+def patch_lead(
+    lead_id: int,
+    payload: LeadUpdate,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exigir_permissao("comercial", "escrita")),
+):
+    return update_lead(lead_id, payload, db, usuario)
+
+
+@router.patch("/{lead_id}/status")
+def patch_lead_status(
+    lead_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exigir_permissao("comercial", "escrita")),
+):
+    lead = _buscar_lead(db, usuario.empresa_id, lead_id)
+    novo_status = body.get("status") or body.get("status_pipeline")
+    if not novo_status:
+        raise HTTPException(status_code=422, detail="Campo 'status' obrigatório")
+    lead.status_pipeline = novo_status
+    etapa = db.query(TenantPipelineEtapa).filter(
+        TenantPipelineEtapa.empresa_id == usuario.empresa_id,
+        TenantPipelineEtapa.slug == novo_status,
+        TenantPipelineEtapa.ativo.is_(True),
+    ).first()
+    lead.etapa_pipeline_id = etapa.id if etapa else None
+    lead.atualizado_em = datetime.now(timezone.utc)
+    db.commit()
+    return {"ok": True, "status_pipeline": novo_status}
+
+
+@router.patch("/{lead_id}/arquivar")
+def arquivar_lead(
+    lead_id: int,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exigir_permissao("comercial", "escrita")),
+):
+    lead = _buscar_lead(db, usuario.empresa_id, lead_id)
+    lead.ativo = False
+    lead.atualizado_em = datetime.now(timezone.utc)
+    db.commit()
+    return {"ok": True, "message": "Lead arquivado"}
 
 
 @router.post("/{lead_id}/criar-empresa", include_in_schema=False)
