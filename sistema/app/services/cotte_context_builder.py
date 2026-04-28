@@ -94,6 +94,7 @@ class SessionStore:
         _sessions[cache_key] = {
             "messages": deque(maxlen=MAX_MESSAGES_PER_SESSION),
             "seen_suggestions": deque(maxlen=SessionStore.MAX_SUGGESTIONS_TRACKED),
+            "operational_context": {},
             "last_seen": datetime.utcnow(),
         }
 
@@ -139,6 +140,9 @@ class SessionStore:
 
                 if msgs_db:
                     logger.debug(f"[SessionStore] Recovery: {len(msgs_db)} msgs restauradas para sessão {sessao_id[:8]}")
+
+                if sessao_db and isinstance(getattr(sessao_db, "contexto_operacional", None), dict):
+                    _sessions[cache_key]["operational_context"] = dict(sessao_db.contexto_operacional)
 
             except Exception as e:
                 logger.warning(f"[SessionStore] Erro ao recuperar sessão do banco: {e}")
@@ -344,6 +348,93 @@ class SessionStore:
             "seen_count": len(seen),
             "recent": seen[-10:] if len(seen) > 10 else seen,
         }
+
+    @staticmethod
+    def get_operational_context(
+        sessao_id: str,
+        db: Optional[Session] = None,
+        empresa_id: int = 0,
+        usuario_id: int = 0,
+    ) -> dict:
+        cache_key = SessionStore._resolve_cache_key(sessao_id, empresa_id, usuario_id)
+        if cache_key not in _sessions:
+            SessionStore.get_or_create(sessao_id, db=db, empresa_id=empresa_id, usuario_id=usuario_id)
+        ctx = _sessions.get(cache_key, {}).get("operational_context")
+        return dict(ctx) if isinstance(ctx, dict) else {}
+
+    @staticmethod
+    def set_operational_context(
+        sessao_id: str,
+        context_patch: dict,
+        db: Optional[Session] = None,
+        empresa_id: int = 0,
+        usuario_id: int = 0,
+    ) -> dict:
+        if not isinstance(context_patch, dict):
+            return SessionStore.get_operational_context(
+                sessao_id,
+                db=db,
+                empresa_id=empresa_id,
+                usuario_id=usuario_id,
+            )
+        cache_key = SessionStore._resolve_cache_key(sessao_id, empresa_id, usuario_id)
+        if cache_key not in _sessions:
+            SessionStore.get_or_create(sessao_id, db=db, empresa_id=empresa_id, usuario_id=usuario_id)
+        current = _sessions[cache_key].get("operational_context")
+        merged = dict(current) if isinstance(current, dict) else {}
+        for key, value in context_patch.items():
+            if value is None:
+                merged.pop(key, None)
+            else:
+                merged[key] = value
+        _sessions[cache_key]["operational_context"] = merged
+        _sessions[cache_key]["last_seen"] = datetime.utcnow()
+
+        if db is not None:
+            try:
+                from app.models.models import AIChatSessao
+
+                sessao_q = db.query(AIChatSessao).filter(AIChatSessao.id == sessao_id)
+                if empresa_id:
+                    sessao_q = sessao_q.filter(AIChatSessao.empresa_id == empresa_id)
+                sessao_db = sessao_q.first()
+                if sessao_db:
+                    sessao_db.contexto_operacional = merged
+                    db.commit()
+                else:
+                    db.rollback()
+            except Exception as e:
+                logger.warning("[SessionStore] Erro ao persistir contexto operacional: %s", e)
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+
+        return dict(merged)
+
+    @staticmethod
+    def clear_operational_context(
+        sessao_id: str,
+        db: Optional[Session] = None,
+        empresa_id: int = 0,
+        usuario_id: int = 0,
+    ) -> dict:
+        return SessionStore.set_operational_context(
+            sessao_id,
+            {
+                "orcamento_id_ativo": None,
+                "orcamento_numero_ativo": None,
+                "cliente_id_ativo": None,
+                "cliente_nome_ativo": None,
+                "documento_id_ativo": None,
+                "documento_titulo_ativo": None,
+                "periodo_financeiro_ativo": None,
+                "atualizado_em": datetime.utcnow().isoformat(),
+            },
+            db=db,
+            empresa_id=empresa_id,
+            usuario_id=usuario_id,
+        )
 
 
 class SemanticMemoryStore:

@@ -8,7 +8,7 @@ import logging
 import csv
 import io
 import base64
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -53,6 +53,7 @@ from app.services.internal_copilot_service import (
 )
 from app.services.audit_service import registrar_auditoria
 from app.services.ai_observability_service import build_ai_health_summary
+from app.services.cotte_context_builder import SessionStore
 from app.services.ai_rollout_service import (
     build_rollout_plan_from_payload,
     get_rollout_for_empresa,
@@ -179,6 +180,7 @@ class AIConfirmarOrcamentoRequest(BaseModel):
     desconto_tipo: str = "percentual"
     observacoes: Optional[str] = None
     cadastrar_materiais_novos: bool = False
+    sessao_id: Optional[str] = None
 
 
 class AIStatusResponse(BaseModel):
@@ -467,6 +469,21 @@ async def confirmar_orcamento_ia(
         db.commit()
         db.refresh(orc)
 
+        if request.sessao_id:
+            SessionStore.set_operational_context(
+                request.sessao_id,
+                {
+                    "orcamento_id_ativo": orc.id,
+                    "orcamento_numero_ativo": orc.numero,
+                    "cliente_id_ativo": getattr(orc, "cliente_id", None),
+                    "cliente_nome_ativo": orc.cliente.nome if getattr(orc, "cliente", None) else None,
+                    "atualizado_em": datetime.now(timezone.utc).isoformat(),
+                },
+                db=db,
+                empresa_id=current_user.empresa_id,
+                usuario_id=int(current_user.id),
+            )
+
         return AIResponse(
             sucesso=True,
             resposta=f"Orçamento {orc.numero} criado com sucesso!",
@@ -502,6 +519,16 @@ async def confirmar_orcamento_ia(
 class AplicarDescontoRequest(BaseModel):
     orcamento_id: int
     desconto_pct: float
+    sessao_id: Optional[str] = None
+
+
+class AISessaoContextoRequest(BaseModel):
+    sessao_id: str
+
+
+class AISessaoContextoDefinirRequest(BaseModel):
+    sessao_id: str
+    contexto_operacional: dict = Field(default_factory=dict)
 
 
 @router.post("/orcamento/aplicar-desconto", response_model=AIResponse)
@@ -536,6 +563,21 @@ async def aplicar_desconto_orcamento_ia(
     db.commit()
     db.refresh(orc)
 
+    if request.sessao_id:
+        SessionStore.set_operational_context(
+            request.sessao_id,
+            {
+                "orcamento_id_ativo": orc.id,
+                "orcamento_numero_ativo": orc.numero,
+                "cliente_id_ativo": getattr(orc, "cliente_id", None),
+                "cliente_nome_ativo": orc.cliente.nome if getattr(orc, "cliente", None) else None,
+                "atualizado_em": datetime.now(timezone.utc).isoformat(),
+            },
+            db=db,
+            empresa_id=current_user.empresa_id,
+            usuario_id=int(current_user.id),
+        )
+
     cliente = orc.cliente
     tem_telefone = bool(cliente and getattr(cliente, "telefone", None))
     tem_email = bool(cliente and getattr(cliente, "email", None))
@@ -565,6 +607,51 @@ async def aplicar_desconto_orcamento_ia(
         dados=dados,
         confianca=1.0,
         modulo_origem="aplicar_desconto",
+    )
+
+
+@router.post("/assistente/contexto/limpar", response_model=AIResponse)
+async def limpar_contexto_operacional(
+    request: AISessaoContextoRequest,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
+):
+    contexto = SessionStore.clear_operational_context(
+        request.sessao_id,
+        db=db,
+        empresa_id=current_user.empresa_id,
+        usuario_id=int(current_user.id),
+    )
+    return AIResponse(
+        sucesso=True,
+        resposta="Contexto operacional limpo para esta sessão.",
+        tipo_resposta="contexto_limpo",
+        dados={"contexto_operacional": contexto},
+        confianca=1.0,
+        modulo_origem="assistente_contexto",
+    )
+
+
+@router.post("/assistente/contexto/definir", response_model=AIResponse)
+async def definir_contexto_operacional(
+    request: AISessaoContextoDefinirRequest,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
+):
+    contexto = SessionStore.set_operational_context(
+        request.sessao_id,
+        request.contexto_operacional or {},
+        db=db,
+        empresa_id=current_user.empresa_id,
+        usuario_id=int(current_user.id),
+    )
+    return AIResponse(
+        sucesso=True,
+        resposta="Contexto operacional atualizado para esta sessão.",
+        tipo_resposta="contexto_atualizado",
+        dados={"contexto_operacional": contexto},
+        confianca=1.0,
+        modulo_origem="assistente_contexto",
     )
 
 

@@ -627,6 +627,37 @@ def test_sessionstore_scoped_by_empresa(db):
     assert not any("segredo e1" in m["content"] for m in hist_emp2)
 
 
+def test_sessionstore_operational_context_set_get_clear(db):
+    emp = make_empresa(db, nome="Ctx Op")
+    user = make_usuario(db, emp, email="ctx-op@teste.com")
+    SessionStore.ensure_sessao_db("sess-op", emp.id, user.id, db)
+
+    updated = SessionStore.set_operational_context(
+        "sess-op",
+        {
+            "orcamento_id_ativo": 123,
+            "orcamento_numero_ativo": "ORC-123",
+            "cliente_nome_ativo": "Maria",
+        },
+        db=db,
+        empresa_id=emp.id,
+        usuario_id=user.id,
+    )
+    assert updated.get("orcamento_id_ativo") == 123
+
+    loaded = SessionStore.get_operational_context(
+        "sess-op", db=db, empresa_id=emp.id, usuario_id=user.id
+    )
+    assert loaded.get("orcamento_numero_ativo") == "ORC-123"
+    assert loaded.get("cliente_nome_ativo") == "Maria"
+
+    cleared = SessionStore.clear_operational_context(
+        "sess-op", db=db, empresa_id=emp.id, usuario_id=user.id
+    )
+    assert "orcamento_id_ativo" not in cleared
+    assert "cliente_nome_ativo" not in cleared
+
+
 def test_ctx_leads_filtra_por_empresa(db):
     emp1 = make_empresa(db, nome="Empresa A")
     emp2 = make_empresa(db, nome="Empresa B")

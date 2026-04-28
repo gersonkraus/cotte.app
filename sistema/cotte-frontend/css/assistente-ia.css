@@ -2995,12 +2995,32 @@ body.embed-mode .embed-context-bar__label {
   text-transform: uppercase;
 }
 body.embed-mode .embed-context-bar__content {
+  flex: 1 1 auto;
   min-width: 0;
   display: flex;
   align-items: center;
   gap: 6px;
   overflow: hidden;
   white-space: nowrap;
+}
+body.embed-mode .embed-context-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+body.embed-mode .embed-context-bar__action {
+  border: 1px solid color-mix(in srgb, var(--ai-accent) 24%, transparent);
+  background: white;
+  color: var(--ai-text);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 4px 9px;
+  cursor: pointer;
+}
+body.embed-mode .embed-context-bar__action--clear {
+  border-color: color-mix(in srgb, #ef4444 26%, transparent);
+  color: #b91c1c;
 }
 body.embed-mode .embed-context-bar__primary,
 body.embed-mode .embed-context-bar__secondary {

@@ -2512,6 +2512,7 @@ class AIChatSessao(TenantScopedMixin, Base):
 
     criado_em = Column(DateTime(timezone=True), server_default=func.now())
     atualizado_em = Column(DateTime(timezone=True), onupdate=func.now())
+    contexto_operacional = Column(JSON, nullable=True)
 
     mensagens = relationship(
         "AIChatMensagem",
@@ -2539,4 +2540,3 @@ class AIChatMensagem(Base):
     criado_em = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
     sessao = relationship("AIChatSessao", back_populates="mensagens")
-

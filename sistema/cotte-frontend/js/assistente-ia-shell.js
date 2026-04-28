@@ -252,6 +252,7 @@ function _getEmpresaScopeKey(base) {
 }
 
 const ASSISTENTE_CHAT_META_KEY = _getEmpresaScopeKey('ai_chat_meta');
+const ASSISTENTE_CONTEXT_RECENTS_KEY = _getEmpresaScopeKey('ai_context_recents');
 const ASSISTENTE_COMPACT_THRESHOLD = 8;
 const ASSISTENTE_COMPACT_RECENT_COUNT = 4;
 const ASSISTENTE_SCROLL_FOLLOW_THRESHOLD = 96;
@@ -259,9 +260,30 @@ const _assistenteChatUiState = {
     autoFollow: true,
     userDetached: false,
     context: { command: '', entity: '', summary: '', secondary: '' },
+    operationalContext: null,
     pendingUserContext: null,
     programmaticScroll: false,
 };
+
+function _getOperationalContextSummary(ctx) {
+    const context = (ctx && typeof ctx === 'object') ? ctx : {};
+    const parts = [];
+    if (context.orcamento_numero_ativo) {
+        parts.push(`Orçamento ${context.orcamento_numero_ativo}`);
+    } else if (context.orcamento_id_ativo) {
+        parts.push(`Orçamento #${context.orcamento_id_ativo}`);
+    }
+    if (context.cliente_nome_ativo) {
+        parts.push(`Cliente ${context.cliente_nome_ativo}`);
+    }
+    if (context.documento_titulo_ativo) {
+        parts.push(`Documento ${context.documento_titulo_ativo}`);
+    }
+    if (context.periodo_financeiro_ativo) {
+        parts.push(`Período ${context.periodo_financeiro_ativo}`);
+    }
+    return parts.join(' · ');
+}
 
 function isAssistenteEmbedMode() {
     return document.body.classList.contains('embed-mode');
@@ -355,7 +377,9 @@ function renderAssistenteContextBar() {
     if (!bar || !primary || !secondary) return;
 
     const context = _assistenteChatUiState.context || {};
-    const hasSummary = !!_normalizeContextText(context.summary);
+    const operationalContext = _assistenteChatUiState.operationalContext;
+    const opSummary = _getOperationalContextSummary(operationalContext);
+    const hasSummary = !!_normalizeContextText(context.summary || opSummary);
     if (!hasSummary) {
         bar.hidden = true;
         primary.textContent = '';
@@ -363,12 +387,19 @@ function renderAssistenteContextBar() {
         return;
     }
 
-    const primaryText = context.command
+    const primaryText = opSummary
+        ? `Contexto ativo: ${opSummary}`
+        : context.command
         ? `Último comando: ${context.command}`
         : `Última entidade: ${context.entity}`;
     primary.textContent = primaryText;
     secondary.textContent = context.secondary || '';
     bar.hidden = false;
+
+    const btnSwap = document.getElementById('embedContextSwap');
+    const btnClear = document.getElementById('embedContextClear');
+    if (btnSwap) btnSwap.hidden = !opSummary;
+    if (btnClear) btnClear.hidden = !opSummary;
 }
 
 function setAssistenteContext(command = '', entity = '', options = {}) {
@@ -396,8 +427,75 @@ function captureAssistenteResponseContext(data) {
         responseEntity || pending.entity || ''
     );
     _assistenteChatUiState.pendingUserContext = null;
+    const dados = data?.dados || data?.metadata?.dados || data || {};
+    _assistenteChatUiState.operationalContext = dados.contexto_operacional || null;
+    if (_assistenteChatUiState.operationalContext) {
+        try {
+            const raw = JSON.parse(localStorage.getItem(ASSISTENTE_CONTEXT_RECENTS_KEY) || '[]');
+            const list = Array.isArray(raw) ? raw : [];
+            const next = [_assistenteChatUiState.operationalContext, ...list]
+                .filter((item) => item && (item.orcamento_id_ativo || item.cliente_id_ativo))
+                .slice(0, 8);
+            localStorage.setItem(ASSISTENTE_CONTEXT_RECENTS_KEY, JSON.stringify(next));
+        } catch (_) {
+            /* noop */
+        }
+    }
     setAssistenteContext(nextContext.command, nextContext.entity);
 }
+
+async function _swapAssistenteOperationalContext() {
+    let raw = [];
+    try {
+        raw = JSON.parse(localStorage.getItem(ASSISTENTE_CONTEXT_RECENTS_KEY) || '[]');
+    } catch (_) {
+        raw = [];
+    }
+    const options = (Array.isArray(raw) ? raw : [])
+        .map((ctx, idx) => `${idx + 1}. ${_getOperationalContextSummary(ctx)}`)
+        .filter((text) => !/\.\s*$/.test(text));
+    if (!options.length) return;
+    const picked = window.prompt(`Escolha um contexto recente:\n${options.join('\n')}`);
+    const index = Number(String(picked || '').trim()) - 1;
+    if (Number.isInteger(index) && raw[index]) {
+        const nextContext = raw[index];
+        try {
+            if (typeof httpClient !== 'undefined' && sessaoId) {
+                const response = await httpClient.post('/ai/assistente/contexto/definir', {
+                    sessao_id: sessaoId,
+                    contexto_operacional: nextContext,
+                }, { bypassAutoLogout: true });
+                const dados = response?.dados || response?.data?.dados || response?.data || {};
+                _assistenteChatUiState.operationalContext = dados.contexto_operacional || nextContext;
+            } else {
+                _assistenteChatUiState.operationalContext = nextContext;
+            }
+        } catch (_) {
+            _assistenteChatUiState.operationalContext = nextContext;
+        }
+        renderAssistenteContextBar();
+    }
+}
+
+async function _clearAssistenteOperationalContext() {
+    try {
+        if (typeof httpClient !== 'undefined' && sessaoId) {
+            await httpClient.post('/ai/assistente/contexto/limpar', { sessao_id: sessaoId }, { bypassAutoLogout: true });
+        }
+    } catch (_) {
+        /* noop */
+    }
+    _assistenteChatUiState.operationalContext = null;
+    renderAssistenteContextBar();
+}
+
+function _applyOperationalContextFromMeta(meta) {
+    const dados = meta?.dados || meta || {};
+    _assistenteChatUiState.operationalContext = dados.contexto_operacional || null;
+    renderAssistenteContextBar();
+}
+
+window._applyOperationalContextFromMeta = _applyOperationalContextFromMeta;
 
 function restoreAssistenteChatMeta() {
     let restored = null;
@@ -1124,6 +1222,10 @@ function _initQuickActionsSheet() {
 
 document.addEventListener('DOMContentLoaded', () => {
     _initQuickActionsSheet();
+    const swapBtn = document.getElementById('embedContextSwap');
+    const clearBtn = document.getElementById('embedContextClear');
+    if (swapBtn) swapBtn.addEventListener('click', _swapAssistenteOperationalContext);
+    if (clearBtn) clearBtn.addEventListener('click', _clearAssistenteOperationalContext);
 });
 
 window.getSuggestionIcon = getSuggestionIcon;

@@ -65,6 +65,7 @@ async function confirmarOrcamento(btn) {
             };
         };
     const body = build(dados, clienteId);
+    body.sessao_id = sessaoId;
     if (btn && btn.dataset && btn.dataset.cadastrar === '1') {
         body.cadastrar_materiais_novos = true;
     }
@@ -265,6 +266,7 @@ window.aplicarDescontoIA = async function(orcamentoId, descontoPct) {
         const data = await httpClient.post('/ai/orcamento/aplicar-desconto', {
             orcamento_id: orcamentoId,
             desconto_pct: descontoPct,
+            sessao_id: sessaoId,
         });
         if (typeof processAIResponse === 'function') {
             processAIResponse(data, null);

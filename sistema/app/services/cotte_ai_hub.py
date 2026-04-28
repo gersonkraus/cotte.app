@@ -1115,7 +1115,7 @@ class FallbackManual:
         return resultado
 
     @staticmethod
-    def extrair_comando(mensagem: str) -> dict:
+    def extrair_comando(mensagem: str, contexto_operacional: Optional[dict] = None) -> dict:
         """Extrai comando de operador usando padrões"""
         resultado = {"acao": "DESCONHECIDO", "orcamento_id": None}
 
@@ -1147,6 +1147,11 @@ class FallbackManual:
             nums = re.findall(r"\d+", mensagem)
             if nums:
                 resultado["orcamento_id"] = int(nums[-1])
+
+        if resultado["orcamento_id"] is None and isinstance(contexto_operacional, dict):
+            ctx_orc_id = contexto_operacional.get("orcamento_id_ativo")
+            if isinstance(ctx_orc_id, int) and ctx_orc_id > 0:
+                resultado["orcamento_id"] = ctx_orc_id
 
         # Se nenhuma ação foi encontrada mas foi passado um ID num formato curto (ex: "orçamento 138"), assume VER
         if resultado["acao"] == "DESCONHECIDO" and resultado["orcamento_id"] is not None:
@@ -2174,13 +2179,18 @@ async def assistente_unificado(
 
         status = get_onboarding_status(db=db, empresa_id=empresa_id)
         resposta = formatar_resposta_onboarding(status)
-        return AIResponse(
-            sucesso=True,
-            resposta=resposta,
-            tipo_resposta="onboarding",
-            dados=status,
-            confianca=1.0,
-            modulo_origem="onboarding",
+        return _v2_attach_operational_context_to_response(
+            sessao_id=sessao_id,
+            db=db,
+            current_user=current_user,
+            response=AIResponse(
+                sucesso=True,
+                resposta=resposta,
+                tipo_resposta="onboarding",
+                dados=status,
+                confianca=1.0,
+                modulo_origem="onboarding",
+            ),
         )
 
     # Roteamento especial: comandos de operador (aprovar, recusar, enviar, ver, desconto...)
@@ -2880,10 +2890,7 @@ def _v2_is_operador_fastpath_message(mensagem: str) -> bool:
     if _v2_detect_deterministic_intent(mensagem) != "OPERADOR":
         return False
     cmd = FallbackManual.extrair_comando(mensagem)
-    return (
-        cmd.get("acao") in {"APROVAR", "RECUSAR", "VER", "ENVIAR", "ENVIAR_EMAIL", "DUPLICAR"}
-        and cmd.get("orcamento_id") is not None
-    )
+    return cmd.get("acao") in {"APROVAR", "RECUSAR", "VER", "ENVIAR", "ENVIAR_EMAIL", "DUPLICAR"}
 
 
 async def _v2_build_operador_fastpath_response(
@@ -2900,7 +2907,12 @@ async def _v2_build_operador_fastpath_response(
     """
     from app.services.tool_executor import execute as tool_execute
 
-    cmd = FallbackManual.extrair_comando(mensagem)
+    contexto_operacional = _v2_get_operational_context(
+        sessao_id=sessao_id,
+        db=db,
+        current_user=current_user,
+    )
+    cmd = FallbackManual.extrair_comando(mensagem, contexto_operacional)
     acao = cmd.get("acao")
     orcamento_id = cmd.get("orcamento_id")
     if not orcamento_id:
@@ -3490,6 +3502,70 @@ def _v2_persist_fastpath_response(
             empresa_id=empresa_id,
             usuario_id=usuario_id,
         )
+
+
+def _v2_update_operational_context_from_payload(
+    *,
+    sessao_id: str,
+    db: Session,
+    current_user: Any,
+    payload: Optional[dict],
+) -> dict:
+    from app.services.cotte_context_builder import SessionStore
+
+    empresa_id = getattr(current_user, "empresa_id", 0)
+    usuario_id = getattr(current_user, "id", 0)
+    data = payload if isinstance(payload, dict) else {}
+    patch: dict[str, Any] = {"atualizado_em": datetime.now(timezone.utc).isoformat()}
+
+    if data.get("orcamento_id") or data.get("id"):
+        patch["orcamento_id_ativo"] = data.get("orcamento_id") or data.get("id")
+    if data.get("orcamento_numero") or data.get("numero"):
+        patch["orcamento_numero_ativo"] = data.get("orcamento_numero") or data.get("numero")
+    if data.get("cliente_id"):
+        patch["cliente_id_ativo"] = data.get("cliente_id")
+    if data.get("cliente_nome"):
+        patch["cliente_nome_ativo"] = data.get("cliente_nome")
+    if data.get("documento_id"):
+        patch["documento_id_ativo"] = data.get("documento_id")
+    if data.get("documento_titulo"):
+        patch["documento_titulo_ativo"] = data.get("documento_titulo")
+    if data.get("periodo"):
+        patch["periodo_financeiro_ativo"] = data.get("periodo")
+
+    return SessionStore.set_operational_context(
+        sessao_id,
+        patch,
+        db=db,
+        empresa_id=empresa_id,
+        usuario_id=usuario_id,
+    )
+
+
+def _v2_get_operational_context(*, sessao_id: str, db: Session, current_user: Any) -> dict:
+    from app.services.cotte_context_builder import SessionStore
+
+    return SessionStore.get_operational_context(
+        sessao_id,
+        db=db,
+        empresa_id=getattr(current_user, "empresa_id", 0),
+        usuario_id=getattr(current_user, "id", 0),
+    )
+
+
+def _v2_attach_operational_context_to_response(
+    *, sessao_id: str, db: Session, current_user: Any, response: AIResponse
+) -> AIResponse:
+    dados = dict(response.dados or {})
+    ctx = _v2_update_operational_context_from_payload(
+        sessao_id=sessao_id,
+        db=db,
+        current_user=current_user,
+        payload=dados,
+    )
+    dados["contexto_operacional"] = ctx
+    response.dados = dados
+    return response
 
 
 async def assistente_v2_stream_core(
@@ -4567,6 +4643,13 @@ async def assistente_v2_stream_core(
             usuario_id=usuario_id,
         )
 
+    contexto_operacional = _v2_update_operational_context_from_payload(
+        sessao_id=sessao_id,
+        db=db,
+        current_user=current_user,
+        payload=resp_dados,
+    )
+
     # Persiste resumo de tokens da sessão no ToolCallLog para observabilidade
     if (total_in > 0 or total_out > 0) and db is not None:
         try:
@@ -4602,6 +4685,7 @@ async def assistente_v2_stream_core(
                 "dados": {
                     **adaptive_meta,
                     **resp_dados,
+                    "contexto_operacional": contexto_operacional,
                     "semantic_contract": _build_semantic_contract(
                         summary=final_text,
                         table=(
@@ -6014,7 +6098,9 @@ async def assistente_unificado_v2(
             current_user=current_user,
             resposta=resposta.resposta or "",
         )
-        return resposta
+        return _v2_attach_operational_context_to_response(
+            sessao_id=sessao_id, db=db, current_user=current_user, response=resposta
+        )
 
     if _v2_requires_ranking_clientes_capability_fallback(mensagem):
         resposta = _v2_build_ranking_clientes_capability_fallback()
@@ -6039,7 +6125,9 @@ async def assistente_unificado_v2(
                 current_user=current_user,
                 resposta=resposta_lista.resposta or "",
             )
-            return resposta_lista
+            return _v2_attach_operational_context_to_response(
+                sessao_id=sessao_id, db=db, current_user=current_user, response=resposta_lista
+            )
 
     if intent_str == "LISTAR_CLIENTES":
         resposta_lista = await _v2_build_listar_clientes_fastpath_response(
@@ -6054,7 +6142,9 @@ async def assistente_unificado_v2(
                 current_user=current_user,
                 resposta=resposta_lista.resposta or "",
             )
-            return resposta_lista
+            return _v2_attach_operational_context_to_response(
+                sessao_id=sessao_id, db=db, current_user=current_user, response=resposta_lista
+            )
 
     if intent_str == "CRIAR_ORCAMENTO":
         resposta = await _v2_build_orcamento_fastpath_response(
@@ -6069,7 +6159,9 @@ async def assistente_unificado_v2(
             current_user=current_user,
             resposta=resposta.resposta or "",
         )
-        return resposta
+        return _v2_attach_operational_context_to_response(
+            sessao_id=sessao_id, db=db, current_user=current_user, response=resposta
+        )
 
     # Simular desconto fast-path: 0 tokens LLM
     if _v2_is_simular_desconto_message(mensagem):
@@ -6080,7 +6172,9 @@ async def assistente_unificado_v2(
             request_id=request_id,
         )
         if resposta_sim is not None:
-            return resposta_sim
+            return _v2_attach_operational_context_to_response(
+                sessao_id=sessao_id, db=db, current_user=current_user, response=resposta_sim
+            )
 
     # OPERADOR fast-path: aprovar/recusar/ver/enviar com ID explícito → 0 tokens LLM
     if _v2_is_operador_fastpath_message(mensagem):
@@ -6098,7 +6192,9 @@ async def assistente_unificado_v2(
                 current_user=current_user,
                 resposta=resposta_op.resposta or "",
             )
-            return resposta_op
+            return _v2_attach_operational_context_to_response(
+                sessao_id=sessao_id, db=db, current_user=current_user, response=resposta_op
+            )
 
     if (
         semantic_autonomy_enabled()
@@ -6116,7 +6212,12 @@ async def assistente_unificado_v2(
                 override_args=override_args,
             )
             if isinstance(semantic_payload, dict) and semantic_payload:
-                return AIResponse(**semantic_payload)
+                return _v2_attach_operational_context_to_response(
+                    sessao_id=sessao_id,
+                    db=db,
+                    current_user=current_user,
+                    response=AIResponse(**semantic_payload),
+                )
         except Exception as exc:
             logger.warning(
                 "Falha no runtime semântico, fallback para fluxo legado: %s", exc
@@ -6133,12 +6234,18 @@ async def assistente_unificado_v2(
         "override_args": override_args,
     }
     if not langgraph_enabled():
-        return await _assistente_unificado_v2_legacy(**payload)
+        legacy_resp = await _assistente_unificado_v2_legacy(**payload)
+        return _v2_attach_operational_context_to_response(
+            sessao_id=sessao_id, db=db, current_user=current_user, response=legacy_resp
+        )
 
     async def _legacy_runner(state: dict[str, Any]) -> AIResponse:
         return await _assistente_unificado_v2_legacy(**state)
 
-    return await run_assistant_graph(payload=payload, legacy_runner=_legacy_runner)
+    graph_resp = await run_assistant_graph(payload=payload, legacy_runner=_legacy_runner)
+    return _v2_attach_operational_context_to_response(
+        sessao_id=sessao_id, db=db, current_user=current_user, response=graph_resp
+    )
 
 
 async def _assistente_unificado_v2_legacy(
