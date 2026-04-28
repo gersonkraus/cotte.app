@@ -576,3 +576,109 @@ async def analisar_leads(texto: str) -> dict:
     except Exception as e:
         logger.warning("[ia_leads] Falha ao analisar leads: %s", e)
         return {"items": []}
+
+
+_BRIEFING_SYSTEM_PROMPT = """Você é um assistente comercial. Analise o contexto de um lead e decida a prioridade e próxima ação.
+
+Retorne APENAS JSON válido com esta estrutura:
+{
+  "prioridade": "urgente|hoje|esta_semana|ok",
+  "tipo_acao": "mensagem_whatsapp|mensagem_email|mover_etapa|nenhuma",
+  "rascunho": "texto da mensagem ou null",
+  "motivo": "explicação em 1-2 frases",
+  "etapa_sugerida": "slug_da_etapa ou null",
+  "confianca": 0.0
+}
+
+Regras de prioridade:
+- urgente: +5 dias sem contato em proposta_enviada; OU +3 dias com score quente; OU proximo_contato vencido
+- hoje: proximo_contato = hoje; OU +7 dias sem contato com score morno; OU cliente respondeu recentemente
+- esta_semana: outros leads que precisam de atenção em breve
+- ok: contato recente (<2 dias) OU lead frio em etapa inicial
+
+Regras de tipo_acao:
+- mensagem_whatsapp: maioria dos follow-ups
+- mensagem_email: se último contato foi por email
+- mover_etapa: se cliente respondeu e etapa não reflete a realidade
+- nenhuma: se prioridade é ok
+
+Se tipo_acao for mensagem_whatsapp ou mensagem_email, redija rascunho em português informal, curto (2-3 frases), sem nome da empresa no fim.
+Se confianca < 0.5, retorne prioridade "ok" e tipo_acao "nenhuma".
+Nunca invente informações não presentes no contexto."""
+
+
+def _briefing_fallback(ctx: dict) -> dict:
+    """Fallback com regras locais quando a IA falha."""
+    from datetime import datetime, timezone, date
+
+    dias = ctx.get("dias_sem_contato", 0)
+    score = (ctx.get("score") or "frio").lower()
+    etapa = ctx.get("etapa", "")
+    proximo_raw = ctx.get("proximo_contato_em")
+
+    proximo_vencido = False
+    proximo_hoje = False
+    if proximo_raw:
+        try:
+            proximo_dt = datetime.fromisoformat(str(proximo_raw).replace("Z", "+00:00"))
+            agora = datetime.now(timezone.utc)
+            proximo_vencido = proximo_dt < agora
+            proximo_hoje = proximo_dt.date() == agora.date()
+        except Exception:
+            pass
+
+    if (dias >= 5 and etapa == "proposta_enviada") or (score == "quente" and dias >= 3) or proximo_vencido:
+        prioridade = "urgente"
+    elif proximo_hoje or (score == "morno" and dias >= 7):
+        prioridade = "hoje"
+    elif dias < 2:
+        prioridade = "ok"
+    else:
+        prioridade = "esta_semana"
+
+    tipo_acao = "nenhuma" if prioridade == "ok" else "mensagem_whatsapp"
+    return {
+        "prioridade": prioridade,
+        "tipo_acao": tipo_acao,
+        "rascunho": None,
+        "motivo": f"{dias} dias sem contato. Score: {score}.",
+        "etapa_sugerida": None,
+        "confianca": 0.6,
+    }
+
+
+async def gerar_briefing_lead(ctx: dict) -> dict:
+    """Analisa um lead e retorna prioridade, ação sugerida e rascunho de mensagem."""
+    user_content = json.dumps(ctx, ensure_ascii=False, default=str)
+    try:
+        response = await ia_service.chat(
+            messages=[
+                {"role": "system", "content": _BRIEFING_SYSTEM_PROMPT},
+                {"role": "user", "content": user_content},
+            ],
+            temperature=0.0,
+            max_tokens=500,
+        )
+        raw = response["choices"][0]["message"]["content"].strip()
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        resultado = json.loads(raw)
+        prioridade = resultado.get("prioridade", "ok")
+        if prioridade not in ("urgente", "hoje", "esta_semana", "ok"):
+            prioridade = "ok"
+        tipo_acao = resultado.get("tipo_acao", "nenhuma")
+        if tipo_acao not in ("mensagem_whatsapp", "mensagem_email", "mover_etapa", "nenhuma"):
+            tipo_acao = "nenhuma"
+        return {
+            "prioridade": prioridade,
+            "tipo_acao": tipo_acao,
+            "rascunho": resultado.get("rascunho"),
+            "motivo": resultado.get("motivo", ""),
+            "etapa_sugerida": resultado.get("etapa_sugerida"),
+            "confianca": float(resultado.get("confianca", 0.7)),
+        }
+    except Exception as e:
+        logger.warning("[ia_briefing] Falha ao analisar lead '%s': %s", ctx.get("nome"), e)
+        return _briefing_fallback(ctx)

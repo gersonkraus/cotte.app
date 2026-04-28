@@ -41,7 +41,10 @@
 
       <!-- Tabs -->
       <div class="admin-tabs" role="tablist" aria-label="Menu Comercial">
-        <button class="admin-tab active" data-tab="dashboard" role="tab" aria-selected="true" aria-controls="tab-dashboard" id="tab-dashboard-btn">
+        <button class="admin-tab active" data-tab="hoje" role="tab" aria-selected="true" aria-controls="tab-hoje" id="tab-hoje-btn">
+          <span class="admin-tab-icon">🧠</span> Hoje <span class="badge" id="badge-briefing" style="display:none;background:#ef4444;color:#fff;border-radius:10px;padding:1px 7px;font-size:0.7rem;margin-left:2px">0</span>
+        </button>
+        <button class="admin-tab" data-tab="dashboard" role="tab" aria-selected="false" aria-controls="tab-dashboard" id="tab-dashboard-btn">
           <span class="admin-tab-icon">📊</span> Dashboard
         </button>
         <button class="admin-tab" data-tab="pipeline" role="tab" aria-selected="false" aria-controls="tab-pipeline" id="tab-pipeline-btn">
@@ -73,8 +76,15 @@
         </button>
       </div>
 
+      <!-- ═══ TAB: Hoje (Briefing IA) ═══ -->
+      <div class="tab-panel active" id="tab-hoje" role="tabpanel" aria-labelledby="tab-hoje-btn">
+        <div id="briefing-container" style="max-width:760px;margin:0 auto;padding:var(--space-8,1rem) 0">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+      </div>
+
       <!-- ═══ TAB: Dashboard ═══ -->
-      <div class="tab-panel active" id="tab-dashboard" role="tabpanel" aria-labelledby="tab-dashboard-btn">
+      <div class="tab-panel" id="tab-dashboard" role="tabpanel" aria-labelledby="tab-dashboard-btn">
         <div id="metrics-grid"><div class="loading"><div class="spinner"></div></div></div>
         <div class="dashboard-grid">
           <div class="dash-section">
@@ -908,6 +918,7 @@ Exemplos de formatos aceitos:
   <script src="js/tenant-comercial-lembretes.js?v=1"></script>
   <script src="js/tenant-comercial-cadastros.js?v=1"></script>
   <script src="js/tenant-comercial-propostas-publicas.js?v=1"></script>
+  <script src="js/tenant-comercial-briefing.js?v=1"></script>
   <script src="js/tenant-comercial.js?v=1"></script>
   <script>
     /**

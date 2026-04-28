@@ -1,5 +1,6 @@
 """Leads comerciais tenant — CRUD, listagem filtrada, dashboard aux, interações (sem criar usuário/senha)."""
 
+import asyncio
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Optional
@@ -340,6 +341,92 @@ def leads_recentes(
         .all()
     )
     return [tenant_lead_to_out(db, l) for l in leads]
+
+
+@router.get("/briefing")
+async def get_briefing(
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exigir_permissao("comercial", "leitura")),
+):
+    """Gera o briefing diário de leads prioritários com sugestões de ação e rascunhos de mensagem."""
+    from app.services.ia_service import gerar_briefing_lead, _briefing_fallback
+
+    agora = datetime.now(timezone.utc)
+
+    leads = (
+        db.query(TenantCommercialLead)
+        .filter(
+            TenantCommercialLead.empresa_id == usuario.empresa_id,
+            TenantCommercialLead.ativo.is_(True),
+            TenantCommercialLead.status_pipeline.notin_(["fechado_ganho", "fechado_perdido"]),
+        )
+        .order_by(TenantCommercialLead.criado_em.desc())
+        .limit(30)
+        .all()
+    )
+
+    contextos = []
+    for lead in leads:
+        interacoes = (
+            db.query(TenantCommercialInteraction)
+            .filter(TenantCommercialInteraction.lead_id == lead.id)
+            .order_by(TenantCommercialInteraction.criado_em.desc())
+            .limit(3)
+            .all()
+        )
+        historico = []
+        for inter in interacoes:
+            ref_dt = inter.criado_em
+            if ref_dt and ref_dt.tzinfo is None:
+                ref_dt = ref_dt.replace(tzinfo=timezone.utc)
+            dias_atras = (agora - ref_dt).days if ref_dt else 0
+            historico.append({
+                "tipo": inter.tipo.value if inter.tipo else "outro",
+                "dias_atras": dias_atras,
+                "resumo": (inter.conteudo or "")[:80],
+            })
+
+        ref_contato = lead.ultimo_contato_em or lead.criado_em
+        if ref_contato and ref_contato.tzinfo is None:
+            ref_contato = ref_contato.replace(tzinfo=timezone.utc)
+        dias_sem_contato = (agora - ref_contato).days if ref_contato else 0
+
+        contextos.append({
+            "lead_id": lead.id,
+            "nome": lead.nome or "",
+            "empresa": lead.nome_empresa or "",
+            "etapa": lead.status_pipeline or "novo",
+            "score": lead.lead_score.value if lead.lead_score else "frio",
+            "valor_proposto": float(lead.valor_estimado) if lead.valor_estimado else 0.0,
+            "dias_sem_contato": dias_sem_contato,
+            "proximo_contato_em": lead.proximo_contato_em.isoformat() if lead.proximo_contato_em else None,
+            "historico": historico,
+        })
+
+    resultados = await asyncio.gather(*[gerar_briefing_lead(ctx) for ctx in contextos], return_exceptions=True)
+
+    PRIORIDADE_ORDEM = {"urgente": 0, "hoje": 1, "esta_semana": 2, "ok": 3}
+    items = []
+    for ctx, resultado in zip(contextos, resultados):
+        if isinstance(resultado, Exception):
+            resultado = _briefing_fallback(ctx)
+        prioridade = resultado.get("prioridade", "ok")
+        confianca = resultado.get("confianca", 1.0)
+        if prioridade == "ok" or confianca < 0.5:
+            continue
+        items.append({**ctx, **resultado})
+
+    items.sort(key=lambda x: PRIORIDADE_ORDEM.get(x.get("prioridade", "ok"), 3))
+
+    return {
+        "success": True,
+        "data": {
+            "items": items,
+            "total_leads": len(leads),
+            "total_acoes": len(items),
+            "gerado_em": agora.isoformat(),
+        },
+    }
 
 
 @router.get("/{lead_id}", response_model=dict[str, Any])
