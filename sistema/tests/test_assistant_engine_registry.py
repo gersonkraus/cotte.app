@@ -51,3 +51,9 @@ def test_tools_payload_for_internal_copilot_allows_sql_when_enabled(monkeypatch)
 
     assert "executar_sql_analitico" in names
     assert "analisar_tool_logs" in names
+
+
+def test_internal_copilot_policy_allows_listar_despesas():
+    policy = registry.ENGINE_POLICIES[registry.ENGINE_INTERNAL_COPILOT]
+
+    assert "listar_despesas" in policy.allowed_tools

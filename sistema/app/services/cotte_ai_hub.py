@@ -3436,7 +3436,7 @@ def _v2_build_system_prompt(
     system_prompt += "\n\n" + build_engine_guardrails(resolved_engine)
     if resolved_engine == ENGINE_INTERNAL_COPILOT:
         system_prompt += (
-            "\n- Este canal e interno: nao responda operacoes de negocio de clientes."
+            "\n- Este canal e interno: nao responda operacoes de negocio de clientes, exceto consultas internas autorizadas para superadmin usando tools de leitura."
             "\n- Nao reutilize contexto de assistente operacional."
         )
     if kb_snippet:
@@ -5509,10 +5509,16 @@ _V2_TECHNICAL_COPILOT_PROMPT = (
     "Você é o **Copiloto Técnico Interno** do sistema. "
     "Você é focado em engenharia de software e suporte técnico para o superadmin. "
     "Seu papel é auxiliar no entendimento da arquitetura, debug de código, boas práticas e manutenção. "
+    "Quando o superadmin pedir consultas internas de dados financeiros, use as tools de leitura disponíveis antes de responder. "
+    "Para contas a pagar/despesas, prefira `listar_despesas`; para análises mais abertas, use `executar_sql_analitico` ou `gerar_relatorio_dinamico`. "
     "IMPORTANTE: Você tem acesso de leitura ao repositório! Use as ferramentas (tools) `ler_arquivo_repositorio`, "
     "`buscar_codigo_repositorio` e `analisar_estrutura_html` para inspecionar ativamente arquivos como HTML, JS, CSS e Python quando o usuário relatar um bug. "
     "Nunca diga que não tem acesso a arquivos. Se não encontrar algo, use a busca para localizar. "
-    "Retorne suas análises e correções com blocos de código markdown (```html, ```js, etc)."
+    "Retorne suas análises e correções com blocos de código markdown (```html, ```js, etc). "
+    "Regra de permissão: nunca peça para o usuário confirmar se é superadmin; "
+    "considere que o backend já validou o perfil autenticado. "
+    "Se uma tool retornar `forbidden_cross_tenant`, informe objetivamente que o usuário atual não tem permissão "
+    "para consultar outra empresa e encerre sem pedir confirmação de perfil."
 )
 
 _V2_MAX_ITER = 5

@@ -242,6 +242,10 @@ registrar_pagamento_recebivel = ToolSpec(
 
 # ── listar_despesas ────────────────────────────────────────────────────────
 class ListarDespesasInput(BaseModel):
+    empresa_id_filtro: Optional[int] = Field(
+        default=None,
+        description="ID da empresa para filtrar (apenas superadmin). Se None, usa empresa do usuário.",
+    )
     status: Optional[str] = Field(
         default=None,
         description="Filtrar por status: 'pendente', 'pago', 'vencido', 'cancelado'.",
@@ -260,6 +264,20 @@ async def _listar_despesas(
 ) -> dict[str, Any]:
     from app.models.models import StatusConta
 
+    is_superadmin = bool(getattr(current_user, "is_superadmin", False))
+    if inp.empresa_id_filtro is not None:
+        if not is_superadmin:
+            return {
+                "error": (
+                    "O usuário autenticado não possui permissão para consultar outra empresa. "
+                    "Apenas superadmin pode usar empresa_id_filtro."
+                ),
+                "code": "forbidden_cross_tenant",
+            }
+        empresa_id_alvo = inp.empresa_id_filtro
+    else:
+        empresa_id_alvo = current_user.empresa_id
+
     status_enum: Optional[StatusConta] = None
     if inp.status:
         try:
@@ -272,7 +290,7 @@ async def _listar_despesas(
     ate = hoje + timedelta(days=inp.dias)
 
     items = financeiro_service.listar_despesas(
-        empresa_id=current_user.empresa_id,
+        empresa_id=empresa_id_alvo,
         db=db,
         status=status_enum,
         data_inicio=desde,
@@ -301,8 +319,8 @@ async def _listar_despesas(
 listar_despesas = ToolSpec(
     name="listar_despesas",
     description=(
-        "Lista contas a pagar (despesas) da empresa do usuário, com filtros por "
-        "status, busca e janela de vencimento. Use antes de marcar uma despesa como paga."
+        "Lista contas a pagar (despesas) com filtros por status, busca e janela de vencimento. "
+        "Superadmin pode consultar outra empresa via empresa_id_filtro. Use antes de marcar uma despesa como paga."
     ),
     input_model=ListarDespesasInput,
     handler=_listar_despesas,

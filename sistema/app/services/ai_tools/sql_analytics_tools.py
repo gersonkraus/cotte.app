@@ -37,7 +37,10 @@ async def _executar_sql_analitico(
     if inp.empresa_id_filtro is not None:
         if not is_superadmin:
             return {
-                "error": "Apenas superadmin pode especificar empresa_id_filtro.",
+                "error": (
+                    "O usuário autenticado não possui permissão para consultar outra empresa. "
+                    "Apenas superadmin pode usar empresa_id_filtro."
+                ),
                 "code": "forbidden_cross_tenant"
             }
         empresa_id_alvo = inp.empresa_id_filtro

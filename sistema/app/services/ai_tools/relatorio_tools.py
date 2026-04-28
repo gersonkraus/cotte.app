@@ -1112,7 +1112,10 @@ async def _handler_gerar_relatorio_dinamico(
     if inp.empresa_id_filtro is not None:
         if not is_superadmin:
             return {
-                "erro": "Apenas superadmin pode especificar empresa_id_filtro.",
+                "erro": (
+                    "O usuário autenticado não possui permissão para consultar outra empresa. "
+                    "Apenas superadmin pode usar empresa_id_filtro."
+                ),
                 "code": "forbidden_cross_tenant",
                 "rows": [],
                 "metricas_resumo": {},

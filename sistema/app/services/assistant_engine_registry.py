@@ -127,6 +127,7 @@ ENGINE_POLICIES: dict[str, EnginePolicy] = {
         allowed_tools=(
             "analisar_tool_logs",
             "executar_sql_analitico",
+            "listar_despesas",
             "ler_arquivo_repositorio",
             "buscar_codigo_repositorio",
             "analisar_estrutura_html",
@@ -247,7 +248,12 @@ def build_engine_guardrails(engine: str | None) -> str:
     if not policy.allow_tenant_rag:
         lines.append("- Nao use RAG documental da empresa nesta engine.")
     if not policy.allow_business_context:
-        lines.append("- Nao use dados operacionais de empresa de cliente final.")
+        if policy.key == ENGINE_INTERNAL_COPILOT:
+            lines.append(
+                "- Nao use dados operacionais de empresa de cliente final, exceto consultas internas autorizadas para superadmin com tools de leitura."
+            )
+        else:
+            lines.append("- Nao use dados operacionais de empresa de cliente final.")
     if policy.key == ENGINE_ANALYTICS and not is_sql_agent_enabled():
         lines.append("- SQL Agent analítico desabilitado por flag de ambiente.")
     if policy.key == ENGINE_INTERNAL_COPILOT:
