@@ -181,8 +181,9 @@ function renderOperadorResultado(data, dados) {
     const acaoIcones = { 'VER': '🔍', 'APROVADO': '✅', 'RECUSADO': '❌', 'ENVIADO': '📤', 'DESCONTO': '💰', 'ADICIONADO': '➕', 'REMOVIDO': '➖' };
     const acao = dados && dados.acao ? dados.acao : '';
     const icone = acaoIcones[acao] || '⚡';
+    const respText = data.resposta || (dados && dados.resposta) || '';
     const linkHtml = dados && dados.id ? `<a href="orcamentos.html" class="opr-link">Ver orçamento →</a>` : '';
-    if (acao === 'VER' && dados && dados.id) {
+    if (acao === 'VER' && dados && dados.id && !respText.trim()) {
         // Abre o modal de detalhes diretamente para evitar duplicar o card já visível
         const orcNum = dados.numero || ('#' + dados.id);
         setTimeout(function () {
@@ -193,7 +194,6 @@ function renderOperadorResultado(data, dados) {
             <span>Abrindo detalhes do <strong>${escapeHtml(orcNum)}</strong>…</span>
         </div>`;
     }
-    const respText = data.resposta || (dados && dados.resposta) || '';
     return `<div class="opr-result operador-md ${data.sucesso !== false ? 'opr-ok' : 'opr-err'}">
         <span class="opr-icon">${icone}</span>
         <span>${textToHtmlRich(respText)}</span>

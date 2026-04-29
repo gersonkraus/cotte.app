@@ -2692,11 +2692,49 @@ _RE_FOLLOWUP_ORCAMENTO_VALOR = re.compile(
     r"\b(qual\s+o\s+valor|quanto\s+ficou|valor\s+do\s+or[çc]amento|me\s+mostra\s+o\s+or[çc]amento|esse\s+or[çc]amento)\b",
     re.IGNORECASE,
 )
+_RE_FOLLOWUP_ORCAMENTO_CONTATO = re.compile(
+    r"\b(follow[\s-]?up|proximo\s+contato|pr[óo]ximo\s+contato|entrar\s+em\s+contato|retomar)\b",
+    re.IGNORECASE,
+)
 # Verbos de edição: se presentes, a mensagem é EDITAR, não uma consulta de valor
 _RE_EDIT_VERBS = re.compile(
     r"\b(alterar?|mudar?|arredondar?|editar?|modificar?|atualizar?|trocar?|corrigir?|ajustar?)\b",
     re.IGNORECASE,
 )
+
+_RE_SHORT_AFFIRMATIVE = re.compile(
+    r"^(sim|s|ok|okay|claro|pode|pode sim|com certeza|confirmo|isso|isso mesmo|pode ser)$",
+    re.IGNORECASE,
+)
+
+
+def _v2_resolve_followup_confirmation_message(
+    *, mensagem: str, contexto_operacional: Optional[dict]
+) -> Optional[str]:
+    text = (mensagem or "").strip()
+    if not text or not _RE_SHORT_AFFIRMATIVE.match(text):
+        return None
+    if not isinstance(contexto_operacional, dict):
+        return None
+
+    followup = contexto_operacional.get("followup_pendente")
+    if not isinstance(followup, dict):
+        return None
+    if str(followup.get("tipo") or "").strip().lower() == "listar_orcamentos_status":
+        return "listar orçamentos em aberto com sugestão de follow-up"
+    return None
+
+
+def _v2_extract_pending_followup_from_assistant_text(text: str) -> Optional[dict]:
+    normalized = (text or "").strip().lower()
+    if not normalized:
+        return None
+    if "deseja que eu" in normalized and "orçament" in normalized and "contato" in normalized:
+        return {
+            "tipo": "listar_orcamentos_status",
+            "mensagem": (text or "").strip(),
+        }
+    return None
 
 
 def _v2_is_orcamento_context_followup_message(mensagem: str) -> bool:
@@ -2707,6 +2745,8 @@ def _v2_is_orcamento_context_followup_message(mensagem: str) -> bool:
     if _RE_EDIT_VERBS.search(text):
         return False
     if _RE_FOLLOWUP_ORCAMENTO_VALOR.search(text):
+        return True
+    if _RE_FOLLOWUP_ORCAMENTO_CONTATO.search(text):
         return True
     if _RE_FOLLOWUP_DESCONTO_PCT.search(text) and (
         "desconto" in text or "der" in text or "aplica" in text or "aplicar" in text
@@ -2782,7 +2822,10 @@ async def _v2_build_orcamento_context_followup_response(
             request_id=request_id,
         )
 
-    if not _RE_FOLLOWUP_ORCAMENTO_VALOR.search(msg):
+    if not (
+        _RE_FOLLOWUP_ORCAMENTO_VALOR.search(msg)
+        or _RE_FOLLOWUP_ORCAMENTO_CONTATO.search(msg)
+    ):
         return None
 
     tc_dict = {
@@ -2802,6 +2845,54 @@ async def _v2_build_orcamento_context_followup_response(
     )
     if result.status != "ok" or not result.data:
         return None
+
+    if _RE_FOLLOWUP_ORCAMENTO_CONTATO.search(msg):
+        data_orc = result.data or {}
+        status_orc = str(data_orc.get("status") or "").strip().upper()
+        cliente = ((data_orc.get("cliente") or {}).get("nome") if isinstance(data_orc.get("cliente"), dict) else None) or "o cliente"
+        numero = data_orc.get("numero") or f"O-{orcamento_id}"
+        criado_em = data_orc.get("criado_em")
+        dias_desde_criacao = None
+        if isinstance(criado_em, str) and criado_em.strip():
+            try:
+                criado_dt = datetime.fromisoformat(criado_em.replace("Z", "+00:00"))
+                dias_desde_criacao = max((datetime.now(timezone.utc) - criado_dt).days, 0)
+            except Exception:
+                dias_desde_criacao = None
+
+        if status_orc in {"APROVADO", "RECUSADO", "CANCELADO"}:
+            resposta = (
+                f"O orçamento {numero} está com status {status_orc.lower()}. "
+                "Não há follow-up comercial pendente para este orçamento."
+            )
+        else:
+            if dias_desde_criacao is None:
+                janela = "hoje"
+            elif dias_desde_criacao <= 1:
+                janela = "amanhã"
+            elif dias_desde_criacao <= 3:
+                janela = "hoje"
+            else:
+                janela = "o quanto antes (preferencialmente hoje)"
+            resposta = (
+                f"Para {cliente}, no orçamento {numero}, o próximo contato recomendado é {janela}."
+            )
+
+        return AIResponse(
+            sucesso=True,
+            resposta=resposta,
+            tipo_resposta="operador_resultado",
+            confianca=0.98,
+            modulo_origem="assistente_v2_contexto",
+            tool_trace=[{"tool": "obter_orcamento", "status": "ok", "latencia_ms": result.latencia_ms}],
+            dados={
+                **data_orc,
+                "acao": "FOLLOWUP_RECOMENDADO",
+                "followup_recomendado": True,
+                "input_tokens": 0,
+                "output_tokens": 0,
+            },
+        )
 
     return AIResponse(
         sucesso=True,
@@ -3675,6 +3766,8 @@ def _v2_update_operational_context_from_payload(
             "desconto_tipo": data.get("desconto_tipo"),
             "observacoes": data.get("observacoes"),
         }
+    if "followup_pendente" in data:
+        patch["followup_pendente"] = data.get("followup_pendente")
 
     return SessionStore.set_operational_context(
         sessao_id,
@@ -3777,15 +3870,19 @@ async def assistente_v2_stream_core(
     except ImportError:
         execute_pending = None
 
-    from app.services.ai_intention_classifier import detectar_intencao_assistente_async
-    try:
-        classificacao = await detectar_intencao_assistente_async(mensagem)
-        intent_str = classificacao.intencao.value
-    except Exception:
-        intent_str = "CONVERSACAO"
+    contexto_operacional = _v2_get_operational_context(
+        sessao_id=sessao_id,
+        db=db,
+        current_user=current_user,
+    )
+    mensagem_resolvida = _v2_resolve_followup_confirmation_message(
+        mensagem=mensagem,
+        contexto_operacional=contexto_operacional,
+    )
+    if mensagem_resolvida:
+        mensagem = mensagem_resolvida
 
     from app.services.ai_intention_classifier import detectar_intencao_assistente_async
-
     try:
         classificacao = await detectar_intencao_assistente_async(mensagem)
         intent_str = classificacao.intencao.value
@@ -4846,11 +4943,15 @@ async def assistente_v2_stream_core(
             usuario_id=usuario_id,
         )
 
+    followup_pendente = _v2_extract_pending_followup_from_assistant_text(final_text)
     contexto_operacional = _v2_update_operational_context_from_payload(
         sessao_id=sessao_id,
         db=db,
         current_user=current_user,
-        payload=resp_dados,
+        payload={
+            **resp_dados,
+            "followup_pendente": followup_pendente,
+        },
     )
 
     # Persiste resumo de tokens da sessão no ToolCallLog para observabilidade
@@ -7229,6 +7330,8 @@ async def _assistente_unificado_v2_legacy(
         if isinstance(llm_dados, dict):
             dados_out = {**llm_dados, **dados_out}
 
+    followup_pendente = _v2_extract_pending_followup_from_assistant_text(final_text or "")
+
     return AIResponse(
         sucesso=True,
         resposta=final_text or "",
@@ -7237,7 +7340,10 @@ async def _assistente_unificado_v2_legacy(
         modulo_origem="assistente_v2",
         pending_action=pending_action,
         tool_trace=tool_trace or None,
-        dados=dados_out,
+        dados={
+            **dados_out,
+            "followup_pendente": followup_pendente,
+        },
         chart_data=(final_interactive_payload or {}).get("chart_data") if final_interactive_payload else None,
         table_data=(final_interactive_payload or {}).get("table_data") if final_interactive_payload else None,
         actions=(final_interactive_payload or {}).get("actions") if final_interactive_payload else None,

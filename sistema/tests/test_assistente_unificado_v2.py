@@ -248,6 +248,33 @@ def test_v2_falha_do_insight_engine_nao_quebra_assistente(db, monkeypatch):
     assert "insights" not in (out.dados or {})
 
 
+def test_v2_resolve_followup_confirmation_message_listar_orcamentos():
+    mensagem = cotte_ai_hub._v2_resolve_followup_confirmation_message(
+        mensagem="sim",
+        contexto_operacional={
+            "followup_pendente": {
+                "tipo": "listar_orcamentos_status",
+                "mensagem": "Deseja que eu consulte os orçamentos em aberto e te diga quando entrar em contato?",
+            }
+        },
+    )
+    assert mensagem == "listar orçamentos em aberto com sugestão de follow-up"
+
+
+def test_v2_extract_pending_followup_from_assistant_text_detecta_pergunta_proativa():
+    followup = cotte_ai_hub._v2_extract_pending_followup_from_assistant_text(
+        "Deseja que eu consulte os orçamentos em aberto e te diga quando entrar em contato?"
+    )
+    assert isinstance(followup, dict)
+    assert followup["tipo"] == "listar_orcamentos_status"
+
+
+def test_v2_is_orcamento_context_followup_message_detecta_proximo_contato():
+    assert cotte_ai_hub._v2_is_orcamento_context_followup_message(
+        "quando deve ser feito o próximo contato?"
+    ) is True
+
+
 def test_v2_parseia_elementos_interativos_da_resposta(db, monkeypatch):
     emp = make_empresa(db)
     user = make_usuario(db, emp)
@@ -1361,6 +1388,40 @@ def test_v2_followup_valor_orcamento_com_contexto_id_string(db, monkeypatch):
 
     assert out.tipo_resposta != "lista_orcamentos"
     assert (out.dados or {}).get("id") == orc.id
+
+
+def test_v2_followup_contato_nao_abre_detalhes_e_retorna_recomendacao(db, monkeypatch):
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+    cli = make_cliente(db, emp, nome="Ana Julia")
+    orc = make_orcamento(db, emp, cli, user, status=StatusOrcamento.ENVIADO, total=Decimal("800.00"))
+
+    SessionStore.ensure_sessao_db("sess-followup-contato", emp.id, user.id, db)
+    SessionStore.set_operational_context(
+        "sess-followup-contato",
+        {
+            "orcamento_id_ativo": orc.id,
+            "orcamento_numero_ativo": orc.numero,
+            "cliente_nome_ativo": "Ana Julia",
+        },
+        db=db,
+        empresa_id=emp.id,
+        usuario_id=user.id,
+    )
+
+    out = _run(
+        cotte_ai_hub.assistente_unificado_v2(
+            mensagem="quando devo entrar em contato novamente?",
+            sessao_id="sess-followup-contato",
+            db=db,
+            current_user=user,
+        )
+    )
+
+    assert out.sucesso is True
+    assert out.tipo_resposta == "operador_resultado"
+    assert "contato" in (out.resposta or "").lower()
+    assert (out.dados or {}).get("acao") != "VER"
 
 
 def test_intencao_orcamentos_pendentes_nao_dispara_inadimplencia():
