@@ -10,28 +10,28 @@
       titulo: 'Criar um Segmento',
       descricao: 'Classifica seus leads por área de atuação (ex: Tecnologia, Varejo, Saúde)',
       tab: 'cadastros',
-      check: function() { return segmentosCache.length > 0; }
+      check: function() { return typeof segmentosCache !== 'undefined' && segmentosCache.length > 0; }
     },
     {
       id: 'origem',
       titulo: 'Criar uma Origem',
       descricao: 'Indica de onde o lead veio (ex: Instagram, Indicação, Google)',
       tab: 'cadastros',
-      check: function() { return origensCache.length > 0; }
+      check: function() { return typeof origensCache !== 'undefined' && origensCache.length > 0; }
     },
     {
       id: 'pipeline',
       titulo: 'Criar Etapas do Pipeline',
       descricao: 'As fases do seu processo de vendas: ex. Contato → Proposta → Fechado. Necessário para o Kanban.',
       tab: 'cadastros',
-      check: function() { return pipelineStages.length > 0; }
+      check: function() { return typeof pipelineStages !== 'undefined' && pipelineStages.length > 0; }
     },
     {
       id: 'template',
       titulo: 'Criar um Template de Mensagem',
       descricao: 'Mensagens pré-escritas com variáveis como {nome} e {empresa}, para WhatsApp ou e-mail',
       tab: 'templates',
-      check: function() { return templatesCache.length > 0; }
+      check: function() { return typeof templatesCache !== 'undefined' && templatesCache.length > 0; }
     },
     {
       id: 'lead',
@@ -78,8 +78,9 @@
     },
 
     _render: function(status) {
-      var container = document.getElementById('briefing-container');
-      if (!container) return;
+      if (document.getElementById('ob-bloco')) return;
+      var anchor = document.getElementById('briefing-container');
+      if (!anchor) return;
 
       var total      = status.length;
       var concluidos = status.filter(function(s) { return s.completo; }).length;
@@ -143,7 +144,7 @@
           '</div>' +
         '</div>';
 
-      container.insertAdjacentHTML('afterbegin', html);
+      anchor.insertAdjacentHTML('beforebegin', html);
     },
 
     _irPara: function(tab) {
