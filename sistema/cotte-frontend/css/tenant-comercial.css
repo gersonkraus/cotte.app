@@ -689,7 +689,8 @@
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 20px;
-  margin-bottom: 20px;
+  margin: 0 auto 20px;
+  max-width: 760px;
 }
 .ob-header {
   display: flex;
