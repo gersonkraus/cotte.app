@@ -17,10 +17,11 @@ test.describe('Assistente IA embed', () => {
     await page.locator('#messageInput').fill('Ver orçamento 321');
     await page.locator('#sendButton').click();
 
-    await expect(page.locator('.opr-card')).toBeVisible();
     await expect(contextBar).toBeVisible();
-    await expect(contextBar).toContainText('Último comando: Consultar orçamento');
-    await expect(contextBar).toContainText('Orçamento ORC-321-26');
+    await expect(contextBar).toContainText('Orçamento em contexto: ORC-321-26 | Maria');
+
+    await page.locator('#embedContextClear').click();
+    await expect(contextBar).not.toContainText('Orçamento em contexto: ORC-321-26 | Maria');
 
     const newChatBtn = page
       .locator('#btnNovaConversaEmbed:visible, #btnNovaConversaMobile:visible, #btnNovaConversaTop:visible')
@@ -41,24 +42,35 @@ test.describe('Assistente IA embed', () => {
   });
 
   test('restaura a context bar após reload com histórico salvo', async ({ page }) => {
-    await page.locator('#messageInput').fill('Como está meu caixa hoje?');
+    await page.locator('#messageInput').fill('Ver orçamento 321');
     await page.locator('#sendButton').click();
 
-    await expect(page.locator('.message.ai').last()).toContainText('Resumo executivo do caixa.');
-    await expect(page.locator('#embedContextBar')).toContainText('Último comando: Caixa');
+    await expect(page.locator('#embedContextBar')).toContainText('Orçamento em contexto: ORC-321-26 | Maria');
     await expect.poll(async () => {
-      return await page.evaluate(() => localStorage.getItem('ai_chat_meta') || '');
-    }).toContain('Caixa');
-    await expect.poll(async () => {
-      return await page.evaluate(() => localStorage.getItem('ai_chat_history') || '');
-    }).toContain('Resumo executivo do caixa.');
+      return await page.evaluate(() => localStorage.getItem('ai_operational_context_e1') || '');
+    }).toContain('ORC-321-26');
 
     await page.reload();
     await page.waitForLoadState('networkidle');
 
     await expect(page.locator('#embedContextBar')).toBeVisible();
-    await expect(page.locator('#embedContextBar')).toContainText('Último comando: Caixa');
-    await expect(page.locator('.message.ai').last()).toContainText('Resumo executivo do caixa.');
+    await expect(page.locator('#embedContextBar')).toContainText('Orçamento em contexto: ORC-321-26 | Maria');
+  });
+
+  test('troca contexto ativo por contexto recente', async ({ page }) => {
+    await page.evaluate(() => {
+      localStorage.setItem('ai_context_recents_e1', JSON.stringify([
+        { orcamento_numero_ativo: 'ORC-999-26', orcamento_id_ativo: 999, cliente_nome_ativo: 'Ana Julia' },
+      ]));
+      window.prompt = () => '2';
+    });
+
+    await page.locator('#messageInput').fill('Ver orçamento 321');
+    await page.locator('#sendButton').click();
+    await expect(page.locator('#embedContextBar')).toContainText('Orçamento em contexto: ORC-321-26 | Maria');
+
+    await page.locator('#embedContextSwap').click();
+    await expect(page.locator('#embedContextBar')).toContainText('Orçamento em contexto: ORC-999-26 | Ana Julia');
   });
 
   test('compacta bolhas antigas no embed quando o histórico cresce', async ({ page }) => {

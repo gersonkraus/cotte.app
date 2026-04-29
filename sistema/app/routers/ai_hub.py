@@ -531,6 +531,28 @@ class AISessaoContextoDefinirRequest(BaseModel):
     contexto_operacional: dict = Field(default_factory=dict)
 
 
+@router.get("/assistente/contexto", response_model=AIResponse)
+async def obter_contexto_operacional(
+    sessao_id: str = Query(..., min_length=1),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
+):
+    contexto = SessionStore.get_operational_context(
+        sessao_id,
+        db=db,
+        empresa_id=current_user.empresa_id,
+        usuario_id=int(current_user.id),
+    )
+    return AIResponse(
+        sucesso=True,
+        resposta="Contexto operacional carregado para esta sessão.",
+        tipo_resposta="contexto_operacional",
+        dados={"contexto_operacional": contexto},
+        confianca=1.0,
+        modulo_origem="assistente_contexto",
+    )
+
+
 @router.post("/orcamento/aplicar-desconto", response_model=AIResponse)
 async def aplicar_desconto_orcamento_ia(
     request: AplicarDescontoRequest,

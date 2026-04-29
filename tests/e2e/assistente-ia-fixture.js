@@ -16,6 +16,7 @@ function sse(events) {
 async function prepararPaginaAssistente(page, options = {}) {
   const viewport = options.viewport || { width: 390, height: 844 };
   const path = options.path || '/app/assistente-ia.html';
+  let currentOperationalContext = null;
 
   await page.addInitScript(({ user }) => {
     localStorage.setItem('cotte_token', 'token-playwright');
@@ -129,6 +130,48 @@ async function prepararPaginaAssistente(page, options = {}) {
       return;
     }
 
+    if (path.endsWith('/ai/assistente/contexto/limpar')) {
+      currentOperationalContext = null;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          sucesso: true,
+          tipo_resposta: 'contexto_limpo',
+          dados: { contexto_operacional: {} },
+        }),
+      });
+      return;
+    }
+
+    if (path.endsWith('/ai/assistente/contexto/definir')) {
+      const body = request.postDataJSON();
+      currentOperationalContext = body?.contexto_operacional || null;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          sucesso: true,
+          tipo_resposta: 'contexto_atualizado',
+          dados: { contexto_operacional: currentOperationalContext || {} },
+        }),
+      });
+      return;
+    }
+
+    if (path.endsWith('/ai/assistente/contexto')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          sucesso: true,
+          tipo_resposta: 'contexto_operacional',
+          dados: { contexto_operacional: currentOperationalContext || {} },
+        }),
+      });
+      return;
+    }
+
     if (path.endsWith('/ai/feedback')) {
       await route.fulfill({
         status: 200,
@@ -139,6 +182,11 @@ async function prepararPaginaAssistente(page, options = {}) {
     }
 
     if (path.endsWith('/ai/orcamento/confirmar')) {
+      currentOperationalContext = {
+        orcamento_id_ativo: 321,
+        orcamento_numero_ativo: 'ORC-321-26',
+        cliente_nome_ativo: 'Maria',
+      };
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -154,6 +202,7 @@ async function prepararPaginaAssistente(page, options = {}) {
             link_publico: 'tok-public-321',
             tem_telefone: true,
             tem_email: true,
+            contexto_operacional: currentOperationalContext,
           },
         }),
       });
@@ -269,7 +318,12 @@ async function prepararPaginaAssistente(page, options = {}) {
         return;
       }
 
-      if (mensagem.includes('ver orçamento')) {
+      if ((mensagem.includes('ver orçamento') || mensagem.includes('ver orcamento')) && mensagem.includes('321')) {
+        currentOperationalContext = {
+          orcamento_id_ativo: 321,
+          orcamento_numero_ativo: 'ORC-321-26',
+          cliente_nome_ativo: 'Maria',
+        };
         await route.fulfill({
           status: 200,
           contentType: 'text/event-stream',
@@ -293,6 +347,7 @@ async function prepararPaginaAssistente(page, options = {}) {
                   itens: [
                     { descricao: 'Instalação elétrica', total: 350 },
                   ],
+                  contexto_operacional: currentOperationalContext,
                 },
               },
             },

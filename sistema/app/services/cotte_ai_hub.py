@@ -2681,6 +2681,88 @@ def _v2_is_listar_clientes_fastpath_message(mensagem: str) -> bool:
     return _v2_detect_deterministic_intent(mensagem) == "LISTAR_CLIENTES"
 
 
+_RE_FOLLOWUP_DESCONTO_PCT = re.compile(r"(\d+(?:[.,]\d+)?)\s*%", re.IGNORECASE)
+_RE_FOLLOWUP_ORCAMENTO_VALOR = re.compile(
+    r"\b(qual\s+o\s+valor|quanto\s+ficou|valor\s+do\s+or[çc]amento|me\s+mostra\s+o\s+or[çc]amento|esse\s+or[çc]amento)\b",
+    re.IGNORECASE,
+)
+
+
+def _v2_is_orcamento_context_followup_message(mensagem: str) -> bool:
+    text = (mensagem or "").strip().lower()
+    if not text:
+        return False
+    if _RE_FOLLOWUP_ORCAMENTO_VALOR.search(text):
+        return True
+    if _RE_FOLLOWUP_DESCONTO_PCT.search(text) and (
+        "desconto" in text or "der" in text or "aplica" in text or "aplicar" in text
+    ):
+        return True
+    return False
+
+
+async def _v2_build_orcamento_context_followup_response(
+    *,
+    mensagem: str,
+    sessao_id: str,
+    db: Session,
+    current_user: Any,
+    request_id: Optional[str],
+) -> Optional[AIResponse]:
+    from app.services.tool_executor import execute as tool_execute
+
+    contexto_operacional = _v2_get_operational_context(
+        sessao_id=sessao_id,
+        db=db,
+        current_user=current_user,
+    )
+    orcamento_id = contexto_operacional.get("orcamento_id_ativo") if isinstance(contexto_operacional, dict) else None
+    if not isinstance(orcamento_id, int) or orcamento_id <= 0:
+        return None
+
+    msg = (mensagem or "").strip().lower()
+    pct_match = _RE_FOLLOWUP_DESCONTO_PCT.search(msg)
+    if pct_match and ("desconto" in msg or "der" in msg or "aplica" in msg or "aplicar" in msg):
+        mensagem_simulada = f"simular desconto de {pct_match.group(1)}% no {orcamento_id}"
+        return await _v2_build_simular_desconto_response(
+            mensagem=mensagem_simulada,
+            db=db,
+            current_user=current_user,
+            request_id=request_id,
+        )
+
+    if not _RE_FOLLOWUP_ORCAMENTO_VALOR.search(msg):
+        return None
+
+    tc_dict = {
+        "id": "fast_context_orcamento_valor",
+        "type": "function",
+        "function": {
+            "name": "obter_orcamento",
+            "arguments": json.dumps({"id": orcamento_id}),
+        },
+    }
+    result = await tool_execute(
+        tc_dict,
+        db=db,
+        current_user=current_user,
+        sessao_id=sessao_id,
+        request_id=request_id,
+    )
+    if result.status != "ok" or not result.data:
+        return None
+
+    return AIResponse(
+        sucesso=True,
+        resposta="",
+        tipo_resposta="operador_resultado",
+        confianca=0.98,
+        modulo_origem="assistente_v2_contexto",
+        tool_trace=[{"tool": "obter_orcamento", "status": "ok", "latencia_ms": result.latencia_ms}],
+        dados={"acao": "VER", **(result.data or {}), "input_tokens": 0, "output_tokens": 0},
+    )
+
+
 async def _v2_build_listar_clientes_fastpath_response(
     *,
     mensagem: str,
@@ -6111,6 +6193,28 @@ async def assistente_unificado_v2(
             resposta=resposta.resposta or "",
         )
         return resposta
+
+    if _v2_is_orcamento_context_followup_message(mensagem):
+        resposta_ctx_orc = await _v2_build_orcamento_context_followup_response(
+            mensagem=mensagem,
+            sessao_id=sessao_id,
+            db=db,
+            current_user=current_user,
+            request_id=request_id,
+        )
+        if resposta_ctx_orc is not None:
+            _v2_persist_fastpath_response(
+                sessao_id=sessao_id,
+                db=db,
+                current_user=current_user,
+                resposta=resposta_ctx_orc.resposta or "",
+            )
+            return _v2_attach_operational_context_to_response(
+                sessao_id=sessao_id,
+                db=db,
+                current_user=current_user,
+                response=resposta_ctx_orc,
+            )
 
     if intent_str == "LISTAR_ORCAMENTOS":
         resposta_lista = await _v2_build_listar_orcamentos_fastpath_response(

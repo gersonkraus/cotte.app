@@ -253,6 +253,7 @@ function _getEmpresaScopeKey(base) {
 
 const ASSISTENTE_CHAT_META_KEY = _getEmpresaScopeKey('ai_chat_meta');
 const ASSISTENTE_CONTEXT_RECENTS_KEY = _getEmpresaScopeKey('ai_context_recents');
+const ASSISTENTE_OPERATIONAL_CONTEXT_KEY = _getEmpresaScopeKey('ai_operational_context');
 const ASSISTENTE_COMPACT_THRESHOLD = 8;
 const ASSISTENTE_COMPACT_RECENT_COUNT = 4;
 const ASSISTENTE_SCROLL_FOLLOW_THRESHOLD = 96;
@@ -268,14 +269,12 @@ const _assistenteChatUiState = {
 function _getOperationalContextSummary(ctx) {
     const context = (ctx && typeof ctx === 'object') ? ctx : {};
     const parts = [];
-    if (context.orcamento_numero_ativo) {
-        parts.push(`Orçamento ${context.orcamento_numero_ativo}`);
-    } else if (context.orcamento_id_ativo) {
-        parts.push(`Orçamento #${context.orcamento_id_ativo}`);
-    }
-    if (context.cliente_nome_ativo) {
-        parts.push(`Cliente ${context.cliente_nome_ativo}`);
-    }
+    const orcRef = _normalizeContextText(context.orcamento_numero_ativo)
+        || (context.orcamento_id_ativo ? `#${context.orcamento_id_ativo}` : '');
+    const cliente = _normalizeContextText(context.cliente_nome_ativo);
+    if (orcRef) parts.push(orcRef);
+    if (cliente) parts.push(cliente);
+    if (parts.length) return parts.join(' | ');
     if (context.documento_titulo_ativo) {
         parts.push(`Documento ${context.documento_titulo_ativo}`);
     }
@@ -387,8 +386,9 @@ function renderAssistenteContextBar() {
         return;
     }
 
+    const hasActiveBudgetContext = !!(operationalContext && (operationalContext.orcamento_numero_ativo || operationalContext.orcamento_id_ativo));
     const primaryText = opSummary
-        ? `Contexto ativo: ${opSummary}`
+        ? (hasActiveBudgetContext ? `Orçamento em contexto: ${opSummary}` : `Contexto ativo: ${opSummary}`)
         : context.command
         ? `Último comando: ${context.command}`
         : `Última entidade: ${context.entity}`;
@@ -429,6 +429,15 @@ function captureAssistenteResponseContext(data) {
     _assistenteChatUiState.pendingUserContext = null;
     const dados = data?.dados || data?.metadata?.dados || data || {};
     _assistenteChatUiState.operationalContext = dados.contexto_operacional || null;
+    try {
+        if (_assistenteChatUiState.operationalContext) {
+            localStorage.setItem(ASSISTENTE_OPERATIONAL_CONTEXT_KEY, JSON.stringify(_assistenteChatUiState.operationalContext));
+        } else {
+            localStorage.removeItem(ASSISTENTE_OPERATIONAL_CONTEXT_KEY);
+        }
+    } catch (_) {
+        /* noop */
+    }
     if (_assistenteChatUiState.operationalContext) {
         try {
             const raw = JSON.parse(localStorage.getItem(ASSISTENTE_CONTEXT_RECENTS_KEY) || '[]');
@@ -486,12 +495,56 @@ async function _clearAssistenteOperationalContext() {
         /* noop */
     }
     _assistenteChatUiState.operationalContext = null;
+    try {
+        localStorage.removeItem(ASSISTENTE_OPERATIONAL_CONTEXT_KEY);
+    } catch (_) {
+        /* noop */
+    }
     renderAssistenteContextBar();
 }
 
 function _applyOperationalContextFromMeta(meta) {
     const dados = meta?.dados || meta || {};
     _assistenteChatUiState.operationalContext = dados.contexto_operacional || null;
+    try {
+        if (_assistenteChatUiState.operationalContext) {
+            localStorage.setItem(ASSISTENTE_OPERATIONAL_CONTEXT_KEY, JSON.stringify(_assistenteChatUiState.operationalContext));
+        } else {
+            localStorage.removeItem(ASSISTENTE_OPERATIONAL_CONTEXT_KEY);
+        }
+    } catch (_) {
+        /* noop */
+    }
+    renderAssistenteContextBar();
+}
+
+async function _hydrateOperationalContextOnBoot() {
+    let restored = null;
+    try {
+        restored = JSON.parse(localStorage.getItem(ASSISTENTE_OPERATIONAL_CONTEXT_KEY) || 'null');
+    } catch (_) {
+        restored = null;
+    }
+
+    if (typeof httpClient !== 'undefined' && sessaoId) {
+        try {
+            const response = await httpClient.get(`/ai/assistente/contexto?sessao_id=${encodeURIComponent(sessaoId)}`, { bypassAutoLogout: true });
+            const dados = response?.dados || response?.data?.dados || response?.data || {};
+            _assistenteChatUiState.operationalContext = dados.contexto_operacional || restored || null;
+        } catch (_) {
+            _assistenteChatUiState.operationalContext = restored || null;
+        }
+    } else {
+        _assistenteChatUiState.operationalContext = restored || null;
+    }
+
+    try {
+        if (_assistenteChatUiState.operationalContext) {
+            localStorage.setItem(ASSISTENTE_OPERATIONAL_CONTEXT_KEY, JSON.stringify(_assistenteChatUiState.operationalContext));
+        }
+    } catch (_) {
+        /* noop */
+    }
     renderAssistenteContextBar();
 }
 
@@ -734,11 +787,13 @@ function novaConversaAssistente() {
     localStorage.removeItem(_getEmpresaScopeKey('ai_sessao_id'));
     localStorage.removeItem(_getEmpresaScopeKey('ai_chat_history'));
     localStorage.removeItem(ASSISTENTE_CHAT_META_KEY);
+    localStorage.removeItem(ASSISTENTE_OPERATIONAL_CONTEXT_KEY);
     window._pendingConfirmationToken = null;
     window._pendingOverrideArgs = null;
     window._feedbackData = {};
     box.innerHTML = _assistenteWelcomeHTML || '';
     _assistenteChatUiState.pendingUserContext = null;
+    _assistenteChatUiState.operationalContext = null;
     setAssistenteContext('', '', { persist: false });
     setChatAutoFollow(true, { scroll: false });
     updateAssistenteMessageDensity();
@@ -1220,6 +1275,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const clearBtn = document.getElementById('embedContextClear');
     if (swapBtn) swapBtn.addEventListener('click', _swapAssistenteOperationalContext);
     if (clearBtn) clearBtn.addEventListener('click', _clearAssistenteOperationalContext);
+    _hydrateOperationalContextOnBoot();
 });
 
 window.getSuggestionIcon = getSuggestionIcon;

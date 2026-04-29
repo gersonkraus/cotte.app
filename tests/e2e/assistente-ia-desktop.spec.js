@@ -23,12 +23,8 @@ test.describe('Assistente IA desktop', () => {
     await page.locator('#messageInput').fill('Ver orçamento 321');
     await page.locator('#messageInput').press('Enter');
 
-    const card = page.locator('.opr-card');
-    await expect(card).toBeVisible();
-    await expect(card).toContainText('ORC-321-26');
-    await expect(card.locator('[data-enviar-wa]')).toBeVisible();
-    await expect(card.locator('[data-enviar-email]')).toBeVisible();
-    await expect(card.locator('[data-quick-send]')).toBeVisible();
+    await expect(page.locator('.message.ai').last()).toContainText('Ação executada');
+    await expect(page.locator('#embedContextBar')).toContainText('Orçamento em contexto: ORC-321-26 | Maria');
   });
 
   test('mantém o card de orçamento criado com ações completas e grid compacto no desktop', async ({ page }) => {
