@@ -29,6 +29,7 @@
 
   var _dados = null;
   var _estado = {};
+  var _templates = null;
 
   function _carregarEstado() {
     try { _estado = JSON.parse(localStorage.getItem(ESTADO_KEY())) || {}; }
@@ -48,6 +49,19 @@
 
   function _salvarCache(dados) {
     localStorage.setItem(CACHE_KEY(), JSON.stringify(dados));
+  }
+
+  async function _carregarTemplates(tipo, canal) {
+    if (_templates) return _templates;
+    try {
+      var params = '?tipo=' + tipo + '&canal=' + canal;
+      var res = await window.ApiService.get('/tenant/comercial/templates' + params);
+      _templates = res || [];
+      return _templates;
+    } catch (e) {
+      console.error('[BriefingIA] Erro ao carregar templates:', e);
+      return [];
+    }
   }
 
   async function _fetchBriefing(forcar) {
@@ -127,8 +141,10 @@
           '<button class="briefing-btn-ver" onclick="BriefingIA.verLead(' + item.lead_id + ')">Ver lead</button>' +
           '<button class="briefing-btn-pular" onclick="BriefingIA.pular(' + item.lead_id + ')">✗ Pular</button>';
       } else {
+        var canalFiltro = item.tipo_acao === 'mensagem_email' ? 'email' : 'whatsapp';
         botoesHtml =
           '<button class="briefing-btn-enviar" onclick="BriefingIA.enviar(' + item.lead_id + ',\'' + item.tipo_acao + '\')">✓ Enviar agora</button>' +
+          '<button class="briefing-btn-template" onclick="BriefingIA.selecionarTemplate(' + item.lead_id + ',\'' + canalFiltro + '\')">📋 Template</button>' +
           '<button class="briefing-btn-editar" onclick="BriefingIA.editar(' + item.lead_id + ')">✎ Editar</button>' +
           '<button class="briefing-btn-pular" onclick="BriefingIA.pular(' + item.lead_id + ')">✗ Pular</button>';
       }
@@ -251,6 +267,14 @@
       '.briefing-erro{text-align:center;padding:32px 20px;color:#ef4444;font-size:0.9rem;background:#fef2f2;border-radius:8px;border:1px solid #fca5a5}',
       '.briefing-pulados-label{font-size:0.75rem;color:#94a3b8;text-align:center;margin-top:8px}',
       '.briefing-textarea-edicao{width:100%;min-height:80px;border:1px solid #6366f1;border-radius:6px;padding:10px;font-size:0.82rem;font-family:inherit;resize:vertical;box-sizing:border-box;margin-bottom:10px}',
+      '.briefing-btn-template{background:#6366f1;color:#fff;border:none;border-radius:6px;padding:7px 12px;font-size:0.8rem;font-weight:500;cursor:pointer}',
+      '.briefing-btn-template:hover{background:#4f46e5}',
+      '.briefing-template-dropdown{position:absolute;top:100%;left:0;z-index:100;background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.15);min-width:250px;max-height:300px;overflow-y:auto;margin-top:4px}',
+      '.briefing-template-list{padding:8px 0}',
+      '.briefing-template-item{padding:10px 14px;cursor:pointer;border-bottom:1px solid #f1f5f9}',
+      '.briefing-template-item:last-child{border-bottom:none}',
+      '.briefing-template-item:hover{background:#f8fafc}',
+      '.briefing-template-item strong{display:block;font-size:13px;color:#1e293b}',
     ].join('');
     document.head.appendChild(style);
   }
@@ -369,6 +393,64 @@
       // Tenta abrir detalhe após switch de aba
       if (typeof window.abrirDetalhe === 'function') {
         setTimeout(function () { window.abrirDetalhe(leadId); }, 300);
+      }
+    },
+
+    selecionarTemplate: async function(leadId, canal) {
+      var card = document.getElementById('briefing-card-' + leadId);
+      if (!card) return;
+
+      var templates = await _carregarTemplates('followup', canal);
+      if (!templates.length) {
+        alert('Nenhum template de follow-up cadastrado para ' + canal + '. Cadastre na aba Templates.');
+        return;
+      }
+
+      var dropdownId = 'template-dropdown-' + leadId;
+      var existing = document.getElementById(dropdownId);
+      if (existing) { existing.remove(); return; }
+
+      var dropdown = document.createElement('div');
+      dropdown.id = dropdownId;
+      dropdown.className = 'briefing-template-dropdown';
+      dropdown.innerHTML = '<div class="briefing-template-list">' +
+        templates.map(function(t) {
+          return '<div class="briefing-template-item" onclick="BriefingIA.usarTemplate(' + leadId + ',' + t.id + ',\'' + canal + '\')">' +
+            '<strong>' + _esc(t.nome) + '</strong>' +
+            '<span style="display:block;font-size:11px;color:#64748b">' + _esc((t.conteudo || '').slice(0,60)) + '...</span>' +
+          '</div>';
+        }).join('') +
+        '<div class="briefing-template-item" style="color:#94a3b8;text-align:center" onclick="this.parentElement.parentElement.remove()">Cancelar</div>' +
+      '</div>';
+
+      var actionsEl = card.querySelector('.briefing-actions');
+      if (actionsEl) {
+        actionsEl.style.position = 'relative';
+        actionsEl.appendChild(dropdown);
+      }
+    },
+
+    usarTemplate: async function(leadId, templateId, canal) {
+      var card = document.getElementById('briefing-card-' + leadId);
+      if (!card) return;
+
+      var dropdown = document.getElementById('template-dropdown-' + leadId);
+      if (dropdown) dropdown.remove();
+
+      try {
+        var preview = await window.ApiService.post('/tenant/comercial/templates/' + templateId + '/preview?lead_id=' + leadId, {});
+        
+        var rascunhoEl = card.querySelector('#rascunho-' + leadId);
+        if (rascunhoEl) {
+          if (rascunhoEl.tagName === 'TEXTAREA') {
+            rascunhoEl.value = preview.conteudo || '';
+          } else {
+            rascunhoEl.textContent = preview.conteudo || '';
+          }
+        }
+      } catch (e) {
+        alert('Erro ao carregar template. Tente novamente.');
+        console.error('[BriefingIA.usarTemplate]', e);
       }
     },
   };

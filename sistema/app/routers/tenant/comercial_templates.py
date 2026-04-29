@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from datetime import datetime, timezone
 
 from app.core.auth import exigir_modulo, exigir_permissao
 from app.core.database import get_db
@@ -41,6 +42,8 @@ async def list_templates(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(exigir_permissao("comercial", "leitura")),
     ativo: Optional[bool] = Query(None),
+    tipo: Optional[str] = Query(None),
+    canal: Optional[str] = Query(None),
 ):
     q = db.query(TenantCommercialTemplate).filter(
         TenantCommercialTemplate.empresa_id == current_user.empresa_id
@@ -49,6 +52,10 @@ async def list_templates(
         q = q.filter(TenantCommercialTemplate.ativo.is_(True))
     else:
         q = q.filter(TenantCommercialTemplate.ativo == ativo)
+    if tipo:
+        q = q.filter(TenantCommercialTemplate.tipo == tipo)
+    if canal:
+        q = q.filter(TenantCommercialTemplate.canal.in_([canal, "ambos"]))
     return q.order_by(TenantCommercialTemplate.id.desc()).all()
 
 
@@ -150,16 +157,53 @@ async def preview_template(
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
 
+    dias_sem_contato = 0
+    if lead.ultimo_contato_em:
+        try:
+            ultimo = lead.ultimo_contato_em
+            if ultimo.tzinfo is None:
+                ultimo = ultimo.replace(tzinfo=timezone.utc)
+            agora = datetime.now(timezone.utc)
+            dias_sem_contato = (agora - ultimo).days
+        except Exception:
+            pass
+
+    score_str = (lead.lead_score.value if lead.lead_score else "frio") if lead.lead_score else "frio"
+    etapa_str = (lead.status_pipeline or "").replace("_", " ").title()
+
+    valor_str = ""
+    if lead.valor_estimado:
+        try:
+            valor_float = float(lead.valor_estimado)
+            valor_str = f"R$ {valor_float:,.0f}".replace(",", ".")
+        except Exception:
+            pass
+
     conteudo = template.conteudo
     conteudo = conteudo.replace("{nome_responsavel}", lead.nome or "")
     conteudo = conteudo.replace("{nome_empresa}", lead.nome_empresa or lead.nome or "")
     conteudo = conteudo.replace("{whatsapp}", lead.telefone or "")
     conteudo = conteudo.replace("{email}", lead.email or "")
     conteudo = conteudo.replace("{cidade}", "")
+    conteudo = conteudo.replace("{dias_sem_contato}", str(dias_sem_contato))
+    conteudo = conteudo.replace("{score}", score_str)
+    conteudo = conteudo.replace("{etapa}", etapa_str)
+    conteudo = conteudo.replace("{valor}", valor_str)
 
     assunto = template.assunto
     if assunto:
         assunto = assunto.replace("{nome_responsavel}", lead.nome or "")
         assunto = assunto.replace("{nome_empresa}", lead.nome_empresa or lead.nome or "")
+        assunto = assunto.replace("{dias_sem_contato}", str(dias_sem_contato))
+        assunto = assunto.replace("{score}", score_str)
+        assunto = assunto.replace("{etapa}", etapa_str)
+        assunto = assunto.replace("{valor}", valor_str)
 
-    return TemplatePreview(assunto=assunto, conteudo=conteudo)
+    return TemplatePreview(
+        assunto=assunto,
+        conteudo=conteudo,
+        dias_sem_contato=dias_sem_contato,
+        score=score_str,
+        etapa=lead.status_pipeline,
+        valor=float(lead.valor_estimado) if lead.valor_estimado else None,
+    )

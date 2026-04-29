@@ -1085,6 +1085,7 @@ class PapelResumo(BaseModel):
     id: int
     nome: str
     slug: str
+    permissoes: Optional[List[str]] = None  # ["modulo:acao", ...] — usado pelo frontend (Permissoes.pode)
 
     class Config:
         from_attributes = True
@@ -1644,6 +1645,10 @@ class TemplatePreview(BaseModel):
 
     assunto: Optional[str] = None
     conteudo: str
+    dias_sem_contato: Optional[int] = None
+    score: Optional[str] = None
+    etapa: Optional[str] = None
+    valor: Optional[float] = None
 
 
 # ── IMPORTAÇÃO DE LEADS ───────────────────────────────────────────────────────
