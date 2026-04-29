@@ -1056,6 +1056,61 @@ def test_v2_followup_desconto_sem_id_usa_orcamento_ativo(db, monkeypatch):
     assert (out.dados or {}).get("id") == orc.id
 
 
+def test_v2_followup_valor_orcamento_com_contexto_id_string(db, monkeypatch):
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+    cli = make_cliente(db, emp, nome="Ana Julia")
+    orc = make_orcamento(db, emp, cli, user, status=StatusOrcamento.ENVIADO, total=Decimal("800.00"))
+
+    SessionStore.ensure_sessao_db("sess-followup-valor-str", emp.id, user.id, db)
+    SessionStore.set_operational_context(
+        "sess-followup-valor-str",
+        {
+            "orcamento_id_ativo": str(orc.id),
+            "orcamento_numero_ativo": orc.numero,
+            "cliente_nome_ativo": "Ana Julia",
+        },
+        db=db,
+        empresa_id=emp.id,
+        usuario_id=user.id,
+    )
+
+    class _Classificacao:
+        class _Intent:
+            value = "LISTAR_ORCAMENTOS"
+
+        intencao = _Intent()
+        metodo = "regex"
+
+    async def _fake_detectar(_mensagem):
+        return _Classificacao()
+
+    async def _fake_listar(*, mensagem, db, current_user):
+        return cotte_ai_hub.AIResponse(
+            sucesso=True,
+            resposta="fallback indevido",
+            tipo_resposta="lista_orcamentos",
+            dados={"orcamentos": []},
+            confianca=1.0,
+            modulo_origem="teste",
+        )
+
+    monkeypatch.setattr(cotte_ai_hub, "detectar_intencao_assistente_async", _fake_detectar)
+    monkeypatch.setattr(cotte_ai_hub, "_v2_build_listar_orcamentos_fastpath_response", _fake_listar)
+
+    out = _run(
+        cotte_ai_hub.assistente_unificado_v2(
+            mensagem="qual o valor do orçamento?",
+            sessao_id="sess-followup-valor-str",
+            db=db,
+            current_user=user,
+        )
+    )
+
+    assert out.tipo_resposta != "lista_orcamentos"
+    assert (out.dados or {}).get("id") == orc.id
+
+
 def test_intencao_orcamentos_pendentes_nao_dispara_inadimplencia():
     """'Pendente' em orçamentos é pipeline; não deve ser INADIMPLENCIA (fastpath clientes_devendo)."""
     from app.services.ai_intention_classifier import detectar_intencao_assistente

@@ -2701,6 +2701,21 @@ def _v2_is_orcamento_context_followup_message(mensagem: str) -> bool:
     return False
 
 
+def _coerce_positive_int(value: Any) -> Optional[int]:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value if value > 0 else None
+    if isinstance(value, str):
+        normalized = value.strip()
+        if not normalized:
+            return None
+        if normalized.isdigit():
+            parsed = int(normalized)
+            return parsed if parsed > 0 else None
+    return None
+
+
 async def _v2_build_orcamento_context_followup_response(
     *,
     mensagem: str,
@@ -2716,8 +2731,9 @@ async def _v2_build_orcamento_context_followup_response(
         db=db,
         current_user=current_user,
     )
-    orcamento_id = contexto_operacional.get("orcamento_id_ativo") if isinstance(contexto_operacional, dict) else None
-    if not isinstance(orcamento_id, int) or orcamento_id <= 0:
+    raw_orcamento_id = contexto_operacional.get("orcamento_id_ativo") if isinstance(contexto_operacional, dict) else None
+    orcamento_id = _coerce_positive_int(raw_orcamento_id)
+    if orcamento_id is None:
         return None
 
     msg = (mensagem or "").strip().lower()
