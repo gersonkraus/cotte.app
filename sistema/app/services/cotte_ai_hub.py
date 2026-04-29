@@ -3958,6 +3958,11 @@ async def assistente_v2_stream_core(
             async for event in _emit_fastpath_ai_response(resposta_ctx_orc):
                 yield event
             return
+        # Fast path reconheceu consulta de orçamento mas não há contexto ativo.
+        # Força OPERADOR para o LLM usar ferramentas de orçamento em vez de cair
+        # no fluxo CONVERSACAO que inclui obter_saldo_caixa e retornaria o caixa.
+        if intent_str == "CONVERSACAO":
+            intent_str = "OPERADOR"
 
     if intent_str == "LISTAR_ORCAMENTOS":
         resposta_lista = await _v2_build_listar_orcamentos_fastpath_response(
