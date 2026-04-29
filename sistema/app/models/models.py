@@ -1284,6 +1284,7 @@ class TenantCommercialLead(TenantScopedMixin, Base):
     nome_empresa = Column(String(150), nullable=True)
     email = Column(String(150), nullable=True)
     telefone = Column(String(20), nullable=True)
+    endereco = Column(String(255), nullable=True)
     segmento = Column(String(100), nullable=True)
     origem = Column(String(100), nullable=True)
     etapa_pipeline_id = Column(Integer, ForeignKey("tenant_pipeline_etapas.id"), nullable=True)

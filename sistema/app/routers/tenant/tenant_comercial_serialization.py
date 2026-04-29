@@ -52,6 +52,7 @@ def tenant_lead_to_out(db: Session, lead: TenantCommercialLead) -> dict[str, Any
         "whatsapp": lead.telefone,
         "email": lead.email,
         "cidade": None,
+        "endereco": lead.endereco,
         "segmento_id": None,
         "origem_lead_id": None,
         "segmento_nome": lead.segmento,

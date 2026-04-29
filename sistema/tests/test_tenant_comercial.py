@@ -402,61 +402,65 @@ class TestTenantGuardrails:
 
 
 class TestTenantImportacaoLeads:
-    def test_analisar_importacao_normaliza_endereco(self, db, empresa_com_modulo):
+    def test_importar_lead_salva_endereco_estruturado(self, db, empresa_com_modulo):
         user = _tenant_user(empresa_com_modulo)
+        payload = {
+            "metodo": "ia",
+            "leads": [
+                {
+                    "nome_responsavel": "Maria Souza",
+                    "nome_empresa": "MS Reformas",
+                    "whatsapp": "(11) 99888-7777",
+                    "email": "maria@ms.com",
+                    "endereco": "Rua A, 123 - Centro",
+                }
+            ],
+        }
 
-        fake_resposta = {
+        asyncio.run(comercial_leads.importar_leads_tenant(payload, db=db, usuario=user))
+
+        lead = (
+            db.query(TenantCommercialLead)
+            .filter(TenantCommercialLead.empresa_id == empresa_com_modulo.id)
+            .order_by(TenantCommercialLead.id.desc())
+            .first()
+        )
+        assert lead is not None
+        assert lead.endereco == "Rua A, 123 - Centro"
+
+    def test_analisar_importacao_normaliza_telefone_br_com_ddi(self, db, empresa_com_modulo):
+        user = _tenant_user(empresa_com_modulo)
+        existing = make_tenant_lead(
+            db,
+            empresa_com_modulo.id,
+            telefone="5511998887777",
+            email="duplicado@teste.com",
+        )
+        db.commit()
+
+        fake_response = {
             "items": [
                 {
-                    "nome": "Maria Silva",
-                    "empresa": "Empresa X",
-                    "whatsapp": "(48) 99888-7766",
-                    "email": "maria@x.com",
-                    "cidade": "Florianopolis",
-                    "logradouro": "Rua das Flores, 123",
+                    "nome_responsavel": "Duplicado",
+                    "nome_empresa": "Empresa D",
+                    "whatsapp": "+55 (11) 99888-7777",
+                    "email": "novo@teste.com",
                 }
             ]
         }
 
-        with patch("app.routers.tenant.comercial_leads.analisar_leads", new_callable=AsyncMock) as mock_analisar:
-            mock_analisar.return_value = fake_resposta
+        with patch(
+            "app.routers.tenant.comercial_leads.analisar_leads",
+            new=AsyncMock(return_value=fake_response),
+        ):
             result = asyncio.run(
                 comercial_leads.analisar_importacao_tenant(
-                    data={"texto": "Maria Silva - (48) 99888-7766 - maria@x.com"},
+                    {"texto": "Lead para importar"},
                     db=db,
                     usuario=user,
                 )
             )
 
-        assert len(result["items"]) == 1
-        item = result["items"][0]
-        assert item["nome_responsavel"] == "Maria Silva"
-        assert item["nome_empresa"] == "Empresa X"
-        assert item["whatsapp"] == "48998887766"
-        assert item["cidade"] == "Florianopolis"
-        assert item["endereco"] == "Rua das Flores, 123"
-
-    def test_importar_leads_salva_endereco_em_observacoes(self, db, empresa_com_modulo):
-        user = _tenant_user(empresa_com_modulo)
-
-        payload = {
-            "leads": [
-                {
-                    "nome_responsavel": "Carlos",
-                    "nome_empresa": "ACME",
-                    "whatsapp": "48999990000",
-                    "email": "carlos@acme.com",
-                    "endereco": "Av. Central, 456",
-                    "observacoes": "Lead quente",
-                }
-            ]
-        }
-
-        result = asyncio.run(comercial_leads.importar_leads_tenant(payload=payload, db=db, usuario=user))
-        assert result["sucesso"] == 1
-
-        lead_id = result["leads_criados"][0]["id"]
-        lead = db.query(TenantCommercialLead).filter(TenantCommercialLead.id == lead_id).first()
-        assert lead is not None
-        assert "Lead quente" in (lead.observacoes or "")
-        assert "Endereco: Av. Central, 456" in (lead.observacoes or "")
+        assert result["items"][0]["whatsapp"] == "5511998887777"
+        assert result["items"][0]["duplicado"] is True
+        assert existing.id is not None

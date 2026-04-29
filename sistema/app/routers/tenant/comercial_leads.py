@@ -44,6 +44,7 @@ class LeadBase(BaseModel):
     telefone: Optional[str] = None
     whatsapp: Optional[str] = None
     cidade: Optional[str] = None
+    endereco: Optional[str] = None
     segmento: Optional[str] = None
     segmento_id: Optional[int] = None
     origem: Optional[str] = None
@@ -69,6 +70,7 @@ class LeadUpdate(BaseModel):
     nome: Optional[str] = None
     email: Optional[EmailStr] = None
     telefone: Optional[str] = None
+    endereco: Optional[str] = None
     segmento: Optional[str] = None
     origem: Optional[str] = None
     etapa_pipeline_id: Optional[int] = None
@@ -162,6 +164,8 @@ def create_lead(
         lead_data["nome"] = lead_data.get("nome_responsavel")
     if not lead_data.get("telefone") and lead_data.get("whatsapp"):
         lead_data["telefone"] = lead_data.get("whatsapp")
+    if lead_data.get("telefone"):
+        lead_data["telefone"] = _normalizar_telefone_br(lead_data.get("telefone") or "") or None
     if lead_data.get("valor_estimado") is None and lead_data.get("valor_proposto") is not None:
         lead_data["valor_estimado"] = lead_data.get("valor_proposto")
     if not lead_data.get("segmento") and lead_data.get("segmento_id"):
@@ -197,6 +201,7 @@ def create_lead(
         "nome_empresa",
         "email",
         "telefone",
+        "endereco",
         "segmento",
         "origem",
         "etapa_pipeline_id",
@@ -458,6 +463,19 @@ def _parse_fallback(texto: str) -> list:
     return items
 
 
+def _normalizar_telefone_br(valor: str) -> str:
+    digitos = re.sub(r"\D", "", valor or "")
+    if not digitos:
+        return ""
+    if digitos.startswith("55") and len(digitos) in {12, 13}:
+        base = digitos[2:]
+    else:
+        base = digitos
+    if len(base) not in {10, 11}:
+        return ""
+    return f"55{base}"
+
+
 @router.post("/analisar-importacao")
 async def analisar_importacao_tenant(
     data: dict = Body(...),
@@ -501,9 +519,7 @@ async def analisar_importacao_tenant(
             item["nome_responsavel"] = nr
         if ne:
             item["nome_empresa"] = ne
-        whatsapp = re.sub(r"\D", "", (item.get("whatsapp") or ""))
-        if whatsapp and len(whatsapp) < 10:
-            whatsapp = ""
+        whatsapp = _normalizar_telefone_br(item.get("whatsapp") or "")
         email = (item.get("email") or "").strip()
         cidade = (item.get("cidade") or item.get("city") or item.get("localidade") or "").strip()
         endereco = (item.get("endereco") or item.get("logradouro") or item.get("rua") or "").strip()
@@ -526,6 +542,9 @@ async def analisar_importacao_tenant(
         item["selecionado"] = not bool(duplicado)
         item["segmento_id"] = segmentos.get((item.get("segmento_nome") or "").strip().lower())
         item["origem_lead_id"] = origens.get((item.get("origem_nome") or "").strip().lower())
+        item["endereco"] = (
+            item.get("endereco") or item.get("logradouro") or item.get("rua") or ""
+        ).strip() or None
         items.append(item)
 
     return {"items": items}
@@ -563,14 +582,16 @@ async def importar_leads_tenant(
             nr = (item.get("nome_responsavel") or item.get("nome_empresa") or "").strip()
             if not nr:
                 raise ValueError("Nome obrigatório")
-            whatsapp = re.sub(r"\D", "", str(item.get("whatsapp") or ""))
-            if whatsapp and len(whatsapp) < 10:
+            whatsapp = _normalizar_telefone_br(str(item.get("whatsapp") or ""))
+            if item.get("whatsapp") and not whatsapp:
                 raise ValueError("WhatsApp inválido")
             email = (item.get("email") or "").strip() or None
-            endereco = (item.get("endereco") or item.get("logradouro") or "").strip() or None
+            endereco = (
+                (item.get("endereco") or item.get("logradouro") or item.get("rua") or "")
+                .strip()
+                or None
+            )
             observacoes = (item.get("observacoes") or "").strip() or None
-            if endereco:
-                observacoes = (observacoes + "\n" if observacoes else "") + f"Endereco: {endereco}"
 
             dup_filters = []
             if whatsapp:
@@ -589,6 +610,7 @@ async def importar_leads_tenant(
                 nome=nr,
                 nome_empresa=item.get("nome_empresa") or nr,
                 telefone=whatsapp or None,
+                endereco=endereco,
                 email=email,
                 observacoes=observacoes,
                 status_pipeline="novo",
@@ -677,6 +699,10 @@ def update_lead(
         data["nome"] = data.get("nome_responsavel")
     if not data.get("telefone") and data.get("whatsapp"):
         data["telefone"] = data.get("whatsapp")
+    if data.get("telefone"):
+        data["telefone"] = _normalizar_telefone_br(data.get("telefone") or "") or None
+    if not data.get("endereco") and data.get("logradouro"):
+        data["endereco"] = data.get("logradouro")
     if data.get("valor_estimado") is None and data.get("valor_proposto") is not None:
         data["valor_estimado"] = data.get("valor_proposto")
     if not data.get("segmento") and data.get("segmento_id"):

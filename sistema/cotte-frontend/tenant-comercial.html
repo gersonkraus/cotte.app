@@ -387,6 +387,7 @@ Exemplos de formatos aceitos:
                       <th>Empresa</th>
                       <th>WhatsApp</th>
                       <th>E-mail</th>
+                      <th>Endereço</th>
                       <th>Cidade</th>
                       <th>Endereco</th>
                       <th class="preview-col-status">Status</th>
@@ -407,12 +408,27 @@ Exemplos de formatos aceitos:
           <div class="import-step hidden" id="step-3">
             <div class="m-card">
               <h4 style="margin:0 0 16px 0">Configurar importação</h4>
+              <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px">
+                <div style="padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface2)">
+                  <div style="font-size:11px;color:var(--muted)">Selecionados</div>
+                  <div id="cfg-selected-count" style="font-size:20px;font-weight:700">0</div>
+                </div>
+                <div style="padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface2)">
+                  <div style="font-size:11px;color:var(--muted)">Duplicados</div>
+                  <div id="cfg-duplicate-count" style="font-size:20px;font-weight:700">0</div>
+                </div>
+                <div style="padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface2)">
+                  <div style="font-size:11px;color:var(--muted)">Inválidos</div>
+                  <div id="cfg-invalid-count" style="font-size:20px;font-weight:700">0</div>
+                </div>
+              </div>
               <form id="import-config-form">
                 <div class="fg">
                   <label class="fl">Segmento</label>
                   <select class="fs" id="segment-select">
                     <option value="">Nenhum</option>
                   </select>
+                  <p style="font-size:11px;color:var(--muted);margin-top:4px">Recomendado quando o lote tem foco comercial claro.</p>
                 </div>
 
                 <div class="fg" style="margin-top:12px">

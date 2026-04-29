@@ -34,15 +34,7 @@ function carregarImportacao() {
   carregarSegmentosImportacao();
   carregarTemplatesImportacao();
   resetImportHistoricoUI();
-  try {
-    var salvo = localStorage.getItem('importacaoLoteAtual');
-    if (salvo) {
-      importacaoLoteAtual = JSON.parse(salvo);
-      if (!document.getElementById('import-resumo-card') && importacaoLoteAtual.total > 0) {
-        mostrarResumoImportacao(importacaoLoteAtual.total);
-      }
-    }
-  } catch(_) {}
+  resetImportDraft();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -50,6 +42,30 @@ function carregarImportacao() {
 // ═══════════════════════════════════════════════════════════════════════════════
 var importMethod = 'ia';
 var importData = [];
+
+function resetImportDraft() {
+  importData = [];
+  var tbody = document.querySelector('#preview-table tbody');
+  if (tbody) tbody.innerHTML = '';
+  var textData = document.getElementById('text-data');
+  if (textData) textData.value = '';
+  var csvFile = document.getElementById('csv-file');
+  if (csvFile) csvFile.value = '';
+  var csvName = document.getElementById('csv-file-name');
+  if (csvName) csvName.textContent = '';
+}
+
+function updateImportConfigSummary() {
+  var selected = document.querySelectorAll('.lead-checkbox:not([disabled]):checked').length;
+  var duplicated = importData.filter(function(d) { return d.status === 'duplicado'; }).length;
+  var invalid = importData.filter(function(d) { return d.status === 'inválido'; }).length;
+  var selectedEl = document.getElementById('cfg-selected-count');
+  var duplicatedEl = document.getElementById('cfg-duplicate-count');
+  var invalidEl = document.getElementById('cfg-invalid-count');
+  if (selectedEl) selectedEl.textContent = String(selected);
+  if (duplicatedEl) duplicatedEl.textContent = String(duplicated);
+  if (invalidEl) invalidEl.textContent = String(invalid);
+}
 
 function handleCSVUpload(input) {
   var nameEl = document.getElementById('csv-file-name');
@@ -130,6 +146,7 @@ async function previewImport() {
       '<td>' + esc(item.nome_empresa || item.empresa || '') + '</td>' +
       '<td>' + esc(item.whatsapp || '\u2014') + '</td>' +
       '<td>' + esc(item.email || '\u2014') + '</td>' +
+      '<td>' + esc(item.endereco || item.logradouro || '\u2014') + '</td>' +
       '<td>' + esc(item.cidade || '\u2014') + '</td>' +
       '<td>' + esc(item.endereco || item.logradouro || '\u2014') + '</td>' +
       '<td class="td-center">' +
@@ -147,6 +164,7 @@ async function previewImport() {
     var selectAll = document.getElementById('select-all-leads');
     selectAll.checked = all.length > 0 && checked.length === all.length;
     selectAll.indeterminate = checked.length > 0 && checked.length < all.length;
+    updateImportConfigSummary();
   }
   document.querySelectorAll('.lead-checkbox').forEach(function(cb) { cb.onchange = updateSelectionCount; });
   document.getElementById('select-all-leads').onchange = function() {
@@ -154,6 +172,7 @@ async function previewImport() {
     updateSelectionCount();
   };
   updateSelectionCount();
+  updateImportConfigSummary();
 
   goToStep(2); // CORREÇÃO: era goToStep(3), agora vai para step 2 (Revisar)
 }
@@ -292,6 +311,7 @@ async function executeImport() {
             nome_empresa: (item.nome_empresa || item.empresa || '').trim(),
             whatsapp: item.whatsapp || null,
             email: item.email || null,
+            endereco: item.endereco || item.logradouro || null,
             cidade: item.cidade || null,
             endereco: item.endereco || item.logradouro || null,
             segmento_id: segmentId || item.segmento_id || null,
@@ -564,12 +584,9 @@ async function enviarEmailLote() {
 
 function resetImport() {
   importMethod = 'ia';
-  importData = [];
   importacaoLoteAtual = null;
   try { localStorage.removeItem('importacaoLoteAtual'); } catch(_) {}
-  document.getElementById('text-data').value = '';
-  document.getElementById('csv-file').value = '';
-  document.getElementById('csv-file-name').textContent = '';
+  resetImportDraft();
   document.getElementById('segment-select').value = '';
   var resumoCard = document.getElementById('import-resumo-card');
   if (resumoCard) resumoCard.remove();
