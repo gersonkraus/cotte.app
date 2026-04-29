@@ -2652,9 +2652,192 @@ html:not([data-theme="dark"]) .input-group {
   flex-shrink: 0;
 }
 
+/* Insights proativos: compacto, discreto e acionável */
+.assistente-insights {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.assistente-insights--welcome {
+  margin-top: 18px;
+}
+
+.assistente-insights__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.assistente-insights__eyebrow {
+  color: var(--ai-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.assistente-insights__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  border: 1px solid color-mix(in srgb, var(--ai-border) 70%, transparent);
+  border-radius: 999px;
+  color: var(--ai-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.assistente-insights__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.assistente-insight-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+  background: color-mix(in srgb, var(--ai-card) 78%, var(--ai-bg) 22%);
+  border: 1px solid color-mix(in srgb, var(--ai-border) 72%, transparent);
+  border-radius: 14px;
+  box-shadow: 0 8px 22px -18px rgba(15, 23, 42, 0.28);
+}
+
+.assistente-insight-card__top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.assistente-insight-chip,
+.assistente-insight-domain {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.assistente-insight-chip {
+  background: color-mix(in srgb, var(--ai-accent) 12%, transparent);
+  color: var(--ai-accent-dark);
+}
+
+.assistente-insight-chip--alta {
+  background: color-mix(in srgb, #f59e0b 14%, transparent);
+  color: #92400e;
+}
+
+.assistente-insight-domain {
+  max-width: 45%;
+  overflow: hidden;
+  color: var(--ai-muted);
+  text-overflow: ellipsis;
+  background: color-mix(in srgb, var(--ai-border) 34%, transparent);
+}
+
+.assistente-insight-dismiss {
+  margin-left: auto;
+  padding: 3px 0;
+  background: transparent;
+  border: 0;
+  color: var(--ai-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.assistente-insight-dismiss:hover,
+.assistente-insight-dismiss:focus-visible {
+  color: var(--ai-text);
+  outline: none;
+}
+
+.assistente-insight-title {
+  margin: 0;
+  color: var(--ai-text);
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+.assistente-insight-desc {
+  margin: 0;
+  color: var(--ai-muted);
+  font-size: 0.78rem;
+  line-height: 1.42;
+}
+
+.assistente-insight-action {
+  justify-self: start;
+  min-height: 32px;
+  padding: 7px 10px;
+  background: var(--ai-card);
+  border: 1px solid color-mix(in srgb, var(--ai-accent) 26%, var(--ai-border));
+  border-radius: 10px;
+  color: var(--ai-accent-dark);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1;
+  transition: background-color 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+}
+
+.assistente-insight-action:hover,
+.assistente-insight-action:focus-visible {
+  background: color-mix(in srgb, var(--ai-accent) 10%, var(--ai-card));
+  border-color: color-mix(in srgb, var(--ai-accent) 42%, var(--ai-border));
+  outline: none;
+  transform: translateY(-1px);
+}
+
+[data-theme="dark"] .assistente-insight-card {
+  background: color-mix(in srgb, var(--ai-card-hover) 82%, transparent);
+  box-shadow: none;
+}
+
+[data-theme="dark"] .assistente-insight-chip--alta {
+  color: #fbbf24;
+}
+
 @media (max-width: 640px) {
   .sugestoes-container {
     flex-direction: column;
+  }
+
+  .assistente-insights__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .assistente-insight-card {
+    padding: 11px;
+  }
+
+  .assistente-insight-domain {
+    max-width: 38%;
+  }
+
+  .assistente-insight-action {
+    width: 100%;
+    justify-content: center;
   }
 }
 

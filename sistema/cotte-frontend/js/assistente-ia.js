@@ -1098,6 +1098,9 @@ async function sendMessage() {
 
 // Camada de render/ações vive em assistente-ia-render.js.
 window.sendMessage = sendMessage;
+window.getAssistenteSessaoId = function getAssistenteSessaoId() {
+    return sessaoId || null;
+};
 window.buildAssistenteErrorCard = buildAssistenteErrorCard;
 window.isRetryableAssistenteError = isRetryableAssistenteError;
 window.loadAssistentePromptLibrary = loadAssistentePromptLibrary;

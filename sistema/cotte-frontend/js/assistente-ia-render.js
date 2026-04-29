@@ -246,6 +246,10 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
 
     if (msgEl) msgEl.dataset.pergunta = '';
 
+    if (window.AssistenteInsights && typeof window.AssistenteInsights.renderFromResponse === 'function') {
+        window.AssistenteInsights.renderFromResponse(data, { messageEl: msgEl, placement: 'response' });
+    }
+
     // Bubble transparente para cards v2 (sem "card dentro de card")
     if ((uiPolicy.isV2Card || data.pending_action) && msgEl) {
         const bubble = msgEl.querySelector('.message-bubble');

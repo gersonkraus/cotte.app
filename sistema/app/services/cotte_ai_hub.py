@@ -3693,6 +3693,41 @@ def _v2_attach_operational_context_to_response(
         payload={**dados, "_tipo_resposta": response.tipo_resposta},
     )
     dados["contexto_operacional"] = ctx
+    try:
+        from app.services.insight_engine import InsightEngine
+
+        empresa_id_val = getattr(current_user, "empresa_id", 0)
+        snapshot = {"orcamentos": [], "financeiro": {}}
+        try:
+            import asyncio
+            if asyncio.iscoroutinefunction(InsightEngine.build_snapshot):
+                import inspect
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    pass
+                else:
+                    snapshot = loop.run_until_complete(
+                        InsightEngine.build_snapshot(db, empresa_id_val)
+                    )
+            else:
+                snapshot = InsightEngine.build_snapshot(db, empresa_id_val)
+        except Exception:
+            snapshot = {"orcamentos": [], "financeiro": {}}
+
+        insights = InsightEngine().build_for_empresa(
+            empresa_id=empresa_id_val,
+            contexto={
+                "sessao_id": sessao_id,
+                "usuario_id": getattr(current_user, "id", 0),
+                "contexto_operacional": ctx,
+            },
+            snapshot=snapshot,
+        )
+        proativos = insights if isinstance(insights, list) else []
+        existentes = dados.get("insights")
+        dados["insights"] = ([*existentes, *proativos] if isinstance(existentes, list) else proativos)
+    except Exception as exc:
+        logger.warning("Falha ao gerar insights proativos no assistente v2: %s", exc)
     response.dados = dados
     return response
 
@@ -6227,13 +6262,18 @@ async def assistente_unificado_v2(
             current_user=current_user,
             resposta=resposta,
         )
-        return AIResponse(
-            sucesso=True,
-            resposta=resposta,
-            tipo_resposta="onboarding",
-            dados=status,
-            confianca=1.0,
-            modulo_origem="onboarding",
+        return _v2_attach_operational_context_to_response(
+            sessao_id=sessao_id,
+            db=db,
+            current_user=current_user,
+            response=AIResponse(
+                sucesso=True,
+                resposta=resposta,
+                tipo_resposta="onboarding",
+                dados=status,
+                confianca=1.0,
+                modulo_origem="onboarding",
+            ),
         )
 
     if intent_str == "SALDO_RAPIDO":
@@ -6259,7 +6299,9 @@ async def assistente_unificado_v2(
             current_user=current_user,
             resposta=resposta.resposta or "",
         )
-        return resposta
+        return _v2_attach_operational_context_to_response(
+            sessao_id=sessao_id, db=db, current_user=current_user, response=resposta
+        )
 
     if _v2_is_orcamento_context_followup_message(mensagem):
         resposta_ctx_orc = await _v2_build_orcamento_context_followup_response(

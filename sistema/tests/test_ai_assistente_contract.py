@@ -112,6 +112,48 @@ async def test_assistente_capabilities_contract(client, admin_token):
         assert isinstance(data["available_engines"][key], bool)
 
 
+def test_get_insights_retorna_lista(http_client, db):
+    empresa = make_empresa(db)
+    usuario = make_usuario(db, empresa)
+    db.commit()
+
+    resp = http_client.get(
+        "/api/v1/ai/insights",
+        headers=_headers_for(usuario.id),
+    )
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert "insights" in payload
+    assert "total" in payload
+
+
+def test_post_insights_feedback_aceita_payload(http_client, db):
+    empresa = make_empresa(db)
+    usuario = make_usuario(db, empresa)
+    db.commit()
+
+    resp = http_client.post(
+        "/api/v1/ai/insights/feedback",
+        headers=_headers_for(usuario.id),
+        json={"insight_id": "abc123", "acao": "dispensou", "sessao_id": "sess-1"},
+    )
+    assert resp.status_code == 200
+    assert resp.json().get("ok") is True
+
+
+def test_post_insights_feedback_rejeita_payload_sem_sessao_id(http_client, db):
+    empresa = make_empresa(db)
+    usuario = make_usuario(db, empresa)
+    db.commit()
+
+    resp = http_client.post(
+        "/api/v1/ai/insights/feedback",
+        headers=_headers_for(usuario.id),
+        json={"insight_id": "abc123", "acao": "dispensou"},
+    )
+    assert resp.status_code == 422
+
+
 @pytest.mark.asyncio
 async def test_ai_status_expoe_runtime_litellm(client, admin_token):
     resp = await client.get(

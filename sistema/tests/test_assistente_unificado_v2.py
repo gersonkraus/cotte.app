@@ -25,6 +25,7 @@ if "litellm" not in sys.modules:
     sys.modules["litellm"] = litellm_stub
 
 from app.services import cotte_ai_hub, ia_service as ia_service_module
+from app.services import insight_engine as insight_engine_module
 from app.services import assistant_engine_registry
 from app.services.ai_tools import REGISTRY
 from app.services.ai_tools._base import ToolSpec
@@ -141,6 +142,110 @@ def test_loop_resposta_direta(db, monkeypatch):
     # histórico foi gravado
     hist = SessionStore.get_or_create("sess-1")
     assert any(m["role"] == "assistant" for m in hist)
+
+
+def test_loop_resposta_direta_inclui_insights(db, monkeypatch):
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+    insights = [
+        {
+            "id": "orcamentos_sem_followup",
+            "titulo": "Retomar orçamentos parados",
+            "prioridade": "alta",
+        }
+    ]
+    chamadas = {}
+
+    async def fake_chat(messages, tools=None, **kw):
+        return _fake_response(content="Olá!", finish="stop")
+
+    def fake_build_for_empresa(self, *, empresa_id, contexto, snapshot):
+        chamadas["empresa_id"] = empresa_id
+        chamadas["contexto"] = contexto
+        chamadas["snapshot"] = snapshot
+        return insights
+
+    monkeypatch.setattr(ia_service_module.ia_service, "chat", fake_chat)
+    monkeypatch.setattr(
+        insight_engine_module.InsightEngine,
+        "build_for_empresa",
+        fake_build_for_empresa,
+    )
+
+    out = _run(
+        cotte_ai_hub.assistente_unificado_v2(
+            mensagem="oi", sessao_id="sess-insights", db=db, current_user=user
+        )
+    )
+
+    assert out.sucesso is True
+    assert (out.dados or {}).get("insights") == insights
+    assert chamadas["empresa_id"] == emp.id
+    assert chamadas["contexto"].get("sessao_id") == "sess-insights"
+    assert chamadas["snapshot"] == {"orcamentos": [], "financeiro": {}}
+
+
+def test_v2_preserva_insights_existentes_e_acrescenta_proativos(db, monkeypatch):
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+    insight_existente = {"id": "llm-1", "titulo": "Insight do LLM"}
+    insight_proativo = {"id": "proativo-1", "titulo": "Insight proativo"}
+    payload = {
+        "resposta": "Relatório pronto.",
+        "dados": {"insights": [insight_existente], "origem": "llm"},
+    }
+
+    async def fake_chat(messages, tools=None, **kw):
+        return _fake_response(content=json.dumps(payload, ensure_ascii=False), finish="stop")
+
+    def fake_build_for_empresa(self, *, empresa_id, contexto, snapshot):
+        return [insight_proativo]
+
+    monkeypatch.setattr(ia_service_module.ia_service, "chat", fake_chat)
+    monkeypatch.setattr(
+        insight_engine_module.InsightEngine,
+        "build_for_empresa",
+        fake_build_for_empresa,
+    )
+
+    out = _run(
+        cotte_ai_hub.assistente_unificado_v2(
+            mensagem="relatório", sessao_id="sess-insights-existing", db=db, current_user=user
+        )
+    )
+
+    assert out.sucesso is True
+    assert (out.dados or {}).get("origem") == "llm"
+    assert (out.dados or {}).get("insights") == [insight_existente, insight_proativo]
+
+
+def test_v2_falha_do_insight_engine_nao_quebra_assistente(db, monkeypatch):
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+
+    async def fake_chat(messages, tools=None, **kw):
+        return _fake_response(content="Olá!", finish="stop")
+
+    def fake_build_for_empresa(self, *, empresa_id, contexto, snapshot):
+        raise RuntimeError("engine indisponível")
+
+    monkeypatch.setattr(ia_service_module.ia_service, "chat", fake_chat)
+    monkeypatch.setattr(
+        insight_engine_module.InsightEngine,
+        "build_for_empresa",
+        fake_build_for_empresa,
+    )
+
+    out = _run(
+        cotte_ai_hub.assistente_unificado_v2(
+            mensagem="oi", sessao_id="sess-insights-error", db=db, current_user=user
+        )
+    )
+
+    assert out.sucesso is True
+    assert "Olá" in (out.resposta or "")
+    assert "contexto_operacional" in (out.dados or {})
+    assert "insights" not in (out.dados or {})
 
 
 def test_v2_parseia_elementos_interativos_da_resposta(db, monkeypatch):

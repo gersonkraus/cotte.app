@@ -65,6 +65,7 @@ from app.services.semantic_report_service import (
     render_semantic_report_html,
     render_semantic_report_pdf,
 )
+from app.services.insight_engine import InsightEngine
 
 router = APIRouter(prefix="/ai", tags=["AI"], dependencies=[Depends(exigir_modulo("ia"))])
 
@@ -159,6 +160,13 @@ class AIAssistenteRequest(BaseModel):
 class AIReportExportRequest(BaseModel):
     format: Literal["csv", "txt", "html", "pdf"] = "csv"
     printable_payload: dict = Field(default_factory=dict)
+
+
+class AIInsightFeedbackRequest(BaseModel):
+    insight_id: str = Field(..., min_length=1, max_length=120)
+    acao: Literal["clicou", "executou", "dispensou", "ignorado"]
+    sessao_id: str = Field(..., min_length=1, max_length=120)
+
 
 class CopilotoSkillRequest(BaseModel):
     skill_text: str = Field(..., min_length=10, max_length=2000)
@@ -1112,6 +1120,69 @@ async def assistente_capabilities(
             },
         },
     }
+
+
+@router.get("/insights")
+async def listar_insights(
+    limit: int = Query(default=5, ge=1, le=10),
+    dominio: Optional[
+        Literal["orcamentos", "financeiro", "clientes", "comercial", "agendamentos"]
+    ] = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
+):
+    try:
+        snapshot = await InsightEngine.build_snapshot(db, int(current_user.empresa_id))
+    except Exception:
+        snapshot = {"orcamentos": [], "financeiro": {}}
+    contexto = {
+        "empresa_id": current_user.empresa_id,
+        "usuario_id": current_user.id,
+    }
+    engine = InsightEngine()
+    insights_gerados = engine.build_for_empresa(
+        empresa_id=int(current_user.empresa_id),
+        contexto=contexto,
+        snapshot=snapshot,
+    )
+    insights = insights_gerados
+    if dominio:
+        insights = [item for item in insights if item.get("dominio") == dominio]
+    insights = engine.dedupe(insights)
+    total = len(insights)
+    insights = engine.limit(insights, limit)
+    logger.info(
+        "insights_listados",
+        extra={
+            "empresa_id": current_user.empresa_id,
+            "total_gerado": len(insights_gerados),
+            "total_retornado": len(insights),
+            "dominio": dominio,
+        },
+    )
+    return {
+        "insights": insights,
+        "total": total,
+        "cache": {"hit": False},
+    }
+
+
+@router.post("/insights/feedback")
+async def registrar_feedback_insight(
+    request: AIInsightFeedbackRequest,
+    current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
+):
+    logger.info(
+        "feedback_insight_recebido",
+        extra={
+            "empresa_id": current_user.empresa_id,
+            "usuario_id": current_user.id,
+            "insight_id": request.insight_id,
+            "acao": request.acao,
+            "sessao_id": request.sessao_id,
+        },
+    )
+    return {"ok": True}
 
 
 @router.post("/assistente/report/export")

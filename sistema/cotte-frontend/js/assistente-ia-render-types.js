@@ -849,12 +849,25 @@ function renderAnaliseTexto(dados, isStreamed) {
         }
         content += '<br>';
     }
-    if (dados.insights && dados.insights.length > 0) {
-        content += '🔍 <strong>Insights:</strong><br>';
-        dados.insights.forEach(insight => {
-            content += `• ${textToHtmlRich(insight)}<br>`;
-        });
-        content += '<br>';
+    if (Array.isArray(dados.insights) && dados.insights.length > 0) {
+        const insightsHtml = dados.insights
+            .map((insight) => {
+                if (typeof insight === 'string') return textToHtmlRich(insight);
+                if (!insight || typeof insight !== 'object') return '';
+                const titulo = String(insight.titulo || '').trim();
+                const descricao = String(insight.descricao || '').trim();
+                if (!titulo && !descricao) return '';
+                if (titulo && descricao) return `<strong>${escapeHtml(titulo)}:</strong> ${textToHtmlRich(descricao)}`;
+                return titulo ? escapeHtml(titulo) : textToHtmlRich(descricao);
+            })
+            .filter(Boolean);
+        if (insightsHtml.length > 0) {
+            content += '🔍 <strong>Insights:</strong><br>';
+            insightsHtml.forEach(insightHtml => {
+                content += `• ${insightHtml}<br>`;
+            });
+            content += '<br>';
+        }
     }
     return content || (isStreamed ? '' : 'Resposta recebida.');
 }
