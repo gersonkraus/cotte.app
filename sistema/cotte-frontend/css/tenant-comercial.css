@@ -819,6 +819,7 @@
   cursor: pointer;
   text-decoration: underline;
   font-family: inherit;
+  transition: color .15s;
 }
 .ob-ocultar:hover { color: var(--text); }
 .ob-ocultar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
