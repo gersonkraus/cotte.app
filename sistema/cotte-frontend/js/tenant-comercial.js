@@ -131,6 +131,7 @@ async function previewImport() {
       '<td>' + esc(item.whatsapp || '\u2014') + '</td>' +
       '<td>' + esc(item.email || '\u2014') + '</td>' +
       '<td>' + esc(item.cidade || '\u2014') + '</td>' +
+      '<td>' + esc(item.endereco || item.logradouro || '\u2014') + '</td>' +
       '<td class="td-center">' +
         '<span class="preview-status-badge ' + statusClass + '">' + statusLabel + '</span>' +
         (item.error ? '<div class="preview-error-msg">' + esc(item.error) + '</div>' : '') +
@@ -292,6 +293,7 @@ async function executeImport() {
             whatsapp: item.whatsapp || null,
             email: item.email || null,
             cidade: item.cidade || null,
+            endereco: item.endereco || item.logradouro || null,
             segmento_id: segmentId || item.segmento_id || null,
             origem_lead_id: item.origem_lead_id || null,
             observacoes: item.observacoes || null

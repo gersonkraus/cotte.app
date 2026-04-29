@@ -82,6 +82,12 @@ MODULOS_SEED = [
         "descricao": "Agendamento de entregas e serviços",
         "acoes": ["leitura", "escrita", "exclusao", "admin"],
     },
+    {
+        "nome": "Comercial",
+        "slug": "comercial",
+        "descricao": "CRM de leads, pipeline e propostas (tenant)",
+        "acoes": ["leitura", "escrita", "exclusao", "admin"],
+    },
 ]
 
 # Módulos por plano (slugs)
@@ -92,19 +98,19 @@ PLANOS_SEED = {
     "starter": [
         "orcamentos", "clientes", "catalogo", "documentos", "configuracoes",
         "relatorios", "financeiro", "equipe", "lembretes",
-        "agendamentos",
+        "agendamentos", "comercial",
     ],
     "pro": [
         "orcamentos", "clientes", "catalogo", "documentos", "configuracoes",
         "relatorios", "financeiro", "equipe", "lembretes",
         "ia", "whatsapp_proprio",
-        "agendamentos",
+        "agendamentos", "comercial",
     ],
     "business": [
         "orcamentos", "clientes", "catalogo", "documentos", "configuracoes",
         "relatorios", "financeiro", "equipe", "lembretes",
         "ia", "whatsapp_proprio",
-        "agendamentos",
+        "agendamentos", "comercial",
     ],
 }
 
@@ -130,6 +136,7 @@ PAPEIS_PADRAO_BASE = [
             "catalogo:leitura",
             "documentos:leitura",
             "agendamentos:leitura", "agendamentos:escrita",
+            "comercial:leitura", "comercial:escrita",
         ],
     },
     {
@@ -172,6 +179,22 @@ def _upsert_modulos(db: Session) -> dict[str, ModuloSistema]:
         result[dados["slug"]] = modulo
     db.flush()
     return result
+
+
+def _garantir_modulo_comercial_planos_existentes(
+    db: Session, modulos_por_slug: dict[str, ModuloSistema]
+) -> None:
+    """Vincula o módulo comercial a planos pagos (starter/pro/business) em bases já existentes."""
+    com = modulos_por_slug.get("comercial")
+    if com is None:
+        return
+    for nome in ("starter", "pro", "business"):
+        plano = db.query(Plano).filter(Plano.nome == nome).first()
+        if plano is None:
+            continue
+        if com not in plano.modulos:
+            plano.modulos.append(com)
+    db.flush()
 
 
 def _upsert_planos(db: Session, modulos_por_slug: dict[str, ModuloSistema]) -> dict[str, Plano]:
@@ -271,6 +294,14 @@ def _upsert_papeis_empresa(
         elif slug == "gestor":
             # Atualiza permissões do gestor se o plano mudou
             papel.permissoes = permissoes_gestor
+        elif slug in ("vendedor", "financeiro") and dados.get("permissoes"):
+            # Mescla novas permissões do template (ex.: módulo comercial) sem apagar customizações
+            template = dados["permissoes"]
+            atuais = list(papel.permissoes or [])
+            for t in template:
+                if t not in atuais:
+                    atuais.append(t)
+            papel.permissoes = atuais
 
         result[slug] = papel
 
@@ -304,7 +335,7 @@ def seed_modulos_e_planos_padrao(db: Session) -> None:
     Função principal de seed. Idempotente — pode rodar N vezes sem duplicar dados.
 
     O que faz:
-    1. Upsert dos 11 módulos canônicos em modulos_sistema
+    1. Upsert dos módulos canônicos (incl. comercial) em modulos_sistema
     2. Upsert dos 4 planos padrão (trial/starter/pro/business) com módulos
     3. Para cada empresa: cria 3 papéis padrão (Gestor/Vendedor/Financeiro)
     4. Associa usuários existentes sem papel ao papel correto
@@ -312,6 +343,7 @@ def seed_modulos_e_planos_padrao(db: Session) -> None:
     try:
         modulos_por_slug = _upsert_modulos(db)
         _upsert_planos(db, modulos_por_slug)
+        _garantir_modulo_comercial_planos_existentes(db, modulos_por_slug)
 
         empresas = db.query(Empresa).filter(Empresa.ativo == True).all()
         for empresa in empresas:

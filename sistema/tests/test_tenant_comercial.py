@@ -11,7 +11,7 @@ Valida:
 """
 
 import asyncio
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
@@ -399,3 +399,64 @@ class TestTenantGuardrails:
         with pytest.raises(HTTPException) as exc:
             comercial_leads.tenant_forbidden_reenviar_senha(1)
         assert exc.value.status_code == 403
+
+
+class TestTenantImportacaoLeads:
+    def test_analisar_importacao_normaliza_endereco(self, db, empresa_com_modulo):
+        user = _tenant_user(empresa_com_modulo)
+
+        fake_resposta = {
+            "items": [
+                {
+                    "nome": "Maria Silva",
+                    "empresa": "Empresa X",
+                    "whatsapp": "(48) 99888-7766",
+                    "email": "maria@x.com",
+                    "cidade": "Florianopolis",
+                    "logradouro": "Rua das Flores, 123",
+                }
+            ]
+        }
+
+        with patch("app.routers.tenant.comercial_leads.analisar_leads", new_callable=AsyncMock) as mock_analisar:
+            mock_analisar.return_value = fake_resposta
+            result = asyncio.run(
+                comercial_leads.analisar_importacao_tenant(
+                    data={"texto": "Maria Silva - (48) 99888-7766 - maria@x.com"},
+                    db=db,
+                    usuario=user,
+                )
+            )
+
+        assert len(result["items"]) == 1
+        item = result["items"][0]
+        assert item["nome_responsavel"] == "Maria Silva"
+        assert item["nome_empresa"] == "Empresa X"
+        assert item["whatsapp"] == "48998887766"
+        assert item["cidade"] == "Florianopolis"
+        assert item["endereco"] == "Rua das Flores, 123"
+
+    def test_importar_leads_salva_endereco_em_observacoes(self, db, empresa_com_modulo):
+        user = _tenant_user(empresa_com_modulo)
+
+        payload = {
+            "leads": [
+                {
+                    "nome_responsavel": "Carlos",
+                    "nome_empresa": "ACME",
+                    "whatsapp": "48999990000",
+                    "email": "carlos@acme.com",
+                    "endereco": "Av. Central, 456",
+                    "observacoes": "Lead quente",
+                }
+            ]
+        }
+
+        result = asyncio.run(comercial_leads.importar_leads_tenant(payload=payload, db=db, usuario=user))
+        assert result["sucesso"] == 1
+
+        lead_id = result["leads_criados"][0]["id"]
+        lead = db.query(TenantCommercialLead).filter(TenantCommercialLead.id == lead_id).first()
+        assert lead is not None
+        assert "Lead quente" in (lead.observacoes or "")
+        assert "Endereco: Av. Central, 456" in (lead.observacoes or "")

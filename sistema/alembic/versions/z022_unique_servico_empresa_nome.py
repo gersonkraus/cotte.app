@@ -5,6 +5,8 @@ Revises: 8aa701096665
 Create Date: 2026-04-21
 """
 from typing import Sequence, Union
+
+import sqlalchemy as sa
 from alembic import op
 
 revision: str = "z022_unique_servico"
@@ -34,12 +36,20 @@ def upgrade() -> None:
             GROUP BY empresa_id, nome
         )
     """)
-    op.create_unique_constraint(
-        "uq_servicos_empresa_nome",
-        "servicos",
-        ["empresa_id", "nome"],
-    )
+    bind = op.get_bind()
+    insp = sa.inspect(bind)
+    nomes_uq = {c["name"] for c in insp.get_unique_constraints("servicos")}
+    if "uq_servicos_empresa_nome" not in nomes_uq:
+        op.create_unique_constraint(
+            "uq_servicos_empresa_nome",
+            "servicos",
+            ["empresa_id", "nome"],
+        )
 
 
 def downgrade() -> None:
-    op.drop_constraint("uq_servicos_empresa_nome", "servicos", type_="unique")
+    bind = op.get_bind()
+    insp = sa.inspect(bind)
+    nomes_uq = {c["name"] for c in insp.get_unique_constraints("servicos")}
+    if "uq_servicos_empresa_nome" in nomes_uq:
+        op.drop_constraint("uq_servicos_empresa_nome", "servicos", type_="unique")

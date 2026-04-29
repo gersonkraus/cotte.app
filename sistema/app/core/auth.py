@@ -221,6 +221,13 @@ def _verificar_modulo_legado(slug: str, empresa) -> None:
     plano_str = empresa.plano or "trial"
     config = PLANO_CONFIG.get(plano_str, PLANO_CONFIG["trial"])
 
+    # CRM tenant: disponível apenas em planos pagos (alinhado a modulos_sistema / plano_id)
+    if slug == "comercial" and plano_str == "trial":
+        raise HTTPException(
+            status_code=403,
+            detail="O módulo 'comercial' não está disponível no plano de avaliação.",
+        )
+
     SLUG_TO_FEATURE = {
         "ia": "ia_automatica",
         "relatorios": "relatorios",

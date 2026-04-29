@@ -496,14 +496,22 @@ async def analisar_importacao_tenant(
         nr = (item.get("nome_responsavel") or item.get("nome") or "").strip()
         ne = (item.get("nome_empresa") or item.get("empresa") or "").strip()
         if not nr and ne:
-            item["nome_responsavel"] = ne
+            nr = ne
+        if nr:
+            item["nome_responsavel"] = nr
+        if ne:
+            item["nome_empresa"] = ne
         whatsapp = re.sub(r"\D", "", (item.get("whatsapp") or ""))
         if whatsapp and len(whatsapp) < 10:
             whatsapp = ""
         email = (item.get("email") or "").strip()
+        cidade = (item.get("cidade") or item.get("city") or item.get("localidade") or "").strip()
+        endereco = (item.get("endereco") or item.get("logradouro") or item.get("rua") or "").strip()
         if not whatsapp and not email:
             continue
         item["whatsapp"] = whatsapp
+        item["cidade"] = cidade
+        item["endereco"] = endereco
         dup_filters = []
         if whatsapp:
             dup_filters.append(TenantCommercialLead.telefone == whatsapp)
@@ -559,6 +567,10 @@ async def importar_leads_tenant(
             if whatsapp and len(whatsapp) < 10:
                 raise ValueError("WhatsApp inválido")
             email = (item.get("email") or "").strip() or None
+            endereco = (item.get("endereco") or item.get("logradouro") or "").strip() or None
+            observacoes = (item.get("observacoes") or "").strip() or None
+            if endereco:
+                observacoes = (observacoes + "\n" if observacoes else "") + f"Endereco: {endereco}"
 
             dup_filters = []
             if whatsapp:
@@ -578,7 +590,7 @@ async def importar_leads_tenant(
                 nome_empresa=item.get("nome_empresa") or nr,
                 telefone=whatsapp or None,
                 email=email,
-                observacoes=item.get("observacoes"),
+                observacoes=observacoes,
                 status_pipeline="novo",
                 lead_score=LeadScore.FRIO,
                 ativo=True,
@@ -592,7 +604,7 @@ async def importar_leads_tenant(
                 whatsapp=whatsapp or None,
                 email=email,
                 cidade=item.get("cidade"),
-                observacoes=item.get("observacoes"),
+                observacoes=observacoes,
                 status="valido",
                 lead_id=lead.id,
             ))
