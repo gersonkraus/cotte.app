@@ -16,6 +16,7 @@ from app.core.auth import exigir_modulo, exigir_permissao
 from app.core.database import get_db
 from app.models.models import (
     CanalInteracao,
+    Empresa,
     LeadScore,
     TenantCommercialInteraction,
     TenantCommercialLead,
@@ -27,7 +28,9 @@ from app.models.models import (
     TipoInteracao,
     Usuario,
 )
+from app.services.email_service import send_email_simples
 from app.services.ia_service import analisar_leads
+from app.services.whatsapp_service import enviar_mensagem_texto
 from app.routers.tenant.tenant_comercial_serialization import (
     sync_lead_status_from_etapa,
     tenant_lead_to_out,
@@ -629,8 +632,24 @@ def get_lead(
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(exigir_permissao("comercial", "leitura")),
 ):
-    lead = _buscar_lead(db, usuario.empresa_id, lead_id)
-    return tenant_lead_to_out(db, lead)
+    from sqlalchemy.orm import joinedload
+    lead = (
+        db.query(TenantCommercialLead)
+        .options(joinedload(TenantCommercialLead.interacoes))
+        .filter(
+            TenantCommercialLead.id == lead_id,
+            TenantCommercialLead.empresa_id == usuario.empresa_id,
+        )
+        .first()
+    )
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+    d = tenant_lead_to_out(db, lead)
+    d["interacoes"] = [
+        {c.name: getattr(i, c.name) for c in i.__table__.columns}
+        for i in sorted(lead.interacoes, key=lambda x: x.criado_em or datetime.now(timezone.utc), reverse=True)
+    ]
+    return d
 
 
 @router.put("/{lead_id}", response_model=LeadResponse)
@@ -753,13 +772,25 @@ def add_observacao(
 
 
 @router.post("/{lead_id}/whatsapp")
-def log_whatsapp(
+async def log_whatsapp(
     lead_id: int,
     body: MensagemBody,
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(exigir_permissao("comercial", "escrita")),
 ):
     lead = _buscar_lead(db, usuario.empresa_id, lead_id)
+    if not lead.telefone:
+        raise HTTPException(status_code=400, detail="Lead não possui WhatsApp cadastrado")
+    
+    empresa = db.query(Empresa).filter(Empresa.id == usuario.empresa_id).first()
+    
+    sucesso = False
+    erro_msg = None
+    try:
+        sucesso = await enviar_mensagem_texto(lead.telefone, body.mensagem, empresa=empresa)
+    except Exception as e:
+        erro_msg = str(e)
+    
     lead.ultimo_contato_em = datetime.now(timezone.utc)
     db.add(
         TenantCommercialInteraction(
@@ -771,7 +802,13 @@ def log_whatsapp(
         )
     )
     db.commit()
-    return {"ok": True, "detail": "Registrado (disparo WhatsApp real depende da integração da empresa)."}
+    
+    if not sucesso:
+        raise HTTPException(
+            status_code=502, 
+            detail=f"Falha ao enviar WhatsApp: {erro_msg or 'Erro desconhecido'}"
+        )
+    return {"ok": True, "detail": "Mensagem enviada com sucesso via WhatsApp"}
 
 
 @router.post("/{lead_id}/email")
@@ -782,6 +819,16 @@ def log_email(
     usuario: Usuario = Depends(exigir_permissao("comercial", "escrita")),
 ):
     lead = _buscar_lead(db, usuario.empresa_id, lead_id)
+    if not lead.email:
+        raise HTTPException(status_code=400, detail="Lead não possui e-mail cadastrado")
+    
+    sucesso = False
+    erro_msg = None
+    try:
+        sucesso = send_email_simples(lead.email, body.assunto, body.mensagem)
+    except Exception as e:
+        erro_msg = str(e)
+    
     lead.ultimo_contato_em = datetime.now(timezone.utc)
     db.add(
         TenantCommercialInteraction(
@@ -793,7 +840,13 @@ def log_email(
         )
     )
     db.commit()
-    return {"ok": True, "detail": "Registrado (envio de e-mail real depende da configuração da empresa)."}
+    
+    if not sucesso:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Falha ao enviar e-mail: {erro_msg or 'Verifique a configuração de e-mail da empresa'}"
+        )
+    return {"ok": True, "detail": "E-mail enviado com sucesso"}
 
 
 @router.patch("/{lead_id}", response_model=LeadResponse)
