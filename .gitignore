@@ -125,3 +125,6 @@ memory/.session-log
 # Resíduos de merge e patch (diff3, patch -r)
 *.orig
 *.rej
+
+.superpowers/
+.sisyphus/
