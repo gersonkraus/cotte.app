@@ -2471,6 +2471,12 @@ def _v2_message_likely_requires_tools(mensagem: str) -> bool:
         "quanto",
         "quais",
         "quem",
+        "alterar",
+        "arredondar",
+        "mudar",
+        "modificar",
+        "valor",
+        "atualizar",
     )
     return any(t in msg for t in tokens)
 
@@ -2686,11 +2692,19 @@ _RE_FOLLOWUP_ORCAMENTO_VALOR = re.compile(
     r"\b(qual\s+o\s+valor|quanto\s+ficou|valor\s+do\s+or[çc]amento|me\s+mostra\s+o\s+or[çc]amento|esse\s+or[çc]amento)\b",
     re.IGNORECASE,
 )
+# Verbos de edição: se presentes, a mensagem é EDITAR, não uma consulta de valor
+_RE_EDIT_VERBS = re.compile(
+    r"\b(alterar?|mudar?|arredondar?|editar?|modificar?|atualizar?|trocar?|corrigir?|ajustar?)\b",
+    re.IGNORECASE,
+)
 
 
 def _v2_is_orcamento_context_followup_message(mensagem: str) -> bool:
     text = (mensagem or "").strip().lower()
     if not text:
+        return False
+    # Verbos de edição → não tratar como consulta de valor; deixa passar para OPERADOR/LLM
+    if _RE_EDIT_VERBS.search(text):
         return False
     if _RE_FOLLOWUP_ORCAMENTO_VALOR.search(text):
         return True

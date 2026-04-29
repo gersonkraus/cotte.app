@@ -364,6 +364,9 @@ class IntentionClassifier:
         r'\bremover?\s+item\b',
         r'\bremove\s+item\b',
         r'\badiciona\s+',
+        # Edição de valor/total em orçamento existente (ex: "alterar o valor para 5", "arredondar para 10")
+        r'\b(alterar?|mudar?|arredondar?|editar?|modificar?|atualizar?|ajustar?|corrigir?|trocar?)\s+(o\s+)?(valor|total|pre[çc]o|desconto)\b',
+        r'\b(alterar?|mudar?|arredondar?|editar?|modificar?|atualizar?)\b.{0,30}\b(or[çc]amento|orc)\b',
     ]
 
     # J) ONBOARDING — configuração inicial / primeiro uso
