@@ -743,7 +743,7 @@
   border-radius: 9px;
 }
 .ob-passo--ok {
-  background: rgba(16,185,129,.08);
+  background: var(--green-dim);
   border: 1px solid rgba(16,185,129,.25);
 }
 .ob-passo--ativo {
@@ -753,7 +753,6 @@
 .ob-passo--pendente {
   background: var(--surface2, var(--surface));
   border: 1px solid var(--border);
-  opacity: .65;
 }
 .ob-num {
   width: 26px;
@@ -766,14 +765,14 @@
   font-weight: 700;
   flex-shrink: 0;
 }
-.ob-num--ok  { background: #10b981; color: #fff; }
+.ob-num--ok  { background: var(--green); color: #fff; }
 .ob-num--ativo { background: #f59e0b; color: #fff; }
 .ob-num--pendente { background: var(--border); color: var(--muted); }
 .ob-info { flex: 1; min-width: 0; }
 .ob-titulo { font-size: 13px; font-weight: 600; color: var(--text); }
-.ob-titulo--ok { text-decoration: line-through; opacity: .7; color: #10b981; }
+.ob-titulo--ok { text-decoration: line-through; opacity: .7; color: var(--green); }
 .ob-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
-.ob-desc--ok { color: #10b981; opacity: .8; }
+.ob-desc--ok { color: var(--green); opacity: .8; }
 .ob-dica {
   display: inline-block;
   margin-top: 5px;
@@ -785,9 +784,10 @@
   padding: 2px 7px;
   cursor: pointer;
   font-family: inherit;
-  transition: background .15s;
+  transition: background .15s, color .15s;
 }
 .ob-dica:hover { background: var(--accent); color: #fff; }
+.ob-dica:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
 .ob-btn {
   padding: 5px 11px;
   background: var(--border);
@@ -820,3 +820,5 @@
   text-decoration: underline;
   font-family: inherit;
 }
+.ob-ocultar:hover { color: var(--text); }
+.ob-ocultar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
