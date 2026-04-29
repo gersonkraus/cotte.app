@@ -738,6 +738,153 @@ def test_stream_orcamento_fastpath_sem_prompt_completo(db, monkeypatch):
     assert "semantic_contract" not in dados
 
 
+def test_stream_followup_valor_orcamento_usa_contexto_ativo_sem_listar(db, monkeypatch):
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+    cli = make_cliente(db, emp, nome="Ana Julia")
+    orc = make_orcamento(db, emp, cli, user, status=StatusOrcamento.ENVIADO, total=Decimal("89.99"))
+
+    SessionStore.ensure_sessao_db("sess-stream-followup-valor", emp.id, user.id, db)
+    SessionStore.set_operational_context(
+        "sess-stream-followup-valor",
+        {
+            "orcamento_id_ativo": orc.id,
+            "orcamento_numero_ativo": orc.numero,
+            "cliente_nome_ativo": "Ana Julia",
+        },
+        db=db,
+        empresa_id=emp.id,
+        usuario_id=user.id,
+    )
+
+    class _Classificacao:
+        class _Intent:
+            value = "LISTAR_ORCAMENTOS"
+
+        intencao = _Intent()
+        metodo = "regex"
+
+    async def _fake_detectar(_mensagem):
+        return _Classificacao()
+
+    async def _fake_listar(*, mensagem, db, current_user):
+        return cotte_ai_hub.AIResponse(
+            sucesso=True,
+            resposta="fallback indevido",
+            tipo_resposta="lista_orcamentos",
+            dados={"orcamentos": []},
+            confianca=1.0,
+            modulo_origem="teste",
+        )
+
+    monkeypatch.setattr("app.services.ai_intention_classifier.detectar_intencao_assistente_async", _fake_detectar)
+    monkeypatch.setattr(cotte_ai_hub, "_v2_build_listar_orcamentos_fastpath_response", _fake_listar)
+
+    events_raw = _run_stream(
+        cotte_ai_hub.assistente_v2_stream_core(
+            mensagem="qual o valor do orçamento?",
+            sessao_id="sess-stream-followup-valor",
+            db=db,
+            current_user=user,
+        )
+    )
+    decoded = []
+    for evt in events_raw:
+        if not evt.startswith("data: "):
+            continue
+        payload = evt[len("data: "):].strip()
+        if payload:
+            decoded.append(json.loads(payload))
+
+    final_evt = next((e for e in decoded if e.get("is_final") is True), None)
+    assert final_evt is not None
+    metadata = final_evt.get("metadata") or {}
+    assert metadata.get("tipo") == "operador_resultado"
+    assert ((metadata.get("dados") or {}).get("id")) == orc.id
+
+
+def test_stream_followup_valor_usa_preview_ativo_sem_listar(db, monkeypatch):
+    emp = make_empresa(db)
+    user = make_usuario(db, emp)
+    sessao = "sess-stream-preview-valor"
+
+    class _ClassificacaoCriar:
+        class _Intent:
+            value = "CRIAR_ORCAMENTO"
+
+        intencao = _Intent()
+        metodo = "regex"
+
+    class _ClassificacaoListar:
+        class _Intent:
+            value = "LISTAR_ORCAMENTOS"
+
+        intencao = _Intent()
+        metodo = "regex"
+
+    async def _fake_detectar(mensagem):
+        if "toalha branca" in mensagem.lower():
+            return _ClassificacaoCriar()
+        return _ClassificacaoListar()
+
+    async def _fake_criar(*args, **kwargs):
+        return cotte_ai_hub.AIResponse(
+            sucesso=True,
+            resposta="Revise o orçamento abaixo e confirme.",
+            tipo_resposta="orcamento_preview",
+            dados={"cliente_nome": "Ana Julia", "valor": 89.99, "servico": "uma toalha branca"},
+            confianca=0.95,
+            modulo_origem="criar_orcamento",
+        )
+
+    async def _fake_listar(*, mensagem, db, current_user):
+        return cotte_ai_hub.AIResponse(
+            sucesso=True,
+            resposta="fallback indevido",
+            tipo_resposta="lista_orcamentos",
+            dados={"orcamentos": []},
+            confianca=1.0,
+            modulo_origem="teste",
+        )
+
+    monkeypatch.setattr("app.services.ai_intention_classifier.detectar_intencao_assistente_async", _fake_detectar)
+    monkeypatch.setattr(cotte_ai_hub, "criar_orcamento_ia", _fake_criar)
+    monkeypatch.setattr(cotte_ai_hub, "_v2_build_listar_orcamentos_fastpath_response", _fake_listar)
+
+    _run_stream(
+        cotte_ai_hub.assistente_v2_stream_core(
+            mensagem="orçamento para ana julia de uma toalha branca por 89,99",
+            sessao_id=sessao,
+            db=db,
+            current_user=user,
+        )
+    )
+
+    events_raw = _run_stream(
+        cotte_ai_hub.assistente_v2_stream_core(
+            mensagem="qual valor do orçamento",
+            sessao_id=sessao,
+            db=db,
+            current_user=user,
+        )
+    )
+    decoded = []
+    for evt in events_raw:
+        if not evt.startswith("data: "):
+            continue
+        payload = evt[len("data: "):].strip()
+        if payload:
+            decoded.append(json.loads(payload))
+
+    final_evt = next((e for e in decoded if e.get("is_final") is True), None)
+    assert final_evt is not None
+    metadata = final_evt.get("metadata") or {}
+    dados = metadata.get("dados") or {}
+    assert metadata.get("tipo") == "orcamento_preview"
+    assert dados.get("valor") == 89.99
+    assert "R$ 89,99" in (metadata.get("final_text") or "")
+
+
 def test_v2_pending_recusar_orcamento_expoe_impacto_financeiro(db, monkeypatch):
     emp = make_empresa(db)
     user = make_usuario(db, emp)

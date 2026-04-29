@@ -2733,11 +2733,32 @@ async def _v2_build_orcamento_context_followup_response(
     )
     raw_orcamento_id = contexto_operacional.get("orcamento_id_ativo") if isinstance(contexto_operacional, dict) else None
     orcamento_id = _coerce_positive_int(raw_orcamento_id)
-    if orcamento_id is None:
-        return None
 
     msg = (mensagem or "").strip().lower()
     pct_match = _RE_FOLLOWUP_DESCONTO_PCT.search(msg)
+    if orcamento_id is None:
+        preview = contexto_operacional.get("orcamento_preview_ativo") if isinstance(contexto_operacional, dict) else None
+        if not isinstance(preview, dict) or not _RE_FOLLOWUP_ORCAMENTO_VALOR.search(msg):
+            return None
+        valor = preview.get("valor")
+        try:
+            valor_float = float(valor or 0)
+        except (TypeError, ValueError):
+            valor_float = 0.0
+        if valor_float <= 0:
+            return None
+        valor_fmt = f"R$ {valor_float:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        cliente_ref = preview.get("cliente_nome") or contexto_operacional.get("cliente_nome_ativo") or "o cliente"
+        servico_ref = preview.get("servico") or "serviço"
+        return AIResponse(
+            sucesso=True,
+            resposta=f"O valor da prévia do orçamento de {servico_ref} para {cliente_ref} é {valor_fmt}.",
+            tipo_resposta="orcamento_preview",
+            confianca=0.98,
+            modulo_origem="assistente_v2_contexto",
+            dados={**preview, "valor_fmt": valor_fmt, "input_tokens": 0, "output_tokens": 0},
+        )
+
     if pct_match and ("desconto" in msg or "der" in msg or "aplica" in msg or "aplicar" in msg):
         mensagem_simulada = f"simular desconto de {pct_match.group(1)}% no {orcamento_id}"
         return await _v2_build_simular_desconto_response(
@@ -3630,6 +3651,16 @@ def _v2_update_operational_context_from_payload(
         patch["documento_titulo_ativo"] = data.get("documento_titulo")
     if data.get("periodo"):
         patch["periodo_financeiro_ativo"] = data.get("periodo")
+    if data.get("_tipo_resposta") == "orcamento_preview" and data.get("valor") and data.get("servico"):
+        patch["orcamento_preview_ativo"] = {
+            "cliente_nome": data.get("cliente_nome"),
+            "cliente_id": data.get("cliente_id"),
+            "servico": data.get("servico"),
+            "valor": data.get("valor"),
+            "desconto": data.get("desconto"),
+            "desconto_tipo": data.get("desconto_tipo"),
+            "observacoes": data.get("observacoes"),
+        }
 
     return SessionStore.set_operational_context(
         sessao_id,
@@ -3659,7 +3690,7 @@ def _v2_attach_operational_context_to_response(
         sessao_id=sessao_id,
         db=db,
         current_user=current_user,
-        payload=dados,
+        payload={**dados, "_tipo_resposta": response.tipo_resposta},
     )
     dados["contexto_operacional"] = ctx
     response.dados = dados
@@ -3753,6 +3784,13 @@ async def assistente_v2_stream_core(
             resposta=final_text,
         )
         dados_out = dict(ai_response.dados or {})
+        contexto_operacional = _v2_update_operational_context_from_payload(
+            sessao_id=sessao_id,
+            db=db,
+            current_user=current_user,
+            payload={**dados_out, "_tipo_resposta": ai_response.tipo_resposta},
+        )
+        dados_out["contexto_operacional"] = contexto_operacional
         grafico_meta = dados_out.get("grafico")
 
         if ai_response.tipo_resposta == "relatorio_dinamico" and "semantic_contract" not in dados_out:
@@ -3856,6 +3894,19 @@ async def assistente_v2_stream_core(
         )
         if resposta_rel is not None:
             async for event in _emit_fastpath_ai_response(resposta_rel):
+                yield event
+            return
+
+    if _v2_is_orcamento_context_followup_message(mensagem):
+        resposta_ctx_orc = await _v2_build_orcamento_context_followup_response(
+            mensagem=mensagem,
+            sessao_id=sessao_id,
+            db=db,
+            current_user=current_user,
+            request_id=request_id,
+        )
+        if resposta_ctx_orc is not None:
+            async for event in _emit_fastpath_ai_response(resposta_ctx_orc):
                 yield event
             return
 
