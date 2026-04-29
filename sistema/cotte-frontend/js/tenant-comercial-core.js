@@ -122,6 +122,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   inicializarLayout('comercial');
   bindTabEvents();
   await carregarCadastrosCache();
+  if (typeof OnboardingComercial !== 'undefined') OnboardingComercial.init();
   carregarDashboard();
 });
 
