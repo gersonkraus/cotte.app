@@ -1221,6 +1221,15 @@ async def _enviar_orcamento_email(
         "status": orc.status.value if orc.status else None,
         "canal": "email",
         "enviado": True,
+        "cliente_nome": orc.cliente.nome if orc.cliente else None,
+        "total": float(orc.total or 0),
+        "itens": [
+            {"descricao": it.descricao, "total": float(it.total or 0)}
+            for it in (orc.itens or [])
+        ],
+        "tem_email": bool(orc.cliente and orc.cliente.email),
+        "tem_telefone": bool(orc.cliente and getattr(orc.cliente, "telefone", None)),
+        "link_publico": orc.link_publico or None,
     }
 
 

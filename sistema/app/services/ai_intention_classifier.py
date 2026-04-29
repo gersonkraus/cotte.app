@@ -274,7 +274,8 @@ class IntentionClassifier:
         # 2. Orçamento explícito para alguém (orçamento para a ana julia) ou "novo"
         r'\b(novo\s+)?(or[çc]amento|orc)\s+(para\s+(a\s+|o\s+)?|pro?\s+|pra\s+)\w+',
         # 3. Orçamento direto (orçamento joão / orçamento da maria / orçamento de serviço / orçamento 100 reais)
-        r'\b(or[çc]amento|orc)\s+(d[eao]\s+)?\w+',
+        # Exclui referências a orçamentos existentes (códigos como O-170, N-5, ou número puro)
+        r'\b(or[çc]amento|orc)\s+(?![A-Za-z]{1,4}-\d+\b)(?!\d{2,}\b)(d[eao]\s+)?\w+',
         # 4. Palavras-chave isoladas de criação
         r'\bor[çc]ar\b',
         r'\bnovo\s+orc\b',
@@ -347,6 +348,13 @@ class IntentionClassifier:
         r'\bver\s+(o\s+)?(or[çc]amento|orc[-\s]?\d+)\b',
         r'\bmostrar?\s+(or[çc]amento|orc)\b',
         r'\bdetalhes?\s+(do\s+)?(or[çc]amento|orc)\b',
+        # Consulta de status ou valor de orçamento existente
+        r'\bstatus\s+(do\s+)?(or[çc]amento|orc)?\s*(?:[A-Za-z]+-)?\d+\b',
+        r'\b(status|valor|total)\s+(d[oa]\s+)?(or[çc]amento|orc)\b',
+        # Palavra de consulta + código de orçamento (ex: "valor do O-170", "dados do O-5")
+        r'\b(?:valor|total|status|dados?|resumo|info)\b.{0,30}\b[A-Za-z]+-\d+\b',
+        # Referência direta a orçamento por código (ex: "orçamento O-170 qual o valor?")
+        r'\b(or[çc]amento|orc)\s+(?:[A-Za-z]+-\d+|\d{3,})\b',
         r'\b(abrir|acessar|carregar)\s+(or[çc]amento|orc|\d)\b',
         r'^or[çc]amentos?\s+(?:n[oó]mero|n[oó]|num|#)?\s*\d+$',
         r'^orc\s+(?:n[oó]mero|n[oó]|num|#)?\s*\d+$',
