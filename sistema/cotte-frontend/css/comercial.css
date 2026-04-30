@@ -764,3 +764,115 @@
 }
 .tpl-canal-badge.email { background: #3b82f620; color: #2563eb; }
 .tpl-canal-badge.ambos { background: #f59e0b20; color: #d97706; }
+
+/* ── Detecção de Duplicata ────────────────────────────────────── */
+#lead-duplicata-card {
+  border: 1.5px solid var(--warning, #f59e0b);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  padding: 10px 12px;
+  margin-top: 6px;
+  animation: fadeInDown .18s ease;
+}
+
+#lead-duplicata-card .dup-label {
+  font-size: 11px;
+  color: #d97706;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  margin-bottom: 6px;
+}
+
+#lead-duplicata-card .dup-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#lead-duplicata-card .dup-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e0e7ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: #4f46e5;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+#lead-duplicata-card .dup-nome {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+#lead-duplicata-card .dup-meta {
+  font-size: 11px;
+  color: #666;
+  margin-top: 1px;
+}
+
+#lead-duplicata-card .dup-status {
+  font-weight: 600;
+  color: #059669;
+}
+
+#lead-duplicata-card .dup-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+#lead-duplicata-card .btn-dup-atualizar {
+  flex: 1;
+  padding: 5px 0;
+  background: var(--primary, #4f46e5);
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+
+#lead-duplicata-card .btn-dup-atualizar:hover { opacity: .85; }
+
+#lead-duplicata-card .btn-dup-ignorar {
+  padding: 5px 10px;
+  background: #f3f4f6;
+  color: #374151;
+  border: none;
+  border-radius: 5px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+#lead-duplicata-card .btn-dup-ignorar:hover { background: #e5e7eb; }
+
+.lead-field-checking {
+  position: relative;
+}
+
+.lead-field-checking::after {
+  content: '';
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  border: 2px solid #d1d5db;
+  border-top-color: var(--primary, #4f46e5);
+  border-radius: 50%;
+  animation: spin .6s linear infinite;
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

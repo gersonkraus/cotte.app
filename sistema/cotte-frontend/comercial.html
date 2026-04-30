@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="css/style.css?v=3">
   <link rel="stylesheet" href="css/precision-atelier.css?v=2">
-  <link rel="stylesheet" href="css/comercial.css?v=6">
+  <link rel="stylesheet" href="css/comercial.css?v=7">
   <link rel="stylesheet" href="css/comercial-precision.css?v=1">
 </head>
 <body>
@@ -539,6 +539,8 @@ Exemplos de formatos aceitos:
               <div class="fg"><label class="fl">WhatsApp</label><input type="tel" class="fi" id="lead-whatsapp" placeholder="(48) 99999-9999"></div>
               <div class="fg"><label class="fl">E-mail</label><input type="email" class="fi" id="lead-email" placeholder="email@empresa.com"></div>
             </div>
+            <!-- Card de duplicata detectada -->
+            <div id="lead-duplicata-card" style="display:none" role="alert" aria-live="polite"></div>
             <div class="fg"><label class="fl">Cidade</label><input type="text" class="fi" id="lead-cidade" placeholder="Cidade do lead"></div>
           </div>
 
@@ -963,7 +965,7 @@ Exemplos de formatos aceitos:
   <!-- Comercial — módulos (ordem importa!) -->
   <script src="js/comercial-core.js?v=7"></script>
   <script src="js/comercial-dashboard.js?v=3"></script>
-  <script src="js/comercial-leads.js?v=4"></script>
+  <script src="js/comercial-leads.js?v=5"></script>
   <script src="js/comercial-pipeline.js?v=1"></script>
   <script src="js/TemplatesManager.js?v=1"></script>
   <script src="js/comercial-mensagens.js?v=1"></script>

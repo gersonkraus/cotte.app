@@ -204,6 +204,37 @@ def get_leads_sem_contato(db: Session = Depends(get_db), _=Depends(get_superadmi
     return [_lead_to_out(l) for l in leads]
 
 
+@router.get("/leads/check-duplicata")
+def check_duplicata_lead(
+    whatsapp: Optional[str] = None,
+    email: Optional[str] = None,
+    db: Session = Depends(get_db),
+    _=Depends(get_superadmin),
+):
+    """Verifica se existe lead com o WhatsApp ou e-mail informado. Retorna o lead ou null."""
+    if not whatsapp and not email:
+        return None
+
+    filters = []
+    if whatsapp:
+        wa_norm = re.sub(r"\D", "", whatsapp)
+        filters.append(func.regexp_replace(CommercialLead.whatsapp, r"\D", "", "g") == wa_norm)
+    if email:
+        filters.append(func.lower(CommercialLead.email) == email.lower().strip())
+
+    lead = (
+        db.query(CommercialLead)
+        .options(
+            joinedload(CommercialLead.segmento_rel),
+            joinedload(CommercialLead.origem_rel),
+        )
+        .filter(CommercialLead.ativo == True, or_(*filters))
+        .first()
+    )
+
+    return _lead_to_out(lead) if lead else None
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # CRUD LEADS
 # ═══════════════════════════════════════════════════════════════════════════════

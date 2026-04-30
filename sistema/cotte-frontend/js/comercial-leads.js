@@ -5,6 +5,120 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // LEADS TABLE
 // ═══════════════════════════════════════════════════════════════════════════════
+// ── Detecção de duplicata ──────────────────────────────────────────
+var _dupTimer = null;
+var _dupIgnorada = false;  // true quando usuário clica "Ignorar"
+var _dupLeadId = null;     // id do lead duplicado encontrado
+
+function _normalizarTelefone(v) {
+  return (v || '').replace(/\D/g, '');
+}
+
+function _inicialsDup(nome) {
+  var parts = (nome || '').trim().split(' ');
+  return (parts[0][0] || '') + (parts[1] ? parts[1][0] : '');
+}
+
+function _mostrarCardDuplicata(lead) {
+  var card = document.getElementById('lead-duplicata-card');
+  if (!card) return;
+  var initials = _inicialsDup(lead.nome_responsavel).toUpperCase();
+  var status = lead.status_pipeline || '';
+  card.innerHTML =
+    '<div class="dup-label">⚠️ Lead já existe</div>' +
+    '<div class="dup-info">' +
+      '<div class="dup-avatar">' + initials + '</div>' +
+      '<div>' +
+        '<div class="dup-nome">' + (lead.nome_responsavel || '') + '</div>' +
+        '<div class="dup-meta">' + (lead.nome_empresa || '') +
+          ' · <span class="dup-status">● ' + status + '</span></div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="dup-actions">' +
+      '<button class="btn-dup-atualizar" onclick="_usarLeadExistente(' + lead.id + ', this)">Atualizar este lead</button>' +
+      '<button class="btn-dup-ignorar" onclick="_ignorarDuplicata()">Ignorar</button>' +
+    '</div>';
+  card.style.display = 'block';
+}
+
+function _ocultarCardDuplicata() {
+  var card = document.getElementById('lead-duplicata-card');
+  if (card) { card.style.display = 'none'; card.innerHTML = ''; }
+}
+
+async function _usarLeadExistente(leadId, btn) {
+  btn.disabled = true;
+  btn.textContent = 'Carregando...';
+  try {
+    var l = await api.get('/comercial/leads/' + leadId);
+    leadAtualId = leadId;
+    document.getElementById('modal-lead-title').textContent = 'Editando: ' + (l.nome_responsavel || 'Lead');
+    document.getElementById('lead-id').value = l.id;
+    document.getElementById('lead-nome-responsavel').value = l.nome_responsavel || '';
+    document.getElementById('lead-nome-empresa').value = l.nome_empresa || '';
+    document.getElementById('lead-whatsapp').value = l.whatsapp || '';
+    document.getElementById('lead-email').value = l.email || '';
+    document.getElementById('lead-cidade').value = l.cidade || '';
+    document.getElementById('lead-segmento-id').value = l.segmento_id || '';
+    document.getElementById('lead-origem-id').value = l.origem_lead_id || '';
+    document.getElementById('lead-plano').value = l.interesse_plano || '';
+    document.getElementById('lead-valor').value = l.valor_proposto || '';
+    document.getElementById('lead-observacoes').value = l.observacoes || '';
+    if (l.proximo_contato_em)
+      document.getElementById('lead-proximo-contato').value = new Date(l.proximo_contato_em).toISOString().slice(0, 16);
+    document.getElementById('lead-empresa-id').value = l.empresa_id || '';
+    // Endereço
+    document.getElementById('lead-cep').value = l.cep || '';
+    document.getElementById('lead-logradouro').value = l.logradouro || '';
+    document.getElementById('lead-numero').value = l.numero || '';
+    document.getElementById('lead-complemento').value = l.complemento || '';
+    document.getElementById('lead-bairro').value = l.bairro || '';
+    document.getElementById('lead-uf').value = l.uf || '';
+    if (l.cep || l.logradouro) document.getElementById('accordion-endereco').open = true;
+    // Limpar seção de primeiro contato
+    document.getElementById('lead-template-id').value = '';
+    document.getElementById('lead-campanha-id').value = '';
+    document.getElementById('lead-tpl-preview-area').style.display = 'none';
+    document.getElementById('accordion-primeiro-contato').open = false;
+    _ocultarCardDuplicata();
+    _dupLeadId = leadId;
+    showToast('Formulário carregado com dados do lead existente', 'info');
+  } catch(e) {
+    showToast('Erro ao carregar lead', 'error');
+    btn.disabled = false;
+    btn.textContent = 'Atualizar este lead';
+  }
+}
+
+function _ignorarDuplicata() {
+  _dupIgnorada = true;
+  _ocultarCardDuplicata();
+}
+
+async function _checkDuplicataLead(whatsapp, email) {
+  var wa = _normalizarTelefone(whatsapp);
+  var em = (email || '').trim();
+  if (!wa && !em) { _ocultarCardDuplicata(); return; }
+  if (_dupIgnorada) return;
+
+  // mostrar spinner no wrapper do campo que disparou
+  var params = new URLSearchParams();
+  if (wa) params.set('whatsapp', wa);
+  if (em) params.set('email', em);
+
+  try {
+    var lead = await api.get('/comercial/leads/check-duplicata?' + params.toString());
+    if (lead && lead.id && (!leadAtualId || lead.id !== leadAtualId)) {
+      _mostrarCardDuplicata(lead);
+    } else {
+      _ocultarCardDuplicata();
+    }
+  } catch(e) {
+    // silenciar erros de rede no check (não bloquear o usuário)
+    _ocultarCardDuplicata();
+  }
+}
+
 function debounceLeads() {
   leadsFilterOrigemId = null;
   leadsFilterFollowUpHoje = false;
@@ -770,6 +884,9 @@ async function vincularPropostaAoLead(leadId, propostaPublicaId, validadeDias, d
 
 function abrirModalLead() {
   leadAtualId = null;
+  _dupIgnorada = false;
+  _dupLeadId = null;
+  _ocultarCardDuplicata();
   document.getElementById('modal-lead-title').textContent = 'Novo Lead';
   document.getElementById('form-lead').reset();
   document.getElementById('lead-id').value = '';
@@ -1113,6 +1230,24 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Botão confirmar envio
   document.getElementById('btn-confirmar-envio-proposta')?.addEventListener('click', confirmarEnvioProposta);
+
+  // Detecção de duplicata em tempo real
+  var _waInput = document.getElementById('lead-whatsapp');
+  var _emInput = document.getElementById('lead-email');
+
+  function _onContatoInput() {
+    clearTimeout(_dupTimer);
+    if (_dupIgnorada) return;
+    _dupTimer = setTimeout(function() {
+      _checkDuplicataLead(
+        document.getElementById('lead-whatsapp').value,
+        document.getElementById('lead-email').value
+      );
+    }, 500);
+  }
+
+  if (_waInput) _waInput.addEventListener('input', _onContatoInput);
+  if (_emInput) _emInput.addEventListener('input', _onContatoInput);
 });
 
 // Exportar funções
