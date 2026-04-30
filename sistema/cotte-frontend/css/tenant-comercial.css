@@ -862,3 +862,64 @@
 }
 .tab-desc-banner .tab-desc-icon { display: none; }
 .ob-ocultar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+
+/* ── Separador visual entre grupos de abas ── */
+.admin-tabs .tab-sep {
+  display: inline-block;
+  width: 1px;
+  height: 22px;
+  background: var(--border, #e2e8f0);
+  margin: 0 6px;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+/* ── Split button — Ações Rápidas ── */
+.btn-split-group {
+  position: relative;
+  display: inline-flex;
+}
+.btn-split-main {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: 1px solid rgba(255,255,255,0.25);
+}
+.btn-split-chevron {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  padding: 0 9px;
+  min-width: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-split-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  min-width: 210px;
+  z-index: 200;
+  overflow: hidden;
+}
+.btn-split-dropdown.open { display: block; }
+.btn-split-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text, #181c1f);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background .15s;
+}
+.btn-split-item:hover { background: var(--surface2, #f1f5f9); }

@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="css/style.css?v=3">
   <link rel="stylesheet" href="css/precision-atelier.css?v=2">
-  <link rel="stylesheet" href="css/tenant-comercial.css?v=6">
+  <link rel="stylesheet" href="css/tenant-comercial.css?v=7">
   <link rel="stylesheet" href="css/tenant-comercial-precision.css?v=1">
 </head>
 <body>
@@ -23,10 +23,20 @@
       </div>
       <div class="crm-topbar-actions">
         <span id="topbar-notificacoes"></span>
-        <button class="btn btn-primary" id="btn-novo-lead" type="button">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          Novo Contato
-        </button>
+        <div class="btn-split-group" id="acoes-rapidas-group">
+          <button class="btn btn-primary btn-split-main" id="btn-novo-lead" type="button">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Novo Contato
+          </button>
+          <button class="btn btn-primary btn-split-chevron" id="btn-acoes-toggle" type="button" aria-expanded="false" aria-haspopup="true" title="Mais ações rápidas">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div class="btn-split-dropdown" id="acoes-dropdown" role="menu">
+            <button class="btn-split-item" onclick="abrirModalLembrete()" role="menuitem">⏰ Novo Lembrete</button>
+            <button class="btn-split-item" onclick="abrirModalCampanha()" role="menuitem">📧 Nova Campanha</button>
+            <button class="btn-split-item" onclick="switchTab('importacao')" role="menuitem">📥 Importar Contatos</button>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -44,29 +54,31 @@
         <button class="admin-tab active" data-tab="hoje" role="tab" aria-selected="true" aria-controls="tab-hoje" id="tab-hoje-btn" title="Análise diária da IA: quais contatos precisam de atenção agora">
           <span class="admin-tab-icon">🧠</span> Hoje <span class="badge" id="badge-briefing" style="display:none;background:#ef4444;color:#fff;border-radius:10px;padding:1px 7px;font-size:0.7rem;margin-left:2px"></span>
         </button>
-        <button class="admin-tab" data-tab="dashboard" role="tab" aria-selected="false" aria-controls="tab-dashboard" id="tab-dashboard-btn" title="Visão geral com métricas e tarefas do dia">
-          <span class="admin-tab-icon">📊</span> Painel
+        <button class="admin-tab" data-tab="leads" role="tab" aria-selected="false" aria-controls="tab-leads" id="tab-leads-btn" title="Lista completa de todos os seus contatos e clientes potenciais">
+          <span class="admin-tab-icon">👥</span> Contatos
         </button>
         <button class="admin-tab" data-tab="pipeline" role="tab" aria-selected="false" aria-controls="tab-pipeline" id="tab-pipeline-btn" title="Funil de vendas: acompanhe em qual etapa cada contato está">
           <span class="admin-tab-icon">🔄</span> Funil
         </button>
-        <button class="admin-tab" data-tab="leads" role="tab" aria-selected="false" aria-controls="tab-leads" id="tab-leads-btn" title="Lista completa de todos os seus contatos e clientes potenciais">
-          <span class="admin-tab-icon">👥</span> Contatos
+        <button class="admin-tab" data-tab="lembretes" role="tab" aria-selected="false" aria-controls="tab-lembretes" id="tab-lembretes-btn" title="Compromissos e tarefas com data e hora agendados">
+          <span class="admin-tab-icon">⏰</span> Lembretes
         </button>
+        <button class="admin-tab" data-tab="dashboard" role="tab" aria-selected="false" aria-controls="tab-dashboard" id="tab-dashboard-btn" title="Visão geral com métricas e tarefas do dia">
+          <span class="admin-tab-icon">📊</span> Painel
+        </button>
+        <span class="tab-sep" role="separator" aria-hidden="true"></span>
+        <button class="admin-tab" data-tab="campanhas" role="tab" aria-selected="false" aria-controls="tab-campanhas" id="tab-campanhas-btn" title="Envie mensagens em massa para vários contatos ao mesmo tempo">
+          <span class="admin-tab-icon">📧</span> Campanhas
+        </button>
+        <button class="admin-tab" data-tab="importacao" role="tab" aria-selected="false" aria-controls="tab-importacao" id="tab-importacao-btn" title="Importe contatos de planilhas, listas de texto ou CSV">
+          <span class="admin-tab-icon">📥</span> Importação
+        </button>
+        <span class="tab-sep" role="separator" aria-hidden="true"></span>
         <button class="admin-tab" data-tab="templates" role="tab" aria-selected="false" aria-controls="tab-templates" id="tab-templates-btn" title="Modelos de mensagem prontos para WhatsApp e e-mail">
           <span class="admin-tab-icon">📝</span> Modelos
         </button>
         <button class="admin-tab" data-tab="propostas-publicas" role="tab" aria-selected="false" aria-controls="tab-propostas-publicas" id="tab-propostas-publicas-btn" title="Crie propostas com link público para enviar aos contatos">
           <span class="admin-tab-icon">📄</span> Propostas Públicas
-        </button>
-        <button class="admin-tab" data-tab="campanhas" role="tab" aria-selected="false" aria-controls="tab-campanhas" id="tab-campanhas-btn" title="Envie mensagens em massa para vários contatos ao mesmo tempo">
-          <span class="admin-tab-icon">📧</span> Campanhas
-        </button>
-        <button class="admin-tab" data-tab="lembretes" role="tab" aria-selected="false" aria-controls="tab-lembretes" id="tab-lembretes-btn" title="Compromissos e tarefas com data e hora agendados">
-          <span class="admin-tab-icon">⏰</span> Lembretes
-        </button>
-        <button class="admin-tab" data-tab="importacao" role="tab" aria-selected="false" aria-controls="tab-importacao" id="tab-importacao-btn" title="Importe contatos de planilhas, listas de texto ou CSV">
-          <span class="admin-tab-icon">📥</span> Importação
         </button>
         <button class="admin-tab" data-tab="cadastros" role="tab" aria-selected="false" aria-controls="tab-cadastros" id="tab-cadastros-btn" title="Configure segmentos, origens e etapas do seu funil">
           <span class="admin-tab-icon">📋</span> Cadastros
@@ -321,7 +333,6 @@
             <div class="sec-title">📥 Importação de Leads</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <button type="button" class="btn btn-ghost btn-sm" id="btn-toggle-historico-import">📋 Exibir importações anteriores</button>
-              <button type="button" class="btn btn-secondary btn-sm" id="btn-dash-from-import">← Dashboard</button>
             </div>
           </div>
           
@@ -1040,6 +1051,28 @@ Exemplos de formatos aceitos:
 
         adminTabs.forEach(tab => {
           observer.observe(tab, { attributes: true });
+        });
+      });
+    })();
+
+    // Split button — Ações Rápidas
+    (function() {
+      document.addEventListener('DOMContentLoaded', () => {
+        const toggle = document.getElementById('btn-acoes-toggle');
+        const dropdown = document.getElementById('acoes-dropdown');
+        if (!toggle || !dropdown) return;
+
+        toggle.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const isOpen = dropdown.classList.toggle('open');
+          toggle.setAttribute('aria-expanded', String(isOpen));
+        });
+
+        document.addEventListener('click', () => {
+          if (dropdown.classList.contains('open')) {
+            dropdown.classList.remove('open');
+            toggle.setAttribute('aria-expanded', 'false');
+          }
         });
       });
     })();
