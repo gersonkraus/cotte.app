@@ -691,11 +691,9 @@ async function editarLead(id) {
     document.getElementById('lead-cidade').value = l.cidade || '';
     document.getElementById('lead-segmento-id').value = l.segmento_id || '';
     document.getElementById('lead-origem-id').value = l.origem_lead_id || '';
-    document.getElementById('lead-plano').value = l.interesse_plano || '';
     document.getElementById('lead-valor').value = l.valor_proposto || '';
     document.getElementById('lead-observacoes').value = l.observacoes || '';
     if (l.proximo_contato_em) document.getElementById('lead-proximo-contato').value = new Date(l.proximo_contato_em).toISOString().slice(0, 16);
-    document.getElementById('lead-empresa-id').value = l.empresa_id || '';
     document.getElementById('lead-proposta-publica-id').value = '';
     document.getElementById('lead-proposta-validade').value = '7';
     await carregarResumoPropostaVinculadaLead(id);
@@ -718,11 +716,9 @@ async function salvarLead() {
     cidade: document.getElementById('lead-cidade').value || null,
     segmento_id: parseInt(document.getElementById('lead-segmento-id').value) || null,
     origem_lead_id: parseInt(document.getElementById('lead-origem-id').value) || null,
-    interesse_plano: document.getElementById('lead-plano').value || null,
     valor_proposto: parseFloat(document.getElementById('lead-valor').value) || null,
     observacoes: document.getElementById('lead-observacoes').value || null,
     proximo_contato_em: document.getElementById('lead-proximo-contato').value || null,
-    empresa_id: parseInt(document.getElementById('lead-empresa-id').value) || null,
   };
 
   var propostaPublicaId = parseInt(document.getElementById('lead-proposta-publica-id').value) || null;
