@@ -18,7 +18,7 @@ TEST_CASES = [
     ("lista de clientes", IntencaoUsuario.LISTAR_CLIENTES),
 
     # --- Conflito 2: Faturamento (Relatório vs. Análise Simples) ---
-    ("faturamento do mês", IntencaoUsuario.GERAR_RELATORIO),
+    ("faturamento do mês", IntencaoUsuario.FATURAMENTO),
     ("qual o faturamento dos últimos 90 dias", IntencaoUsuario.GERAR_RELATORIO),
     ("faturamento", IntencaoUsuario.FATURAMENTO), # Intenção mais genérica
 

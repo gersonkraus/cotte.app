@@ -145,6 +145,7 @@ class IntentionClassifier:
         r'total de vendas',
         r'quanto vendemos',
         r'^vendas\b',
+        r'\bfaturamento\s+(do\s+m[eê]s|mensal|de\s+hoje)\b',
     ]
 
     # B2) CONTAS A RECEBER
@@ -302,8 +303,8 @@ class IntentionClassifier:
         r'\bperformance\s+(de|dos|por)\b',
         r'\ban[aá]lise\s+(de|dos?|das?|por)\b',
         r'\bcomparativo\s+(mensal|semanal|anual|de\s+per[ií]odo)\b',
-        # Faturamento como relatório
-        r'\bfaturamento\s+(total|do\s+m[eê]s|anual|dos?|das?|nos?)\b',
+        # Faturamento como relatório (períodos longos ou totais históricos)
+        r'\bfaturamento\s+(anual|dos\s+[úu]ltimos?|dos\s+\d+|nos\s+[úu]ltimos?|nos\s+\d+|total)\b',
         r'\btotal\s+(faturado|de\s+vendas)\b',
         # Novas visões analíticas
         r'\bclientes?\s+inativos?\b',

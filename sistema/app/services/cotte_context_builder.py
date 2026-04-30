@@ -899,7 +899,7 @@ class ContextBuilder:
             .join(Cliente, Orcamento.cliente_id == Cliente.id)
             .filter(Orcamento.empresa_id == empresa_id)
             .order_by(desc(Orcamento.criado_em))
-            .limit(10)
+            .limit(5)
             .all()
         )
 
@@ -997,7 +997,7 @@ class ContextBuilder:
             db.query(Cliente.nome, Cliente.cidade, Cliente.criado_em)
             .filter(Cliente.empresa_id == empresa_id)
             .order_by(desc(Cliente.criado_em))
-            .limit(5)
+            .limit(3)
             .all()
         )
 
@@ -1266,7 +1266,7 @@ class ContextBuilder:
                 ]),
             )
             .order_by(Agendamento.data_agendada.asc())
-            .limit(10)
+            .limit(5)
             .all()
         )
 

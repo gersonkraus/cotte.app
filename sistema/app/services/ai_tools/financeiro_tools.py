@@ -573,7 +573,7 @@ async def _gerar_relatorio_vendas(
     ).filter(
         Orcamento.empresa_id == current_user.empresa_id,
         Orcamento.status == StatusOrcamento.APROVADO,
-        Orcamento.data_aprovacao.between(start_date, end_date)
+        Orcamento.aprovado_em.between(start_date, end_date)
     )
 
     if inp.agrupar_por == 'cliente':
@@ -658,10 +658,10 @@ async def _gerar_relatorio_contas_a_receber(
         from app.models.models import Orcamento
         
         results = db.query(
-            Cliente.nome.label("agrupador"),
+            func.coalesce(Cliente.nome, "N/A").label("agrupador"),
             func.sum(ContaFinanceira.valor - func.coalesce(ContaFinanceira.valor_pago, 0)).label("total_devido"),
             func.count(ContaFinanceira.id).label("quantidade_contas")
-        ).join(Orcamento, ContaFinanceira.orcamento_id == Orcamento.id).join(Cliente, Orcamento.cliente_id == Cliente.id).filter(
+        ).outerjoin(Orcamento, ContaFinanceira.orcamento_id == Orcamento.id).outerjoin(Cliente, Orcamento.cliente_id == Cliente.id).filter(
             ContaFinanceira.empresa_id == current_user.empresa_id,
             ContaFinanceira.tipo == 'receber',
             ContaFinanceira.status.in_([StatusConta.PENDENTE, StatusConta.VENCIDO])

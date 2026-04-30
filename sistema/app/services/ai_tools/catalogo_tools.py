@@ -7,6 +7,8 @@ from typing import Any, Optional
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from sqlalchemy import func
+
 from app.models.models import Servico, Usuario
 
 from ._base import ToolSpec
@@ -102,4 +104,60 @@ cadastrar_material = ToolSpec(
     destrutiva=True,
     permissao_recurso="catalogo",
     permissao_acao="escrita",
+)
+
+
+class ResumoCatalogoInput(BaseModel):
+    pass
+
+
+async def _resumo_catalogo(
+    inp: ResumoCatalogoInput, *, db: Session, current_user: Usuario
+) -> dict[str, Any]:
+    result = (
+        db.query(
+            func.count(Servico.id).label("total_itens"),
+            func.coalesce(func.sum(Servico.preco_padrao), 0).label("soma_precos"),
+            func.coalesce(func.sum(Servico.preco_custo), 0).label("soma_custos"),
+        )
+        .filter(
+            Servico.empresa_id == current_user.empresa_id,
+            Servico.ativo == True,  # noqa: E712
+        )
+        .first()
+    )
+    total_itens = int(result.total_itens or 0)
+    soma_precos = float(result.soma_precos or 0)
+    soma_custos = float(result.soma_custos or 0)
+    ticket_medio = soma_precos / total_itens if total_itens > 0 else 0.0
+
+    def _fmt_brl(v: float) -> str:
+        return f"R$ {v:_.2f}".replace("_", ".").replace(".", ",", 1).replace(",", ".", 1)
+
+    return {
+        "total_itens": total_itens,
+        "soma_valores": soma_precos,
+        "soma_custos": soma_custos,
+        "ticket_medio": ticket_medio,
+        "resumo_texto": (
+            f"📦 **Catálogo:** {total_itens} itens cadastrados.\n"
+            f"💰 **Soma dos valores:** {_fmt_brl(soma_precos)}.\n"
+            f"📊 **Ticket médio:** {_fmt_brl(ticket_medio)}."
+        ),
+    }
+
+
+resumo_catalogo = ToolSpec(
+    name="resumo_catalogo",
+    description=(
+        "Retorna um resumo do catálogo: total de itens, soma dos preços padrão, "
+        "soma dos custos e ticket médio. Use para perguntas sobre 'soma dos valores do catálogo', "
+        "'total do catálogo', 'valor total dos produtos cadastrados'."
+    ),
+    input_model=ResumoCatalogoInput,
+    handler=_resumo_catalogo,
+    destrutiva=False,
+    cacheable_ttl=120,
+    permissao_recurso="catalogo",
+    permissao_acao="leitura",
 )

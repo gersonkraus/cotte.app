@@ -20,7 +20,7 @@ from .agendamento_tools import (
     listar_agendamentos,
     remarcar_agendamento,
 )
-from .catalogo_tools import cadastrar_material, listar_materiais
+from .catalogo_tools import cadastrar_material, listar_materiais, resumo_catalogo
 from .cliente_tools import (
     criar_cliente,
     editar_cliente,
@@ -91,6 +91,7 @@ TOOL_DOMAIN_MAP: dict[str, str] = {
     # catalogo
     "listar_materiais": "catalogo",
     "cadastrar_material": "catalogo",
+    "resumo_catalogo": "catalogo",
     # agendamentos
     "listar_agendamentos": "agendamentos",
     "criar_agendamento": "agendamentos",
@@ -125,6 +126,7 @@ _ALL_TOOLS: list[ToolSpec] = [
     obter_orcamento,
     listar_clientes,
     listar_materiais,
+    resumo_catalogo,
     listar_despesas,
     listar_agendamentos,
     # destrutivas
