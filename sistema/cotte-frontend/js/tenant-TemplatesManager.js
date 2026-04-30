@@ -3,34 +3,108 @@ const MODAL_TITLES = {
   EDIT_TEMPLATE: 'Editar Template'
 };
 
+const TIPOS_TPL_CONFIG = [
+  {
+    tipo: 'mensagem_inicial',
+    emoji: '👋',
+    label: 'Mensagem Inicial',
+    desc: 'Para se apresentar a um novo contato pela primeira vez',
+    canal: 'whatsapp',
+    canalLabel: '📱 WhatsApp',
+    canalOptions: ['whatsapp', 'ambos']
+  },
+  {
+    tipo: 'followup',
+    emoji: '🔁',
+    label: 'Follow-up',
+    desc: 'Para retomar contato com quem não respondeu ainda',
+    canal: 'whatsapp',
+    canalLabel: '📱 WhatsApp',
+    canalOptions: ['whatsapp', 'email', 'ambos']
+  },
+  {
+    tipo: 'proposta_comercial',
+    emoji: '💼',
+    label: 'Proposta Comercial',
+    desc: 'Para enviar uma oferta com valor e prazo ao cliente',
+    canal: 'ambos',
+    canalLabel: '📱📧 WhatsApp ou E-mail',
+    canalOptions: ['whatsapp', 'email', 'ambos']
+  },
+  {
+    tipo: 'email_comercial',
+    emoji: '📧',
+    label: 'E-mail Comercial',
+    desc: 'Para comunicações formais e envio de documentos',
+    canal: 'email',
+    canalLabel: '📧 E-mail',
+    canalOptions: ['email']
+  }
+];
+
+const EXEMPLOS_TPL = {
+  mensagem_inicial: {
+    whatsapp: 'Olá {nome}, tudo bem? 😊\n\nAqui é da equipe da {empresa}.\n\nVi que {empresa_lead} pode se interessar pelo que oferecemos. Posso te contar mais em 2 minutinhos?',
+    ambos: 'Olá {nome}, tudo bem? 😊\n\nAqui é da equipe da {empresa}. Gostaria de apresentar nossa solução para {empresa_lead}.\n\nPosso te contar mais detalhes?'
+  },
+  followup: {
+    whatsapp: 'Oi {nome}! 👋\n\nPassando para ver se teve chance de pensar na nossa conversa.\n\nFica à vontade para me chamar se tiver dúvidas 😊',
+    email: 'Olá {nome},\n\nPassando para dar continuidade à nossa conversa sobre {empresa_lead}.\n\nCaso tenha surgido alguma dúvida, estou à disposição!\n\nAbraços,',
+    ambos: 'Oi {nome}! Passando para verificar se surgiu alguma dúvida. Pode me chamar quando quiser! 😊'
+  },
+  proposta_comercial: {
+    whatsapp: 'Olá {nome}! 🤝\n\nPreparei uma proposta especial para {empresa_lead}:\n\n💰 Investimento: R$ {valor}\n📅 Validade: 7 dias\n\nPosso te enviar todos os detalhes?',
+    email: 'Prezado(a) {nome},\n\nSeguem os detalhes da proposta comercial para {empresa_lead}:\n\n• Investimento: R$ {valor}\n• Validade: 7 dias\n\nEstou à disposição para esclarecer qualquer dúvida.\n\nAtenciosamente,',
+    ambos: 'Olá {nome}! Preparei uma proposta para {empresa_lead} no valor de R$ {valor}. Posso te enviar os detalhes completos?'
+  },
+  email_comercial: {
+    email: 'Prezado(a) {nome},\n\nEspero que esteja bem.\n\nGostaria de apresentar nossa solução e acredito que pode ser muito benéfica para {empresa_lead}.\n\nTeria disponibilidade para uma conversa de 15 minutos?\n\nAtenciosamente,'
+  }
+};
+
+const SUGESTAO_NOMES_TPL = {
+  mensagem_inicial: 'Apresentação Inicial',
+  followup: 'Follow-up',
+  proposta_comercial: 'Proposta Comercial',
+  email_comercial: 'E-mail Comercial'
+};
+
+const BANNER_DESCRICAO_TPL = {
+  mensagem_inicial: 'Primeiro contato — para se apresentar a novos leads',
+  followup: 'Retomada de contato — para leads que não responderam',
+  proposta_comercial: 'Proposta — para enviar oferta com valor ao cliente',
+  email_comercial: 'E-mail formal — para comunicações e documentos'
+};
+
+let _tplTipoAtual = null;
+
 class TemplatesManager {
   static async carregarTemplates() {
     try {
       var tpls = await api.get('/tenant/comercial/templates');
       var tbody = document.getElementById('templates-tbody');
-      if (!tbody) return; // Prevent error if element doesn't exist
-      
-      if (!tpls.length) { 
-        tbody.innerHTML = '<tr><td colspan="5"><div class="empty"><p>Nenhum template</p></div></td></tr>'; 
-        TemplatesManager.renderTemplatesMobile([]); 
-        return; 
+      if (!tbody) return;
+
+      if (!tpls.length) {
+        tbody.innerHTML = '<tr><td colspan="5"><div class="empty"><p>Nenhum template</p></div></td></tr>';
+        TemplatesManager.renderTemplatesMobile([]);
+        return;
       }
-      
-      var canalEmoji = { whatsapp:'📱', email:'📧', sms:'💬' };
+
+      var canalEmoji = { whatsapp: '📱', email: '📧', sms: '💬', ambos: '📱📧' };
       tbody.innerHTML = tpls.map(function(t) {
         var preview = (t.conteudo || '').replace(/\n/g, ' ').slice(0, 80) + ((t.conteudo || '').length > 80 ? '…' : '');
-        
-        // Handling variables that might not exist globally if not initialized yet
-        const tipoLabel = typeof TIPO_TPL_LABELS !== 'undefined' && TIPO_TPL_LABELS[t.tipo] ? TIPO_TPL_LABELS[t.tipo] : t.tipo;
-        const canalLabel = typeof CANAL_TPL_LABELS !== 'undefined' && CANAL_TPL_LABELS[t.canal] ? CANAL_TPL_LABELS[t.canal] : t.canal;
-        
+        const cfg = TIPOS_TPL_CONFIG.find(c => c.tipo === t.tipo);
+        const tipoLabel = cfg ? (cfg.emoji + ' ' + cfg.label) : t.tipo;
+        const canalLabel = t.canal === 'ambos' ? '📱📧 Ambos' : ((canalEmoji[t.canal] || '') + ' ' + (t.canal === 'whatsapp' ? 'WhatsApp' : 'E-mail'));
+
         return '<tr>' +
           '<td><strong>' + (typeof esc === 'function' ? esc(t.nome) : t.nome) + '</strong><div style="font-size:11px;color:var(--muted);margin-top:2px">' + (typeof esc === 'function' ? esc(preview) : preview) + '</div></td>' +
           '<td>' + tipoLabel + '</td>' +
-          '<td>' + (canalEmoji[t.canal] || '') + ' ' + canalLabel + '</td>' +
+          '<td>' + canalLabel + '</td>' +
           '<td><span class="badge-active ' + (t.ativo ? 'on' : 'off') + '">' + (t.ativo ? 'Ativo' : 'Inativo') + '</span></td>' +
           '<td><button class="btn btn-sm btn-ghost btn-edit-tpl" data-id="' + t.id + '">✏️</button> <button class="btn btn-sm btn-ghost btn-del-tpl" data-id="' + t.id + '">🗑️</button></td>' +
-        '</tr>';
+          '</tr>';
       }).join('');
 
       tbody.querySelectorAll('.btn-edit-tpl').forEach(function(btn) {
@@ -39,10 +113,10 @@ class TemplatesManager {
       tbody.querySelectorAll('.btn-del-tpl').forEach(function(btn) {
         btn.addEventListener('click', function() { TemplatesManager.excluirTemplate(parseInt(this.dataset.id)); });
       });
-      
+
       TemplatesManager.renderTemplatesMobile(tpls);
-    } catch(e) { 
-      if (typeof showToast !== 'undefined') showToast('Erro ao carregar templates', 'error'); 
+    } catch(e) {
+      if (typeof showToast !== 'undefined') showToast('Erro ao carregar templates', 'error');
     }
   }
 
@@ -50,20 +124,20 @@ class TemplatesManager {
     var container = document.getElementById('templates-cards-mobile');
     if (!container) return;
     if (!tpls.length) { container.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted)">Nenhum template</div>'; return; }
-    var canalEmoji = { whatsapp:'📱', email:'📧', sms:'💬' };
+    var canalEmoji = { whatsapp: '📱', email: '📧', sms: '💬', ambos: '📱📧' };
     container.innerHTML = tpls.map(function(t) {
       var preview = (t.conteudo || '').replace(/\n/g, ' ').slice(0, 60) + ((t.conteudo || '').length > 60 ? '…' : '');
-      
-      const tipoLabel = typeof TIPO_TPL_LABELS !== 'undefined' && TIPO_TPL_LABELS[t.tipo] ? TIPO_TPL_LABELS[t.tipo] : t.tipo;
-      const canalLabel = typeof CANAL_TPL_LABELS !== 'undefined' && CANAL_TPL_LABELS[t.canal] ? CANAL_TPL_LABELS[t.canal] : t.canal;
-      
+      const cfg = TIPOS_TPL_CONFIG.find(c => c.tipo === t.tipo);
+      const tipoLabel = cfg ? (cfg.emoji + ' ' + cfg.label) : t.tipo;
+      const canalLabel = t.canal === 'ambos' ? '📱📧 Ambos' : ((canalEmoji[t.canal] || '') + ' ' + (t.canal === 'whatsapp' ? 'WhatsApp' : 'E-mail'));
+
       return '<div class="crud-mobile-card">' +
         '<div class="crud-mobile-card-header">' +
           '<div class="crud-mobile-card-title">' + (typeof esc === 'function' ? esc(t.nome) : t.nome) + '</div>' +
           '<span class="badge-active ' + (t.ativo ? 'on' : 'off') + '">' + (t.ativo ? 'Ativo' : 'Inativo') + '</span>' +
         '</div>' +
         '<div class="crud-mobile-card-body">' +
-          '<div>' + (canalEmoji[t.canal] || '') + ' ' + canalLabel + ' | ' + tipoLabel + '</div>' +
+          '<div>' + canalLabel + ' | ' + tipoLabel + '</div>' +
           '<div style="font-size:11px;color:var(--muted)">' + (typeof esc === 'function' ? esc(preview) : preview) + '</div>' +
         '</div>' +
         '<div class="crud-mobile-card-actions">' +
@@ -77,10 +151,12 @@ class TemplatesManager {
     document.getElementById('tpl-id').value = '';
     document.getElementById('modal-tpl-title').textContent = MODAL_TITLES.NEW_TEMPLATE;
     document.getElementById('tpl-nome').value = '';
-    document.getElementById('tpl-tipo').value = 'mensagem_inicial';
+    document.getElementById('tpl-tipo').value = '';
     document.getElementById('tpl-canal').value = 'whatsapp';
     document.getElementById('tpl-assunto').value = '';
     document.getElementById('tpl-conteudo').value = '';
+    _tplTipoAtual = null;
+    TemplatesManager._mostrarEtapa(1);
     document.getElementById('modal-template').classList.add('open');
   }
 
@@ -94,92 +170,235 @@ class TemplatesManager {
       document.getElementById('tpl-canal').value = t.canal;
       document.getElementById('tpl-assunto').value = t.assunto || '';
       document.getElementById('tpl-conteudo').value = t.conteudo;
+      _tplTipoAtual = t.tipo;
+      const cfg = TIPOS_TPL_CONFIG.find(c => c.tipo === t.tipo);
+      TemplatesManager._mostrarEtapa(2);
+      TemplatesManager._updateContextBanner(t.tipo, t.canal);
+      if (cfg) TemplatesManager._renderCanalPills(cfg, t.canal);
+      TemplatesManager._toggleAssunto(t.canal);
+      TemplatesManager._updateCharCounter();
       document.getElementById('modal-template').classList.add('open');
-    } catch(e) { 
-      if (typeof showToast !== 'undefined') showToast('Erro', 'error'); 
+    } catch(e) {
+      if (typeof showToast !== 'undefined') showToast('Erro', 'error');
     }
   }
 
   static async salvarTemplate() {
     var nome = document.getElementById('tpl-nome').value;
     var conteudo = document.getElementById('tpl-conteudo').value;
-    if (!nome || !conteudo) { 
-      if (typeof showToast !== 'undefined') showToast('Preencha nome e conteúdo', 'error'); 
-      return; 
+    if (!nome || !conteudo) {
+      if (typeof showToast !== 'undefined') showToast('Preencha nome e conteúdo', 'error');
+      return;
     }
-    var data = { 
-      nome: nome, 
-      tipo: document.getElementById('tpl-tipo').value, 
-      canal: document.getElementById('tpl-canal').value, 
-      assunto: document.getElementById('tpl-assunto').value || null, 
-      conteudo: conteudo 
+    var data = {
+      nome: nome,
+      tipo: document.getElementById('tpl-tipo').value,
+      canal: document.getElementById('tpl-canal').value,
+      assunto: document.getElementById('tpl-assunto').value || null,
+      conteudo: conteudo
     };
     var id = document.getElementById('tpl-id').value;
     try {
-      if (id) { 
-        await api.put('/tenant/comercial/templates/' + id, data); 
-        if (typeof showToast !== 'undefined') showToast('Template atualizado!', 'success'); 
-      } else { 
-        await api.post('/tenant/comercial/templates', data); 
-        if (typeof showToast !== 'undefined') showToast('Template criado!', 'success'); 
+      if (id) {
+        await api.put('/tenant/comercial/templates/' + id, data);
+        if (typeof showToast !== 'undefined') showToast('Template atualizado!', 'success');
+      } else {
+        await api.post('/tenant/comercial/templates', data);
+        if (typeof showToast !== 'undefined') showToast('Template criado!', 'success');
       }
       if (typeof fecharModal !== 'undefined') fecharModal('modal-template');
       TemplatesManager.carregarTemplates();
       if (typeof carregarCadastrosCache !== 'undefined') await carregarCadastrosCache();
-    } catch(e) { 
-      if (typeof showToast !== 'undefined') showToast(e.message || 'Erro', 'error'); 
+    } catch(e) {
+      if (typeof showToast !== 'undefined') showToast(e.message || 'Erro', 'error');
     }
   }
 
   static async excluirTemplate(id) {
     if (!confirm('Excluir template?')) return;
-    try { 
-      await api.delete('/tenant/comercial/templates/' + id); 
-      if (typeof showToast !== 'undefined') showToast('Template excluído!', 'success'); 
-      TemplatesManager.carregarTemplates(); 
-    } catch(e) { 
-      if (typeof showToast !== 'undefined') showToast('Erro', 'error'); 
+    try {
+      await api.delete('/tenant/comercial/templates/' + id);
+      if (typeof showToast !== 'undefined') showToast('Template excluído!', 'success');
+      TemplatesManager.carregarTemplates();
+    } catch(e) {
+      if (typeof showToast !== 'undefined') showToast('Erro', 'error');
     }
   }
-  static initVariablesEvents() {
-    document.querySelectorAll('.btn-var-badge').forEach(btn => {
-      btn.addEventListener('mousedown', (e) => {
-        // Evita que o textarea perca o foco antes do clique, preservando a seleção do cursor
-        e.preventDefault(); 
-      });
-      btn.addEventListener('click', (e) => {
-        const varText = e.target.getAttribute('data-var');
-        TemplatesManager.injetarVariavel(varText);
+
+  static _mostrarEtapa(n) {
+    const step1 = document.getElementById('tpl-step-1');
+    const step2 = document.getElementById('tpl-step-2');
+    const footer1 = document.getElementById('tpl-footer-step1');
+    const footer2 = document.getElementById('tpl-footer-step2');
+    const sc1 = document.getElementById('tpl-sc-1');
+    const sc2 = document.getElementById('tpl-sc-2');
+    const sl = document.getElementById('tpl-sl-12');
+    if (n === 1) {
+      step1.style.display = '';
+      step2.style.display = 'none';
+      footer1.style.display = '';
+      footer2.style.display = 'none';
+      sc1.classList.add('active');
+      sc1.classList.remove('done');
+      sc2.classList.remove('active', 'done');
+      if (sl) sl.classList.remove('done');
+      TemplatesManager._renderTypeCards();
+    } else {
+      step1.style.display = 'none';
+      step2.style.display = '';
+      footer1.style.display = 'none';
+      footer2.style.display = 'flex';
+      sc1.classList.remove('active');
+      sc1.classList.add('done');
+      sc2.classList.add('active');
+      if (sl) sl.classList.add('done');
+    }
+  }
+
+  static _renderTypeCards() {
+    const container = document.getElementById('tpl-type-cards');
+    if (!container) return;
+    container.innerHTML = TIPOS_TPL_CONFIG.map(cfg => `
+      <div class="tpl-type-card" data-tipo="${cfg.tipo}" role="button" tabindex="0" aria-label="${cfg.label}">
+        <div class="tpl-type-card-emoji">${cfg.emoji}</div>
+        <div class="tpl-type-card-body">
+          <div class="tpl-type-card-title">${cfg.label}</div>
+          <div class="tpl-type-card-desc">${cfg.desc}</div>
+        </div>
+        <div class="tpl-type-card-canal">${cfg.canalLabel}</div>
+      </div>
+    `).join('');
+    container.querySelectorAll('.tpl-type-card').forEach(card => {
+      const handler = () => TemplatesManager._selecionarTipo(card.dataset.tipo);
+      card.addEventListener('click', handler);
+      card.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handler(); }
       });
     });
+  }
+
+  static _selecionarTipo(tipo) {
+    const cfg = TIPOS_TPL_CONFIG.find(c => c.tipo === tipo);
+    if (!cfg) return;
+    _tplTipoAtual = tipo;
+    document.getElementById('tpl-tipo').value = tipo;
+
+    const canalPadrao = cfg.canal === 'ambos' ? 'ambos' : cfg.canal;
+    document.getElementById('tpl-canal').value = canalPadrao;
+
+    const sugestao = document.getElementById('tpl-sugestao-nome');
+    if (sugestao) sugestao.textContent = 'Sugestão: ' + SUGESTAO_NOMES_TPL[tipo];
+
+    const exemplos = EXEMPLOS_TPL[tipo] || {};
+    document.getElementById('tpl-conteudo').value = exemplos[canalPadrao] || exemplos['whatsapp'] || exemplos['email'] || '';
+
+    TemplatesManager._updateContextBanner(tipo, canalPadrao);
+    TemplatesManager._renderCanalPills(cfg, canalPadrao);
+    TemplatesManager._toggleAssunto(canalPadrao);
+    TemplatesManager._updateCharCounter();
+    TemplatesManager._mostrarEtapa(2);
+  }
+
+  static _voltarEtapa1() {
+    _tplTipoAtual = null;
+    document.getElementById('tpl-tipo').value = '';
+    TemplatesManager._mostrarEtapa(1);
+  }
+
+  static _renderCanalPills(cfg, canalAtivo) {
+    const container = document.getElementById('tpl-canal-pills');
+    if (!container || !cfg) return;
+    const CANAL_OPTIONS = [
+      { value: 'whatsapp', label: '📱 WhatsApp' },
+      { value: 'email', label: '📧 E-mail' },
+      { value: 'ambos', label: '📱📧 Ambos' }
+    ];
+    const opcoes = CANAL_OPTIONS.filter(o => cfg.canalOptions.includes(o.value));
+    if (opcoes.length <= 1) {
+      container.innerHTML = `<span class="tpl-canal-pill active" style="cursor:default">${opcoes[0] ? opcoes[0].label : ''}</span>`;
+      return;
+    }
+    container.innerHTML = opcoes.map(o => `
+      <button type="button" class="tpl-canal-pill${o.value === canalAtivo ? ' active' : ''}" data-canal="${o.value}">${o.label}</button>
+    `).join('');
+    container.querySelectorAll('.tpl-canal-pill[data-canal]').forEach(pill => {
+      pill.addEventListener('click', () => {
+        container.querySelectorAll('.tpl-canal-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        const canal = pill.dataset.canal;
+        document.getElementById('tpl-canal').value = canal;
+        const tipo = _tplTipoAtual;
+        const exemploAtual = document.getElementById('tpl-conteudo').value;
+        const todosExemplos = Object.values(EXEMPLOS_TPL[tipo] || {});
+        if (!exemploAtual || todosExemplos.includes(exemploAtual)) {
+          const novo = (EXEMPLOS_TPL[tipo] || {})[canal] || exemploAtual;
+          document.getElementById('tpl-conteudo').value = novo;
+          TemplatesManager._updateCharCounter();
+        }
+        TemplatesManager._updateContextBanner(tipo, canal);
+        TemplatesManager._toggleAssunto(canal);
+      });
+    });
+  }
+
+  static _updateContextBanner(tipo, canal) {
+    const banner = document.getElementById('tpl-context-banner');
+    if (!banner) return;
+    const cfg = TIPOS_TPL_CONFIG.find(c => c.tipo === tipo);
+    const desc = BANNER_DESCRICAO_TPL[tipo] || '';
+    const canalStr = canal === 'whatsapp' ? '📱 WhatsApp' : canal === 'email' ? '📧 E-mail' : '📱📧 WhatsApp e E-mail';
+    banner.innerHTML = `<span class="tpl-context-emoji">${cfg ? cfg.emoji : ''}</span> <span><strong>${cfg ? cfg.label : tipo}</strong> — ${desc} &nbsp;|&nbsp; ${canalStr}</span>`;
+  }
+
+  static _toggleAssunto(canal) {
+    const group = document.getElementById('tpl-assunto-group');
+    if (!group) return;
+    group.style.display = (canal === 'email' || canal === 'ambos') ? '' : 'none';
+  }
+
+  static _updateCharCounter() {
+    const textarea = document.getElementById('tpl-conteudo');
+    const counter = document.getElementById('tpl-char-counter');
+    if (!textarea || !counter) return;
+    const len = textarea.value.length;
+    counter.textContent = len + ' caracteres' + (len > 1000 ? ' — mensagem longa para WhatsApp' : '');
+    counter.style.color = len > 1000 ? 'var(--red)' : 'var(--muted)';
+  }
+
+  static initVariablesEvents() {
+    document.querySelectorAll('.btn-var-badge').forEach(btn => {
+      btn.addEventListener('mousedown', e => e.preventDefault());
+      btn.addEventListener('click', e => {
+        TemplatesManager.injetarVariavel(e.target.getAttribute('data-var'));
+      });
+    });
+
+    const btnVoltar = document.getElementById('btn-tpl-voltar');
+    if (btnVoltar) btnVoltar.addEventListener('click', TemplatesManager._voltarEtapa1);
+
+    const textarea = document.getElementById('tpl-conteudo');
+    if (textarea) textarea.addEventListener('input', TemplatesManager._updateCharCounter);
   }
 
   static injetarVariavel(variavelText) {
     const textarea = document.getElementById('tpl-conteudo');
     if (!textarea) return;
-
-    // Foca caso não esteja focado
     textarea.focus();
-
     const startPos = textarea.selectionStart || 0;
     const endPos = textarea.selectionEnd || 0;
     const textBefore = textarea.value.substring(0, startPos);
     const textAfter = textarea.value.substring(endPos, textarea.value.length);
-
     textarea.value = textBefore + variavelText + textAfter;
-
-    // Retorna o cursor para logo após a variável inserida
     const newPos = startPos + variavelText.length;
     textarea.setSelectionRange(newPos, newPos);
+    TemplatesManager._updateCharCounter();
   }
 }
 
-// Inicializar eventos de variáveis assim que o DOM carregar
 document.addEventListener('DOMContentLoaded', () => {
   TemplatesManager.initVariablesEvents();
 });
 
-// Para manter compatibilidade com botões que chamam as funções globais no HTML (ex. onclick="abrirModalTemplate()"):
 window.carregarTemplates = TemplatesManager.carregarTemplates;
 window.abrirModalTemplate = TemplatesManager.abrirModalTemplate;
 window.editarTemplate = TemplatesManager.editarTemplate;

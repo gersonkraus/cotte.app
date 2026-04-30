@@ -722,43 +722,85 @@ Exemplos de formatos aceitos:
   <div class="modal-overlay modal-slide-over" id="modal-template">
     <div class="modal">
       <header class="modal-header">
-        <h3 class="modal-title" id="modal-tpl-title">Novo Template</h3>
+        <div>
+          <h3 class="modal-title" id="modal-tpl-title">Novo Template</h3>
+          <p class="tpl-modal-subtitle">Escolha o tipo de mensagem que deseja criar</p>
+        </div>
         <button class="modal-close" aria-label="Fechar">&times;</button>
       </header>
-      <div class="modal-body">
-        <input type="hidden" id="tpl-id">
-        <div class="fg"><label class="fl">Nome *</label><input type="text" class="fi" id="tpl-nome" required></div>
-        <div class="fr">
-          <div class="fg"><label class="fl">Tipo</label>
-            <select class="fs" id="tpl-tipo"><option value="mensagem_inicial">Mensagem Inicial</option><option value="followup">Follow-up</option><option value="proposta_comercial">Proposta Comercial</option><option value="email_comercial">E-mail Comercial</option></select>
+      <!-- Stepper de progresso -->
+      <div class="import-stepper" style="margin:0;padding:10px 20px 0;border-bottom:1px solid var(--border)">
+        <div class="import-step-indicator">
+          <div class="import-step-node">
+            <div class="import-step-circle active" id="tpl-sc-1">1</div>
+            <div class="import-step-label">Tipo</div>
           </div>
-          <div class="fg"><label class="fl">Canal</label>
-            <select class="fs" id="tpl-canal"><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option><option value="ambos">Ambos</option></select>
+          <div class="import-step-line" id="tpl-sl-12"></div>
+          <div class="import-step-node">
+            <div class="import-step-circle" id="tpl-sc-2">2</div>
+            <div class="import-step-label">Mensagem</div>
           </div>
         </div>
-        <div class="fg"><label class="fl">Assunto (e-mail)</label><input type="text" class="fi" id="tpl-assunto"></div>
-        <div class="fg"><label class="fl">Conteúdo *</label><textarea class="ft" id="tpl-conteudo" rows="6" required></textarea></div>
-        <div class="tpl-vars-interactive">
-          <span style="font-size:11px;color:var(--muted);display:block;margin-bottom:6px;">Inserir variável no cursor:</span>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;">
-            <button type="button" class="btn-var-badge" data-var="{nome}">nome</button>
-            <button type="button" class="btn-var-badge" data-var="{empresa}">empresa</button>
-            <button type="button" class="btn-var-badge" data-var="{cidade}">cidade</button>
-            <button type="button" class="btn-var-badge" data-var="{whatsapp}">whatsapp</button>
-            <button type="button" class="btn-var-badge" data-var="{email}">email</button>
-            <button type="button" class="btn-var-badge" data-var="{dias_sem_contato}">dias_sem_contato</button>
-            <button type="button" class="btn-var-badge" data-var="{score}">score</button>
-            <button type="button" class="btn-var-badge" data-var="{etapa}">etapa</button>
-            <button type="button" class="btn-var-badge" data-var="{valor}">valor</button>
+      </div>
+      <!-- Inputs hidden (compatibilidade com salvarTemplate) -->
+      <input type="hidden" id="tpl-id">
+      <input type="hidden" id="tpl-tipo">
+      <input type="hidden" id="tpl-canal" value="whatsapp">
+      <div class="modal-body">
+        <!-- ── Etapa 1: Escolha do Tipo ── -->
+        <div id="tpl-step-1">
+          <p style="font-size:13px;color:var(--muted);margin:0 0 14px">Cada tipo tem um propósito diferente. Escolha o que melhor descreve o que você quer enviar:</p>
+          <div class="tpl-type-cards" id="tpl-type-cards"></div>
+        </div>
+        <!-- ── Etapa 2: Composição ── -->
+        <div id="tpl-step-2" style="display:none">
+          <div class="tpl-context-banner" id="tpl-context-banner"></div>
+          <div class="fg" style="margin-top:14px">
+            <label class="fl">Nome do modelo *</label>
+            <input type="text" class="fi" id="tpl-nome" required placeholder="Ex: Follow-up — Minha Empresa">
+            <div class="tpl-sugestao-nome" id="tpl-sugestao-nome"></div>
           </div>
-          <p style="font-size:10px;color:var(--muted);margin-top:8px">
-            <strong>Briefing:</strong> dias_sem_contato, score, etapa, valor
-          </p>
+          <div class="fg" id="tpl-canal-group">
+            <label class="fl">Canal de envio</label>
+            <div class="tpl-canal-pills" id="tpl-canal-pills"></div>
+          </div>
+          <div class="fg" id="tpl-assunto-group" style="display:none">
+            <label class="fl">Assunto do e-mail</label>
+            <input type="text" class="fi" id="tpl-assunto" placeholder="Ex: Proposta Comercial — Minha Empresa">
+          </div>
+          <div class="fg">
+            <label class="fl">Conteúdo * <span style="font-weight:400;color:var(--muted)">(edite o exemplo abaixo)</span></label>
+            <textarea class="ft" id="tpl-conteudo" rows="7" required></textarea>
+            <div class="tpl-char-counter" id="tpl-char-counter">0 caracteres</div>
+          </div>
+          <div class="tpl-vars-interactive">
+            <span style="font-size:11px;color:var(--muted);display:block;margin-bottom:6px">Inserir variável no cursor:</span>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button type="button" class="btn-var-badge" data-var="{nome}" title="Nome do responsável pelo contato">nome</button>
+              <button type="button" class="btn-var-badge" data-var="{empresa}" title="Nome da empresa do contato">empresa</button>
+              <button type="button" class="btn-var-badge" data-var="{cidade}" title="Cidade do contato">cidade</button>
+              <button type="button" class="btn-var-badge" data-var="{whatsapp}" title="Número de WhatsApp">whatsapp</button>
+              <button type="button" class="btn-var-badge" data-var="{email}" title="E-mail do contato">email</button>
+              <button type="button" class="btn-var-badge" data-var="{dias_sem_contato}" title="Dias desde o último contato">dias_sem_contato</button>
+              <button type="button" class="btn-var-badge" data-var="{score}" title="Score do lead">score</button>
+              <button type="button" class="btn-var-badge" data-var="{etapa}" title="Etapa atual no funil">etapa</button>
+              <button type="button" class="btn-var-badge" data-var="{valor}" title="Valor proposto">valor</button>
+            </div>
+            <p style="font-size:10px;color:var(--muted);margin-top:8px"><strong>Briefing IA:</strong> dias_sem_contato, score, etapa, valor</p>
+          </div>
         </div>
       </div>
       <footer class="modal-footer">
-        <button class="btn btn-secondary" onclick="fecharModal('modal-template')">Cancelar</button>
-        <button class="btn btn-primary" onclick="TemplatesManager.salvarTemplate()">Salvar</button>
+        <div id="tpl-footer-step1">
+          <button class="btn btn-secondary" onclick="fecharModal('modal-template')">Cancelar</button>
+        </div>
+        <div id="tpl-footer-step2" style="display:none;width:100%;justify-content:space-between;align-items:center">
+          <button type="button" class="btn btn-ghost" id="btn-tpl-voltar">← Voltar</button>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-secondary" onclick="fecharModal('modal-template')">Cancelar</button>
+            <button class="btn btn-primary" onclick="TemplatesManager.salvarTemplate()">Salvar Template</button>
+          </div>
+        </div>
       </footer>
     </div>
   </div>
@@ -940,7 +982,7 @@ Exemplos de formatos aceitos:
   <script src="js/tenant-comercial-dashboard.js?v=1"></script>
   <script src="js/tenant-comercial-leads.js?v=1"></script>
   <script src="js/tenant-comercial-pipeline.js?v=1"></script>
-  <script src="js/tenant-TemplatesManager.js?v=1"></script>
+  <script src="js/tenant-TemplatesManager.js?v=2"></script>
   <script src="js/tenant-comercial-mensagens.js?v=1"></script>
   <script src="js/tenant-comercial-lembretes.js?v=1"></script>
   <script src="js/tenant-comercial-cadastros.js?v=1"></script>
