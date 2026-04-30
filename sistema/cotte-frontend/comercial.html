@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="css/style.css?v=3">
   <link rel="stylesheet" href="css/precision-atelier.css?v=2">
-  <link rel="stylesheet" href="css/comercial.css?v=5">
+  <link rel="stylesheet" href="css/comercial.css?v=6">
   <link rel="stylesheet" href="css/comercial-precision.css?v=1">
 </head>
 <body>
@@ -527,6 +527,8 @@ Exemplos de formatos aceitos:
       <div class="modal-body">
         <form id="form-lead">
           <input type="hidden" id="lead-id">
+
+          <!-- ── Contato ── -->
           <div style="margin-bottom:16px">
             <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin-bottom:12px">👤 Contato</div>
             <div class="fr">
@@ -539,6 +541,40 @@ Exemplos de formatos aceitos:
             </div>
             <div class="fg"><label class="fl">Cidade</label><input type="text" class="fi" id="lead-cidade" placeholder="Cidade do lead"></div>
           </div>
+
+          <!-- ── Endereço (colapsado) ── -->
+          <details class="lead-accordion" id="accordion-endereco">
+            <summary>📍 Endereço <span class="lead-accordion-hint">(opcional — preencha pelo CEP)</span></summary>
+            <div class="lead-accordion-body">
+              <div class="cep-row">
+                <div class="fg"><label class="fl">CEP</label><input type="text" class="fi" id="lead-cep" placeholder="00000-000" maxlength="9" oninput="formatarCep(this)"></div>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-buscar-cep" onclick="buscarCepLead()">🔍 Buscar</button>
+              </div>
+              <div class="fr">
+                <div class="fg"><label class="fl">Logradouro</label><input type="text" class="fi" id="lead-logradouro" placeholder="Rua, Av, Travessa..."></div>
+                <div class="fg" style="max-width:120px"><label class="fl">Número</label><input type="text" class="fi" id="lead-numero" placeholder="Ex: 123"></div>
+              </div>
+              <div class="fr">
+                <div class="fg"><label class="fl">Complemento</label><input type="text" class="fi" id="lead-complemento" placeholder="Sala, Apto, Bloco..."></div>
+                <div class="fg"><label class="fl">Bairro</label><input type="text" class="fi" id="lead-bairro" placeholder="Bairro"></div>
+              </div>
+              <div class="fg" style="max-width:100px">
+                <label class="fl">UF</label>
+                <select class="fs" id="lead-uf">
+                  <option value="">UF</option>
+                  <option>AC</option><option>AL</option><option>AP</option><option>AM</option>
+                  <option>BA</option><option>CE</option><option>DF</option><option>ES</option>
+                  <option>GO</option><option>MA</option><option>MT</option><option>MS</option>
+                  <option>MG</option><option>PA</option><option>PB</option><option>PR</option>
+                  <option>PE</option><option>PI</option><option>RJ</option><option>RN</option>
+                  <option>RS</option><option>RO</option><option>RR</option><option>SC</option>
+                  <option>SP</option><option>SE</option><option>TO</option>
+                </select>
+              </div>
+            </div>
+          </details>
+
+          <!-- ── Negócio ── -->
           <div style="border-top:1px solid var(--border);padding-top:16px;margin-bottom:16px">
             <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin-bottom:12px">💼 Negócio</div>
             <div class="fr">
@@ -573,10 +609,36 @@ Exemplos de formatos aceitos:
               <div id="lead-proposta-vinculada-info" style="display:none;margin-top:10px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);font-size:12px;color:var(--color-on-surface-muted)"></div>
             </div>
           </div>
-          <div>
+
+          <!-- ── Observações ── -->
+          <div style="margin-bottom:16px">
             <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:12px">📝 Observações</div>
             <div class="fg"><textarea class="ft" id="lead-observacoes" placeholder="Informações adicionais sobre este lead..."></textarea></div>
           </div>
+
+          <!-- ── Primeiro Contato (colapsado) ── -->
+          <details class="lead-accordion" id="accordion-primeiro-contato">
+            <summary>📨 Primeiro Contato <span class="lead-accordion-hint">(enviar mensagem ao salvar)</span></summary>
+            <div class="lead-accordion-body">
+              <div class="fg">
+                <label class="fl">Template de mensagem</label>
+                <select class="fs" id="lead-template-id" onchange="atualizarPreviewTemplateLead()">
+                  <option value="">Nenhum (não enviar)</option>
+                </select>
+              </div>
+              <div id="lead-tpl-preview-area" style="display:none">
+                <div class="tpl-preview-inline" id="lead-tpl-preview"></div>
+              </div>
+              <div class="fg" style="margin-top:12px" id="lead-campanha-row" style="display:none">
+                <label class="fl">Incluir em campanha <span style="font-weight:400;color:var(--muted)">(opcional)</span></label>
+                <select class="fs" id="lead-campanha-id">
+                  <option value="">Não incluir em campanha</option>
+                </select>
+                <p style="font-size:11px;color:var(--muted);margin-top:4px">O lead será adicionado à campanha escolhida após o cadastro.</p>
+              </div>
+            </div>
+          </details>
+
         </form>
       </div>
       <footer class="modal-footer">
@@ -901,7 +963,7 @@ Exemplos de formatos aceitos:
   <!-- Comercial — módulos (ordem importa!) -->
   <script src="js/comercial-core.js?v=7"></script>
   <script src="js/comercial-dashboard.js?v=3"></script>
-  <script src="js/comercial-leads.js?v=3"></script>
+  <script src="js/comercial-leads.js?v=4"></script>
   <script src="js/comercial-pipeline.js?v=1"></script>
   <script src="js/TemplatesManager.js?v=1"></script>
   <script src="js/comercial-mensagens.js?v=1"></script>

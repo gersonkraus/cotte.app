@@ -651,6 +651,93 @@ function populateLeadSelects() {
   var oriSel = document.getElementById('lead-origem-id');
   segSel.innerHTML = '<option value="">Selecione...</option>' + segmentosCache.map(function(s) { return '<option value="' + s.id + '">' + esc(s.nome) + '</option>'; }).join('');
   oriSel.innerHTML = '<option value="">Selecione...</option>' + origensCache.map(function(o) { return '<option value="' + o.id + '">' + esc(o.nome) + '</option>'; }).join('');
+  popularTemplatesLead();
+  carregarCampanhasParaLead();
+}
+
+function popularTemplatesLead() {
+  var sel = document.getElementById('lead-template-id');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Nenhum (não enviar)</option>' +
+    (templatesCache || []).map(function(t) {
+      return '<option value="' + t.id + '">' + esc(t.nome) + ' (' + (t.canal || '') + ')</option>';
+    }).join('');
+}
+
+async function carregarCampanhasParaLead() {
+  var sel = document.getElementById('lead-campanha-id');
+  if (!sel) return;
+  try {
+    var camps = await api.get('/comercial/campaigns');
+    sel.innerHTML = '<option value="">Não incluir em campanha</option>' +
+      (camps || []).filter(function(c) { return c.status !== 'cancelada'; }).map(function(c) {
+        return '<option value="' + c.id + '">' + esc(c.nome) + '</option>';
+      }).join('');
+  } catch(_) {}
+}
+
+function formatarCep(input) {
+  var v = input.value.replace(/\D/g, '').slice(0, 8);
+  input.value = v.length > 5 ? v.slice(0,5) + '-' + v.slice(5) : v;
+}
+
+async function buscarCepLead() {
+  var cepInput = document.getElementById('lead-cep');
+  var btn = document.getElementById('btn-buscar-cep');
+  var cep = (cepInput.value || '').replace(/\D/g, '');
+  if (cep.length !== 8) { showToast('CEP deve ter 8 dígitos', 'error'); return; }
+  var origText = btn.textContent;
+  btn.textContent = '⏳';
+  btn.disabled = true;
+  try {
+    var r = await fetch('https://viacep.com.br/ws/' + cep + '/json/');
+    var d = await r.json();
+    if (d.erro) { showToast('CEP não encontrado', 'error'); return; }
+    var set = function(id, val) { var el = document.getElementById(id); if (el && val) el.value = val; };
+    set('lead-logradouro', d.logradouro);
+    set('lead-bairro', d.bairro);
+    set('lead-cidade', d.localidade);
+    set('lead-uf', d.uf);
+    document.getElementById('accordion-endereco').open = true;
+    showToast('Endereço preenchido!', 'success');
+  } catch(_) {
+    showToast('Erro ao buscar CEP', 'error');
+  } finally {
+    btn.textContent = origText;
+    btn.disabled = false;
+  }
+}
+
+function atualizarPreviewTemplateLead() {
+  var sel = document.getElementById('lead-template-id');
+  var previewArea = document.getElementById('lead-tpl-preview-area');
+  var previewEl = document.getElementById('lead-tpl-preview');
+  var campanhaRow = document.getElementById('lead-campanha-row');
+  if (!sel || !previewArea) return;
+  var tplId = parseInt(sel.value);
+  if (!tplId) {
+    previewArea.style.display = 'none';
+    if (campanhaRow) campanhaRow.style.display = 'none';
+    return;
+  }
+  var tpl = (templatesCache || []).find(function(t) { return t.id === tplId; });
+  if (!tpl) { previewArea.style.display = 'none'; return; }
+  var nome = document.getElementById('lead-nome-responsavel').value || '[nome]';
+  var empresa = document.getElementById('lead-nome-empresa').value || '[empresa]';
+  var cidade = document.getElementById('lead-cidade').value || '[cidade]';
+  var txt = (tpl.conteudo || '')
+    .replace(/\{nome\}/g, nome)
+    .replace(/\{empresa\}/g, empresa)
+    .replace(/\{cidade\}/g, cidade)
+    .replace(/\{plano\}/g, '[plano]')
+    .replace(/\{valor\}/g, '[valor]')
+    .replace(/\{segmento\}/g, '[segmento]')
+    .replace(/\{link_demo\}/g, '[link_demo]')
+    .replace(/\{link_proposta\}/g, '[link_proposta]');
+  var canalClass = tpl.canal === 'email' ? 'email' : tpl.canal === 'ambos' ? 'ambos' : '';
+  previewEl.innerHTML = '<span class="tpl-canal-badge ' + canalClass + '">' + (tpl.canal || 'whatsapp') + '</span> ' + esc(txt).replace(/\n/g, '<br>');
+  previewArea.style.display = 'block';
+  if (campanhaRow) campanhaRow.style.display = 'block';
 }
 
 async function carregarOpcoesPropostaLead() {
@@ -715,6 +802,19 @@ async function editarLead(id) {
     document.getElementById('lead-empresa-id').value = l.empresa_id || '';
     document.getElementById('lead-proposta-publica-id').value = '';
     document.getElementById('lead-proposta-validade').value = '7';
+    // Campos de endereço
+    document.getElementById('lead-cep').value = l.cep || '';
+    document.getElementById('lead-logradouro').value = l.logradouro || '';
+    document.getElementById('lead-numero').value = l.numero || '';
+    document.getElementById('lead-complemento').value = l.complemento || '';
+    document.getElementById('lead-bairro').value = l.bairro || '';
+    document.getElementById('lead-uf').value = l.uf || '';
+    if (l.cep || l.logradouro) document.getElementById('accordion-endereco').open = true;
+    // Limpar seção de primeiro contato ao editar
+    document.getElementById('lead-template-id').value = '';
+    document.getElementById('lead-campanha-id').value = '';
+    document.getElementById('lead-tpl-preview-area').style.display = 'none';
+    document.getElementById('accordion-primeiro-contato').open = false;
     await carregarResumoPropostaVinculadaLead(id);
     fecharModal('modal-detail');
     document.getElementById('modal-lead').classList.add('open');
@@ -733,6 +833,12 @@ async function salvarLead() {
     nome_responsavel: nr, nome_empresa: ne,
     whatsapp: wa || null, email: em || null,
     cidade: document.getElementById('lead-cidade').value || null,
+    cep: document.getElementById('lead-cep').value || null,
+    logradouro: document.getElementById('lead-logradouro').value || null,
+    numero: document.getElementById('lead-numero').value || null,
+    complemento: document.getElementById('lead-complemento').value || null,
+    bairro: document.getElementById('lead-bairro').value || null,
+    uf: document.getElementById('lead-uf').value || null,
     segmento_id: parseInt(document.getElementById('lead-segmento-id').value) || null,
     origem_lead_id: parseInt(document.getElementById('lead-origem-id').value) || null,
     interesse_plano: document.getElementById('lead-plano').value || null,
@@ -744,6 +850,8 @@ async function salvarLead() {
 
   var propostaPublicaId = parseInt(document.getElementById('lead-proposta-publica-id').value) || null;
   var validadeProposta = parseInt(document.getElementById('lead-proposta-validade').value) || 7;
+  var templateId = parseInt(document.getElementById('lead-template-id').value) || null;
+  var campanhaId = parseInt(document.getElementById('lead-campanha-id').value) || null;
 
   var btn = document.getElementById('btn-salvar-lead');
   await withBtnLoading(btn, async function() {
@@ -758,10 +866,22 @@ async function salvarLead() {
 
       if (propostaPublicaId && leadIdVinculo) {
         await vincularPropostaAoLead(leadIdVinculo, propostaPublicaId, validadeProposta, data);
-        showToast(leadAtualId ? 'Lead atualizado e proposta vinculada!' : 'Lead criado e proposta vinculada!', 'success');
-      } else {
-        showToast(leadAtualId ? 'Lead atualizado!' : 'Lead criado!', 'success');
       }
+
+      // Ações pós-save (apenas para novos leads ou quando template foi selecionado)
+      var acoes = [];
+      if (templateId && leadIdVinculo) {
+        acoes.push(api.post('/comercial/leads/' + leadIdVinculo + '/enviar-template', { template_id: templateId }).catch(function() {}));
+      }
+      if (campanhaId && leadIdVinculo) {
+        acoes.push(api.post('/comercial/campaigns/' + campanhaId + '/leads', { lead_ids: [leadIdVinculo] }).catch(function() {}));
+      }
+      if (acoes.length) await Promise.all(acoes);
+
+      var msg = leadAtualId ? 'Lead atualizado!' : 'Lead criado!';
+      if (propostaPublicaId) msg = msg.replace('!', ' e proposta vinculada!');
+      if (campanhaId) msg = msg.replace('!', ' e adicionado à campanha!');
+      showToast(msg, 'success');
 
       fecharModal('modal-lead');
       carregarPipeline(); carregarDashboard(); carregarLeadsTabela();

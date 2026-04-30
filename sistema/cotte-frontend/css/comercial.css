@@ -682,3 +682,85 @@
 .btn-var-badge:active {
   transform: translateY(0);
 }
+
+/* ── Lead Form Accordions ── */
+.lead-accordion {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.lead-accordion summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--accent);
+  background: var(--surface-2, var(--surface));
+  transition: background .15s;
+}
+.lead-accordion summary::-webkit-details-marker { display: none; }
+.lead-accordion summary::after {
+  content: '▸';
+  margin-left: auto;
+  transition: transform .2s;
+  font-size: 10px;
+  color: var(--muted);
+}
+.lead-accordion[open] summary::after { transform: rotate(90deg); }
+.lead-accordion summary:hover { background: var(--surface-hover, #f0f0f0); }
+.lead-accordion-hint {
+  font-weight: 400;
+  text-transform: none;
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0;
+}
+.lead-accordion-body {
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--border);
+}
+
+/* Cep row */
+.cep-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.cep-row .fg { flex: 0 0 160px; margin-bottom: 0; }
+
+/* Template preview inline */
+.tpl-preview-inline {
+  background: var(--surface-2, #f8f8f8);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-top: 8px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+.tpl-canal-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-left: 6px;
+  background: #10b98120;
+  color: #059669;
+}
+.tpl-canal-badge.email { background: #3b82f620; color: #2563eb; }
+.tpl-canal-badge.ambos { background: #f59e0b20; color: #d97706; }

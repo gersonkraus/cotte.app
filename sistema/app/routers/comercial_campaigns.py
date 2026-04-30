@@ -149,6 +149,49 @@ async def disparo_campaign(
     return {"message": "Disparo iniciado em background"}
 
 
+@router.post("/{campaign_id}/leads")
+async def add_leads_to_campaign(
+    campaign_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("comercial", "escrita"))
+):
+    """Adiciona leads a uma campanha existente."""
+    empresa = db.query(Empresa).filter(Empresa.id == current_user.empresa_id).first()
+    if not empresa:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+
+    campaign = db.query(Campaign).filter(
+        Campaign.id == campaign_id,
+        Campaign.empresa_id == empresa.id
+    ).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campanha não encontrada")
+
+    lead_ids = body.get("lead_ids", [])
+    if not lead_ids:
+        raise HTTPException(status_code=400, detail="Nenhum lead informado")
+
+    existentes = {
+        cl.lead_id for cl in db.query(CampaignLead).filter(
+            CampaignLead.campaign_id == campaign_id
+        ).all()
+    }
+
+    novos = []
+    for lid in lead_ids:
+        if lid not in existentes:
+            lead = db.query(CommercialLead).filter(CommercialLead.id == lid).first()
+            if lead:
+                novos.append(CampaignLead(campaign_id=campaign_id, lead_id=lid, status="pendente"))
+
+    if novos:
+        db.add_all(novos)
+        db.commit()
+
+    return {"adicionados": len(novos), "ja_existentes": len(lead_ids) - len(novos)}
+
+
 @router.get("/{campaign_id}/leads", response_model=List[CampaignLeadOut])
 async def list_campaign_leads(
     campaign_id: int,

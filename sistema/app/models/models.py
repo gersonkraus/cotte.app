@@ -1614,6 +1614,12 @@ class CommercialLead(Base):
     whatsapp = Column(String(20), nullable=True)
     email = Column(String(100), nullable=True)
     cidade = Column(String(100), nullable=True)
+    cep = Column(String(9), nullable=True)
+    logradouro = Column(String(200), nullable=True)
+    numero = Column(String(20), nullable=True)
+    complemento = Column(String(100), nullable=True)
+    bairro = Column(String(100), nullable=True)
+    uf = Column(String(2), nullable=True)
     # FKs para cadastros auxiliares
     segmento_id = Column(Integer, ForeignKey("commercial_segments.id"), nullable=True)
     origem_lead_id = Column(

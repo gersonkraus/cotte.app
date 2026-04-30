@@ -671,6 +671,74 @@ def recalcular_score(
     return {"lead_score": lead.lead_score.value}
 
 
+@router.post("/leads/{lead_id}/enviar-template")
+async def enviar_template_para_lead(
+    lead_id: int,
+    payload: dict = Body(...),
+    db: Session = Depends(get_db),
+    _=Depends(get_superadmin),
+):
+    """Envia um template de mensagem para um lead específico (pós-cadastro)."""
+    lead = db.query(CommercialLead).filter(CommercialLead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+
+    template_id = payload.get("template_id")
+    if not template_id:
+        raise HTTPException(status_code=400, detail="template_id obrigatório")
+
+    template = db.query(CommercialTemplate).filter(
+        CommercialTemplate.id == template_id,
+        CommercialTemplate.ativo == True,
+    ).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Template não encontrado")
+
+    conteudo = template.conteudo or ""
+    for var, valor in {
+        "{nome}": lead.nome_responsavel or "",
+        "{empresa}": lead.nome_empresa or "",
+        "{cidade}": lead.cidade or "",
+        "{plano}": str(lead.interesse_plano.value) if lead.interesse_plano else "",
+        "{valor}": str(lead.valor_proposto) if lead.valor_proposto else "",
+        "{{nome}}": lead.nome_responsavel or "",
+        "{{empresa}}": lead.nome_empresa or "",
+        "{{cidade}}": lead.cidade or "",
+    }.items():
+        conteudo = conteudo.replace(var, valor)
+
+    canal = template.canal.value if hasattr(template.canal, "value") else str(template.canal)
+    enviado = False
+
+    if canal in ("whatsapp", "ambos") and lead.whatsapp:
+        enviado = await enviar_mensagem_texto(lead.whatsapp, conteudo)
+    if canal in ("email", "ambos") and lead.email:
+        try:
+            await send_email_simples(
+                destinatario=lead.email,
+                assunto=template.assunto or template.nome,
+                mensagem=conteudo,
+            )
+            enviado = True
+        except Exception:
+            pass
+
+    if enviado:
+        interacao = CommercialInteraction(
+            lead_id=lead.id,
+            tipo=TipoInteracao.WHATSAPP if canal != "email" else TipoInteracao.EMAIL,
+            canal=CanalInteracao.WHATSAPP if canal != "email" else CanalInteracao.EMAIL,
+            conteudo=f"Primeiro contato via template: {template.nome}",
+            status_envio="enviado",
+            enviado_em=datetime.now(timezone.utc),
+        )
+        db.add(interacao)
+        lead.ultimo_contato_em = datetime.now(timezone.utc)
+        db.commit()
+
+    return {"enviado": enviado, "canal": canal}
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # CRIAÇÃO DE EMPRESA A PARTIR DO LEAD
 # ═══════════════════════════════════════════════════════════════════════════════
