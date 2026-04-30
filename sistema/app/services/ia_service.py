@@ -13,6 +13,10 @@ from typing import List, Dict, Any, Optional
 
 try:
     from litellm import acompletion, completion
+    import litellm
+    if os.getenv("LITELLM_DEBUG", "").lower() in ("1", "true", "debug"):
+        litellm.set_verbose = True
+        logger.info("[LiteLLM] Debug mode enabled via LITELLM_DEBUG=1")
 except (
     ModuleNotFoundError
 ):  # pragma: no cover - fallback para ambiente de teste/local sem dependência opcional
