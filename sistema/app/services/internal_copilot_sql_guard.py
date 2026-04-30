@@ -12,14 +12,13 @@ _FROM_PATTERN = re.compile(r"\bfrom\s+([a-zA-Z_][\w]*)", re.IGNORECASE)
 _LIMIT_PATTERN = re.compile(r"\blimit\b", re.IGNORECASE)
 _WHERE_PATTERN = re.compile(r"\bwhere\b", re.IGNORECASE)
 _UNSUPPORTED_SELECT_PATTERN = re.compile(r"\bunion\b", re.IGNORECASE)
-_LLM_EMPRESA_BIND = re.compile(
-    r"""
-    \b(?:AND|WHERE)\s+
-    (?:\w+\.)?empresa_id\s*=\s*
-    %\(?empresa_id\)?s            # %(empresa_id)s  ou  %(empresa_id)s
-    (?:\s+AND\b)?                 # AND seguinte (sera removido tambem)
-    """,
-    re.IGNORECASE | re.VERBOSE,
+_LLM_EMPRESA_BIND_WHERE = re.compile(
+    r"\bWHERE\s+(?:\w+\.)?empresa_id\s*=\s*%\(?empresa_id\)?s\s*(?:AND\s+)?",
+    re.IGNORECASE,
+)
+_LLM_EMPRESA_BIND_AND = re.compile(
+    r"\bAND\s+(?:\w+\.)?empresa_id\s*=\s*%\(?empresa_id\)?s\s*(?:AND\s+)?",
+    re.IGNORECASE,
 )
 
 
@@ -60,8 +59,11 @@ def validate_sql_query(*, sql: str, empresa_id: int, allowed_tables: Mapping[str
 
 def _strip_llm_empresa_bind(sql: str) -> str:
     """Remove condicoes de empresa com bind parameters que o LLM inseriu."""
-    cleaned = _LLM_EMPRESA_BIND.sub("", sql)
-    return " ".join(cleaned.split())
+    if _LLM_EMPRESA_BIND_WHERE.search(sql):
+        sql = _LLM_EMPRESA_BIND_WHERE.sub("WHERE ", sql)
+    if _LLM_EMPRESA_BIND_AND.search(sql):
+        sql = _LLM_EMPRESA_BIND_AND.sub("", sql)
+    return " ".join(sql.split())
 
 
 def _inject_empresa_filter(sql: str, table_name: str, empresa_column: str, empresa_id: int) -> str:
