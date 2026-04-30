@@ -20,6 +20,12 @@ ENGINE_ANALYTICS = "analytics"
 ENGINE_DOCUMENTAL = "documental"
 ENGINE_INTERNAL_COPILOT = "internal_copilot"
 
+_INTERNAL_COPILOT_CODE_RAG_TOOLS = {
+    "ler_arquivo_repositorio",
+    "buscar_codigo_repositorio",
+    "analisar_estrutura_html",
+}
+
 DEFAULT_ENGINE = ENGINE_OPERATIONAL
 
 
@@ -137,6 +143,8 @@ ENGINE_POLICIES: dict[str, EnginePolicy] = {
             "gerar_relatorio_dinamico",
             "listar_clientes",
             "listar_orcamentos",
+            "resumo_catalogo",
+            "listar_materiais",
         ),
         allow_tenant_rag=False,
         allow_business_context=False,
@@ -150,6 +158,8 @@ CAPABILITY_FLAGS = {
     "engine_analitica": "V2_ANALYTICS_ENGINE",
     "engine_documental": "V2_DOCUMENT_ENGINE",
     "copiloto_interno": "V2_INTERNAL_COPILOT",
+    "copiloto_interno_autonomia": "V2_INTERNAL_COPILOT_AUTONOMY",
+    "copiloto_interno_autonomia_shadow": "V2_INTERNAL_COPILOT_AUTONOMY_SHADOW",
     "code_rag_tecnico": "V2_CODE_RAG",
     "sql_agent": "V2_SQL_AGENT",
     "langgraph_orchestration": "V2_LANGGRAPH_ORCHESTRATION",
@@ -207,6 +217,14 @@ def is_internal_copilot_enabled() -> bool:
     return _env_flag(CAPABILITY_FLAGS["copiloto_interno"], default=False)
 
 
+def is_internal_copilot_autonomy_enabled() -> bool:
+    return _env_flag(CAPABILITY_FLAGS["copiloto_interno_autonomia"], default=False)
+
+
+def is_internal_copilot_shadow_enabled() -> bool:
+    return _env_flag(CAPABILITY_FLAGS["copiloto_interno_autonomia_shadow"], default=False)
+
+
 def is_sql_agent_enabled() -> bool:
     return _env_flag(CAPABILITY_FLAGS["sql_agent"], default=False)
 
@@ -216,7 +234,8 @@ def is_code_rag_enabled() -> bool:
 
 
 def tools_payload_for_engine(engine: str | None) -> list[dict[str, Any]]:
-    policy = ENGINE_POLICIES[resolve_engine(engine)]
+    resolved_engine = resolve_engine(engine)
+    policy = ENGINE_POLICIES[resolved_engine]
     allowed = set(policy.allowed_tools)
     payload: list[dict[str, Any]] = []
     for item in openai_tools_payload():
@@ -224,9 +243,15 @@ def tools_payload_for_engine(engine: str | None) -> list[dict[str, Any]]:
         if name == "executar_sql_analitico" and not is_sql_agent_enabled():
             continue
         if (
-            resolve_engine(engine) == ENGINE_INTERNAL_COPILOT
+            resolved_engine == ENGINE_INTERNAL_COPILOT
             and name == "executar_sql_analitico"
             and not is_sql_agent_enabled()
+        ):
+            continue
+        if (
+            resolved_engine == ENGINE_INTERNAL_COPILOT
+            and name in _INTERNAL_COPILOT_CODE_RAG_TOOLS
+            and not is_code_rag_enabled()
         ):
             continue
         if name and name in allowed:

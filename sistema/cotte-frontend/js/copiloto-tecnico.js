@@ -151,6 +151,9 @@
 
   function _extractTabularRows(payload) {
     if (!payload || typeof payload !== "object") return [];
+    var autonomyPayload = _extractAutonomyPayload(payload);
+    if (Array.isArray(autonomyPayload.table) && autonomyPayload.table.length) return autonomyPayload.table;
+
     var dados = payload.dados && typeof payload.dados === "object" ? payload.dados : null;
     var data = payload.data && typeof payload.data === "object" ? payload.data : null;
     var dataNested = data && data.data && typeof data.data === "object" ? data.data : null;
@@ -341,25 +344,107 @@
     return "";
   }
 
+  function _firstNonEmptyArray(values) {
+    for (var i = 0; i < values.length; i += 1) {
+      if (Array.isArray(values[i]) && values[i].length) {
+        return values[i];
+      }
+    }
+    return [];
+  }
+
+  function _firstObject(values) {
+    for (var i = 0; i < values.length; i += 1) {
+      if (values[i] && typeof values[i] === "object" && !Array.isArray(values[i])) {
+        return values[i];
+      }
+    }
+    return null;
+  }
+
+  function _extractSemanticContract(payload) {
+    if (!payload || typeof payload !== "object") return null;
+
+    var nestedData = payload.data && typeof payload.data === "object" ? payload.data : null;
+    var nestedDados = payload.dados && typeof payload.dados === "object" ? payload.dados : null;
+    var dataNested = nestedData && nestedData.data && typeof nestedData.data === "object" ? nestedData.data : null;
+    var dadosNested = nestedDados && nestedDados.dados && typeof nestedDados.dados === "object" ? nestedDados.dados : null;
+
+    return _firstObject([
+      payload.semantic_contract,
+      nestedData && nestedData.semantic_contract,
+      nestedDados && nestedDados.semantic_contract,
+      dataNested && dataNested.semantic_contract,
+      dadosNested && dadosNested.semantic_contract,
+    ]);
+  }
+
+  function _extractAutonomyPayload(payload) {
+    if (!payload || typeof payload !== "object") {
+      return { answer: "", summary: "", table: [], safety: null, needsConfirmation: false };
+    }
+
+    var nestedData = payload.data && typeof payload.data === "object" ? payload.data : null;
+    var nestedDados = payload.dados && typeof payload.dados === "object" ? payload.dados : null;
+    var semantic = _extractSemanticContract(payload);
+    var safety = _firstObject([
+      semantic && semantic.safety,
+      nestedData && nestedData.safety,
+      nestedDados && nestedDados.safety,
+      payload.safety,
+    ]);
+    var needsConfirmation =
+      typeof (semantic && semantic.needs_confirmation) === "boolean"
+        ? semantic.needs_confirmation
+        : typeof (nestedData && nestedData.needs_confirmation) === "boolean"
+          ? nestedData.needs_confirmation
+          : typeof (nestedDados && nestedDados.needs_confirmation) === "boolean"
+            ? nestedDados.needs_confirmation
+            : typeof payload.needs_confirmation === "boolean"
+              ? payload.needs_confirmation
+              : typeof (safety && safety.needs_confirmation) === "boolean"
+                ? safety.needs_confirmation
+                : false;
+
+    return {
+      answer: _firstNonEmptyString([
+        semantic && semantic.answer,
+        nestedData && nestedData.answer,
+        nestedDados && nestedDados.answer,
+        payload.answer,
+      ]),
+      summary: _firstNonEmptyString([
+        semantic && semantic.summary,
+        nestedData && nestedData.summary,
+        nestedDados && nestedDados.summary,
+        payload.summary,
+      ]),
+      table: _firstNonEmptyArray([
+        semantic && semantic.table,
+        nestedData && nestedData.table,
+        nestedDados && nestedDados.table,
+        payload.table,
+      ]),
+      safety: safety,
+      needsConfirmation: needsConfirmation,
+    };
+  }
+
   function resolveCopilotReply(payload) {
     if (!payload || typeof payload !== "object") {
       return "";
     }
 
+    var autonomyPayload = _extractAutonomyPayload(payload);
+    if (autonomyPayload.answer && autonomyPayload.summary && autonomyPayload.answer !== autonomyPayload.summary) {
+      return autonomyPayload.answer + "\n\n" + autonomyPayload.summary;
+    }
+    if (autonomyPayload.answer || autonomyPayload.summary) {
+      return autonomyPayload.answer || autonomyPayload.summary;
+    }
+
     var nestedData = payload.data && typeof payload.data === "object" ? payload.data : null;
     var nestedDados = payload.dados && typeof payload.dados === "object" ? payload.dados : null;
-    var semanticFromData =
-      nestedData &&
-      nestedData.semantic_contract &&
-      typeof nestedData.semantic_contract === "object"
-        ? nestedData.semantic_contract
-        : null;
-    var semanticFromDados =
-      nestedDados &&
-      nestedDados.semantic_contract &&
-      typeof nestedDados.semantic_contract === "object"
-        ? nestedDados.semantic_contract
-        : null;
 
     return _firstNonEmptyString([
       payload.resposta,
@@ -372,9 +457,38 @@
       nestedDados && nestedDados.resposta,
       nestedDados && nestedDados.mensagem,
       nestedDados && nestedDados.message,
-      semanticFromData && semanticFromData.summary,
-      semanticFromDados && semanticFromDados.summary,
     ]);
+  }
+
+  function renderSafetyState(container, autonomyPayload) {
+    if (!container || !autonomyPayload) return;
+
+    var safety = autonomyPayload.safety;
+    var hasSafety = !!(safety && typeof safety === "object");
+    if (!hasSafety && !autonomyPayload.needsConfirmation) return;
+
+    var state = document.createElement("div");
+    var tone = autonomyPayload.needsConfirmation ? "#92400e" : "#1f2937";
+    var border = autonomyPayload.needsConfirmation ? "#f59e0b" : "var(--border-color, #d1d5db)";
+    var bg = autonomyPayload.needsConfirmation ? "#fffbeb" : "#f8fafc";
+    var parts = ["Segurança: " + String((safety && safety.mode) || "unknown")];
+
+    if (autonomyPayload.needsConfirmation) {
+      parts.push("confirmação necessária");
+    }
+    if (safety && typeof safety.reason === "string" && safety.reason.trim()) {
+      parts.push(safety.reason.trim());
+    }
+
+    state.textContent = parts.join(" | ");
+    state.style.marginTop = "12px";
+    state.style.padding = "10px 12px";
+    state.style.borderRadius = "10px";
+    state.style.border = "1px solid " + border;
+    state.style.background = bg;
+    state.style.color = tone;
+    state.style.fontSize = "0.85rem";
+    container.appendChild(state);
   }
 
   function _stringifyTechnicalRow(row) {
@@ -590,11 +704,16 @@
     inputEl.value = "";
     setSending(true);
     try {
+      // Expectativa de falha da Task 5: quando a API retornar `data`
+      // ou `dados.semantic_contract` com `answer`, `summary`, `table`,
+      // `safety` e `needs_confirmation`, a UI precisa renderizar esses
+      // campos sem depender apenas do formato legado.
       var res = await api.post("/ai/copiloto-interno", {
         mensagem: raw,
         sessao_id: ensureSessionId(),
       });
       var payload = res || {};
+      var autonomyPayload = _extractAutonomyPayload(payload);
       var botReply = resolveCopilotReply(payload);
       if (!botReply) {
         botReply = buildTechnicalFallbackReply(payload);
@@ -614,6 +733,10 @@
       var tableRows = _extractTabularRows(payload);
       if (msgNode && Array.isArray(tableRows) && tableRows.length) {
         renderDataTable(msgNode, tableRows);
+      }
+
+      if (msgNode) {
+        renderSafetyState(msgNode, autonomyPayload);
       }
 
       if (chartConfig && msgNode) {
@@ -836,7 +959,7 @@
 
       debugBtn.addEventListener('click', function() {
         debugPanelOpen = !debugPanelOpen;
-        debugPanel.style.display = debugPanelOpen ? 'flex' : 'none';
+        if (debugPanel) debugPanel.style.display = debugPanelOpen ? 'flex' : 'none';
         debugBtn.classList.toggle('active', debugPanelOpen);
         localStorage.setItem('copiloto_debug_open', debugPanelOpen);
         if (debugPanelOpen && lastDebugPayload) {
@@ -847,8 +970,8 @@
 
     if (debugCloseBtn) {
       debugCloseBtn.addEventListener('click', function() {
-        debugPanel.style.display = 'none';
-        debugBtn.classList.remove('active');
+        if (debugPanel) debugPanel.style.display = 'none';
+        if (debugBtn) debugBtn.classList.remove('active');
         debugPanelOpen = false;
         localStorage.setItem('copiloto_debug_open', 'false');
       });

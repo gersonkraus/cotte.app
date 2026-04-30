@@ -8,8 +8,9 @@ import logging
 import csv
 import io
 import base64
+from types import SimpleNamespace
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import Optional, Literal
@@ -18,7 +19,7 @@ from pydantic import BaseModel, Field
 logger = logging.getLogger(__name__)
 
 from app.core.config import settings
-from app.core.database import get_db
+from app.core.database import SessionLocal, get_db
 from app.services.cotte_ai_hub import ai_hub, AIResponse
 from app.services.ia_service import ia_service
 from app.core.auth import get_usuario_atual as get_current_user, exigir_permissao, exigir_modulo
@@ -28,10 +29,13 @@ from app.services.assistant_engine_registry import (
     ENGINE_INTERNAL_COPILOT,
     is_code_rag_enabled,
     is_engine_available_for_user,
+    is_internal_copilot_autonomy_enabled,
+    is_internal_copilot_shadow_enabled,
     is_sql_agent_enabled,
     list_capabilities,
     resolve_engine,
 )
+from app.services.internal_copilot_autonomy_runtime import run_internal_copilot_autonomy
 from app.services.operational_engine_service import (
     run_agendamento_operational_flow,
     get_operational_catalog,
@@ -81,6 +85,100 @@ def _request_id_from_http(request: Request) -> str | None:
 def _require_superadmin(current_user: Usuario) -> None:
     if not bool(getattr(current_user, "is_superadmin", False)):
         raise HTTPException(status_code=403, detail="Acesso restrito a superadmin.")
+
+
+def _build_internal_copilot_autonomy_ai_response(result: dict | AIResponse) -> AIResponse:
+    if isinstance(result, AIResponse):
+        return result
+
+    payload = result if isinstance(result, dict) else {}
+    success = bool(payload.get("sucesso", payload.get("success", False)))
+    data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+    dados = payload.get("dados") if isinstance(payload.get("dados"), dict) else {}
+    semantic_contract = dados.get("semantic_contract")
+    if not isinstance(semantic_contract, dict):
+        semantic_contract = {
+            "answer": data.get("answer"),
+            "summary": data.get("summary"),
+            "table": data.get("table") or [],
+            "safety": data.get("safety") or {},
+            "needs_confirmation": bool(data.get("needs_confirmation")),
+            "suggested_followups": data.get("suggested_followups") or [],
+        }
+
+    dados_out = dict(dados)
+    dados_out["semantic_contract"] = semantic_contract
+
+    resposta = semantic_contract.get("answer") or data.get("answer") or semantic_contract.get("summary") or data.get("summary") or payload.get("error") or ""
+    erros = [str(payload.get("error"))] if payload.get("error") else []
+    return AIResponse(
+        sucesso=success,
+        resposta=resposta,
+        tipo_resposta="copiloto_interno_autonomy",
+        confianca=0.95 if success else 0.5,
+        modulo_origem="internal_copilot_autonomy",
+        dados=dados_out,
+        erros=erros,
+        fallback_utilizado=False,
+    )
+
+
+async def _run_internal_copilot_autonomy_shadow(
+    *,
+    current_user_id: int | None,
+    current_user_empresa_id: int | None,
+    current_user_is_superadmin: bool,
+    current_user_is_gestor: bool,
+    mensagem: str,
+    sessao_id: str,
+    request_id: str | None,
+) -> None:
+    shadow_db = SessionLocal()
+    try:
+        current_user = SimpleNamespace(
+            id=current_user_id,
+            empresa_id=current_user_empresa_id,
+            is_superadmin=current_user_is_superadmin,
+            is_gestor=current_user_is_gestor,
+        )
+        await run_internal_copilot_autonomy(
+            mensagem=mensagem,
+            sessao_id=sessao_id,
+            db=shadow_db,
+            current_user=current_user,
+            request_id=request_id,
+        )
+    except Exception:
+        logger.exception(
+            "Shadow do runtime autonomo do copiloto interno falhou",
+            extra={
+                "sessao_id": sessao_id,
+                "usuario_id": current_user_id,
+            },
+        )
+    finally:
+        shadow_db.info.pop("_tenant_context", None)
+        shadow_db.close()
+
+
+def _schedule_internal_copilot_autonomy_shadow(
+    *,
+    background_tasks: BackgroundTasks,
+    current_user: Usuario,
+    mensagem: str,
+    sessao_id: str,
+    request_id: str | None,
+) -> None:
+    background_tasks.add_task(
+        _run_internal_copilot_autonomy_shadow,
+        current_user_id=getattr(current_user, "id", None),
+        current_user_empresa_id=getattr(current_user, "empresa_id", None),
+        current_user_is_superadmin=bool(getattr(current_user, "is_superadmin", False)),
+        current_user_is_gestor=bool(getattr(current_user, "is_gestor", False)),
+        mensagem=mensagem,
+        sessao_id=sessao_id,
+        request_id=request_id,
+    )
 
 
 # ── Schemas de Requisição ───────────────────────────────────────────────────
@@ -1348,6 +1446,7 @@ async def ai_rollout_plan_update(
 async def copiloto_tecnico_interno(
     request: AICopilotoRequest,
     http_request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
 ):
@@ -1369,16 +1468,36 @@ async def copiloto_tecnico_interno(
             detail="Copiloto técnico interno indisponível para este usuário/ambiente.",
         )
 
+    request_id = _request_id_from_http(http_request)
+    if is_internal_copilot_autonomy_enabled():
+        result = await run_internal_copilot_autonomy(
+            mensagem=request.mensagem,
+            sessao_id=request.sessao_id,
+            db=db,
+            current_user=current_user,
+            request_id=request_id,
+        )
+        return _build_internal_copilot_autonomy_ai_response(result)
+
     from app.services.cotte_ai_hub import assistente_unificado_v2
 
-    return await assistente_unificado_v2(
+    legacy_response = await assistente_unificado_v2(
         mensagem=request.mensagem,
         sessao_id=request.sessao_id,
         db=db,
         current_user=current_user,
         engine=ENGINE_INTERNAL_COPILOT,
-        request_id=_request_id_from_http(http_request),
+        request_id=request_id,
     )
+    if is_internal_copilot_shadow_enabled():
+        _schedule_internal_copilot_autonomy_shadow(
+            background_tasks=background_tasks,
+            mensagem=request.mensagem,
+            sessao_id=request.sessao_id,
+            current_user=current_user,
+            request_id=request_id,
+        )
+    return legacy_response
 
 
 @router.post("/copiloto-interno/consulta-tecnica")
