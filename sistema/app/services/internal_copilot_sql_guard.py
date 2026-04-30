@@ -12,6 +12,15 @@ _FROM_PATTERN = re.compile(r"\bfrom\s+([a-zA-Z_][\w]*)", re.IGNORECASE)
 _LIMIT_PATTERN = re.compile(r"\blimit\b", re.IGNORECASE)
 _WHERE_PATTERN = re.compile(r"\bwhere\b", re.IGNORECASE)
 _UNSUPPORTED_SELECT_PATTERN = re.compile(r"\bunion\b", re.IGNORECASE)
+_LLM_EMPRESA_BIND = re.compile(
+    r"""
+    \b(?:AND|WHERE)\s+
+    (?:\w+\.)?empresa_id\s*=\s*
+    %\(?empresa_id\)?s            # %(empresa_id)s  ou  %(empresa_id)s
+    (?:\s+AND\b)?                 # AND seguinte (sera removido tambem)
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
 
 
 def validate_sql_query(*, sql: str, empresa_id: int, allowed_tables: Mapping[str, Mapping[str, str]]) -> CopilotSafetyDecision:
@@ -49,7 +58,14 @@ def validate_sql_query(*, sql: str, empresa_id: int, allowed_tables: Mapping[str
     return CopilotSafetyDecision(allowed=True, mode="read_only", rewritten_sql=rewritten_sql)
 
 
+def _strip_llm_empresa_bind(sql: str) -> str:
+    """Remove condicoes de empresa com bind parameters que o LLM inseriu."""
+    cleaned = _LLM_EMPRESA_BIND.sub("", sql)
+    return " ".join(cleaned.split())
+
+
 def _inject_empresa_filter(sql: str, table_name: str, empresa_column: str, empresa_id: int) -> str:
+    sql = _strip_llm_empresa_bind(sql)
     tenant_filter = f"{table_name}.{empresa_column} = {empresa_id}"
     if tenant_filter.lower() in sql.lower():
         return sql
