@@ -7,6 +7,7 @@ import os
 from dataclasses import dataclass
 
 from app.services.ia_service import ia_service
+from app.services.assistant_autonomy.schema_context import get_schema_context_for_llm, resolve_table_name
 
 
 @dataclass(frozen=True)
@@ -14,6 +15,8 @@ class LLMSqlPlan:
     sql: str | None
     rationale: str
     used: bool
+    input_tokens: int = 0
+    output_tokens: int = 0
 
 
 def llm_sql_planner_enabled() -> bool:
@@ -28,8 +31,13 @@ def llm_sql_planner_enabled() -> bool:
 async def try_generate_sql_from_llm(message: str, *, period_days: int, historico: str = "") -> LLMSqlPlan:
     if not llm_sql_planner_enabled():
         return LLMSqlPlan(sql=None, rationale="LLM SQL planner desabilitado.", used=False)
+    
+    schema_ctx = get_schema_context_for_llm()
+    
     prompt = (
-        "Gere APENAS SQL PostgreSQL read-only (SELECT/CTE), com filtro obrigatório "
+        f"{schema_ctx}\n\n"
+        "---\n\n"
+        "Com base no schema acima, gere APENAS SQL PostgreSQL read-only (SELECT/CTE), com filtro obrigatório "
         "empresa_id = :empresa_id, sem ; no final, sem UNION e sem subqueries EXISTS/IN. "
         f"Período padrão: {period_days} dias. Histórico da conversa (se houver): {historico!r}. Pedido do usuário: {message!r}. "
         "Retorne JSON: {\"sql\": \"...\", \"rationale\": \"...\"}."
@@ -40,11 +48,14 @@ async def try_generate_sql_from_llm(message: str, *, period_days: int, historico
             temperature=0.0,
             max_tokens=450,
         )
+        usage = (resp or {}).get("usage") or {}
+        input_t = int(usage.get("prompt_tokens", 0) or 0)
+        output_t = int(usage.get("completion_tokens", 0) or 0)
         choices = (resp or {}).get("choices") or []
         content = (((choices[0] or {}).get("message") or {}).get("content") or "") if choices else ""
         data = json.loads(content) if content else {}
         sql = str(data.get("sql") or "").strip() or None
         rationale = str(data.get("rationale") or "LLM SQL planner")
-        return LLMSqlPlan(sql=sql, rationale=rationale, used=bool(sql))
+        return LLMSqlPlan(sql=sql, rationale=rationale, used=bool(sql), input_tokens=input_t, output_tokens=output_t)
     except Exception as exc:
         return LLMSqlPlan(sql=None, rationale=f"Falha no LLM SQL planner: {exc}", used=False)

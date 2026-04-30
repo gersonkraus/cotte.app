@@ -4,6 +4,7 @@
   var sendBtn = null;
   var sending = false;
   var sessaoId = null;
+  var sessionTokenLog = {};
 
   function ensureSessionId() {
     if (sessaoId) return sessaoId;
@@ -769,6 +770,8 @@
         messagesEl.lastElementChild.appendChild(badge);
       }
 
+      _accumulateSessionTokens(sessaoId, tIn || 0, tOut || 0);
+
       renderDebugPanel(payload, sessaoId);
     } catch (err) {
       addMessage((err && err.message) || "Falha ao consultar o copiloto interno.", "bot");
@@ -1013,12 +1016,17 @@
     var tipoResposta = '-';
     var continuidade = false;
     var rationale = '-';
+    var llmRationale = '';
 
     if (ctx.rota_primaria) route = ctx.rota_primaria;
     if (ctx.subagente_primario) subagentePrimario = ctx.subagente_primario;
     if (ctx.subagentes_secundarios) subagentesSecundarios = ctx.subagentes_secundarios;
     if (ctx.tipo_resposta_esperada) tipoResposta = ctx.tipo_resposta_esperada;
     if (ctx.continuidade_aplicada !== undefined) continuidade = ctx.continuidade_aplicada;
+
+    var sc = data.semantic_contract || data.dados?.semantic_contract || {};
+    if (sc.llm_rationale) llmRationale = sc.llm_rationale;
+    if (!llmRationale && data.llm_rationale) llmRationale = data.llm_rationale;
 
     tabSup.innerHTML = ''
       + '<div class="debug-section">'
@@ -1041,6 +1049,12 @@
       + '<div class="debug-section-title">Continuidade Aplicada</div>'
       + '<div class="debug-value">' + (continuidade ? 'Sim' : 'Não') + '</div>'
       + '</div>'
+      + (llmRationale ? (
+        '<div class="debug-section">'
+        + '<div class="debug-section-title">LLM Rationale</div>'
+        + '<div class="debug-value" style="color:#6ee7b7;font-style:italic;">' + escapeHtml(llmRationale) + '</div>'
+        + '</div>'
+      ) : '')
       + '<div class="debug-tokens">'
       + '<span class="debug-token-in">↑ ' + (payload.input_tokens || 0) + '</span>'
       + '<span class="debug-token-out">↓ ' + (payload.output_tokens || 0) + '</span>'
@@ -1117,11 +1131,26 @@
     ctxHtml += '</div>';
     tabCtx.innerHTML = ctxHtml;
 
+    var sessSummary = _getSessionTokenSummary(currentSessaoId);
+
     tabSes.innerHTML = ''
       + '<div class="debug-section">'
       + '<div class="debug-section-title">Sessão ID</div>'
       + '<div class="debug-meta">' + (currentSessaoId || '-') + '</div>'
       + '</div>'
+      + (sessSummary ? (
+        '<div class="debug-section">'
+        + '<div class="debug-section-title">Tokens da Sessão</div>'
+        + '<div class="debug-tokens">'
+        + '<span class="debug-token-in">\u2191 ' + sessSummary.total_in + '</span>'
+        + '<span class="debug-token-out">\u2193 ' + sessSummary.total_out + '</span>'
+        + '<span class="debug-token-in">\u03A3 ' + sessSummary.total + '</span>'
+        + '</div>'
+        + '<div class="debug-value" style="margin-top:4px;font-size:11px;color:#9ca3af;">'
+        + sessSummary.messages + ' mensagem(ns) processada(s)'
+        + '</div>'
+        + '</div>'
+      ) : '')
       + '<div class="debug-section">'
       + '<div class="debug-section-title">Empresa ID</div>'
       + '<div class="debug-value">' + (payload.empresa_id || '-') + '</div>'
@@ -1138,6 +1167,27 @@
       + '<div class="debug-section-title">Última Atualização</div>'
       + '<div class="debug-value">' + (ctx.atualizado_em || new Date().toISOString()) + '</div>'
       + '</div>';
+  }
+
+  function _accumulateSessionTokens(sid, inT, outT) {
+    if (!sid) return;
+    if (!sessionTokenLog[sid]) {
+      sessionTokenLog[sid] = {total_in: 0, total_out: 0, messages: 0};
+    }
+    sessionTokenLog[sid].total_in += inT;
+    sessionTokenLog[sid].total_out += outT;
+    sessionTokenLog[sid].messages += 1;
+  }
+
+  function _getSessionTokenSummary(sid) {
+    if (!sid || !sessionTokenLog[sid]) return null;
+    var s = sessionTokenLog[sid];
+    return {
+      total_in: s.total_in,
+      total_out: s.total_out,
+      total: s.total_in + s.total_out,
+      messages: s.messages,
+    };
   }
 
   function escapeHtml(str) {

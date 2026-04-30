@@ -120,6 +120,38 @@ async def test_runtime_builds_real_minimal_select_for_listar_orcamentos(monkeypa
 
 
 @pytest.mark.asyncio
+async def test_runtime_builds_count_for_quantidade_orcamentos_aprovados(monkeypatch):
+    from app.services.internal_copilot_autonomy_runtime import run_internal_copilot_autonomy
+
+    def fake_validate(**kwargs):
+        assert kwargs["sql"] == "SELECT COUNT(*) as total FROM orcamentos WHERE status = 'APROVADO'"
+        return SimpleNamespace(
+            allowed=True,
+            mode="read_only",
+            needs_confirmation=False,
+            reason=None,
+            rewritten_sql="SELECT COUNT(*) as total FROM orcamentos WHERE status = 'APROVADO' AND orcamentos.empresa_id = 3 LIMIT 100",
+        )
+
+    async def fake_execute(**kwargs):
+        return {"columns": ["total"], "rows": [[42]], "row_count": 1}
+
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime.validate_sql_query", fake_validate)
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime._execute_validated_query", fake_execute)
+
+    result = await run_internal_copilot_autonomy(
+        db=None,
+        current_user=SimpleNamespace(id=7, empresa_id=3),
+        mensagem="quantidade de orcamentos aprovados",
+        sessao_id="sess-count-1",
+        request_id="req-count-1",
+    )
+
+    assert result["success"] is True
+    assert result["data"]["table"][0]["total"] == 42
+
+
+@pytest.mark.asyncio
 async def test_execute_validated_query_accepts_async_db_execute():
     from app.services.internal_copilot_autonomy_runtime import _execute_validated_query
 
@@ -309,3 +341,196 @@ async def test_runtime_returns_blocked_payload_when_scope_cannot_be_proved(monke
     assert result.get("code") == "scope_not_proven"
     assert result["data"]["safety"]["mode"] == "blocked"
     assert result["data"]["safety"]["reason"] == "blocked_statement"
+
+
+@pytest.mark.asyncio
+async def test_runtime_uses_llm_planner_when_enabled(monkeypatch):
+    from app.services.internal_copilot_autonomy_runtime import run_internal_copilot_autonomy
+    from app.services.assistant_autonomy.llm_sql_planner import LLMSqlPlan
+
+    def fake_enabled():
+        return True
+
+    async def fake_llm_plan(message, *, period_days, historico=""):
+        return LLMSqlPlan(
+            sql="SELECT COUNT(*) as total FROM clientes",
+            rationale="Contagem de clientes solicitada",
+            used=True,
+        )
+
+    def fake_validate(**kwargs):
+        return SimpleNamespace(
+            allowed=True,
+            mode="read_only",
+            needs_confirmation=False,
+            reason=None,
+            rewritten_sql="SELECT COUNT(*) as total FROM clientes WHERE clientes.empresa_id = 3 LIMIT 100",
+        )
+
+    async def fake_execute(**kwargs):
+        return {"columns": ["total"], "rows": [[15]], "row_count": 1}
+
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime.llm_sql_planner_enabled", fake_enabled)
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime.try_generate_sql_from_llm", fake_llm_plan)
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime.validate_sql_query", fake_validate)
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime._execute_validated_query", fake_execute)
+
+    result = await run_internal_copilot_autonomy(
+        db=None,
+        current_user=SimpleNamespace(id=7, empresa_id=3),
+        mensagem="quantos clientes temos",
+        sessao_id="sess-llm-1",
+        request_id="req-llm-1",
+    )
+
+    assert result["success"] is True
+    assert result["data"]["table"][0]["total"] == 15
+    assert result["data"]["llm_rationale"] == "Contagem de clientes solicitada"
+    assert result["dados"]["semantic_contract"]["llm_rationale"] == "Contagem de clientes solicitada"
+
+
+@pytest.mark.asyncio
+async def test_runtime_falls_back_to_hardcoded_when_llm_disabled(monkeypatch):
+    from app.services.internal_copilot_autonomy_runtime import run_internal_copilot_autonomy
+
+    def fake_enabled():
+        return False
+
+    def fake_validate(**kwargs):
+        return SimpleNamespace(
+            allowed=True,
+            mode="read_only",
+            needs_confirmation=False,
+            reason=None,
+            rewritten_sql="SELECT id, cliente_nome FROM orcamentos WHERE orcamentos.empresa_id = 3 LIMIT 100",
+        )
+
+    async def fake_execute(**kwargs):
+        return {"columns": ["id", "cliente_nome"], "rows": [[1, "Maria"]], "row_count": 1}
+
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime.llm_sql_planner_enabled", fake_enabled)
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime.validate_sql_query", fake_validate)
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime._execute_validated_query", fake_execute)
+
+    result = await run_internal_copilot_autonomy(
+        db=None,
+        current_user=SimpleNamespace(id=7, empresa_id=3),
+        mensagem="listar orcamentos",
+        sessao_id="sess-fb-1",
+        request_id="req-fb-1",
+    )
+
+    assert result["success"] is True
+
+
+@pytest.mark.asyncio
+async def test_runtime_interpret_sets_llm_query_for_unknown_intents(monkeypatch):
+    from app.services.internal_copilot_autonomy_runtime import _interpret_message
+
+    result = await _interpret_message(
+        mensagem="quantas vendas tivemos este mês",
+        current_user=SimpleNamespace(id=7, empresa_id=3),
+        sessao_id=None,
+        request_id=None,
+    )
+
+    assert result["intent"] == "llm_query"
+    assert result["preferred_output"] == "table"
+
+
+@pytest.mark.asyncio
+async def test_runtime_llm_planner_failure_falls_back_to_select_1(monkeypatch):
+    from app.services.internal_copilot_autonomy_runtime import run_internal_copilot_autonomy
+    from app.services.assistant_autonomy.llm_sql_planner import LLMSqlPlan
+
+    def fake_enabled():
+        return True
+
+    async def fake_llm_plan(message, *, period_days, historico=""):
+        return LLMSqlPlan(sql=None, rationale="Falha no LLM", used=False)
+
+    def fake_validate(**kwargs):
+        assert kwargs["sql"] == "SELECT 1"
+        return SimpleNamespace(
+            allowed=False,
+            mode="blocked",
+            reason="blocked_statement",
+            rewritten_sql=None,
+        )
+
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime.llm_sql_planner_enabled", fake_enabled)
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime.try_generate_sql_from_llm", fake_llm_plan)
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime.validate_sql_query", fake_validate)
+
+    result = await run_internal_copilot_autonomy(
+        db=None,
+        current_user=SimpleNamespace(id=7, empresa_id=3),
+        mensagem="algo que o LLM nao consegue",
+        sessao_id="sess-fail-1",
+        request_id="req-fail-1",
+    )
+
+    assert result["success"] is False
+
+
+@pytest.mark.asyncio
+async def test_runtime_includes_llm_rationale_in_audit(monkeypatch):
+    from app.services.internal_copilot_autonomy_runtime import run_internal_copilot_autonomy
+    from app.services.assistant_autonomy.llm_sql_planner import LLMSqlPlan
+
+    captured_audit = {}
+
+    def fake_audit(*args, **kwargs):
+        captured_audit.update(kwargs.get("detalhes") or {})
+
+    def fake_enabled():
+        return True
+
+    async def fake_llm_plan(message, *, period_days, historico=""):
+        return LLMSqlPlan(
+            sql="SELECT COUNT(*) as total FROM orcamentos",
+            rationale="LLM resolveu contar orcamentos",
+            used=True,
+        )
+
+    def fake_validate(**kwargs):
+        return SimpleNamespace(
+            allowed=True,
+            mode="read_only",
+            needs_confirmation=False,
+            reason=None,
+            rewritten_sql="SELECT COUNT(*) as total FROM orcamentos WHERE orcamentos.empresa_id = 3 LIMIT 100",
+        )
+
+    async def fake_execute(**kwargs):
+        return {"columns": ["total"], "rows": [[10]], "row_count": 1}
+
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime.llm_sql_planner_enabled", fake_enabled)
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime.try_generate_sql_from_llm", fake_llm_plan)
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime.validate_sql_query", fake_validate)
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime._execute_validated_query", fake_execute)
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime.registrar_auditoria", fake_audit)
+
+    result = await run_internal_copilot_autonomy(
+        db=None,
+        current_user=SimpleNamespace(id=7, empresa_id=3),
+        mensagem="total de orcamentos",
+        sessao_id="sess-ra-1",
+        request_id="req-ra-1",
+    )
+
+    assert result["success"] is True
+    assert captured_audit.get("llm_rationale") == "LLM resolveu contar orcamentos"
+
+
+def test_schema_context_provides_allowed_tables():
+    from app.services.assistant_autonomy.schema_context import get_allowed_tables_for_guard
+
+    tables = get_allowed_tables_for_guard()
+    assert "orcamentos" in tables
+    assert "clientes" in tables
+    assert "servicos" in tables
+    assert "agendamentos" in tables
+    assert "contas_financeiras" in tables
+    assert "commercial_leads" in tables
+    assert tables["orcamentos"]["empresa_column"] == "empresa_id"

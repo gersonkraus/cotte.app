@@ -120,6 +120,11 @@ def _build_internal_copilot_autonomy_ai_response(result: dict | AIResponse) -> A
         dados=dados_out,
         erros=erros,
         fallback_utilizado=False,
+        input_tokens=int(payload.get("input_tokens") or 0),
+        output_tokens=int(payload.get("output_tokens") or 0),
+        trace=payload.get("trace") or [],
+        metrics=payload.get("metrics") or {},
+        contexto_operacional=payload.get("contexto_operacional"),
     )
 
 
