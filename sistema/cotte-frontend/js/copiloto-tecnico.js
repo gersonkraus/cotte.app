@@ -103,52 +103,28 @@
     }
   }
 
-  async function executeAction(action, btn) {
-    btn.disabled = true;
-    btn.textContent = 'Executando...';
-
-    try {
-      if (action.type === 'api_call') {
-        if (action.method && action.method.toUpperCase() === 'DELETE') {
-          if (!confirm('Tem certeza que deseja executar esta ação destrutiva?')) {
-            btn.textContent = action.label || 'Ação';
-            btn.disabled = false;
-            return;
-          }
-        }
-        await fetch(action.endpoint, {
-          method: action.method || 'POST',
-          headers: { 'Authorization': 'Bearer ' + (window.getToken ? getToken() : '') }
-        });
-        showToast('Ação executada com sucesso!');
-      } else if (action.type === 'navigate') {
-        window.location.href = action.url;
-      } else if (action.type === 'copy') {
-        navigator.clipboard.writeText(action.text);
-        showToast('Copiado para área de transferência!');
-      }
-    } catch (e) {
-      showToast('Erro ao executar ação');
-    } finally {
-      btn.textContent = action.label || 'Ação';
-      btn.disabled = false;
-    }
-  }
-
   function renderActionButtons(actions, container) {
     if (!Array.isArray(actions)) return;
     var btnContainer = document.createElement('div');
     btnContainer.className = 'action-buttons';
     
-    actions.forEach(function(action) {
+    actions.forEach(function(act) {
       var btn = document.createElement('button');
       btn.className = 'action-btn';
-      btn.textContent = action.label || 'Ação';
-      btn.dataset.type = action.type;
       
-      btn.addEventListener('click', function() {
-        executeAction(action, btn);
-      });
+      var isString = typeof act === 'string';
+      btn.textContent = isString ? act : (act.label || 'Ação');
+      
+      if (!isString && act.type) {
+        btn.dataset.type = act.type;
+      }
+      
+      btn.onclick = function() {
+        if (!inputEl) return;
+        var val = isString ? act : (act.payload || act.label || btn.textContent);
+        inputEl.value = val;
+        sendMessage();
+      };
       
       btnContainer.appendChild(btn);
     });
@@ -682,7 +658,11 @@
     style.textContent = `
       .download-buttons { margin-top: 0.5em; display: flex; gap: 0.5em; }
       .download-btn { padding: 0.25em 0.75em; font-size: 0.85em; border: 1px solid #ccc; border-radius: 4px; background: #f5f5f5; cursor: pointer; }
-       .download-btn:hover { background: #e5e5e5; }\n      .action-buttons { margin-top: 0.75em; display: flex; flex-wrap: wrap; gap: 0.5em; }\n      .action-btn { padding: 0.35em 0.85em; font-size: 0.9em; border: 1px solid var(--border-color, #ccc); border-radius: 6px; background: var(--primary-color, #2563eb); color: #fff; cursor: pointer; transition: background-color 0.2s ease; }\n      .action-btn:hover { background: var(--primary-dark-color, #1d4ed8); }\n      .action-btn:disabled { background: #9ca3af; cursor: not-allowed; }\n
+      .download-btn:hover { background: #e5e5e5; }
+      .action-buttons { margin-top: 0.75em; display: flex; flex-wrap: wrap; gap: 8px; }
+      .action-btn { padding: 6px 12px; font-size: 0.85rem; border: 1px solid var(--border-color, #e5e7eb); border-radius: 16px; background: #ffffff; color: var(--text-color, #374151); cursor: pointer; transition: all 0.2s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+      .action-btn:hover { background: var(--primary-color, #f3f4f6); border-color: var(--primary-color, #d1d5db); color: var(--primary-color-text, #111827); }
+      .action-btn:disabled { opacity: 0.6; cursor: not-allowed; }
     `;
     document.head.appendChild(style);
   })();

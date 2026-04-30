@@ -47,6 +47,54 @@ async def test_internal_flow_success_code_rag_sql(monkeypatch):
     assert out.get("flow_id")
     assert out["data"]["registro"]["flow_id"] == out["flow_id"]
     assert audit_payload.get("flow_id") == out["flow_id"]
+    assert out == {
+        "success": True,
+        "flow_id": out["flow_id"],
+        "data": {
+            "code_context": {"context": "snippet", "sources": ["sistema/app/a.py"], "matches": 1},
+            "sql_result": {"row_count": 1},
+            "registro": {
+                "flow_id": out["flow_id"],
+                "request_id": "req-int-1",
+                "sessao_id": "sess-int-1",
+                "usuario_id": 7,
+                "empresa_id": 3,
+                "incluiu_code_rag": True,
+                "incluiu_sql_agent": True,
+                "executado_em_utc": out["data"]["registro"]["executado_em_utc"],
+            },
+            "metrics": out["metrics"],
+        },
+        "trace": [
+            {
+                "step": "code_rag_context",
+                "status": "ok",
+                "duration_ms": out["trace"][0]["duration_ms"],
+                "executado_em_utc": out["trace"][0]["executado_em_utc"],
+                "data": {"sources": ["sistema/app/a.py"], "matches": 1},
+            },
+            {
+                "step": "sql_agent_tecnico",
+                "status": "ok",
+                "duration_ms": out["trace"][1]["duration_ms"],
+                "executado_em_utc": out["trace"][1]["executado_em_utc"],
+                "data": {"row_count": 1},
+            },
+            {
+                "step": "registrar_resultado_tecnico",
+                "status": "ok",
+                "duration_ms": out["trace"][2]["duration_ms"],
+                "executado_em_utc": out["trace"][2]["executado_em_utc"],
+                "data": out["data"]["registro"],
+            },
+        ],
+        "metrics": {
+            "total_steps": 3,
+            "total_duration_ms": out["metrics"]["total_duration_ms"],
+            "steps_with_error": 0,
+            "steps_pending": 0,
+        },
+    }
 
 
 @pytest.mark.asyncio
@@ -66,3 +114,4 @@ async def test_internal_flow_sql_disabled(monkeypatch):
     )
     assert out["success"] is False
     assert out["code"] == "sql_agent_disabled"
+

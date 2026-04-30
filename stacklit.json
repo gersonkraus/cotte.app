@@ -1,11 +1,11 @@
 {
   "$schema": "https://stacklit.dev/schema/v1.json",
   "version": "1",
-  "generated_at": "2026-04-11T01:42:52Z",
+  "generated_at": "2026-04-30T01:48:05Z",
   "stacklit_version": "dev",
-  "merkle_hash": "a00ded3342198e996fa3c1a68b4157a31de4cc994160f1a5c453ba849f1e867c",
+  "merkle_hash": "ba36e44da90911c2f2de9d3e5a507b8b104300b54ecd2a547820f4cda87130b1",
   "project": {
-    "name": "Projeto-izi",
+    "name": "cotte.app",
     "root": ".",
     "type": "single"
   },
@@ -13,20 +13,21 @@
     "primary_language": "python",
     "languages": {
       "javascript": {
-        "files": 55,
-        "lines": 25347
+        "files": 93,
+        "lines": 39269
       },
       "python": {
-        "files": 287,
-        "lines": 63756
+        "files": 425,
+        "lines": 95498
       },
       "shell": {
         "files": 6,
-        "lines": 277
+        "lines": 278
       }
     },
     "frameworks": [
       "FastAPI",
+      "GitHub Actions",
       "Playwright",
       "Redis"
     ]
@@ -35,34 +36,52 @@
     "entrypoints": [
       "sistema/scripts/verificar_urls_r2.py"
     ],
-    "total_files": 348,
-    "total_lines": 89380
+    "total_files": 524,
+    "total_lines": 135045
   },
   "modules": {
     "root": {
       "purpose": "Root package",
-      "language": "javascript",
-      "files": 2,
-      "lines": 59,
+      "language": "python",
+      "files": 15,
+      "lines": 762,
       "file_list": [
+        "compress_test.py",
+        "cotte_ai_hub_patch.py",
+        "fix_fn.py",
+        "patch.js",
         "patch_comercial.py",
-        "playwright.config.js"
+        "patch_cotte_ai_hub.py",
+        "patch_executor.py",
+        "patch_logging.py",
+        "patch_recusar.py",
+        "patch_render_types.py",
+        "playwright.config.js",
+        "rewrite_render.py",
+        "test-ai.mjs",
+        "test.js",
+        "test_payload.js"
+      ],
+      "exports": [
+        "to_llm_payload(data)"
       ],
       "activity": "low"
     },
     "scripts": {
       "purpose": "Scripts",
       "language": "shell",
-      "files": 7,
-      "lines": 793,
+      "files": 9,
+      "lines": 952,
       "file_list": [
         "auto_tagging_base.py",
         "check_no_gitlinks.sh",
         "explain_performance_orcamentos_sidebar_catalogo.py",
+        "generate-contribuicao-doc.mjs",
         "memory-update.sh",
         "notion-reference.sh",
         "notion-sync.sh",
-        "notion-tasks.sh"
+        "notion-tasks.sh",
+        "validate-contributing-links.mjs"
       ],
       "exports": [
         "detect_category(file_path: Path) -\u003e str",
@@ -77,10 +96,13 @@
       "purpose": "Sistema",
       "language": "python",
       "files": 2,
-      "lines": 42,
+      "lines": 43,
       "file_list": [
         "query.py",
         "release.sh"
+      ],
+      "depended_by": [
+        "sistema/cotte-frontend/js/dashboard"
       ],
       "activity": "high"
     },
@@ -101,8 +123,8 @@
     "sistema/alembic/versions": {
       "purpose": "Versions",
       "language": "python",
-      "files": 101,
-      "lines": 5970,
+      "files": 120,
+      "lines": 7896,
       "file_list": [
         "001_initial_schema.py",
         "002_add_comercial_tables.py",
@@ -119,11 +141,11 @@
         "2dc96d88fe32_feat_adicionar_pix_aos_orcamentos.py",
         "3344d22be19b_add_assistente_instrucoes_to_empresa.py",
         "407429405c03_add_agendamentos_module.py",
+        "4f007c9fa25f_unify_tool_call_logs_schema.py",
         "5f2d3c4b1a9e_merge_commercial_and_empresas_heads.py",
         "60754c29faf4_add_performance_indices_orcamentos_.py",
-        "823ca6b022cd_adicionar_models_propostapublica_.py",
-        "8b8efeace516_feat_adicionar_pix_padrao_a_empresa.py",
-        "8f19ab3f4b99_feat_adiciona_pix_payload_ao_orcamento_.py"
+        "6f8002896a1d_add_copiloto_user_skill.py",
+        "8237a0c4e1d0_legacy_propostas_publicas_alias.py"
       ],
       "exports": [
         "column_exists(table_name, column_name)",
@@ -138,7 +160,7 @@
       "purpose": "App",
       "language": "python",
       "files": 2,
-      "lines": 554,
+      "lines": 582,
       "file_list": [
         "__init__.py",
         "main.py"
@@ -167,8 +189,8 @@
     "sistema/app/core": {
       "purpose": "Core",
       "language": "python",
-      "files": 11,
-      "lines": 2260,
+      "files": 12,
+      "lines": 2497,
       "file_list": [
         "__init__.py",
         "auth.py",
@@ -180,7 +202,8 @@
         "logging_middleware.py",
         "openapi_docs.py",
         "security_middleware.py",
-        "static_cache_middleware.py"
+        "static_cache_middleware.py",
+        "tenant_context.py"
       ],
       "exports": [
         "add_error_responses(openapi_schema: Dict[str, Any])",
@@ -196,7 +219,7 @@
       ],
       "type_defs": {
         "NotFoundException": "handle_app_exception",
-        "SecurityMiddleware": "dispatch, cleanup_old_data",
+        "SecurityMiddleware": "dispatch",
         "StaticCacheControlMiddleware": "dispatch",
         "StructuredLogger": "info_structured, warning_structured, error_structured, debug_structured, critical_structured"
       },
@@ -205,11 +228,12 @@
     "sistema/app/models": {
       "purpose": "Data models and types",
       "language": "python",
-      "files": 2,
-      "lines": 2111,
+      "files": 3,
+      "lines": 2552,
       "file_list": [
         "__init__.py",
-        "models.py"
+        "models.py",
+        "tenant.py"
       ],
       "exports": [
         "class AIChatMensagem",
@@ -217,11 +241,11 @@
         "class Agendamento",
         "class AgendamentoOpcao",
         "class AssistentePreferenciaUsuario",
+        "class AssistentePromptEmpresa",
         "class AuditLog",
         "class BancoPIXEmpresa",
         "class Broadcast",
-        "class Campaign",
-        "class CampaignLead"
+        "class Campaign"
       ],
       "activity": "high"
     },
@@ -229,7 +253,7 @@
       "purpose": "Repositories",
       "language": "python",
       "files": 8,
-      "lines": 1392,
+      "lines": 1401,
       "file_list": [
         "__init__.py",
         "base.py",
@@ -257,8 +281,8 @@
     "sistema/app/routers": {
       "purpose": "Routers",
       "language": "python",
-      "files": 31,
-      "lines": 14716,
+      "files": 32,
+      "lines": 16559,
       "file_list": [
         "__init__.py",
         "admin.py",
@@ -289,17 +313,49 @@
         "class AIAssistenteRequest",
         "class AIConfirmarOrcamentoRequest",
         "class AIConversarRequest",
-        "class AIMensagemRequest",
-        "class AIProcessRequest",
-        "class AIStatusResponse"
+        "class AICopilotoRequest",
+        "class AICopilotoTecnicoFlowRequest",
+        "class AIInsightFeedbackRequest"
       ],
       "activity": "high"
+    },
+    "sistema/app/routers/tenant": {
+      "purpose": "Tenant",
+      "language": "python",
+      "files": 11,
+      "lines": 2948,
+      "file_list": [
+        "comercial_campaigns.py",
+        "comercial_config.py",
+        "comercial_dashboard.py",
+        "comercial_import.py",
+        "comercial_interacoes.py",
+        "comercial_leads.py",
+        "comercial_pipeline.py",
+        "comercial_propostas.py",
+        "comercial_propostas_publicas.py",
+        "comercial_templates.py",
+        "tenant_comercial_serialization.py"
+      ],
+      "exports": [
+        "class EmailBody",
+        "class EtapaCreate",
+        "class EtapaResponse",
+        "class EtapaUpdate",
+        "class LeadBase",
+        "class LeadCreate",
+        "class LeadListResponse",
+        "class LeadResponse",
+        "class LeadUpdate",
+        "class MensagemBody"
+      ],
+      "activity": "low"
     },
     "sistema/app/schemas": {
       "purpose": "Schemas",
       "language": "python",
       "files": 6,
-      "lines": 2995,
+      "lines": 3012,
       "file_list": [
         "__init__.py",
         "agendamento.py",
@@ -325,29 +381,29 @@
     "sistema/app/services": {
       "purpose": "Business logic services",
       "language": "python",
-      "files": 44,
-      "lines": 22322,
+      "files": 70,
+      "lines": 32760,
       "file_list": [
         "__init__.py",
         "admin_config.py",
         "agendamento_auto_service.py",
         "agendamento_service.py",
+        "ai_catalog_suggester.py",
         "ai_intention_classifier.py",
         "ai_json_extractor.py",
+        "ai_observability_service.py",
         "ai_prompt_loader.py",
+        "ai_rollout_service.py",
+        "analytics_engine_service.py",
+        "analytics_sql_guard.py",
+        "assistant_engine_registry.py",
+        "assistant_langgraph.py",
         "assistant_preferences_service.py",
+        "assistant_prompt_library_service.py",
         "audio_transcription_service.py",
         "audit_service.py",
         "campaign_service.py",
-        "catalogo_service.py",
-        "cliente_service.py",
-        "cotte_ai_hub.py",
-        "cotte_context_builder.py",
-        "documentos_html_service.py",
-        "documentos_service.py",
-        "email_service.py",
-        "financeiro_service.py",
-        "ia_service.py"
+        "catalogo_service.py"
       ],
       "exports": [
         "admin_atualizar_template(slug: str, dados: Dict) -\u003e Dict",
@@ -357,16 +413,16 @@
         "analyze_schema_drift(engine: Engine, metadata: DeclarativeMeta) -\u003e dict[str, Any]",
         "atualizar_agendamento( db: Session, empresa_id: int, agendamento_id: int, usuario_id: int, cliente_id: Optional[int] ...",
         "brevo_api_habilitado() -\u003e bool",
-        "calcular_saldo_caixa_kpi(empresa_id: int, db: Session) -\u003e Decimal",
-        "class AIJSONExtractor",
-        "class AIPromptLoader"
+        "build_ai_health_summary( *, db: Session, empresa_id: Optional[int], hours: int, engine_filter: Optional[str] = None, ...",
+        "build_rollout_plan_from_payload( *, default_phase: str, companies: list[dict[str, Any]], updated_by: int | None, ) -\u003e...",
+        "build_token_chart_data( *, db: Session, hours: int, empresa_id: Optional[int] = None, ) -\u003e dict[str, Any]"
       ],
       "type_defs": {
         "CampaignService": "create_campaign, update_campaign",
         "EvolutionProvider": "enviar_lista, enviar_pdf, notificar_operador_recusa, enviar_lembrete_cliente",
-        "IAService": "chat",
+        "InsightEngine": "build_for_empresa, dedupe, limit",
+        "InternalResultEnvelope": "to_response_dict",
         "LeadImportService": "parse_text_to_leads, check_duplicate, check_duplicate_dict",
-        "SimpleCache": "get",
         "SubscriptionService": "checar_limite_orcamentos",
         "ZAPIProvider": "notificar_operador_recusa, enviar_lembrete_cliente"
       },
@@ -375,18 +431,22 @@
     "sistema/app/services/ai_tools": {
       "purpose": "Ai Tools",
       "language": "python",
-      "files": 9,
-      "lines": 2637,
+      "files": 13,
+      "lines": 5120,
       "file_list": [
         "__init__.py",
         "_base.py",
         "agendamento_tools.py",
         "catalogo_tools.py",
         "cliente_tools.py",
+        "code_tools.py",
         "destructive_preview.py",
+        "financeiro_reports_tools.py",
         "financeiro_tools.py",
         "log_tools.py",
-        "orcamento_tools.py"
+        "orcamento_tools.py",
+        "relatorio_tools.py",
+        "sql_analytics_tools.py"
       ],
       "exports": [
         "class AnalisarToolLogsInput",
@@ -397,9 +457,70 @@
         "class CriarMovimentacaoInput",
         "class EditarClienteInput",
         "class ExcluirClienteInput",
-        "class ListarAgendamentosInput",
-        "class ListarClientesInput"
+        "class ExecutarSqlAnaliticoInput",
+        "class GerarRelatorioRankingClientesInput"
       ],
+      "activity": "low"
+    },
+    "sistema/app/services/assistant_autonomy": {
+      "purpose": "Assistant Autonomy",
+      "language": "python",
+      "files": 16,
+      "lines": 2283,
+      "file_list": [
+        "__init__.py",
+        "action_advisor.py",
+        "capability_layer.py",
+        "contracts.py",
+        "execution_graph.py",
+        "insight_engine.py",
+        "intent_router.py",
+        "llm_sql_planner.py",
+        "policy_engine.py",
+        "response_composer.py",
+        "runtime.py",
+        "semantic_model.py",
+        "semantic_planner.py",
+        "sql_hybrid_planner.py",
+        "telemetry.py",
+        "token_governance.py"
+      ],
+      "exports": [
+        "build_semantic_plan(message: str) -\u003e SemanticPlan",
+        "build_tool_calls_for_plan(plan: SemanticPlan, override_args: dict[str, Any] | None = None) -\u003e list[ToolCallSpec]",
+        "detect_dimensions(text: str) -\u003e list[str]",
+        "detect_metrics(text: str) -\u003e list[str]",
+        "estimate_prompt_tokens(mensagem: str) -\u003e int",
+        "evaluate_policy( *, plan: SemanticPlan, current_user: Any, engine: str | None, ) -\u003e PolicyDecision",
+        "llm_sql_planner_enabled() -\u003e bool",
+        "record_semantic_audit( *, db: Any, current_user: Any, request_id: str | None, sessao_id: str | None, plan: SemanticPl...",
+        "route_intent(message: str) -\u003e IntentDomain",
+        "semantic_autonomy_enabled() -\u003e bool"
+      ],
+      "activity": "low"
+    },
+    "sistema/app/services/rag": {
+      "purpose": "Rag",
+      "language": "python",
+      "files": 5,
+      "lines": 285,
+      "file_list": [
+        "__init__.py",
+        "chunking.py",
+        "ingestion_service.py",
+        "retriever_service.py",
+        "vector_store.py"
+      ],
+      "exports": [
+        "chunk_text( text: str, *, chunk_size: int = 600, overlap: int = 120, ) -\u003e list[str]",
+        "class TenantRAGIngestionService",
+        "class TenantRAGService",
+        "class TenantVectorStore",
+        "compact_join(parts: Iterable[str], *, max_chars: int = 2800) -\u003e str"
+      ],
+      "type_defs": {
+        "TenantVectorStore": "upsert_many, similarity_search"
+      },
       "activity": "low"
     },
     "sistema/app/utils": {
@@ -451,20 +572,26 @@
       "file_list": [
         "tailwind.cdn.js"
       ],
-      "activity": "low"
+      "activity": "high"
     },
     "sistema/cotte-frontend/js": {
       "purpose": "Js",
       "language": "javascript",
-      "files": 36,
-      "lines": 20620,
+      "files": 59,
+      "lines": 33520,
       "file_list": [
+        "TemplatesManager.js",
         "agendamentos.js",
+        "ai-observabilidade.js",
         "api-financeiro.js",
         "api.js",
         "assistente-ia-actions.js",
         "assistente-ia-feedback.js",
         "assistente-ia-input.js",
+        "assistente-ia-insights.js",
+        "assistente-ia-insights.test.js",
+        "assistente-ia-intents.js",
+        "assistente-ia-payloads.js",
         "assistente-ia-render-types.js",
         "assistente-ia-render-utils.js",
         "assistente-ia-render.js",
@@ -472,16 +599,7 @@
         "assistente-ia.js",
         "chat-tooltips.js",
         "chat-virtualization.js",
-        "clientes.js",
-        "comercial-cadastros.js",
-        "comercial-campanhas.js",
-        "comercial-core.js",
-        "comercial-dashboard.js",
-        "comercial-import.js",
-        "comercial-leads.js"
-      ],
-      "depended_by": [
-        "sistema/cotte-frontend/js/dashboard"
+        "clientes.js"
       ],
       "activity": "high"
     },
@@ -520,18 +638,19 @@
         "StatsRow": "constructor, load, calcularStats, render, renderLoading, renderStats, setupEventListeners, handleCardHover, handleCardLeave, handleCardClick, setupDynamicTooltips, update, updateStat, updateCard, destroy"
       },
       "depends_on": [
-        "sistema/cotte-frontend/js"
+        "sistema"
       ],
       "activity": "low"
     },
     "sistema/cotte-frontend/js/services": {
       "purpose": "Business logic services",
       "language": "javascript",
-      "files": 2,
-      "lines": 460,
+      "files": 3,
+      "lines": 552,
       "file_list": [
         "ApiService.js",
-        "CacheService.js"
+        "CacheService.js",
+        "CapabilityFlagsService.js"
       ],
       "activity": "low"
     },
@@ -560,9 +679,10 @@
     "sistema/scripts": {
       "purpose": "Scripts",
       "language": "python",
-      "files": 5,
-      "lines": 469,
+      "files": 6,
+      "lines": 601,
       "file_list": [
+        "backfill_aprovado_em.py",
         "migrar_urls_r2.py",
         "migrate_clientes.py",
         "parry_hook.py",
@@ -583,28 +703,27 @@
     "edges": [
       [
         "sistema/cotte-frontend/js/dashboard",
-        "sistema/cotte-frontend/js"
+        "sistema"
       ]
     ],
     "entrypoints": [
       "sistema/scripts/verificar_urls_r2.py"
     ],
     "most_depended": [
-      "sistema/cotte-frontend/js",
+      "sistema",
       "root",
       "scripts",
-      "sistema",
       "sistema/alembic",
       "sistema/alembic/versions",
       "sistema/app",
       "sistema/app/api",
       "sistema/app/core",
-      "sistema/app/models"
+      "sistema/app/models",
+      "sistema/app/repositories"
     ],
     "isolated": [
       "root",
       "scripts",
-      "sistema",
       "sistema/alembic",
       "sistema/alembic/versions",
       "sistema/app",
@@ -613,12 +732,16 @@
       "sistema/app/models",
       "sistema/app/repositories",
       "sistema/app/routers",
+      "sistema/app/routers/tenant",
       "sistema/app/schemas",
       "sistema/app/services",
       "sistema/app/services/ai_tools",
+      "sistema/app/services/assistant_autonomy",
+      "sistema/app/services/rag",
       "sistema/app/utils",
       "sistema/cotte-frontend",
       "sistema/cotte-frontend/css",
+      "sistema/cotte-frontend/js",
       "sistema/cotte-frontend/js/components",
       "sistema/cotte-frontend/js/services",
       "sistema/cotte-frontend/js/utils",
@@ -628,120 +751,137 @@
   "git": {
     "hot_files": [
       {
+        "path": "sistema/app/services/cotte_ai_hub.py",
+        "commits_90d": 116
+      },
+      {
         "path": "sistema/app/models/models.py",
-        "commits_90d": 99
-      },
-      {
-        "path": "sistema/app/schemas/schemas.py",
-        "commits_90d": 88
-      },
-      {
-        "path": "sistema/cotte-frontend/index.html",
-        "commits_90d": 87
-      },
-      {
-        "path": "sistema/app/routers/orcamentos.py",
-        "commits_90d": 86
-      },
-      {
-        "path": "sistema/cotte-frontend/orcamentos.html",
-        "commits_90d": 85
+        "commits_90d": 114
       },
       {
         "path": "sistema/cotte-frontend/assistente-ia.html",
-        "commits_90d": 73
+        "commits_90d": 109
       },
       {
-        "path": "sistema/cotte-frontend/comercial.html",
-        "commits_90d": 72
+        "path": "sistema/app/routers/orcamentos.py",
+        "commits_90d": 95
+      },
+      {
+        "path": "sistema/app/schemas/schemas.py",
+        "commits_90d": 92
+      },
+      {
+        "path": "sistema/cotte-frontend/orcamentos.html",
+        "commits_90d": 92
+      },
+      {
+        "path": "sistema/cotte-frontend/index.html",
+        "commits_90d": 89
       },
       {
         "path": "sistema/cotte-frontend/configuracoes.html",
-        "commits_90d": 72
+        "commits_90d": 75
       },
       {
-        "path": "sistema/cotte-frontend/admin.html",
-        "commits_90d": 58
-      },
-      {
-        "path": "sistema/cotte-frontend/orcamento-publico.html",
-        "commits_90d": 58
+        "path": "sistema/cotte-frontend/comercial.html",
+        "commits_90d": 74
       },
       {
         "path": "sistema/cotte-frontend/js/assistente-ia.js",
-        "commits_90d": 50
+        "commits_90d": 69
+      },
+      {
+        "path": "sistema/cotte-frontend/admin.html",
+        "commits_90d": 59
+      },
+      {
+        "path": "sistema/cotte-frontend/orcamento-publico.html",
+        "commits_90d": 59
       },
       {
         "path": "sistema/app/routers/publico.py",
-        "commits_90d": 49
+        "commits_90d": 51
       },
       {
-        "path": "sistema/app/services/cotte_ai_hub.py",
+        "path": "sistema/cotte-frontend/css/assistente-ia.css",
         "commits_90d": 48
+      },
+      {
+        "path": "sistema/cotte-frontend/js/api.js",
+        "commits_90d": 46
       },
       {
         "path": "sistema/cotte-frontend/financeiro.html",
         "commits_90d": 45
       },
       {
-        "path": "sistema/cotte-frontend/js/api.js",
-        "commits_90d": 45
+        "path": "memory/.last-session",
+        "commits_90d": 41
+      },
+      {
+        "path": "memory/.session-log",
+        "commits_90d": 41
       },
       {
         "path": "sistema/main.py",
         "commits_90d": 41
       },
       {
-        "path": "memory/.last-session",
-        "commits_90d": 39
-      },
-      {
-        "path": "memory/.session-log",
-        "commits_90d": 39
-      },
-      {
-        "path": "sistema/app/routers/whatsapp.py",
-        "commits_90d": 39
-      },
-      {
         "path": "sistema/cotte-frontend/catalogo.html",
-        "commits_90d": 39
+        "commits_90d": 40
       }
     ],
     "recent": [
-      "docs/superpowers/specs/2026-04-10-workbox-migration.md",
-      "sistema/cotte-frontend/sw.js",
-      ".omx/state/notify-fallback-authority-owner.json",
-      ".omx/state/notify-fallback-state.json",
-      ".codex",
-      ".omx/hud-config.json",
-      ".omx/metrics.json",
-      ".omx/setup-scope.json",
-      ".omx/state/hud-state.json",
-      ".omx/state/notify-fallback.pid"
+      "DEPENDENCIES.md",
+      "stacklit.json",
+      "patch_executor.py",
+      "patch_logging.py",
+      "sistema/app/services/internal_copilot_agents.py",
+      "sistema/app/services/internal_copilot_artifacts.py",
+      "sistema/app/services/internal_copilot_contracts.py",
+      "sistema/app/services/internal_copilot_data_executor.py",
+      "sistema/app/services/internal_copilot_memory.py",
+      "sistema/app/services/internal_copilot_orchestrator.py"
     ],
     "stable": [
+      "\"Sem t\\303\\255tulo 1.canvas\"",
+      "\"Sem t\\303\\255tulo.base\"",
+      "\"Sem t\\303\\255tulo.canvas\"",
       ".codex",
-      ".omx/hud-config.json",
-      ".omx/metrics.json",
-      ".omx/setup-scope.json",
-      ".omx/state/hud-state.json",
-      ".omx/state/notify-fallback.pid",
-      ".omx/state/notify-hook-state.json",
-      ".omx/state/session.json",
-      ".omx/state/sessions/omx-1775862083067-uzpuxn/AGENTS.md",
-      ".omx/state/team-leader-nudge.json"
+      ".github/workflows/assistant-contracts.yml",
+      ".github/workflows/validate-contributing.yml",
+      ".hermes/plans/2026-04-15_003303-em-copiloto-tecnico-html-esta-ferramente-tem-com.md",
+      ".hermes/plans/2026-04-15_105149-estou-logado-no-painel-superadmin-e-copiloto-tec.md",
+      ".hermes/plans/2026-04-15_111631-teria-vantangem-em-usar-algum-modelo-melhor-para.md",
+      ".hermes/plans/2026-04-15_124454-poss-vel-usar-o-litellm-para-poder-definir.md"
     ]
   },
   "hints": {
     "add_feature": "Add handler in sistema/app/api, register in sistema/scripts/verificar_urls_r2.py",
     "test_command": "npm test",
     "env_vars": [
+      "AI_API_KEY",
+      "AI_LITELLM_ROUTE_PREFIXES",
+      "AI_MODEL",
+      "AI_PROVIDER",
+      "AI_TECHNICAL_MODEL",
       "ANTHROPIC_API_KEY",
+      "AZURE_API_KEY",
+      "AZURE_OPENAI_API_KEY",
       "ENVIRONMENT",
+      "GEMINI_API_KEY",
+      "GOOGLE_API_KEY",
+      "OPENAI_API_KEY",
+      "OPENROUTER_API_KEY",
+      "RAILWAY_GIT_COMMIT_SHA",
+      "RUN_AI_MUTATION_TESTS",
       "TEST_EMAIL",
       "TEST_PASSWORD",
-      "USERPROFILE"
+      "USERPROFILE",
+      "VERTEXAI_API_KEY"
+    ],
+    "do_not_touch": [
+      ".github/"
     ]
   },
   "architecture": {}
