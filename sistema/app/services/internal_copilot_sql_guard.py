@@ -12,14 +12,10 @@ _FROM_PATTERN = re.compile(r"\bfrom\s+([a-zA-Z_][\w]*)", re.IGNORECASE)
 _LIMIT_PATTERN = re.compile(r"\blimit\b", re.IGNORECASE)
 _WHERE_PATTERN = re.compile(r"\bwhere\b", re.IGNORECASE)
 _UNSUPPORTED_SELECT_PATTERN = re.compile(r"\bunion\b", re.IGNORECASE)
-_LLM_EMPRESA_BIND_WHERE = re.compile(
-    r"\bWHERE\s+(?:\w+\.)?empresa_id\s*=\s*%\(?empresa_id\)?s\s*(?:AND\s+)?",
-    re.IGNORECASE,
-)
-_LLM_EMPRESA_BIND_AND = re.compile(
-    r"\bAND\s+(?:\w+\.)?empresa_id\s*=\s*%\(?empresa_id\)?s\s*(?:AND\s+)?",
-    re.IGNORECASE,
-)
+_BIND_EMPRESA_PATTERNS = [
+    re.compile(r"%\(empresa_id\)s", re.IGNORECASE),
+    re.compile(r":empresa_id\b", re.IGNORECASE),
+]
 
 
 def validate_sql_query(*, sql: str, empresa_id: int, allowed_tables: Mapping[str, Mapping[str, str]]) -> CopilotSafetyDecision:
@@ -57,20 +53,28 @@ def validate_sql_query(*, sql: str, empresa_id: int, allowed_tables: Mapping[str
     return CopilotSafetyDecision(allowed=True, mode="read_only", rewritten_sql=rewritten_sql)
 
 
-def _strip_llm_empresa_bind(sql: str) -> str:
-    """Remove condicoes de empresa com bind parameters que o LLM inseriu."""
-    if _LLM_EMPRESA_BIND_WHERE.search(sql):
-        sql = _LLM_EMPRESA_BIND_WHERE.sub("WHERE ", sql)
-    if _LLM_EMPRESA_BIND_AND.search(sql):
-        sql = _LLM_EMPRESA_BIND_AND.sub("", sql)
+def _normalize_bind_empresa(sql: str, empresa_id: int) -> str:
+    """Substitui bind parameters de empresa_id pelo valor literal."""
+    for pat in _BIND_EMPRESA_PATTERNS:
+        sql = pat.sub(str(empresa_id), sql)
     return " ".join(sql.split())
 
 
+_ANY_EMPRESA_COND = re.compile(
+    r"\b(?:AND|WHERE)\s+(?:\w+\.)?empresa_id\s*=\s*\d+",
+    re.IGNORECASE,
+)
+
+
+def _has_empresa_filter(sql: str) -> bool:
+    return bool(_ANY_EMPRESA_COND.search(sql))
+
+
 def _inject_empresa_filter(sql: str, table_name: str, empresa_column: str, empresa_id: int) -> str:
-    sql = _strip_llm_empresa_bind(sql)
-    tenant_filter = f"{table_name}.{empresa_column} = {empresa_id}"
-    if tenant_filter.lower() in sql.lower():
+    sql = _normalize_bind_empresa(sql, empresa_id)
+    if _has_empresa_filter(sql):
         return sql
+    tenant_filter = f"{table_name}.{empresa_column} = {empresa_id}"
 
     if _LIMIT_PATTERN.search(sql):
         limit_match = _LIMIT_PATTERN.search(sql)
