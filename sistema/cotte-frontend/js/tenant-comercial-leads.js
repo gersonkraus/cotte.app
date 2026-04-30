@@ -5,6 +5,144 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // LEADS TABLE
 // ═══════════════════════════════════════════════════════════════════════════════
+// ── Detecção de duplicata ──────────────────────────────────────────
+var _dupTimer = null;
+var _dupIgnorada = false;  // true quando usuário clica "Ignorar"
+var _dupLeadId = null;     // id do lead duplicado encontrado
+
+function _normalizarTelefone(v) {
+  return (v || '').replace(/\D/g, '');
+}
+
+function _inicialsDup(nome) {
+  var parts = (nome || '').trim().split(' ');
+  return (parts[0][0] || '') + (parts[1] ? parts[1][0] : '');
+}
+
+function _mostrarCardDuplicata(lead) {
+  var card = document.getElementById('lead-duplicata-card');
+  if (!card) return;
+  var initials = _inicialsDup(lead.nome_responsavel).toUpperCase();
+  var status = lead.status_pipeline || '';
+  card.innerHTML =
+    '<div class="dup-label">⚠️ Lead já existe</div>' +
+    '<div class="dup-info">' +
+      '<div class="dup-avatar">' + initials + '</div>' +
+      '<div>' +
+        '<div class="dup-nome">' + (lead.nome_responsavel || '') + '</div>' +
+        '<div class="dup-meta">' + (lead.nome_empresa || '') +
+          ' · <span class="dup-status">● ' + status + '</span></div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="dup-actions">' +
+      '<button class="btn-dup-atualizar" onclick="_usarLeadExistente(' + lead.id + ', this)">Atualizar este lead</button>' +
+      '<button class="btn-dup-ignorar" onclick="_ignorarDuplicata()">Ignorar</button>' +
+    '</div>';
+  card.style.display = 'block';
+}
+
+function _ocultarCardDuplicata() {
+  var card = document.getElementById('lead-duplicata-card');
+  if (card) { card.style.display = 'none'; card.innerHTML = ''; }
+}
+
+async function _usarLeadExistente(leadId, btn) {
+  btn.disabled = true;
+  btn.textContent = 'Carregando...';
+  try {
+    var l = await api.get('/tenant/comercial/leads/' + leadId);
+    leadAtualId = leadId;
+    document.getElementById('modal-lead-title').textContent = 'Editando: ' + (l.nome_responsavel || 'Lead');
+    document.getElementById('lead-id').value = l.id;
+    document.getElementById('lead-nome-responsavel').value = l.nome_responsavel || '';
+    document.getElementById('lead-nome-empresa').value = l.nome_empresa || '';
+    document.getElementById('lead-whatsapp').value = l.whatsapp || '';
+    document.getElementById('lead-email').value = l.email || '';
+    document.getElementById('lead-cidade').value = l.cidade || '';
+    document.getElementById('lead-segmento-id').value = l.segmento_id || '';
+    document.getElementById('lead-origem-id').value = l.origem_lead_id || '';
+    document.getElementById('lead-valor').value = l.valor_proposto || l.valor_estimado || '';
+    document.getElementById('lead-observacoes').value = l.observacoes || '';
+    if (l.proximo_contato_em)
+      document.getElementById('lead-proximo-contato').value = new Date(l.proximo_contato_em).toISOString().slice(0, 16);
+    // Endereço
+    document.getElementById('lead-cep').value = l.cep || '';
+    document.getElementById('lead-logradouro').value = l.logradouro || '';
+    document.getElementById('lead-numero').value = l.numero || '';
+    document.getElementById('lead-complemento').value = l.complemento || '';
+    document.getElementById('lead-bairro').value = l.bairro || '';
+    document.getElementById('lead-uf').value = l.uf || '';
+    if (l.cep || l.logradouro) document.getElementById('accordion-endereco').open = true;
+    _ocultarCardDuplicata();
+    _dupLeadId = leadId;
+    showToast('Formulário carregado com dados do lead existente', 'info');
+  } catch(e) {
+    showToast('Erro ao carregar lead', 'error');
+    btn.disabled = false;
+    btn.textContent = 'Atualizar este lead';
+  }
+}
+
+function _ignorarDuplicata() {
+  _dupIgnorada = true;
+  _ocultarCardDuplicata();
+}
+
+async function _checkDuplicataLead(whatsapp, email) {
+  var wa = _normalizarTelefone(whatsapp);
+  var em = (email || '').trim();
+  if (!wa && !em) { _ocultarCardDuplicata(); return; }
+  if (_dupIgnorada) return;
+
+  var params = new URLSearchParams();
+  if (wa) params.set('whatsapp', wa);
+  if (em) params.set('email', em);
+
+  try {
+    var lead = await api.get('/tenant/comercial/leads/check-duplicata?' + params.toString());
+    if (lead && lead.id && (!leadAtualId || lead.id !== leadAtualId)) {
+      _mostrarCardDuplicata(lead);
+    } else {
+      _ocultarCardDuplicata();
+    }
+  } catch(e) {
+    _ocultarCardDuplicata();
+  }
+}
+
+// ── CEP / Endereço ─────────────────────────────────────────────────
+function formatarCep(input) {
+  var v = input.value.replace(/\D/g, '').slice(0, 8);
+  input.value = v.length > 5 ? v.slice(0,5) + '-' + v.slice(5) : v;
+}
+
+async function buscarCepLead() {
+  var cepInput = document.getElementById('lead-cep');
+  var btn = document.getElementById('btn-buscar-cep');
+  var cep = (cepInput.value || '').replace(/\D/g, '');
+  if (cep.length !== 8) { showToast('CEP deve ter 8 dígitos', 'error'); return; }
+  var origText = btn.textContent;
+  btn.textContent = '⏳';
+  btn.disabled = true;
+  try {
+    var r = await fetch('https://viacep.com.br/ws/' + cep + '/json/');
+    var d = await r.json();
+    if (d.erro) { showToast('CEP não encontrado', 'error'); return; }
+    var set = function(id, val) { var el = document.getElementById(id); if (el && val) el.value = val; };
+    set('lead-logradouro', d.logradouro);
+    set('lead-bairro', d.bairro);
+    set('lead-cidade', d.localidade);
+    set('lead-uf', d.uf);
+    document.getElementById('accordion-endereco').open = true;
+    showToast('Endereço preenchido!', 'success');
+  } catch(_) {
+    showToast('Erro ao buscar CEP', 'error');
+  } finally {
+    btn.textContent = origText;
+    btn.disabled = false;
+  }
+}
+
 function debounceLeads() {
   leadsFilterOrigemId = null;
   leadsFilterFollowUpHoje = false;
@@ -666,6 +804,9 @@ async function vincularPropostaAoLead(leadId, propostaPublicaId, validadeDias, d
 
 function abrirModalLead() {
   leadAtualId = null;
+  _dupIgnorada = false;
+  _dupLeadId = null;
+  _ocultarCardDuplicata();
   document.getElementById('modal-lead-title').textContent = 'Novo Lead';
   document.getElementById('form-lead').reset();
   document.getElementById('lead-id').value = '';
@@ -694,6 +835,14 @@ async function editarLead(id) {
     document.getElementById('lead-valor').value = l.valor_proposto || '';
     document.getElementById('lead-observacoes').value = l.observacoes || '';
     if (l.proximo_contato_em) document.getElementById('lead-proximo-contato').value = new Date(l.proximo_contato_em).toISOString().slice(0, 16);
+    // Endereço
+    document.getElementById('lead-cep').value = l.cep || '';
+    document.getElementById('lead-logradouro').value = l.logradouro || '';
+    document.getElementById('lead-numero').value = l.numero || '';
+    document.getElementById('lead-complemento').value = l.complemento || '';
+    document.getElementById('lead-bairro').value = l.bairro || '';
+    document.getElementById('lead-uf').value = l.uf || '';
+    if (l.cep || l.logradouro) document.getElementById('accordion-endereco').open = true;
     document.getElementById('lead-proposta-publica-id').value = '';
     document.getElementById('lead-proposta-validade').value = '7';
     await carregarResumoPropostaVinculadaLead(id);
@@ -714,6 +863,12 @@ async function salvarLead() {
     nome_responsavel: nr, nome_empresa: ne,
     whatsapp: wa || null, email: em || null,
     cidade: document.getElementById('lead-cidade').value || null,
+    cep: document.getElementById('lead-cep').value || null,
+    logradouro: document.getElementById('lead-logradouro').value || null,
+    numero: document.getElementById('lead-numero').value || null,
+    complemento: document.getElementById('lead-complemento').value || null,
+    bairro: document.getElementById('lead-bairro').value || null,
+    uf: document.getElementById('lead-uf').value || null,
     segmento_id: parseInt(document.getElementById('lead-segmento-id').value) || null,
     origem_lead_id: parseInt(document.getElementById('lead-origem-id').value) || null,
     valor_proposto: parseFloat(document.getElementById('lead-valor').value) || null,
@@ -972,6 +1127,24 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Botão confirmar envio
   document.getElementById('btn-confirmar-envio-proposta')?.addEventListener('click', confirmarEnvioProposta);
+
+  // Detecção de duplicata em tempo real
+  var _waInput = document.getElementById('lead-whatsapp');
+  var _emInput = document.getElementById('lead-email');
+
+  function _onContatoInput() {
+    clearTimeout(_dupTimer);
+    if (_dupIgnorada) return;
+    _dupTimer = setTimeout(function() {
+      _checkDuplicataLead(
+        document.getElementById('lead-whatsapp').value,
+        document.getElementById('lead-email').value
+      );
+    }, 500);
+  }
+
+  if (_waInput) _waInput.addEventListener('input', _onContatoInput);
+  if (_emInput) _emInput.addEventListener('input', _onContatoInput);
 });
 
 // Exportar funções

@@ -45,6 +45,12 @@ class LeadBase(BaseModel):
     whatsapp: Optional[str] = None
     cidade: Optional[str] = None
     endereco: Optional[str] = None
+    cep: Optional[str] = None
+    logradouro: Optional[str] = None
+    numero: Optional[str] = None
+    complemento: Optional[str] = None
+    bairro: Optional[str] = None
+    uf: Optional[str] = None
     segmento: Optional[str] = None
     segmento_id: Optional[int] = None
     origem: Optional[str] = None
@@ -71,6 +77,12 @@ class LeadUpdate(BaseModel):
     email: Optional[EmailStr] = None
     telefone: Optional[str] = None
     endereco: Optional[str] = None
+    cep: Optional[str] = None
+    logradouro: Optional[str] = None
+    numero: Optional[str] = None
+    complemento: Optional[str] = None
+    bairro: Optional[str] = None
+    uf: Optional[str] = None
     segmento: Optional[str] = None
     origem: Optional[str] = None
     etapa_pipeline_id: Optional[int] = None
@@ -149,6 +161,39 @@ def _etapa_padrao(db: Session, empresa_id: int) -> Optional[int]:
         .first()
     )
     return etapa.id if etapa else None
+
+
+@router.get("/check-duplicata")
+def check_duplicata_lead(
+    whatsapp: Optional[str] = None,
+    email: Optional[str] = None,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exigir_permissao("comercial", "leitura")),
+):
+    """Verifica se existe lead com o WhatsApp ou e-mail informado. Retorna o lead ou null."""
+    if not whatsapp and not email:
+        return None
+
+    from sqlalchemy import func as sa_func
+
+    filters = []
+    if whatsapp:
+        wa_norm = re.sub(r"\D", "", whatsapp)
+        filters.append(sa_func.regexp_replace(TenantCommercialLead.telefone, r"\D", "", "g") == wa_norm)
+    if email:
+        filters.append(sa_func.lower(TenantCommercialLead.email) == email.lower().strip())
+
+    lead = (
+        db.query(TenantCommercialLead)
+        .filter(
+            TenantCommercialLead.empresa_id == usuario.empresa_id,
+            TenantCommercialLead.ativo == True,
+            or_(*filters),
+        )
+        .first()
+    )
+
+    return tenant_lead_to_out(db, lead) if lead else None
 
 
 @router.post("/", response_model=LeadResponse, status_code=status.HTTP_201_CREATED)
