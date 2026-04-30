@@ -91,6 +91,8 @@ async def test_runtime_exposes_legacy_semantic_contract_compatibility(monkeypatc
 async def test_runtime_builds_real_minimal_select_for_listar_orcamentos(monkeypatch):
     from app.services.internal_copilot_autonomy_runtime import run_internal_copilot_autonomy
 
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime.llm_sql_planner_enabled", lambda: False)
+
     def fake_validate(**kwargs):
         assert kwargs["sql"] == "SELECT id, cliente_nome FROM orcamentos"
         return SimpleNamespace(
@@ -122,6 +124,8 @@ async def test_runtime_builds_real_minimal_select_for_listar_orcamentos(monkeypa
 @pytest.mark.asyncio
 async def test_runtime_builds_count_for_quantidade_orcamentos_aprovados(monkeypatch):
     from app.services.internal_copilot_autonomy_runtime import run_internal_copilot_autonomy
+
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime.llm_sql_planner_enabled", lambda: False)
 
     def fake_validate(**kwargs):
         assert kwargs["sql"] == "SELECT COUNT(*) as total FROM orcamentos WHERE status = 'APROVADO'"

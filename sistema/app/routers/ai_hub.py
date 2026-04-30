@@ -1475,14 +1475,28 @@ async def copiloto_tecnico_interno(
 
     request_id = _request_id_from_http(http_request)
     if is_internal_copilot_autonomy_enabled():
-        result = await run_internal_copilot_autonomy(
-            mensagem=request.mensagem,
-            sessao_id=request.sessao_id,
-            db=db,
-            current_user=current_user,
-            request_id=request_id,
-        )
-        return _build_internal_copilot_autonomy_ai_response(result)
+        try:
+            result = await run_internal_copilot_autonomy(
+                mensagem=request.mensagem,
+                sessao_id=request.sessao_id,
+                db=db,
+                current_user=current_user,
+                request_id=request_id,
+            )
+            return _build_internal_copilot_autonomy_ai_response(result)
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).error("[Copiloto] Erro no autonomy runtime: %s", exc, exc_info=True)
+            return AIResponse(
+                sucesso=False,
+                resposta=f"Erro interno do copiloto: {exc}",
+                tipo_resposta="copiloto_interno_autonomy",
+                confianca=0.0,
+                modulo_origem="internal_copilot_autonomy",
+                dados={"semantic_contract": {"answer": f"Erro interno do copiloto: {exc}", "summary": f"Erro: {exc}", "table": [], "safety": {}, "needs_confirmation": False, "suggested_followups": []}},
+                erros=[str(exc)],
+                fallback_utilizado=False,
+            )
 
     from app.services.cotte_ai_hub import assistente_unificado_v2
 

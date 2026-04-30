@@ -60,59 +60,85 @@ async def run_internal_copilot_autonomy(*, db, current_user, mensagem: str, sess
 
     raw_message = str(mensagem or "").strip()
 
-    t_start = time.monotonic()
-    intent = await _interpret_message(
-        mensagem=raw_message,
-        current_user=current_user,
-        sessao_id=sessao_id,
-        request_id=request_id,
-    )
-    trace_steps.append({"step": "interpret", "duration_ms": int((time.monotonic() - t_start) * 1000), "status": "ok"})
-
-    t_start = time.monotonic()
-    plan = await _build_plan(
-        intent=intent,
-        raw_message=raw_message,
-        current_user=current_user,
-        sessao_id=sessao_id,
-        request_id=request_id,
-    )
-    sql_candidate = (plan or {}).get("sql_candidate") or ""
-    llm_rationale = (plan or {}).get("llm_rationale") or ""
-    total_in += int((plan or {}).get("input_tokens", 0) or 0)
-    total_out += int((plan or {}).get("output_tokens", 0) or 0)
-    trace_steps.append({"step": "plan", "duration_ms": int((time.monotonic() - t_start) * 1000), "status": "ok", "llm_used": bool(llm_rationale)})
-
-    if not sql_candidate:
-        logger.info("[Copiloto] Nenhum SQL gerado, usando fallback textual para: %r", raw_message[:100])
-        fallback = await _ask_llm_textual_fallback(mensagem=raw_message, llm_rationale=llm_rationale)
-        total_in += int(fallback.get("input_tokens", 0) or 0)
-        total_out += int(fallback.get("output_tokens", 0) or 0)
-        trace_steps.append({"step": "fallback_textual", "duration_ms": int((time.monotonic() - t_start) * 1000), "status": "ok"})
-        return _textual_response(
-            answer=fallback["answer"],
-            trace=trace_steps,
-            metrics={"total_duration_ms": int((time.monotonic() - t0) * 1000), "steps_with_error": 0},
-            input_tokens=total_in,
-            output_tokens=total_out,
+    try:
+        t_start = time.monotonic()
+        intent = await _interpret_message(
+            mensagem=raw_message,
+            current_user=current_user,
+            sessao_id=sessao_id,
+            request_id=request_id,
         )
+        trace_steps.append({"step": "interpret", "duration_ms": int((time.monotonic() - t_start) * 1000), "status": "ok"})
 
-    t_start = time.monotonic()
-    allowed_tables = _get_allowed_tables()
-    safety = validate_sql_query(
-        sql=sql_candidate,
-        empresa_id=getattr(current_user, "empresa_id", 0),
-        allowed_tables=allowed_tables,
-    )
-    trace_steps.append({"step": "sql_guard", "duration_ms": int((time.monotonic() - t_start) * 1000), "status": "ok" if safety.allowed else "blocked"})
-
-    structured_plan = _build_structured_plan(intent=intent, sql_candidate=sql_candidate)
-
-    if not safety.allowed:
-        logger.warning(
-            "[Copiloto] SQL bloqueado pelo guard. SQL: %r | Reason: %s",
-            sql_candidate[:200], getattr(safety, "reason", None),
+        t_start = time.monotonic()
+        plan = await _build_plan(
+            intent=intent,
+            raw_message=raw_message,
+            current_user=current_user,
+            sessao_id=sessao_id,
+            request_id=request_id,
         )
+        sql_candidate = (plan or {}).get("sql_candidate") or ""
+        llm_rationale = (plan or {}).get("llm_rationale") or ""
+        total_in += int((plan or {}).get("input_tokens", 0) or 0)
+        total_out += int((plan or {}).get("output_tokens", 0) or 0)
+        trace_steps.append({"step": "plan", "duration_ms": int((time.monotonic() - t_start) * 1000), "status": "ok", "llm_used": bool(llm_rationale)})
+
+        if not sql_candidate:
+            logger.info("[Copiloto] Nenhum SQL gerado, usando fallback textual para: %r", raw_message[:100])
+            fallback = await _ask_llm_textual_fallback(mensagem=raw_message, llm_rationale=llm_rationale)
+            total_in += int(fallback.get("input_tokens", 0) or 0)
+            total_out += int(fallback.get("output_tokens", 0) or 0)
+            trace_steps.append({"step": "fallback_textual", "duration_ms": int((time.monotonic() - t_start) * 1000), "status": "ok"})
+            return _textual_response(
+                answer=fallback["answer"],
+                trace=trace_steps,
+                metrics={"total_duration_ms": int((time.monotonic() - t0) * 1000), "steps_with_error": 0},
+                input_tokens=total_in,
+                output_tokens=total_out,
+            )
+
+        t_start = time.monotonic()
+        allowed_tables = _get_allowed_tables()
+        safety = validate_sql_query(
+            sql=sql_candidate,
+            empresa_id=getattr(current_user, "empresa_id", 0),
+            allowed_tables=allowed_tables,
+        )
+        trace_steps.append({"step": "sql_guard", "duration_ms": int((time.monotonic() - t_start) * 1000), "status": "ok" if safety.allowed else "blocked"})
+
+        structured_plan = _build_structured_plan(intent=intent, sql_candidate=sql_candidate)
+
+        if not safety.allowed:
+            logger.warning(
+                "[Copiloto] SQL bloqueado pelo guard. SQL: %r | Reason: %s",
+                sql_candidate[:200], getattr(safety, "reason", None),
+            )
+            _record_audit(
+                db=db,
+                current_user=current_user,
+                intent=intent,
+                structured_plan=structured_plan,
+                safety=safety,
+                sessao_id=sessao_id,
+                request_id=request_id,
+                llm_rationale=llm_rationale,
+            )
+            fallback = await _ask_llm_textual_fallback(mensagem=raw_message, llm_rationale=llm_rationale)
+            total_in += int(fallback.get("input_tokens", 0) or 0)
+            total_out += int(fallback.get("output_tokens", 0) or 0)
+            return _textual_response(
+                answer=fallback["answer"],
+                trace=trace_steps,
+                metrics={"total_duration_ms": int((time.monotonic() - t0) * 1000), "steps_with_error": 0},
+                input_tokens=total_in,
+                output_tokens=total_out,
+            )
+
+        t_start = time.monotonic()
+        query_result = await _execute_validated_query(db=db, sql=safety.rewritten_sql or "")
+        trace_steps.append({"step": "execute", "duration_ms": int((time.monotonic() - t_start) * 1000), "status": "ok"})
+
         _record_audit(
             db=db,
             current_user=current_user,
@@ -123,41 +149,26 @@ async def run_internal_copilot_autonomy(*, db, current_user, mensagem: str, sess
             request_id=request_id,
             llm_rationale=llm_rationale,
         )
-        fallback = await _ask_llm_textual_fallback(mensagem=raw_message, llm_rationale=llm_rationale)
-        total_in += int(fallback.get("input_tokens", 0) or 0)
-        total_out += int(fallback.get("output_tokens", 0) or 0)
-        return _textual_response(
-            answer=fallback["answer"],
+        return _success_response(
+            intent=intent,
+            safety=safety,
+            query_result=query_result,
+            llm_rationale=llm_rationale,
             trace=trace_steps,
             metrics={"total_duration_ms": int((time.monotonic() - t0) * 1000), "steps_with_error": 0},
             input_tokens=total_in,
             output_tokens=total_out,
         )
 
-    t_start = time.monotonic()
-    query_result = await _execute_validated_query(db=db, sql=safety.rewritten_sql or "")
-    trace_steps.append({"step": "execute", "duration_ms": int((time.monotonic() - t_start) * 1000), "status": "ok"})
-
-    _record_audit(
-        db=db,
-        current_user=current_user,
-        intent=intent,
-        structured_plan=structured_plan,
-        safety=safety,
-        sessao_id=sessao_id,
-        request_id=request_id,
-        llm_rationale=llm_rationale,
-    )
-    return _success_response(
-        intent=intent,
-        safety=safety,
-        query_result=query_result,
-        llm_rationale=llm_rationale,
-        trace=trace_steps,
-        metrics={"total_duration_ms": int((time.monotonic() - t0) * 1000), "steps_with_error": 0},
-        input_tokens=total_in,
-        output_tokens=total_out,
-    )
+    except Exception as exc:
+        logger.error("[Copiloto] Erro inesperado no runtime: %s", exc, exc_info=True)
+        return _textual_response(
+            answer=f"Erro interno ao processar sua mensagem. Detalhes: {exc}",
+            trace=trace_steps,
+            metrics={"total_duration_ms": int((time.monotonic() - t0) * 1000), "steps_with_error": 1},
+            input_tokens=total_in,
+            output_tokens=total_out,
+        )
 
 
 async def _interpret_message(*, mensagem: str, current_user, sessao_id: str | None, request_id: str | None) -> dict[str, Any]:
