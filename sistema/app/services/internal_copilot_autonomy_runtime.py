@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import logging
 import time
 from typing import Any
 
@@ -12,9 +13,43 @@ from app.services.assistant_autonomy.schema_context import get_allowed_tables_fo
 from app.services.internal_copilot_autonomy_models import CopilotIntent, CopilotSafetyDecision, CopilotStructuredPlan
 from app.services.internal_copilot_sql_guard import validate_sql_query
 
+logger = logging.getLogger(__name__)
+
 
 def _get_allowed_tables() -> dict[str, dict[str, str]]:
     return get_allowed_tables_for_guard()
+
+
+async def _ask_llm_textual_fallback(*, mensagem: str, llm_rationale: str) -> dict[str, Any]:
+    """Quando o LLM SQL Planner falha, pede ao LLM uma resposta textual direta."""
+    from app.services.ia_service import ia_service
+    fallback_prompt = (
+        "Você é um assistente técnico interno de um sistema de gestão empresarial.\n"
+        f"O operador perguntou: {mensagem!r}\n\n"
+        "Tentei gerar uma consulta automatica mas nao foi possivel.\n"
+        "Responda de forma objetiva e util ao operador.\n"
+        "Se puder, sugira uma forma mais clara de pedir a informacao desejada."
+    )
+    try:
+        resp = await ia_service.chat(
+            messages=[
+                {"role": "system", "content": "Voce e um assistente tecnico interno."},
+                {"role": "user", "content": fallback_prompt},
+            ],
+            temperature=0.3,
+            max_tokens=600,
+        )
+        choices = (resp or {}).get("choices") or []
+        content = (((choices[0] or {}).get("message") or {}).get("content") or "") if choices else ""
+        usage = (resp or {}).get("usage") or {}
+        input_t = int(usage.get("prompt_tokens", 0) or 0)
+        output_t = int(usage.get("completion_tokens", 0) or 0)
+        if content:
+            logger.info("[Copiloto Fallback] Resposta textual gerada com sucesso.")
+            return {"answer": content, "input_tokens": input_t, "output_tokens": output_t}
+    except Exception as exc:
+        logger.warning("[Copiloto Fallback] Falha no fallback textual: %s", exc)
+    return {"answer": "Nao foi possivel gerar uma consulta para esse pedido. Tente reformular com termos mais especificos, como 'quantos orcamentos' ou 'listar clientes'.", "input_tokens": 0, "output_tokens": 0}
 
 
 async def run_internal_copilot_autonomy(*, db, current_user, mensagem: str, sessao_id: str | None, request_id: str | None):
@@ -48,6 +83,20 @@ async def run_internal_copilot_autonomy(*, db, current_user, mensagem: str, sess
     total_out += int((plan or {}).get("output_tokens", 0) or 0)
     trace_steps.append({"step": "plan", "duration_ms": int((time.monotonic() - t_start) * 1000), "status": "ok", "llm_used": bool(llm_rationale)})
 
+    if not sql_candidate:
+        logger.info("[Copiloto] Nenhum SQL gerado, usando fallback textual para: %r", raw_message[:100])
+        fallback = await _ask_llm_textual_fallback(mensagem=raw_message, llm_rationale=llm_rationale)
+        total_in += int(fallback.get("input_tokens", 0) or 0)
+        total_out += int(fallback.get("output_tokens", 0) or 0)
+        trace_steps.append({"step": "fallback_textual", "duration_ms": int((time.monotonic() - t_start) * 1000), "status": "ok"})
+        return _textual_response(
+            answer=fallback["answer"],
+            trace=trace_steps,
+            metrics={"total_duration_ms": int((time.monotonic() - t0) * 1000), "steps_with_error": 0},
+            input_tokens=total_in,
+            output_tokens=total_out,
+        )
+
     t_start = time.monotonic()
     allowed_tables = _get_allowed_tables()
     safety = validate_sql_query(
@@ -60,6 +109,10 @@ async def run_internal_copilot_autonomy(*, db, current_user, mensagem: str, sess
     structured_plan = _build_structured_plan(intent=intent, sql_candidate=sql_candidate)
 
     if not safety.allowed:
+        logger.warning(
+            "[Copiloto] SQL bloqueado pelo guard. SQL: %r | Reason: %s",
+            sql_candidate[:200], getattr(safety, "reason", None),
+        )
         _record_audit(
             db=db,
             current_user=current_user,
@@ -70,15 +123,16 @@ async def run_internal_copilot_autonomy(*, db, current_user, mensagem: str, sess
             request_id=request_id,
             llm_rationale=llm_rationale,
         )
-        result = _blocked_response(
-            intent=intent,
-            safety=safety,
+        fallback = await _ask_llm_textual_fallback(mensagem=raw_message, llm_rationale=llm_rationale)
+        total_in += int(fallback.get("input_tokens", 0) or 0)
+        total_out += int(fallback.get("output_tokens", 0) or 0)
+        return _textual_response(
+            answer=fallback["answer"],
             trace=trace_steps,
             metrics={"total_duration_ms": int((time.monotonic() - t0) * 1000), "steps_with_error": 0},
             input_tokens=total_in,
             output_tokens=total_out,
         )
-        return result
 
     t_start = time.monotonic()
     query_result = await _execute_validated_query(db=db, sql=safety.rewritten_sql or "")
@@ -110,7 +164,8 @@ async def _interpret_message(*, mensagem: str, current_user, sessao_id: str | No
     lowered = mensagem.lower()
 
     intent = CopilotIntent(raw_message=mensagem)
-    if "orcamento" in lowered and any(k in lowered for k in ("listar", "liste", "mostrar", "mostre")):
+
+    if "orcamento" in lowered and any(k in lowered for k in ("listar", "liste", "mostrar", "mostre", "buscar")):
         intent.intent = "listar_orcamentos"
         intent.preferred_output = "table"
     elif "orcamento" in lowered and any(k in lowered for k in ("quantidade", "contar", "total", "qtd", "quantos", "quantas")):
@@ -119,6 +174,18 @@ async def _interpret_message(*, mensagem: str, current_user, sessao_id: str | No
         else:
             intent.intent = "contar_orcamentos"
         intent.preferred_output = "summary"
+    elif any(k in lowered for k in ("catalogo", "catálogo", "serviço", "servico", "produto", "material")):
+        if any(k in lowered for k in ("quantidade", "contar", "total", "qtd", "quantos", "quantas")):
+            intent.intent = "contar_catalogo"
+        else:
+            intent.intent = "listar_catalogo"
+        intent.preferred_output = "table"
+    elif "cliente" in lowered and any(k in lowered for k in ("listar", "liste", "mostrar", "mostre", "buscar", "quantos", "quantas", "quantidade")):
+        intent.intent = "listar_clientes"
+        intent.preferred_output = "table"
+    elif any(k in lowered for k in ("despesa", "despesas", "receita", "receitas", "caixa", "movimentação", "movimentacao")):
+        intent.intent = "financeiro"
+        intent.preferred_output = "table"
     else:
         intent.intent = "llm_query"
         intent.preferred_output = "table"
@@ -143,7 +210,16 @@ async def _build_plan(*, intent: dict[str, Any], raw_message: str, current_user,
         return {"sql_candidate": "SELECT COUNT(*) as total FROM orcamentos WHERE status = 'APROVADO'"}
     if intent_name == "contar_orcamentos":
         return {"sql_candidate": "SELECT COUNT(*) as total FROM orcamentos"}
-    return {"sql_candidate": "SELECT 1"}
+    if intent_name == "contar_catalogo":
+        return {"sql_candidate": "SELECT COUNT(*) as total_itens FROM servicos WHERE ativo = true"}
+    if intent_name == "listar_catalogo":
+        return {"sql_candidate": "SELECT nome, preco_padrao, unidade FROM servicos WHERE ativo = true LIMIT 50"}
+    if intent_name == "listar_clientes":
+        return {"sql_candidate": "SELECT nome, telefone, cidade FROM clientes LIMIT 50"}
+    if intent_name == "financeiro":
+        return {"sql_candidate": "SELECT tipo, descricao, valor, data FROM movimentacoes_caixa LIMIT 50"}
+
+    return {"sql_candidate": ""}
 
 
 async def _execute_validated_query(*, db, sql: str) -> dict[str, Any]:
@@ -163,8 +239,23 @@ def _build_structured_plan(*, intent: dict[str, Any], sql_candidate: str) -> Cop
     intent_name = (intent or {}).get("intent")
     if not intent_name:
         return None
-    tables = ["orcamentos"] if "orcamento" in str(intent_name) else []
-    columns = ["id", "cliente_nome"] if "listar" in str(intent_name) else ["total"]
+    lowered = intent_name.lower()
+    tables = []
+    columns = []
+    if "orcamento" in lowered:
+        tables = ["orcamentos"]
+        columns = ["id", "cliente_nome"] if "listar" in lowered else ["total"]
+    elif "catalogo" in lowered:
+        tables = ["servicos"]
+        columns = ["total_itens"] if "contar" in lowered else ["nome", "preco_padrao"]
+    elif "cliente" in lowered:
+        tables = ["clientes"]
+        columns = ["nome", "telefone"]
+    elif "financeiro" in lowered:
+        tables = ["movimentacoes_caixa"]
+        columns = ["tipo", "valor", "data"]
+    elif "llm_query" in lowered:
+        return None
     return CopilotStructuredPlan(
         intent=intent_name,
         tables=tables,
@@ -210,22 +301,17 @@ def _success_response(*, intent: dict[str, Any], safety: CopilotSafetyDecision |
     return _build_response_payload(success=True, data=payload, trace=trace, metrics=metrics, input_tokens=input_tokens, output_tokens=output_tokens)
 
 
-def _blocked_response(*, intent: dict[str, Any], safety: CopilotSafetyDecision | Any, trace: list | None = None, metrics: dict | None = None, input_tokens: int = 0, output_tokens: int = 0) -> dict[str, Any]:
-    reason = getattr(safety, "reason", None)
-    needs_confirmation = bool(getattr(safety, "needs_confirmation", False))
-    answer = "A consulta foi bloqueada por seguranca."
-    if needs_confirmation:
-        answer = "A consulta exige confirmacao antes de qualquer escrita."
-
+def _textual_response(*, answer: str, trace: list | None = None, metrics: dict | None = None, input_tokens: int = 0, output_tokens: int = 0) -> dict[str, Any]:
     payload = {
         "answer": answer,
         "summary": answer,
         "table": [],
-        "safety": _serialize_safety(safety),
-        "needs_confirmation": needs_confirmation,
+        "safety": {"mode": None, "needs_confirmation": False, "reason": None},
+        "needs_confirmation": False,
         "suggested_followups": [],
+        "llm_rationale": None,
     }
-    return _build_response_payload(success=False, data=payload, error=reason or "query_blocked", code="scope_not_proven", trace=trace, metrics=metrics, input_tokens=input_tokens, output_tokens=output_tokens)
+    return _build_response_payload(success=True, data=payload, trace=trace, metrics=metrics, input_tokens=input_tokens, output_tokens=output_tokens)
 
 
 def _serialize_safety(safety: CopilotSafetyDecision | Any) -> dict[str, Any]:

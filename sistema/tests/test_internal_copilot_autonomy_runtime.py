@@ -176,7 +176,7 @@ async def test_execute_validated_query_accepts_async_db_execute():
 
 
 @pytest.mark.asyncio
-async def test_runtime_returns_blocked_response_when_sql_is_not_allowed(monkeypatch):
+async def test_runtime_returns_textual_fallback_when_sql_is_not_allowed(monkeypatch):
     from app.services.internal_copilot_autonomy_runtime import run_internal_copilot_autonomy
 
     async def fake_interpret(*args, **kwargs):
@@ -201,10 +201,18 @@ async def test_runtime_returns_blocked_response_when_sql_is_not_allowed(monkeypa
     async def fake_execute(**kwargs):
         raise AssertionError("nao deveria executar query bloqueada")
 
+    async def fake_textual_fallback(*, mensagem, llm_rationale):
+        return {"answer": "Nao foi possivel gerar uma consulta para esse pedido.", "input_tokens": 0, "output_tokens": 0}
+
+    def fake_audit(*args, **kwargs):
+        pass
+
     monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime._interpret_message", fake_interpret)
     monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime._build_plan", fake_plan)
     monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime.validate_sql_query", fake_validate)
     monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime._execute_validated_query", fake_execute)
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime._ask_llm_textual_fallback", fake_textual_fallback)
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime.registrar_auditoria", fake_audit)
 
     result = await run_internal_copilot_autonomy(
         db=None,
@@ -214,9 +222,8 @@ async def test_runtime_returns_blocked_response_when_sql_is_not_allowed(monkeypa
         request_id="req-1",
     )
 
-    assert result["success"] is False
-    assert result["data"]["needs_confirmation"] is True
-    assert result["data"]["safety"]["reason"] == "write_requires_confirmation"
+    assert result["success"] is True
+    assert "Nao foi possivel" in result["data"]["answer"]
 
 
 def test_autonomy_models_expose_expected_defaults():
@@ -295,7 +302,7 @@ async def test_runtime_records_audit_payload_with_sql_and_safety(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_runtime_returns_blocked_payload_when_scope_cannot_be_proved(monkeypatch):
+async def test_runtime_returns_textual_fallback_when_scope_cannot_be_proved(monkeypatch):
     from app.services.internal_copilot_autonomy_runtime import run_internal_copilot_autonomy
 
     async def fake_interpret(*args, **kwargs):
@@ -320,6 +327,9 @@ async def test_runtime_returns_blocked_payload_when_scope_cannot_be_proved(monke
     async def fake_execute(**kwargs):
         raise AssertionError("nao deveria executar query bloqueada")
 
+    async def fake_textual_fallback(*, mensagem, llm_rationale):
+        return {"answer": "Nao foi possivel gerar uma consulta para esse pedido.", "input_tokens": 0, "output_tokens": 0}
+
     def fake_audit(*args, **kwargs):
         pass
 
@@ -327,6 +337,7 @@ async def test_runtime_returns_blocked_payload_when_scope_cannot_be_proved(monke
     monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime._build_plan", fake_plan)
     monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime.validate_sql_query", fake_validate)
     monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime._execute_validated_query", fake_execute)
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime._ask_llm_textual_fallback", fake_textual_fallback)
     monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime.registrar_auditoria", fake_audit)
 
     result = await run_internal_copilot_autonomy(
@@ -337,10 +348,8 @@ async def test_runtime_returns_blocked_payload_when_scope_cannot_be_proved(monke
         request_id="req-1",
     )
 
-    assert result["success"] is False
-    assert result.get("code") == "scope_not_proven"
-    assert result["data"]["safety"]["mode"] == "blocked"
-    assert result["data"]["safety"]["reason"] == "blocked_statement"
+    assert result["success"] is True
+    assert "Nao foi possivel" in result["data"]["answer"]
 
 
 @pytest.mark.asyncio
@@ -439,7 +448,7 @@ async def test_runtime_interpret_sets_llm_query_for_unknown_intents(monkeypatch)
 
 
 @pytest.mark.asyncio
-async def test_runtime_llm_planner_failure_falls_back_to_select_1(monkeypatch):
+async def test_runtime_llm_planner_failure_triggers_textual_fallback(monkeypatch):
     from app.services.internal_copilot_autonomy_runtime import run_internal_copilot_autonomy
     from app.services.assistant_autonomy.llm_sql_planner import LLMSqlPlan
 
@@ -449,18 +458,12 @@ async def test_runtime_llm_planner_failure_falls_back_to_select_1(monkeypatch):
     async def fake_llm_plan(message, *, period_days, historico=""):
         return LLMSqlPlan(sql=None, rationale="Falha no LLM", used=False)
 
-    def fake_validate(**kwargs):
-        assert kwargs["sql"] == "SELECT 1"
-        return SimpleNamespace(
-            allowed=False,
-            mode="blocked",
-            reason="blocked_statement",
-            rewritten_sql=None,
-        )
+    async def fake_textual_fallback(*, mensagem, llm_rationale):
+        return {"answer": "Nao foi possivel gerar uma consulta para esse pedido. Tente reformular com termos mais especificos.", "input_tokens": 0, "output_tokens": 0}
 
     monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime.llm_sql_planner_enabled", fake_enabled)
     monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime.try_generate_sql_from_llm", fake_llm_plan)
-    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime.validate_sql_query", fake_validate)
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime._ask_llm_textual_fallback", fake_textual_fallback)
 
     result = await run_internal_copilot_autonomy(
         db=None,
@@ -470,7 +473,8 @@ async def test_runtime_llm_planner_failure_falls_back_to_select_1(monkeypatch):
         request_id="req-fail-1",
     )
 
-    assert result["success"] is False
+    assert result["success"] is True
+    assert "Nao foi possivel" in result["data"]["answer"]
 
 
 @pytest.mark.asyncio
