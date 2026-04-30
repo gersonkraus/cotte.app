@@ -1145,6 +1145,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (_waInput) _waInput.addEventListener('input', _onContatoInput);
   if (_emInput) _emInput.addEventListener('input', _onContatoInput);
+
+  // Busca automática de CEP ao digitar 8 dígitos
+  var _cepInput = document.getElementById('lead-cep');
+  if (_cepInput) _cepInput.addEventListener('input', function() {
+    var digits = this.value.replace(/\D/g, '');
+    if (digits.length === 8) buscarCepLead();
+  });
 });
 
 // Exportar funções
