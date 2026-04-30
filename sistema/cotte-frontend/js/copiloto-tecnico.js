@@ -645,6 +645,8 @@
         badge.textContent = "\uD83D\uDD22 " + ((tIn || 0) + (tOut || 0)) + " tokens (\u2191" + (tIn || 0) + " \u2193" + (tOut || 0) + ")";
         messagesEl.lastElementChild.appendChild(badge);
       }
+
+      renderDebugPanel(payload, sessaoId);
     } catch (err) {
       addMessage((err && err.message) || "Falha ao consultar o copiloto interno.", "bot");
     } finally {
@@ -811,7 +813,230 @@
     }
 
     bootstrapCapabilities();
+    initDebugPanel();
   }
+
+  var debugPanelOpen = false;
+  var lastDebugPayload = null;
+  var lastSessaoId = null;
+
+  function initDebugPanel() {
+    var debugBtn = document.getElementById('copilotoDebugBtn');
+    var debugPanel = document.getElementById('copilotoDebugPanel');
+    var debugCloseBtn = document.getElementById('copilotoDebugCloseBtn');
+    var debugTabs = document.querySelectorAll('.debug-tab');
+
+    if (debugBtn && debugPanel) {
+      var stored = localStorage.getItem('copiloto_debug_open');
+      if (stored === 'true') {
+        debugPanel.style.display = 'flex';
+        debugBtn.classList.add('active');
+        debugPanelOpen = true;
+      }
+
+      debugBtn.addEventListener('click', function() {
+        debugPanelOpen = !debugPanelOpen;
+        debugPanel.style.display = debugPanelOpen ? 'flex' : 'none';
+        debugBtn.classList.toggle('active', debugPanelOpen);
+        localStorage.setItem('copiloto_debug_open', debugPanelOpen);
+        if (debugPanelOpen && lastDebugPayload) {
+          renderDebugPanel(lastDebugPayload, lastSessaoId);
+        }
+      });
+    }
+
+    if (debugCloseBtn) {
+      debugCloseBtn.addEventListener('click', function() {
+        debugPanel.style.display = 'none';
+        debugBtn.classList.remove('active');
+        debugPanelOpen = false;
+        localStorage.setItem('copiloto_debug_open', 'false');
+      });
+    }
+
+    debugTabs.forEach(function(tab) {
+      tab.addEventListener('click', function() {
+        debugTabs.forEach(function(t) { t.classList.remove('active'); });
+        tab.classList.add('active');
+        var tabName = tab.dataset.tab;
+        document.querySelectorAll('.debug-tab-content').forEach(function(c) {
+          c.classList.remove('active');
+        });
+        var content = document.getElementById('debugTab' + tabName.charAt(0).toUpperCase() + tabName.slice(1));
+        if (content) content.classList.add('active');
+      });
+    });
+  }
+
+  function renderDebugPanel(payload, currentSessaoId) {
+    lastDebugPayload = payload;
+    lastSessaoId = currentSessaoId;
+
+    var tabSup = document.getElementById('debugTabSup');
+    var tabTrc = document.getElementById('debugTabTrc');
+    var tabCtx = document.getElementById('debugTabCtx');
+    var tabSes = document.getElementById('debugTabSes');
+
+    if (!tabSup || !tabTrc || !tabCtx || !tabSes) return;
+
+    var data = payload.dados || payload.data || payload;
+    var trace = payload.trace || data.trace || [];
+    var metrics = payload.metrics || data.metrics || {};
+    var ctx = payload.contexto_operacional || data.contexto_operacional || {};
+
+    var route = 'conversational';
+    var subagentePrimario = '-';
+    var subagentesSecundarios = [];
+    var tipoResposta = '-';
+    var continuidade = false;
+    var rationale = '-';
+
+    if (ctx.rota_primaria) route = ctx.rota_primaria;
+    if (ctx.subagente_primario) subagentePrimario = ctx.subagente_primario;
+    if (ctx.subagentes_secundarios) subagentesSecundarios = ctx.subagentes_secundarios;
+    if (ctx.tipo_resposta_esperada) tipoResposta = ctx.tipo_resposta_esperada;
+    if (ctx.continuidade_aplicada !== undefined) continuidade = ctx.continuidade_aplicada;
+
+    tabSup.innerHTML = ''
+      + '<div class="debug-section">'
+      + '<div class="debug-section-title">Rota Primária</div>'
+      + '<span class="debug-badge ' + route + '">' + route + '</span>'
+      + '</div>'
+      + '<div class="debug-section">'
+      + '<div class="debug-section-title">Subagente Primário</div>'
+      + '<div class="debug-value">' + escapeHtml(subagentePrimario) + '</div>'
+      + '</div>'
+      + '<div class="debug-section">'
+      + '<div class="debug-section-title">Subagentes Secundários</div>'
+      + '<div class="debug-value">' + (subagentesSecundarios.length ? subagentesSecundarios.join(', ') : '-') + '</div>'
+      + '</div>'
+      + '<div class="debug-section">'
+      + '<div class="debug-section-title">Tipo de Resposta</div>'
+      + '<div class="debug-value">' + escapeHtml(tipoResposta) + '</div>'
+      + '</div>'
+      + '<div class="debug-section">'
+      + '<div class="debug-section-title">Continuidade Aplicada</div>'
+      + '<div class="debug-value">' + (continuidade ? 'Sim' : 'Não') + '</div>'
+      + '</div>'
+      + '<div class="debug-tokens">'
+      + '<span class="debug-token-in">↑ ' + (payload.input_tokens || 0) + '</span>'
+      + '<span class="debug-token-out">↓ ' + (payload.output_tokens || 0) + '</span>'
+      + '</div>';
+
+    var traceHtml = '<div class="debug-section"><div class="debug-section-title">Steps</div>';
+    if (Array.isArray(trace) && trace.length > 0) {
+      trace.forEach(function(step) {
+        var name = step.step || step.name || 'step';
+        var duration = step.duration_ms || step.duration || 0;
+        var status = step.status || 'ok';
+        var statusIcon = status === 'ok' ? '✓' : (status === 'error' ? '✗' : '○');
+        traceHtml += '<div class="debug-step">'
+          + '<span class="debug-step-name">' + escapeHtml(name) + '</span>'
+          + '<span class="debug-step-duration">' + duration + 'ms</span>'
+          + '<span class="debug-step-status">' + statusIcon + '</span>'
+          + '</div>';
+      });
+    } else {
+      traceHtml += '<div class="debug-empty">Sem trace disponível</div>';
+    }
+    traceHtml += '</div>';
+    traceHtml += '<div class="debug-section">'
+      + '<div class="debug-section-title">Métricas</div>'
+      + '<div class="debug-value">Duração total: ' + (metrics.total_duration_ms || 0) + 'ms</div>'
+      + '<div class="debug-value">Steps com erro: ' + (metrics.steps_with_error || 0) + '</div>'
+      + '</div>';
+    traceHtml += '<button class="debug-json-btn" onclick="copilotoShowTraceJson()">Ver trace JSON</button>';
+    tabTrc.innerHTML = traceHtml;
+
+    var ctxHtml = '';
+    ctxHtml += '<div class="debug-section">'
+      + '<div class="debug-section-title">Objetivo Ativo</div>'
+      + '<div class="debug-value">' + escapeHtml(ctx.objetivo_ativo || '-') + '</div>'
+      + '</div>';
+    ctxHtml += '<div class="debug-section">'
+      + '<div class="debug-section-title">Tipo de Fluxo</div>'
+      + '<div class="debug-value">' + escapeHtml(ctx.tipo_fluxo_ativo || '-') + '</div>'
+      + '</div>';
+
+    var artefato = ctx.artefato_em_andamento;
+    if (artefato && typeof artefato === 'object') {
+      ctxHtml += '<div class="debug-section">'
+        + '<div class="debug-section-title">Artefato em Andamento</div>'
+        + '<div class="debug-value">Tipo: ' + escapeHtml(artefato.artifact_type || '-') + '</div>'
+        + '<div class="debug-value">Status: ' + escapeHtml(artefato.status || '-') + '</div>'
+        + '<div class="debug-value">ID: ' + escapeHtml(artefato.artifact_id || '-') + '</div>'
+        + '</div>';
+    } else {
+      ctxHtml += '<div class="debug-section">'
+        + '<div class="debug-section-title">Artefato em Andamento</div>'
+        + '<div class="debug-value">Nenhum</div>'
+        + '</div>';
+    }
+
+    var entidades = [];
+    if (ctx.orcamento_id_ativo) entidades.push('Orçamento: ' + ctx.orcamento_id_ativo);
+    if (ctx.cliente_id_ativo) entidades.push('Cliente: ' + ctx.cliente_id_ativo);
+    ctxHtml += '<div class="debug-section">'
+      + '<div class="debug-section-title">Entidades Ativas</div>'
+      + '<div class="debug-value">' + (entidades.length ? entidades.join(', ') : 'Nenhuma') + '</div>'
+      + '</div>';
+
+    var proximos = ctx.proximos_passos_sugeridos || [];
+    ctxHtml += '<div class="debug-section">'
+      + '<div class="debug-section-title">Próximos Passos</div>';
+    if (proximos.length) {
+      ctxHtml += '<ul style="margin:0;padding-left:16px;font-size:12px;">';
+      proximos.forEach(function(p) { ctxHtml += '<li>' + escapeHtml(p) + '</li>'; });
+      ctxHtml += '</ul>';
+    } else {
+      ctxHtml += '<div class="debug-value">Nenhum</div>';
+    }
+    ctxHtml += '</div>';
+    tabCtx.innerHTML = ctxHtml;
+
+    tabSes.innerHTML = ''
+      + '<div class="debug-section">'
+      + '<div class="debug-section-title">Sessão ID</div>'
+      + '<div class="debug-meta">' + (currentSessaoId || '-') + '</div>'
+      + '</div>'
+      + '<div class="debug-section">'
+      + '<div class="debug-section-title">Empresa ID</div>'
+      + '<div class="debug-value">' + (payload.empresa_id || '-') + '</div>'
+      + '</div>'
+      + '<div class="debug-section">'
+      + '<div class="debug-section-title">Usuário ID</div>'
+      + '<div class="debug-value">' + (payload.usuario_id || '-') + '</div>'
+      + '</div>'
+      + '<div class="debug-section">'
+      + '<div class="debug-section-title">Flow ID</div>'
+      + '<div class="debug-meta">' + (payload.flow_id || '-') + '</div>'
+      + '</div>'
+      + '<div class="debug-section">'
+      + '<div class="debug-section-title">Última Atualização</div>'
+      + '<div class="debug-value">' + (ctx.atualizado_em || new Date().toISOString()) + '</div>'
+      + '</div>';
+  }
+
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  window.copilotoShowTraceJson = function() {
+    if (lastDebugPayload) {
+      var trace = lastDebugPayload.trace || (lastDebugPayload.dados && lastDebugPayload.dados.trace) || [];
+      console.log('=== COPILOTO DEBUG TRACE ===');
+      console.log(JSON.stringify(trace, null, 2));
+      console.log('=== PAYLOAD COMPLETO ===');
+      console.log(JSON.stringify(lastDebugPayload, null, 2));
+      alert('Trace e payload completo logados no console (F12)');
+    }
+  };
 
   document.addEventListener("DOMContentLoaded", init);
 })();

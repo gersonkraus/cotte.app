@@ -528,6 +528,183 @@
           transform: none !important;
         }
       }
+
+      .debug-btn {
+        background: transparent;
+        border: 1px solid var(--border, #e1e7f0);
+        border-radius: 8px;
+        font-size: 1em;
+        cursor: pointer;
+        padding: 0.4em 0.6em;
+        transition: all 0.2s;
+      }
+      .debug-btn:hover {
+        background: var(--surface2, #f8fafc);
+        border-color: var(--accent, #06b6d4);
+      }
+      .debug-btn.active {
+        background: var(--accent, #06b6d4);
+        color: #fff;
+        border-color: var(--accent, #06b6d4);
+      }
+      .copiloto-debug-panel {
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: 360px;
+        height: 100vh;
+        background: var(--surface, #fff);
+        border-left: 1px solid var(--border, #e1e7f0);
+        box-shadow: -4px 0 24px rgba(15, 23, 42, 0.1);
+        z-index: 1001;
+        display: flex;
+        flex-direction: column;
+        animation: slideInRight 0.2s ease;
+      }
+      @keyframes slideInRight {
+        from { transform: translateX(100%); }
+        to { transform: translateX(0); }
+      }
+      .debug-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border, #e1e7f0);
+      }
+      .debug-header h3 {
+        margin: 0;
+        font-size: 14px;
+        color: var(--text, #0f172a);
+      }
+      .debug-close-btn {
+        background: transparent;
+        border: none;
+        font-size: 1.5em;
+        cursor: pointer;
+        color: var(--muted, #64748b);
+        padding: 0;
+        line-height: 1;
+      }
+      .debug-close-btn:hover {
+        color: var(--text, #0f172a);
+      }
+      .debug-tabs {
+        display: flex;
+        border-bottom: 1px solid var(--border, #e1e7f0);
+      }
+      .debug-tab {
+        flex: 1;
+        padding: 10px 8px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--muted, #64748b);
+        border-bottom: 2px solid transparent;
+        transition: all 0.15s;
+      }
+      .debug-tab:hover {
+        background: var(--surface2, #f8fafc);
+      }
+      .debug-tab.active {
+        color: var(--accent, #06b6d4);
+        border-bottom-color: var(--accent, #06b6d4);
+      }
+      .debug-content {
+        flex: 1;
+        overflow-y: auto;
+      }
+      .debug-tab-content {
+        display: none;
+        padding: 12px;
+      }
+      .debug-tab-content.active {
+        display: block;
+      }
+      .debug-empty {
+        color: var(--muted, #64748b);
+        font-size: 13px;
+        text-align: center;
+        padding: 24px 12px;
+      }
+      .debug-section {
+        margin-bottom: 16px;
+      }
+      .debug-section-title {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted, #64748b);
+        margin-bottom: 6px;
+      }
+      .debug-value {
+        font-size: 13px;
+        color: var(--text, #0f172a);
+        word-break: break-word;
+      }
+      .debug-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 600;
+      }
+      .debug-badge.analytics { background: #dbeafe; color: #1d4ed8; }
+      .debug-badge.technical { background: #fef3c7; color: #b45309; }
+      .debug-badge.hybrid { background: #f3e8ff; color: #7c3aed; }
+      .debug-badge.operational { background: #dcfce7; color: #15803d; }
+      .debug-badge.conversational { background: #f1f5f9; color: #475569; }
+      .debug-step {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 0;
+        border-bottom: 1px solid var(--border, #e1e7f0);
+        font-size: 12px;
+      }
+      .debug-step:last-child { border-bottom: none; }
+      .debug-step-name { flex: 1; color: var(--text, #0f172a); }
+      .debug-step-duration { color: var(--muted, #64748b); font-family: monospace; }
+      .debug-step-status { font-size: 14px; }
+      .debug-tokens {
+        display: flex;
+        gap: 12px;
+        padding: 8px 0;
+        font-size: 12px;
+        font-family: monospace;
+        background: var(--surface2, #f8fafc);
+        border-radius: 8px;
+        padding: 10px 12px;
+      }
+      .debug-token-in { color: #059669; }
+      .debug-token-out { color: #d97706; }
+      .debug-meta {
+        font-size: 12px;
+        color: var(--muted, #64748b);
+        padding: 6px 0;
+        word-break: break-all;
+      }
+      .debug-json-btn {
+        margin-top: 8px;
+        padding: 6px 10px;
+        font-size: 11px;
+        background: var(--surface2, #f8fafc);
+        border: 1px solid var(--border, #e1e7f0);
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      .debug-json-btn:hover {
+        background: var(--accent, #06b6d4);
+        color: #fff;
+        border-color: var(--accent, #06b6d4);
+      }
+      @media (max-width: 640px) {
+        .copiloto-debug-panel {
+          width: 100%;
+        }
+      }
   </style>
 </head>
 <body>
@@ -539,9 +716,14 @@
         <div class="page-title">Copiloto Técnico Interno</div>
         <small>Console de suporte interno para diagnóstico e orientação técnica.</small>
       </div>
-      <button id="copilotoSettingsBtn" class="settings-btn" title="Configurar skill">
-        ⚙️
-      </button>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <button id="copilotoDebugBtn" class="debug-btn" title="Painel de Debug">
+          🐛
+        </button>
+        <button id="copilotoSettingsBtn" class="settings-btn" title="Configurar skill">
+          ⚙️
+        </button>
+      </div>
     </div>
 
     <section class="copiloto-main">
@@ -604,6 +786,33 @@ Você pode pedir investigação de erro, leitura de stack trace, revisão de con
           </div>
         </aside>
       </div>
+
+      <aside id="copilotoDebugPanel" class="copiloto-debug-panel" style="display: none;">
+        <div class="debug-header">
+          <h3>Debug</h3>
+          <button id="copilotoDebugCloseBtn" class="debug-close-btn" title="Fechar">×</button>
+        </div>
+        <div class="debug-tabs">
+          <button class="debug-tab active" data-tab="sup">Sup</button>
+          <button class="debug-tab" data-tab="trc">Trc</button>
+          <button class="debug-tab" data-tab="ctx">Ctx</button>
+          <button class="debug-tab" data-tab="ses">Ses</button>
+        </div>
+        <div class="debug-content">
+          <div id="debugTabSup" class="debug-tab-content active">
+            <div class="debug-empty">Nenhuma resposta ainda.</div>
+          </div>
+          <div id="debugTabTrc" class="debug-tab-content">
+            <div class="debug-empty">Nenhuma resposta ainda.</div>
+          </div>
+          <div id="debugTabCtx" class="debug-tab-content">
+            <div class="debug-empty">Nenhuma resposta ainda.</div>
+          </div>
+          <div id="debugTabSes" class="debug-tab-content">
+            <div class="debug-empty">Nenhuma resposta ainda.</div>
+          </div>
+        </div>
+      </aside>
     </section>
   </main>
 
@@ -629,6 +838,6 @@ Você pode pedir investigação de erro, leitura de stack trace, revisão de con
   <script src="js/services/ApiService.js?v=2"></script>
   <script src="js/services/CapabilityFlagsService.js?v=1"></script>
   <script src="js/layout.js?v=5"></script>
-  <script src="js/copiloto-tecnico.js?v=3"></script>
+  <script src="js/copiloto-tecnico.js?v=4"></script>
 </body>
 </html>
