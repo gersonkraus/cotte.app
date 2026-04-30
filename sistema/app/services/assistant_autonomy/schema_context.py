@@ -37,7 +37,7 @@ SCHEMA_CONTEXT = """
    - criado_por_id: Integer (FK para usuarios)
    - total: Numeric (valor total com desconto)
    - desconto: Numeric, desconto_tipo: String (percentual/fixo)
-    - status: Enum ('RASCUNHO','ENVIADO','APROVADO','RECUSADO','EXPIRADO','CANCELADO','EM_EXECUCAO','AGUARDANDO_PAGAMENTO','CONCLUIDO')
+    - status: Enum ('RASCUNHO','ENVIADO','APROVADO','RECUSADO','EXPIRADO','EM_EXECUCAO','AGUARDANDO_PAGAMENTO','CONCLUIDO')
     - forma_pagamento: Enum
    - criado_em: DateTime, atualizado_em: DateTime
    - aprovado_em: DateTime (NULL se não aprovado)

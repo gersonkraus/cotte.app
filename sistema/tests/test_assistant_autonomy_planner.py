@@ -58,7 +58,8 @@ def test_build_semantic_plan_routes_composite_flow():
 
 def test_schema_context_documents_sql_enum_literals_in_uppercase():
     schema = get_schema_context_for_llm()
-    assert "Enum ('RASCUNHO','ENVIADO','APROVADO','RECUSADO','EXPIRADO','CANCELADO','EM_EXECUCAO','AGUARDANDO_PAGAMENTO','CONCLUIDO')" in schema
+    assert "Enum ('RASCUNHO','ENVIADO','APROVADO','RECUSADO','EXPIRADO','EM_EXECUCAO','AGUARDANDO_PAGAMENTO','CONCLUIDO')" in schema
+    assert "CANCELADO" not in schema.split("orcamentos")[1].split("itens_orcamento")[0]
 
 
 def test_llm_sql_planner_prompt_requires_exact_enum_literals_from_schema():

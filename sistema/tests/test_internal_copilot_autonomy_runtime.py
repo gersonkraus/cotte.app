@@ -441,7 +441,7 @@ async def test_runtime_interpret_sets_llm_query_for_unknown_intents(monkeypatch)
     from app.services.internal_copilot_autonomy_runtime import _interpret_message
 
     result = await _interpret_message(
-        mensagem="quantas vendas tivemos este mês",
+        mensagem="explique a principal causa da queda de conversao comercial",
         current_user=SimpleNamespace(id=7, empresa_id=3),
         sessao_id=None,
         request_id=None,
@@ -479,6 +479,241 @@ async def test_runtime_llm_planner_failure_triggers_textual_fallback(monkeypatch
 
     assert result["success"] is True
     assert "Nao foi possivel" in result["data"]["answer"]
+
+
+@pytest.mark.asyncio
+async def test_runtime_passes_session_history_to_llm_planner(monkeypatch):
+    from app.services.internal_copilot_autonomy_runtime import run_internal_copilot_autonomy
+    from app.services.assistant_autonomy.llm_sql_planner import LLMSqlPlan
+
+    captured = {}
+
+    def fake_enabled():
+        return True
+
+    async def fake_llm_plan(message, *, period_days, historico=""):
+        captured["message"] = message
+        captured["historico"] = historico
+        return LLMSqlPlan(
+            sql="SELECT COUNT(*) as total FROM orcamentos",
+            rationale="Usou contexto da sessao",
+            used=True,
+        )
+
+    def fake_validate(**kwargs):
+        return SimpleNamespace(
+            allowed=True,
+            mode="read_only",
+            needs_confirmation=False,
+            reason=None,
+            rewritten_sql="SELECT COUNT(*) as total FROM orcamentos WHERE orcamentos.empresa_id = 3 LIMIT 100",
+        )
+
+    async def fake_execute(**kwargs):
+        return {"columns": ["total"], "rows": [[10]], "row_count": 1}
+
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime.llm_sql_planner_enabled", fake_enabled)
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime.try_generate_sql_from_llm", fake_llm_plan)
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime.validate_sql_query", fake_validate)
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime._execute_validated_query", fake_execute)
+    monkeypatch.setattr(
+        "app.services.internal_copilot_autonomy_runtime._load_session_history",
+        lambda **kwargs: "usuario: liste os orcamentos em rascunho\nassistente: Encontrei 39 resultado(s).",
+    )
+
+    result = await run_internal_copilot_autonomy(
+        db=None,
+        current_user=SimpleNamespace(id=7, empresa_id=3),
+        mensagem="agora crie uma versao gerencial",
+        sessao_id="sess-hist-1",
+        request_id="req-hist-1",
+    )
+
+    assert result["success"] is True
+    assert captured["message"] == "agora crie uma versao gerencial"
+    assert "liste os orcamentos em rascunho" in captured["historico"]
+
+
+@pytest.mark.asyncio
+async def test_runtime_interpret_recognizes_propostas_nao_aprovadas_as_orcamentos():
+    from app.services.internal_copilot_autonomy_runtime import _interpret_message
+
+    result = await _interpret_message(
+        mensagem="Propostas de vendas não aprovadas",
+        current_user=SimpleNamespace(id=7, empresa_id=3),
+        sessao_id=None,
+        request_id=None,
+    )
+
+    assert result["intent"] == "listar_orcamentos_nao_aprovados"
+    assert result["preferred_output"] == "table"
+
+
+@pytest.mark.asyncio
+async def test_runtime_interpret_recognizes_relatorio_gerencial_de_vendas():
+    from app.services.internal_copilot_autonomy_runtime import _interpret_message
+
+    result = await _interpret_message(
+        mensagem="um relatório gerencial de vendas não aprovadas do mês de abril",
+        current_user=SimpleNamespace(id=7, empresa_id=3),
+        sessao_id=None,
+        request_id=None,
+    )
+
+    assert result["intent"] == "listar_orcamentos_nao_aprovados"
+    assert result["preferred_output"] == "table"
+
+
+@pytest.mark.asyncio
+async def test_runtime_exposes_history_preview_in_plan_trace(monkeypatch):
+    from app.services.internal_copilot_autonomy_runtime import run_internal_copilot_autonomy
+    from app.services.assistant_autonomy.llm_sql_planner import LLMSqlPlan
+
+    def fake_enabled():
+        return True
+
+    async def fake_llm_plan(message, *, period_days, historico=""):
+        return LLMSqlPlan(
+            sql="SELECT COUNT(*) as total FROM orcamentos",
+            rationale="Usou contexto da sessao",
+            used=True,
+        )
+
+    def fake_validate(**kwargs):
+        return SimpleNamespace(
+            allowed=True,
+            mode="read_only",
+            needs_confirmation=False,
+            reason=None,
+            rewritten_sql="SELECT COUNT(*) as total FROM orcamentos WHERE orcamentos.empresa_id = 3 LIMIT 100",
+        )
+
+    async def fake_execute(**kwargs):
+        return {"columns": ["total"], "rows": [[10]], "row_count": 1}
+
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime.llm_sql_planner_enabled", fake_enabled)
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime.try_generate_sql_from_llm", fake_llm_plan)
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime.validate_sql_query", fake_validate)
+    monkeypatch.setattr("app.services.internal_copilot_autonomy_runtime._execute_validated_query", fake_execute)
+    monkeypatch.setattr(
+        "app.services.internal_copilot_autonomy_runtime._load_session_history",
+        lambda **kwargs: "usuario: liste os orcamentos em rascunho\nassistente: Encontrei 39 resultado(s).\nusuario: agora gere um resumo executivo com mais contexto e detalhes.",
+    )
+
+    result = await run_internal_copilot_autonomy(
+        db=None,
+        current_user=SimpleNamespace(id=7, empresa_id=3),
+        mensagem="agora crie uma versao gerencial",
+        sessao_id="sess-hist-trace-1",
+        request_id="req-hist-trace-1",
+    )
+
+    plan_trace = next(step for step in result["trace"] if step["step"] == "plan")
+    assert plan_trace["history_messages"] == 3
+    assert plan_trace["history_truncated"] is True
+    assert "liste os orcamentos em rascunho" in plan_trace["history_preview"]
+
+
+@pytest.mark.asyncio
+async def test_runtime_interpret_recognizes_aprovados_em_abril():
+    from app.services.internal_copilot_autonomy_runtime import _interpret_message
+
+    result = await _interpret_message(
+        mensagem="relatorio gerencial de orcamentos aprovados em abril",
+        current_user=SimpleNamespace(id=7, empresa_id=3),
+        sessao_id=None,
+        request_id=None,
+    )
+
+    assert result["intent"] == "listar_orcamentos_aprovados"
+    assert result["preferred_output"] == "table"
+
+
+@pytest.mark.asyncio
+async def test_runtime_interpret_recognizes_recusados_ontem():
+    from app.services.internal_copilot_autonomy_runtime import _interpret_message
+
+    result = await _interpret_message(
+        mensagem="orcamentos recusados ontem",
+        current_user=SimpleNamespace(id=7, empresa_id=3),
+        sessao_id=None,
+        request_id=None,
+    )
+
+    assert result["intent"] == "listar_orcamentos_recusados"
+    assert result["preferred_output"] == "table"
+
+
+@pytest.mark.asyncio
+async def test_runtime_interpret_recognizes_rascunho_este_mes():
+    from app.services.internal_copilot_autonomy_runtime import _interpret_message
+
+    result = await _interpret_message(
+        mensagem="orcamentos em rascunho este mes",
+        current_user=SimpleNamespace(id=7, empresa_id=3),
+        sessao_id=None,
+        request_id=None,
+    )
+
+    assert result["intent"] == "listar_orcamentos_rascunho"
+    assert result["preferred_output"] == "table"
+
+
+@pytest.mark.asyncio
+async def test_build_plan_uses_aprovado_em_for_aprovados_with_named_month(monkeypatch):
+    from app.services import internal_copilot_autonomy_runtime as runtime
+
+    monkeypatch.setattr(runtime, "llm_sql_planner_enabled", lambda: False)
+
+    plan = await runtime._build_plan(
+        intent={"intent": "listar_orcamentos_aprovados"},
+        raw_message="orcamentos aprovados em abril",
+        history_text="",
+        current_user=None,
+        sessao_id=None,
+        request_id=None,
+    )
+
+    assert "status = 'APROVADO'" in plan["sql_candidate"]
+    assert "aprovado_em" in plan["sql_candidate"]
+
+
+@pytest.mark.asyncio
+async def test_build_plan_uses_criado_em_for_recusados_with_relative_day(monkeypatch):
+    from app.services import internal_copilot_autonomy_runtime as runtime
+
+    monkeypatch.setattr(runtime, "llm_sql_planner_enabled", lambda: False)
+
+    plan = await runtime._build_plan(
+        intent={"intent": "listar_orcamentos_recusados"},
+        raw_message="orcamentos recusados ontem",
+        history_text="",
+        current_user=None,
+        sessao_id=None,
+        request_id=None,
+    )
+
+    assert "status = 'RECUSADO'" in plan["sql_candidate"]
+    assert "criado_em" in plan["sql_candidate"]
+
+
+@pytest.mark.asyncio
+async def test_build_plan_keeps_non_approved_with_status_not_equal(monkeypatch):
+    from app.services import internal_copilot_autonomy_runtime as runtime
+
+    monkeypatch.setattr(runtime, "llm_sql_planner_enabled", lambda: False)
+
+    plan = await runtime._build_plan(
+        intent={"intent": "listar_orcamentos_nao_aprovados"},
+        raw_message="propostas nao aprovadas em abril",
+        history_text="",
+        current_user=None,
+        sessao_id=None,
+        request_id=None,
+    )
+
+    assert "status <> 'APROVADO'" in plan["sql_candidate"]
+    assert "criado_em" in plan["sql_candidate"]
 
 
 @pytest.mark.asyncio
