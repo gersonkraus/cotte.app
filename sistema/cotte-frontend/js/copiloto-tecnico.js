@@ -980,6 +980,11 @@
       });
     }
 
+    var debugExportBtn = document.getElementById('copilotoDebugExportBtn');
+    if (debugExportBtn) {
+      debugExportBtn.addEventListener('click', copilotoExportTraceJson);
+    }
+
     debugTabs.forEach(function(tab) {
       tab.addEventListener('click', function() {
         debugTabs.forEach(function(t) { t.classList.remove('active'); });
@@ -1082,7 +1087,7 @@
       + '<div class="debug-value">Duração total: ' + (metrics.total_duration_ms || 0) + 'ms</div>'
       + '<div class="debug-value">Steps com erro: ' + (metrics.steps_with_error || 0) + '</div>'
       + '</div>';
-    traceHtml += '<button class="debug-json-btn" onclick="copilotoShowTraceJson()">Ver trace JSON</button>';
+    traceHtml += '<button class="debug-json-btn" onclick="copilotoExportTraceJson()">📋 Copiar trace JSON</button>';
     tabTrc.innerHTML = traceHtml;
 
     var ctxHtml = '';
@@ -1200,15 +1205,62 @@
       .replace(/'/g, '&#039;');
   }
 
-  window.copilotoShowTraceJson = function() {
-    if (lastDebugPayload) {
-      var trace = lastDebugPayload.trace || (lastDebugPayload.dados && lastDebugPayload.dados.trace) || [];
-      console.log('=== COPILOTO DEBUG TRACE ===');
-      console.log(JSON.stringify(trace, null, 2));
-      console.log('=== PAYLOAD COMPLETO ===');
-      console.log(JSON.stringify(lastDebugPayload, null, 2));
-      alert('Trace e payload completo logados no console (F12)');
+  function copilotoExportTraceJson() {
+    if (!lastDebugPayload) {
+      showToast('Nenhum trace disponível ainda.');
+      return;
     }
+    var trace = lastDebugPayload.trace || (lastDebugPayload.dados && lastDebugPayload.dados.trace) || [];
+    var exportData = {
+      sessao_id: lastSessaoId || null,
+      timestamp: new Date().toISOString(),
+      trace: trace,
+      payload: lastDebugPayload
+    };
+    var json = JSON.stringify(exportData, null, 2);
+    var exportBtn = document.getElementById('copilotoDebugExportBtn');
+
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      navigator.clipboard.writeText(json).then(function() {
+        showToast('Trace copiado para a área de transferência!');
+        if (exportBtn) {
+          var orig = exportBtn.textContent;
+          exportBtn.textContent = '✓ Copiado';
+          setTimeout(function() { exportBtn.textContent = orig; }, 2000);
+        }
+      }).catch(function() {
+        _fallbackCopy(json, exportBtn);
+      });
+    } else {
+      _fallbackCopy(json, exportBtn);
+    }
+  }
+
+  function _fallbackCopy(json, exportBtn) {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = json;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast('Trace copiado para a área de transferência!');
+      if (exportBtn) {
+        var orig = exportBtn.textContent;
+        exportBtn.textContent = '✓ Copiado';
+        setTimeout(function() { exportBtn.textContent = orig; }, 2000);
+      }
+    } catch (e) {
+      console.log('=== COPILOTO DEBUG TRACE ===');
+      console.log(json);
+      showToast('Falha ao copiar. Trace logado no console (F12).');
+    }
+  }
+
+  window.copilotoShowTraceJson = function() {
+    copilotoExportTraceJson();
   };
 
   document.addEventListener("DOMContentLoaded", init);
