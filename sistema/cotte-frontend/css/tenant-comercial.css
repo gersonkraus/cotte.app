@@ -923,3 +923,34 @@
   transition: background .15s;
 }
 .btn-split-item:hover { background: var(--surface2, #f1f5f9); }
+
+/* ── Config Sub-navegação ── */
+.config-subnav {
+  display: flex;
+  gap: 2px;
+  border-bottom: 2px solid var(--border, #e2e8f0);
+  margin-bottom: 20px;
+  overflow-x: auto;
+}
+.config-subnav-btn {
+  padding: 9px 16px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  background: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted, #64748b);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color .15s, border-color .15s;
+  font-family: var(--font-body, 'Inter', sans-serif);
+}
+.config-subnav-btn:hover { color: var(--text, #181c1f); }
+.config-subnav-btn.active {
+  color: var(--color-primary, #00687a);
+  border-bottom-color: var(--color-primary, #00687a);
+  font-weight: 600;
+}
+.config-subpanel { display: none; }
+.config-subpanel.active { display: block; }

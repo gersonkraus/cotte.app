@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="css/style.css?v=3">
   <link rel="stylesheet" href="css/precision-atelier.css?v=2">
-  <link rel="stylesheet" href="css/tenant-comercial.css?v=7">
+  <link rel="stylesheet" href="css/tenant-comercial.css?v=8">
   <link rel="stylesheet" href="css/tenant-comercial-precision.css?v=1">
 </head>
 <body>
@@ -23,20 +23,10 @@
       </div>
       <div class="crm-topbar-actions">
         <span id="topbar-notificacoes"></span>
-        <div class="btn-split-group" id="acoes-rapidas-group">
-          <button class="btn btn-primary btn-split-main" id="btn-novo-lead" type="button">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            Novo Contato
-          </button>
-          <button class="btn btn-primary btn-split-chevron" id="btn-acoes-toggle" type="button" aria-expanded="false" aria-haspopup="true" title="Mais ações rápidas">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-          </button>
-          <div class="btn-split-dropdown" id="acoes-dropdown" role="menu">
-            <button class="btn-split-item" onclick="abrirModalLembrete()" role="menuitem">⏰ Novo Lembrete</button>
-            <button class="btn-split-item" onclick="abrirModalCampanha()" role="menuitem">📧 Nova Campanha</button>
-            <button class="btn-split-item" onclick="switchTab('importacao')" role="menuitem">📥 Importar Contatos</button>
-          </div>
-        </div>
+        <button class="btn btn-primary" id="btn-novo-lead" type="button">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          Novo Contato
+        </button>
       </div>
     </header>
 
@@ -66,24 +56,10 @@
         <button class="admin-tab" data-tab="dashboard" role="tab" aria-selected="false" aria-controls="tab-dashboard" id="tab-dashboard-btn" title="Visão geral com métricas e tarefas do dia">
           <span class="admin-tab-icon">📊</span> Painel
         </button>
-        <span class="tab-sep" role="separator" aria-hidden="true"></span>
-        <button class="admin-tab" data-tab="campanhas" role="tab" aria-selected="false" aria-controls="tab-campanhas" id="tab-campanhas-btn" title="Envie mensagens em massa para vários contatos ao mesmo tempo">
-          <span class="admin-tab-icon">📧</span> Campanhas
-        </button>
         <button class="admin-tab" data-tab="importacao" role="tab" aria-selected="false" aria-controls="tab-importacao" id="tab-importacao-btn" title="Importe contatos de planilhas, listas de texto ou CSV">
           <span class="admin-tab-icon">📥</span> Importação
         </button>
-        <span class="tab-sep" role="separator" aria-hidden="true"></span>
-        <button class="admin-tab" data-tab="templates" role="tab" aria-selected="false" aria-controls="tab-templates" id="tab-templates-btn" title="Modelos de mensagem prontos para WhatsApp e e-mail">
-          <span class="admin-tab-icon">📝</span> Modelos
-        </button>
-        <button class="admin-tab" data-tab="propostas-publicas" role="tab" aria-selected="false" aria-controls="tab-propostas-publicas" id="tab-propostas-publicas-btn" title="Crie propostas com link público para enviar aos contatos">
-          <span class="admin-tab-icon">📄</span> Propostas Públicas
-        </button>
-        <button class="admin-tab" data-tab="cadastros" role="tab" aria-selected="false" aria-controls="tab-cadastros" id="tab-cadastros-btn" title="Configure segmentos, origens e etapas do seu funil">
-          <span class="admin-tab-icon">📋</span> Cadastros
-        </button>
-        <button class="admin-tab" data-tab="config" role="tab" aria-selected="false" aria-controls="tab-config" id="tab-config-btn" title="Configurações gerais do módulo comercial">
+        <button class="admin-tab" data-tab="config" role="tab" aria-selected="false" aria-controls="tab-config" id="tab-config-btn" title="Configurações, modelos, campanhas, propostas e cadastros">
           <span class="admin-tab-icon">⚙️</span> Config
         </button>
       </div>
@@ -196,70 +172,10 @@
         <div class="pagination" id="leads-pagination"></div>
       </div>
 
-      <!-- ═══ TAB: Templates ═══ -->
-      <div class="tab-panel" id="tab-templates" role="tabpanel" aria-labelledby="tab-templates-btn">
-        <div class="tab-desc-banner"><span class="tab-desc-icon">📝</span> Crie modelos de mensagem com variáveis automáticas ({nome}, {empresa}) para agilizar o envio pelo WhatsApp ou e-mail.</div>
-        <div class="sec">
-          <div class="sec-head">
-            <div class="sec-title">📝 Templates de Mensagem</div>
-            <button type="button" class="btn btn-primary btn-sm" id="btn-nova-campanha-mensagem">+ Novo</button>
-          </div>
-          <div style="overflow-x:auto">
-            <table class="crud-table">
-              <thead><tr><th>Nome</th><th>Tipo</th><th>Canal</th><th>Status</th><th>Ações</th></tr></thead>
-              <tbody id="templates-tbody"><tr><td colspan="5"><div class="loading"><div class="spinner"></div></div></td></tr></tbody>
-            </table>
-          </div>
-          <div class="mobile-cards-list" id="templates-cards-mobile"></div>
-        </div>
-      </div>
-
-      <!-- ═══ TAB: Propostas Públicas ═══ -->
-      <div class="tab-panel" id="tab-propostas-publicas" role="tabpanel" aria-labelledby="tab-propostas-publicas-btn">
-        <div class="tab-desc-banner">Crie propostas personalizadas com link público. O cliente recebe o link e visualiza a proposta com seus dados — sem precisar de login.</div>
-        <div class="sec">
-          <div class="sec-head">
-            <div class="sec-title">📄 Propostas Públicas</div>
-            <button type="button" class="btn btn-primary btn-sm" id="btn-nova-proposta-publica">+ Nova Proposta</button>
-          </div>
-          <div style="overflow-x:auto">
-            <table class="crud-table">
-              <thead>
-                <tr>
-                  <th>Nome</th>
-                  <th>Blocos</th>
-                  <th>Variáveis</th>
-                  <th>Status</th>
-                  <th>Criado</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody id="propostas-publicas-tbody">
-                <tr><td colspan="6"><div class="loading"><div class="spinner"></div></div></td></tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="mobile-cards-list" id="propostas-publicas-cards-mobile"></div>
-        </div>
-      </div>
-
-      <!-- ═══ TAB: Campanhas ═══ -->
-      <div class="tab-panel" id="tab-campanhas" role="tabpanel" aria-labelledby="tab-campanhas-btn">
-        <div class="tab-desc-banner"><span class="tab-desc-icon">📧</span> Selecione um modelo e envie mensagens para vários contatos ao mesmo tempo por WhatsApp ou e-mail.</div>
-        <div class="sec">
-          <div class="sec-head">
-            <div class="sec-title">📧 Campanhas</div>
-            <button type="button" class="btn btn-primary btn-sm" id="btn-nova-campanha">+ Nova Campanha</button>
-          </div>
-          <div style="overflow-x:auto">
-            <table class="crud-table">
-              <thead><tr><th>Nome</th><th>Canal</th><th>Status</th><th>Leads</th><th>Enviados</th><th>Entregues</th><th>Respondidos</th><th>Ações</th></tr></thead>
-              <tbody id="campanhas-tbody"><tr><td colspan="8"><div class="loading"><div class="spinner"></div></div></td></tr></tbody>
-            </table>
-          </div>
-          <div class="mobile-cards-list" id="campanhas-cards-mobile"></div>
-        </div>
-      </div>
+      <!-- conteúdo movido para tab-config sub-painéis -->
+      <div class="tab-panel" id="tab-templates" role="tabpanel" aria-labelledby="tab-templates-btn"></div>
+      <div class="tab-panel" id="tab-propostas-publicas" role="tabpanel" aria-labelledby="tab-propostas-publicas-btn"></div>
+      <div class="tab-panel" id="tab-campanhas" role="tabpanel" aria-labelledby="tab-campanhas-btn"></div>
 
       <!-- ═══ TAB: Lembretes ═══ -->
       <div class="tab-panel" id="tab-lembretes" role="tabpanel" aria-labelledby="tab-lembretes-btn">
@@ -284,46 +200,8 @@
         </div>
       </div>
 
-      <!-- ═══ TAB: Cadastros ═══ -->
-      <div class="tab-panel" id="tab-cadastros" role="tabpanel" aria-labelledby="tab-cadastros-btn">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
-          <div class="sec">
-            <div class="sec-head">
-              <div class="sec-title">🏷️ Segmentos</div>
-              <button type="button" class="btn btn-primary btn-sm" id="btn-novo-segmento">+ Novo</button>
-            </div>
-            <div style="overflow-x:auto">
-              <table class="crud-table"><thead><tr><th>Nome</th><th>Status</th><th>Ações</th></tr></thead>
-              <tbody id="segmentos-tbody"></tbody></table>
-            </div>
-            <div class="mobile-cards-list" id="segmentos-cards-mobile"></div>
-          </div>
-          <div class="sec">
-            <div class="sec-head">
-              <div class="sec-title">📍 Origens</div>
-              <button type="button" class="btn btn-primary btn-sm" id="btn-nova-origem">+ Nova</button>
-            </div>
-            <div style="overflow-x:auto">
-              <table class="crud-table"><thead><tr><th>Nome</th><th>Status</th><th>Ações</th></tr></thead>
-              <tbody id="origens-tbody"></tbody></table>
-            </div>
-            <div class="mobile-cards-list" id="origens-cards-mobile"></div>
-          </div>
-        </div>
-        <div class="sec">
-          <div class="sec-head">
-            <div class="sec-title">🔄 Etapas do Pipeline</div>
-            <button type="button" class="btn btn-primary btn-sm" id="btn-nova-etapa-pipeline">+ Nova</button>
-          </div>
-          <div style="overflow-x:auto">
-            <table class="crud-table">
-              <thead><tr><th>Emoji</th><th>Nome</th><th>Slug</th><th>Cor</th><th>Ordem</th><th>Tipo</th><th>Status</th><th>Ações</th></tr></thead>
-              <tbody id="pipeline-stages-tbody"></tbody>
-              </table>
-            </div>
-            <div class="mobile-cards-list" id="pipeline-stages-cards-mobile"></div>
-          </div>
-      </div>
+      <!-- conteúdo movido para tab-config sub-painéis -->
+      <div class="tab-panel" id="tab-cadastros" role="tabpanel" aria-labelledby="tab-cadastros-btn"></div>
 
       <!-- ═══ TAB: Importação ═══ -->
       <div class="tab-panel" id="tab-importacao" role="tabpanel" aria-labelledby="tab-importacao-btn">
@@ -525,33 +403,141 @@ Exemplos de formatos aceitos:
         </div>
       </div>
 
-      <!-- ═══ TAB: Config ═══ -->
+      <!-- ═══ TAB: Config (hub com sub-navegação) ═══ -->
       <div class="tab-panel" id="tab-config" role="tabpanel" aria-labelledby="tab-config-btn">
-        <div class="sec" style="max-width:640px">
-          <div class="sec-head">
-            <div class="sec-title">⚙️ Configurações do Comercial</div>
+        <div class="config-subnav" role="tablist" aria-label="Seções de configuração">
+          <button class="config-subnav-btn active" data-sub="config-settings" role="tab" aria-selected="true">⚙️ Configurações</button>
+          <button class="config-subnav-btn" data-sub="templates" role="tab" aria-selected="false">📝 Modelos</button>
+          <button class="config-subnav-btn" data-sub="propostas-publicas" role="tab" aria-selected="false">📄 Propostas</button>
+          <button class="config-subnav-btn" data-sub="campanhas" role="tab" aria-selected="false">📧 Campanhas</button>
+          <button class="config-subnav-btn" data-sub="cadastros" role="tab" aria-selected="false">📋 Cadastros</button>
+        </div>
+
+        <!-- Sub-painel: Configurações -->
+        <div class="config-subpanel active" id="config-sub-config-settings">
+          <div class="sec" style="max-width:640px">
+            <div class="sec-head">
+              <div class="sec-title">⚙️ Configurações do Comercial</div>
+            </div>
+            <div class="sec-body">
+              <div class="fg">
+                <label class="fl">Link de demonstração</label>
+                <input type="url" class="fi" id="cfg-link-demo" placeholder="https://demo.cotte.app">
+              </div>
+              <div class="fg">
+                <label class="fl">Link de proposta</label>
+                <input type="url" class="fi" id="cfg-link-proposta" placeholder="https://proposta.cotte.app">
+              </div>
+              <div class="fg">
+                <label class="fl">Canal preferencial</label>
+                <select class="fs" id="cfg-canal-pref">
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="email">E-mail</option>
+                </select>
+              </div>
+              <div class="fg">
+                <label class="fl">Assinatura comercial</label>
+                <textarea class="ft" id="cfg-assinatura" rows="3" placeholder="Assinatura para e-mails e mensagens"></textarea>
+              </div>
+              <button type="button" class="btn btn-primary" id="btn-salvar-config">Salvar Configurações</button>
+            </div>
           </div>
-          <div class="sec-body">
-            <div class="fg">
-              <label class="fl">Link de demonstração</label>
-              <input type="url" class="fi" id="cfg-link-demo" placeholder="https://demo.cotte.app">
+        </div>
+
+        <!-- Sub-painel: Modelos -->
+        <div class="config-subpanel" id="config-sub-templates">
+          <div class="tab-desc-banner"><span class="tab-desc-icon">📝</span> Crie modelos de mensagem com variáveis automáticas ({nome}, {empresa}) para agilizar o envio pelo WhatsApp ou e-mail.</div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">📝 Templates de Mensagem</div>
+              <button type="button" class="btn btn-primary btn-sm" id="btn-nova-campanha-mensagem">+ Novo</button>
             </div>
-            <div class="fg">
-              <label class="fl">Link de proposta</label>
-              <input type="url" class="fi" id="cfg-link-proposta" placeholder="https://proposta.cotte.app">
+            <div style="overflow-x:auto">
+              <table class="crud-table">
+                <thead><tr><th>Nome</th><th>Tipo</th><th>Canal</th><th>Status</th><th>Ações</th></tr></thead>
+                <tbody id="templates-tbody"><tr><td colspan="5"><div class="loading"><div class="spinner"></div></div></td></tr></tbody>
+              </table>
             </div>
-            <div class="fg">
-              <label class="fl">Canal preferencial</label>
-              <select class="fs" id="cfg-canal-pref">
-                <option value="whatsapp">WhatsApp</option>
-                <option value="email">E-mail</option>
-              </select>
+            <div class="mobile-cards-list" id="templates-cards-mobile"></div>
+          </div>
+        </div>
+
+        <!-- Sub-painel: Propostas Públicas -->
+        <div class="config-subpanel" id="config-sub-propostas-publicas">
+          <div class="tab-desc-banner">Crie propostas personalizadas com link público. O cliente recebe o link e visualiza a proposta com seus dados — sem precisar de login.</div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">📄 Propostas Públicas</div>
+              <button type="button" class="btn btn-primary btn-sm" id="btn-nova-proposta-publica">+ Nova Proposta</button>
             </div>
-            <div class="fg">
-              <label class="fl">Assinatura comercial</label>
-              <textarea class="ft" id="cfg-assinatura" rows="3" placeholder="Assinatura para e-mails e mensagens"></textarea>
+            <div style="overflow-x:auto">
+              <table class="crud-table">
+                <thead><tr><th>Nome</th><th>Blocos</th><th>Variáveis</th><th>Status</th><th>Criado</th><th>Ações</th></tr></thead>
+                <tbody id="propostas-publicas-tbody">
+                  <tr><td colspan="6"><div class="loading"><div class="spinner"></div></div></td></tr>
+                </tbody>
+              </table>
             </div>
-            <button type="button" class="btn btn-primary" id="btn-salvar-config">Salvar Configurações</button>
+            <div class="mobile-cards-list" id="propostas-publicas-cards-mobile"></div>
+          </div>
+        </div>
+
+        <!-- Sub-painel: Campanhas -->
+        <div class="config-subpanel" id="config-sub-campanhas">
+          <div class="tab-desc-banner"><span class="tab-desc-icon">📧</span> Selecione um modelo e envie mensagens para vários contatos ao mesmo tempo por WhatsApp ou e-mail.</div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">📧 Campanhas</div>
+              <button type="button" class="btn btn-primary btn-sm" id="btn-nova-campanha">+ Nova Campanha</button>
+            </div>
+            <div style="overflow-x:auto">
+              <table class="crud-table">
+                <thead><tr><th>Nome</th><th>Canal</th><th>Status</th><th>Leads</th><th>Enviados</th><th>Entregues</th><th>Respondidos</th><th>Ações</th></tr></thead>
+                <tbody id="campanhas-tbody"><tr><td colspan="8"><div class="loading"><div class="spinner"></div></div></td></tr></tbody>
+              </table>
+            </div>
+            <div class="mobile-cards-list" id="campanhas-cards-mobile"></div>
+          </div>
+        </div>
+
+        <!-- Sub-painel: Cadastros -->
+        <div class="config-subpanel" id="config-sub-cadastros">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+            <div class="sec">
+              <div class="sec-head">
+                <div class="sec-title">🏷️ Segmentos</div>
+                <button type="button" class="btn btn-primary btn-sm" id="btn-novo-segmento">+ Novo</button>
+              </div>
+              <div style="overflow-x:auto">
+                <table class="crud-table"><thead><tr><th>Nome</th><th>Status</th><th>Ações</th></tr></thead>
+                <tbody id="segmentos-tbody"></tbody></table>
+              </div>
+              <div class="mobile-cards-list" id="segmentos-cards-mobile"></div>
+            </div>
+            <div class="sec">
+              <div class="sec-head">
+                <div class="sec-title">📍 Origens</div>
+                <button type="button" class="btn btn-primary btn-sm" id="btn-nova-origem">+ Nova</button>
+              </div>
+              <div style="overflow-x:auto">
+                <table class="crud-table"><thead><tr><th>Nome</th><th>Status</th><th>Ações</th></tr></thead>
+                <tbody id="origens-tbody"></tbody></table>
+              </div>
+              <div class="mobile-cards-list" id="origens-cards-mobile"></div>
+            </div>
+          </div>
+          <div class="sec">
+            <div class="sec-head">
+              <div class="sec-title">🔄 Etapas do Pipeline</div>
+              <button type="button" class="btn btn-primary btn-sm" id="btn-nova-etapa-pipeline">+ Nova</button>
+            </div>
+            <div style="overflow-x:auto">
+              <table class="crud-table">
+                <thead><tr><th>Emoji</th><th>Nome</th><th>Slug</th><th>Cor</th><th>Ordem</th><th>Tipo</th><th>Status</th><th>Ações</th></tr></thead>
+                <tbody id="pipeline-stages-tbody"></tbody>
+              </table>
+            </div>
+            <div class="mobile-cards-list" id="pipeline-stages-cards-mobile"></div>
           </div>
         </div>
       </div>
@@ -1055,24 +1041,32 @@ Exemplos de formatos aceitos:
       });
     })();
 
-    // Split button — Ações Rápidas
+    // Config — Sub-navegação interna
     (function() {
       document.addEventListener('DOMContentLoaded', () => {
-        const toggle = document.getElementById('btn-acoes-toggle');
-        const dropdown = document.getElementById('acoes-dropdown');
-        if (!toggle || !dropdown) return;
-
-        toggle.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const isOpen = dropdown.classList.toggle('open');
-          toggle.setAttribute('aria-expanded', String(isOpen));
-        });
-
-        document.addEventListener('click', () => {
-          if (dropdown.classList.contains('open')) {
-            dropdown.classList.remove('open');
-            toggle.setAttribute('aria-expanded', 'false');
-          }
+        const loaders = {
+          'templates': () => typeof carregarTemplates === 'function' && carregarTemplates(),
+          'propostas-publicas': () => typeof carregarPropostasPublicas === 'function' && carregarPropostasPublicas(),
+          'campanhas': () => typeof carregarCampanhas === 'function' && carregarCampanhas(),
+          'cadastros': () => {
+            typeof carregarSegmentos === 'function' && carregarSegmentos();
+            typeof carregarOrigens === 'function' && carregarOrigens();
+            typeof carregarPipelineStagesUI === 'function' && carregarPipelineStagesUI();
+          },
+          'config-settings': () => typeof carregarConfig === 'function' && carregarConfig(),
+        };
+        document.querySelectorAll('.config-subnav-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const sub = btn.dataset.sub;
+            document.querySelectorAll('.config-subnav-btn').forEach(b => {
+              b.classList.toggle('active', b === btn);
+              b.setAttribute('aria-selected', b === btn ? 'true' : 'false');
+            });
+            document.querySelectorAll('.config-subpanel').forEach(p => {
+              p.classList.toggle('active', p.id === 'config-sub-' + sub);
+            });
+            if (loaders[sub]) loaders[sub]();
+          });
         });
       });
     })();
