@@ -24,6 +24,7 @@ _SYSTEM_PROMPT = (
     "- Use COUNT(*) para contagens, SUM() para somas, AVG() para médias.\n"
     "- Use GROUP BY quando necessário para agrupamentos.\n"
     "- Use ORDER BY para ordenação quando fizer sentido.\n"
+    "- Use valores de ENUM exatamente como documentados no schema, respeitando maiúsculas e sublinhados (ex: APROVADO, PENDENTE, CONCLUIDO).\n"
     "- Quando o pedido for sobre catálogo, use a tabela servicos (coluna ativo para filtrar ativos).\n"
     "- Quando o pedido for sobre orçamentos, use a tabela orcamentos.\n"
     "- Retorne SOMENTE um JSON válido: {\"sql\": \"...\", \"rationale\": \"...\"}\n"

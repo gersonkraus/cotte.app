@@ -37,8 +37,8 @@ SCHEMA_CONTEXT = """
    - criado_por_id: Integer (FK para usuarios)
    - total: Numeric (valor total com desconto)
    - desconto: Numeric, desconto_tipo: String (percentual/fixo)
-   - status: Enum ('rascunho','enviado','aprovado','recusado','expirado','cancelado')
-   - forma_pagamento: Enum
+    - status: Enum ('RASCUNHO','ENVIADO','APROVADO','RECUSADO','EXPIRADO','CANCELADO','EM_EXECUCAO','AGUARDANDO_PAGAMENTO','CONCLUIDO')
+    - forma_pagamento: Enum
    - criado_em: DateTime, atualizado_em: DateTime
    - aprovado_em: DateTime (NULL se não aprovado)
    - enviado_em: DateTime, recusa_em: DateTime
@@ -67,7 +67,7 @@ SCHEMA_CONTEXT = """
    - id: Integer (PK)
    - nome: String, email: String, telefone: String
    - empresa_id: Integer (FK, OBRIGATÓRIO filtrar)
-   - status: Enum ('novo','contato_iniciado','proposta_enviada','negociacao','fechado_ganho','fechado_perdido')
+    - status: Enum ('NOVO','CONTATO_INICIADO','PROPOSTA_ENVIADA','NEGOCIACAO','FECHADO_GANHO','FECHADO_PERDIDO')
    - valor_estimado: Numeric
    - origem: String, segment_id: Integer, source_id: Integer
    - criado_em: DateTime, atualizado_em: DateTime
@@ -85,8 +85,8 @@ SCHEMA_CONTEXT = """
    - numero: String, empresa_id: Integer (FK, OBRIGATÓRIO filtrar)
    - cliente_id: Integer (FK), orcamento_id: Integer (FK, nullable)
    - criado_por_id: Integer, responsavel_id: Integer (nullable)
-   - status: Enum ('pendente','confirmado','cancelado','concluido')
-   - tipo: Enum, origem: Enum
+    - status: Enum ('PENDENTE','CONFIRMADO','CANCELADO','CONCLUIDO')
+    - tipo: Enum, origem: Enum
    - data_agendada: DateTime, data_fim: DateTime
    - duracao_estimada_min: Integer
    - observacoes: Text
@@ -98,7 +98,7 @@ SCHEMA_CONTEXT = """
    - orcamento_id: Integer (FK, nullable)
    - tipo: Enum ('receber','pagar')
    - descricao: String, valor: Numeric, valor_pago: Numeric
-   - status: Enum ('pendente','pago','vencido','cancelado','parcial')
+    - status: Enum ('PENDENTE','PAGO','VENCIDO','CANCELADO','PARCIAL')
    - data_vencimento: Date, data_criacao: DateTime
    - categoria: String, origem: Enum
    - tipo_lancamento: String ('entrada','saldo','integral')
@@ -114,7 +114,7 @@ SCHEMA_CONTEXT = """
    - valor: Numeric
    - tipo: Enum ('quitacao','entrada','saldo','parcela')
    - data_pagamento: Date, confirmado_em: DateTime
-   - status: Enum ('confirmado','estornado','pendente')
+    - status: Enum ('CONFIRMADO','ESTORNADO','PENDENTE')
    - observacao: String
 
 10. **movimentacoes_caixa** (entradas e saídas de caixa)

@@ -1,4 +1,6 @@
 from app.services.assistant_autonomy.intent_router import route_intent
+from app.services.assistant_autonomy.llm_sql_planner import _SYSTEM_PROMPT
+from app.services.assistant_autonomy.schema_context import get_schema_context_for_llm
 from app.services.assistant_autonomy.semantic_model import detect_dimensions, detect_metrics
 from app.services.assistant_autonomy.semantic_planner import build_semantic_plan
 
@@ -52,3 +54,13 @@ def test_build_semantic_plan_routes_composite_flow():
     channels = (plan.request.entity_filters or {}).get("channels") or {}
     assert channels.get("whatsapp") is True
     assert channels.get("email") is True
+
+
+def test_schema_context_documents_sql_enum_literals_in_uppercase():
+    schema = get_schema_context_for_llm()
+    assert "Enum ('RASCUNHO','ENVIADO','APROVADO','RECUSADO','EXPIRADO','CANCELADO','EM_EXECUCAO','AGUARDANDO_PAGAMENTO','CONCLUIDO')" in schema
+
+
+def test_llm_sql_planner_prompt_requires_exact_enum_literals_from_schema():
+    assert "Use valores de ENUM exatamente como documentados no schema" in _SYSTEM_PROMPT
+    assert "APROVADO" in _SYSTEM_PROMPT
