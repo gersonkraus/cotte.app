@@ -11,6 +11,8 @@ import re
 import unicodedata
 from typing import List, Dict, Any, Optional
 
+logger = logging.getLogger(__name__)
+
 try:
     from litellm import acompletion, completion
     import litellm
@@ -30,8 +32,6 @@ except (
 
 from app.core.config import settings
 from app.schemas.schemas import IAInterpretacaoOut
-
-logger = logging.getLogger(__name__)
 
 # Primeiro segmento do model já define o roteamento no LiteLLM — não reescrever.
 # Lista conservadora + extensível via env (ver _explicit_route_prefixes).
