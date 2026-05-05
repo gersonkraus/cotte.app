@@ -50,6 +50,9 @@
         <button class="admin-tab" data-tab="pipeline" role="tab" aria-selected="false" aria-controls="tab-pipeline" id="tab-pipeline-btn" title="Funil de vendas: acompanhe em qual etapa cada contato está">
           <span class="admin-tab-icon">🔄</span> Funil
         </button>
+        <button class="admin-tab" data-tab="campanhas" role="tab" aria-selected="false" aria-controls="tab-campanhas" id="tab-campanhas-btn" title="Envie campanhas em massa por WhatsApp ou e-mail para vários contatos ao mesmo tempo">
+          <span class="admin-tab-icon">📧</span> Campanhas
+        </button>
         <button class="admin-tab" data-tab="lembretes" role="tab" aria-selected="false" aria-controls="tab-lembretes" id="tab-lembretes-btn" title="Compromissos e tarefas com data e hora agendados">
           <span class="admin-tab-icon">⏰</span> Lembretes
         </button>
@@ -59,7 +62,7 @@
         <button class="admin-tab" data-tab="importacao" role="tab" aria-selected="false" aria-controls="tab-importacao" id="tab-importacao-btn" title="Importe contatos de planilhas, listas de texto ou CSV">
           <span class="admin-tab-icon">📥</span> Importação
         </button>
-        <button class="admin-tab" data-tab="config" role="tab" aria-selected="false" aria-controls="tab-config" id="tab-config-btn" title="Configurações, modelos, campanhas, propostas e cadastros">
+        <button class="admin-tab" data-tab="config" role="tab" aria-selected="false" aria-controls="tab-config" id="tab-config-btn" title="Configurações, modelos, propostas e cadastros">
           <span class="admin-tab-icon">⚙️</span> Config
         </button>
       </div>
@@ -172,10 +175,25 @@
         <div class="pagination" id="leads-pagination"></div>
       </div>
 
-      <!-- conteúdo movido para tab-config sub-painéis -->
+      <!-- conteúdo movido para abas dedicadas e sub-painéis de config -->
       <div class="tab-panel" id="tab-templates" role="tabpanel" aria-labelledby="tab-templates-btn"></div>
       <div class="tab-panel" id="tab-propostas-publicas" role="tabpanel" aria-labelledby="tab-propostas-publicas-btn"></div>
-      <div class="tab-panel" id="tab-campanhas" role="tabpanel" aria-labelledby="tab-campanhas-btn"></div>
+      <div class="tab-panel" id="tab-campanhas" role="tabpanel" aria-labelledby="tab-campanhas-btn">
+        <div class="tab-desc-banner"><span class="tab-desc-icon">📧</span> Selecione um modelo e envie mensagens para vários contatos ao mesmo tempo por WhatsApp ou e-mail.</div>
+        <div class="sec">
+          <div class="sec-head">
+            <div class="sec-title">📧 Campanhas</div>
+            <button type="button" class="btn btn-primary btn-sm" id="btn-nova-campanha">+ Nova Campanha</button>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="crud-table">
+              <thead><tr><th>Nome</th><th>Canal</th><th>Status</th><th>Leads</th><th>Enviados</th><th>Entregues</th><th>Respondidos</th><th>Ações</th></tr></thead>
+              <tbody id="campanhas-tbody"><tr><td colspan="8"><div class="loading"><div class="spinner"></div></div></td></tr></tbody>
+            </table>
+          </div>
+          <div class="mobile-cards-list" id="campanhas-cards-mobile"></div>
+        </div>
+      </div>
 
       <!-- ═══ TAB: Lembretes ═══ -->
       <div class="tab-panel" id="tab-lembretes" role="tabpanel" aria-labelledby="tab-lembretes-btn">
@@ -409,7 +427,6 @@ Exemplos de formatos aceitos:
           <button class="config-subnav-btn active" data-sub="config-settings" role="tab" aria-selected="true">⚙️ Configurações</button>
           <button class="config-subnav-btn" data-sub="templates" role="tab" aria-selected="false">📝 Modelos</button>
           <button class="config-subnav-btn" data-sub="propostas-publicas" role="tab" aria-selected="false">📄 Propostas</button>
-          <button class="config-subnav-btn" data-sub="campanhas" role="tab" aria-selected="false">📧 Campanhas</button>
           <button class="config-subnav-btn" data-sub="cadastros" role="tab" aria-selected="false">📋 Cadastros</button>
         </div>
 
@@ -479,24 +496,6 @@ Exemplos de formatos aceitos:
               </table>
             </div>
             <div class="mobile-cards-list" id="propostas-publicas-cards-mobile"></div>
-          </div>
-        </div>
-
-        <!-- Sub-painel: Campanhas -->
-        <div class="config-subpanel" id="config-sub-campanhas">
-          <div class="tab-desc-banner"><span class="tab-desc-icon">📧</span> Selecione um modelo e envie mensagens para vários contatos ao mesmo tempo por WhatsApp ou e-mail.</div>
-          <div class="sec">
-            <div class="sec-head">
-              <div class="sec-title">📧 Campanhas</div>
-              <button type="button" class="btn btn-primary btn-sm" id="btn-nova-campanha">+ Nova Campanha</button>
-            </div>
-            <div style="overflow-x:auto">
-              <table class="crud-table">
-                <thead><tr><th>Nome</th><th>Canal</th><th>Status</th><th>Leads</th><th>Enviados</th><th>Entregues</th><th>Respondidos</th><th>Ações</th></tr></thead>
-                <tbody id="campanhas-tbody"><tr><td colspan="8"><div class="loading"><div class="spinner"></div></div></td></tr></tbody>
-              </table>
-            </div>
-            <div class="mobile-cards-list" id="campanhas-cards-mobile"></div>
           </div>
         </div>
 
@@ -1117,7 +1116,6 @@ Exemplos de formatos aceitos:
         const loaders = {
           'templates': () => typeof carregarTemplates === 'function' && carregarTemplates(),
           'propostas-publicas': () => typeof carregarPropostasPublicas === 'function' && carregarPropostasPublicas(),
-          'campanhas': () => typeof carregarCampanhas === 'function' && carregarCampanhas(),
           'cadastros': () => {
             typeof carregarSegmentos === 'function' && carregarSegmentos();
             typeof carregarOrigens === 'function' && carregarOrigens();
