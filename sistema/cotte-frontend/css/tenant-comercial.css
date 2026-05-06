@@ -1236,3 +1236,121 @@
 
 .cep-row .fg { flex: 1; max-width: 180px; }
 .cep-row .btn { white-space: nowrap; height: 36px; }
+
+/* ── Template Editor V2 ───────────────────────────────────────── */
+/* Template V2 Split Layout */
+.tpl-v2-container {
+    display: flex;
+    gap: 24px;
+    height: 100%;
+    min-height: 450px;
+}
+
+.tpl-v2-editor {
+    flex: 1.2;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.tpl-v2-preview-panel {
+    flex: 0.8;
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+}
+
+/* Image Paste Zone */
+.tpl-image-zone {
+    border: 2px dashed #cbd5e1;
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+    background: #fff;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    min-height: 80px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+}
+
+.tpl-image-zone:hover, .tpl-image-zone.dragover {
+    border-color: var(--accent);
+    background: #f0fdf4;
+    color: var(--accent);
+}
+
+.tpl-image-preview-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+    width: 100%;
+}
+
+.tpl-image-thumb {
+    width: 60px;
+    height: 60px;
+    border-radius: 6px;
+    object-fit: cover;
+    border: 1px solid #e2e8f0;
+    position: relative;
+}
+
+.tpl-image-thumb-remove {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    background: var(--red);
+    color: white;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: 2px solid white;
+}
+
+/* Live Preview Content */
+.tpl-live-preview-window {
+    background: white;
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    font-size: 14px;
+    line-height: 1.5;
+    flex: 1;
+    overflow-y: auto;
+    border: 1px solid #e2e8f0;
+}
+
+.tpl-preview-header {
+    font-weight: 600;
+    font-size: 12px;
+    color: #64748b;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.tpl-preview-image {
+    width: 100%;
+    max-height: 200px;
+    object-fit: contain;
+    border-radius: 6px;
+    margin-bottom: 12px;
+    background: #f1f5f9;
+}
