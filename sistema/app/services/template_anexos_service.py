@@ -56,9 +56,33 @@ def validar_template_anexo_path(path: str, empresa_id: int) -> str:
     return path_normalizado
 
 
+import httpx
+
 def _extensao_do_nome(nome: str) -> str:
     _, ext = os.path.splitext(nome or "")
     return (ext or "").lower()
+
+
+async def obter_bytes_anexo(path_ou_url: str) -> bytes:
+    """
+    Obtém os bytes de um anexo, seja ele um caminho local ou uma URL (R2).
+    """
+    if not path_ou_url:
+        return b""
+
+    # Se for uma URL (começa com http)
+    if path_ou_url.startswith("http"):
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(path_ou_url)
+            resp.raise_for_status()
+            return resp.content
+
+    # Se for um caminho local
+    if os.path.exists(path_ou_url):
+        with open(path_ou_url, "rb") as f:
+            return f.read()
+
+    raise FileNotFoundError(f"Anexo não encontrado: {path_ou_url}")
 
 
 def _resolver_mime(content_type: str, extensao: str) -> str:

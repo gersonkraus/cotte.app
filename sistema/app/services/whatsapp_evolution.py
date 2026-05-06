@@ -208,6 +208,30 @@ class EvolutionProvider(WhatsAppProvider):
 
         return await _retry_async(_do_send)
 
+    async def enviar_imagem(
+        self, telefone: str, image_bytes: bytes, caption: str = "", mime_type: str = "image/png"
+    ) -> bool:
+        """POST /message/sendMedia/{instance} — envia imagem com legenda."""
+
+        async def _do_send() -> bool:
+            phone = self.normalizar_telefone(telefone)
+            img_b64 = base64.b64encode(image_bytes).decode()
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.post(
+                    f"{self._base_msg}/sendMedia/{self._instance}",
+                    headers=self._headers_dict,
+                    json={
+                        "number": phone,
+                        "mediatype": "image",
+                        "mimetype": mime_type,
+                        "caption": caption,
+                        "media": img_b64,
+                    },
+                )
+                return resp.status_code in (200, 201)
+
+        return await _retry_async(_do_send)
+
     async def enviar_orcamento_completo(
         self, telefone: str, orcamento: dict, pdf_bytes: bytes = b""
     ) -> bool:

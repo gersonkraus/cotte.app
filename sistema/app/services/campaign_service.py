@@ -7,10 +7,14 @@ from app.models.models import (
     CommercialTemplate,
     Campaign,
     CampaignLead,
+    CommercialInteraction,
+    TipoInteracao,
+    CanalInteracao,
 )
 from app.schemas.schemas import CampaignMetrics
-from app.services.whatsapp_service import enviar_mensagem_texto
+from app.services.whatsapp_service import enviar_imagem, enviar_mensagem_texto, enviar_pdf
 from app.services.email_service import send_email_simples
+from app.services.template_anexos_service import obter_bytes_anexo
 import logging
 
 logger = logging.getLogger(__name__)
@@ -104,6 +108,14 @@ class CampaignService:
             entregues = 0
             respondidos = 0
 
+            # Carregar anexo se existir (Internal CRM)
+            anexo_bytes = None
+            if hasattr(template, "anexo_arquivo_path") and template.anexo_arquivo_path:
+                try:
+                    anexo_bytes = await obter_bytes_anexo(template.anexo_arquivo_path)
+                except Exception as e:
+                    logger.warning(f"Falha ao carregar anexo da campanha {campaign.id}: {e}")
+
             for campaign_lead in campaign_leads:
                 lead = (
                     self.db.query(CommercialLead)
@@ -120,31 +132,77 @@ class CampaignService:
                     campaign_lead.data_envio = datetime.now()
                     self.db.commit()
 
+                    sucesso = False
+                    mensagem_final = template.conteudo
+                    # Substituições básicas
+                    mensagem_final = mensagem_final.replace("{nome}", lead.nome_responsavel or "")
+                    mensagem_final = mensagem_final.replace("{empresa}", lead.nome_empresa or "")
+
                     # Enviar mensagem
                     if canal_disparo in ["whatsapp", "ambos"]:
                         if lead.whatsapp:
-                            success = await enviar_mensagem_texto(
-                                lead.whatsapp, template.conteudo, empresa=self.empresa
-                            )
-                            if success:
+                            if anexo_bytes:
+                                mime = getattr(template, "anexo_mime_type", "image/png")
+                                if mime.startswith("image/"):
+                                    sucesso = await enviar_imagem(lead.whatsapp, anexo_bytes, caption=mensagem_final, mime_type=mime, empresa=self.empresa)
+                                elif mime == "application/pdf":
+                                    sucesso = await enviar_pdf(lead.whatsapp, anexo_bytes, numero=getattr(template, "anexo_nome_original", "documento"), caption=mensagem_final, empresa=self.empresa)
+                                else:
+                                    sucesso = await enviar_mensagem_texto(lead.whatsapp, mensagem_final, empresa=self.empresa)
+                            else:
+                                sucesso = await enviar_mensagem_texto(
+                                    lead.whatsapp, mensagem_final, empresa=self.empresa
+                                )
+                            
+                            if sucesso:
+                                entregues += 1
                                 campaign_lead.status = "entregue"
                                 campaign_lead.data_entrega = datetime.now()
-                                entregues += 1
+                                self.db.add(CommercialInteraction(
+                                    lead_id=lead.id,
+                                    tipo=TipoInteracao.WHATSAPP,
+                                    canal=CanalInteracao.WHATSAPP,
+                                    conteudo=f"Campanha [{campaign.nome}]: {mensagem_final}",
+                                ))
 
                     if canal_disparo in ["email", "ambos"]:
                         if lead.email:
-                            success = send_email_simples(
+                            attachments = None
+                            if anexo_bytes:
+                                attachments = [{
+                                    "path": template.anexo_arquivo_path,
+                                    "name": template.anexo_nome_original,
+                                    "mime_type": template.anexo_mime_type,
+                                    "content_bytes": anexo_bytes
+                                }]
+                            
+                            email_sucesso = send_email_simples(
                                 lead.email,
                                 template.assunto or f"Campanha {campaign.nome}",
-                                template.conteudo,
+                                mensagem_final,
+                                attachments=attachments
                             )
-                            if success:
+                            if email_sucesso:
+                                sucesso = True
+                                entregues += 1
                                 campaign_lead.status = "entregue"
                                 campaign_lead.data_entrega = datetime.now()
-                                entregues += 1
+                                self.db.add(CommercialInteraction(
+                                    lead_id=lead.id,
+                                    tipo=TipoInteracao.EMAIL,
+                                    canal=CanalInteracao.EMAIL,
+                                    conteudo=f"Campanha [{campaign.nome}] - Assunto: {template.assunto or campaign.nome}",
+                                ))
 
-                    enviados += 1
+                    if sucesso:
+                        enviados += 1
+                    
                     self.db.commit()
+
+                    # Delay básico anti-spam
+                    import asyncio
+                    import random
+                    await asyncio.sleep(random.uniform(2, 5))
 
                 except Exception as e:
                     logger.error(f"Erro ao disparar para lead {lead.id}: {e}")

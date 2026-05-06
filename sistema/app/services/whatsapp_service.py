@@ -95,6 +95,13 @@ async def enviar_mensagem_texto(
     return await get_provider_para_empresa(empresa).enviar_mensagem_texto(telefone, mensagem)
 
 
+async def enviar_imagem(
+    telefone: str, image_bytes: bytes, caption: str = "", mime_type: str = "image/png",
+    empresa: "Empresa | None" = None
+) -> bool:
+    return await get_provider_para_empresa(empresa).enviar_imagem(telefone, image_bytes, caption, mime_type)
+
+
 async def send_whatsapp_message(
     to_phone: str,
     message: str,

@@ -28,12 +28,28 @@ function populateTplSelect(selectId, canal, incluirPropostas) {
 function toggleTemplateAttachmentNotice(prefix, preview) {
   var notice = document.getElementById(prefix + '-template-anexo-aviso');
   if (!notice) return;
-  if (preview && preview.anexo_nome_original) {
-    notice.textContent = 'Este template inclui anexo: ' + preview.anexo_nome_original;
+  
+  if (preview && preview.anexo_url) {
+    var isImage = preview.anexo_mime_type && preview.anexo_mime_type.startsWith('image/');
+    var html = '<div style="display:flex; align-items:center; gap:10px;">';
+    
+    if (isImage) {
+      html += '<img src="' + preview.anexo_url + '" style="width:40px; height:40px; border-radius:4px; object-fit:cover; border:1px solid var(--border)">';
+    } else {
+      html += '<span style="font-size:20px;">📄</span>';
+    }
+    
+    html += '<div>';
+    html += '<div style="font-weight:600; color:var(--fg)">Este template inclui anexo:</div>';
+    html += '<div style="font-size:11px; color:var(--muted)">' + preview.anexo_nome_original + '</div>';
+    html += '</div></div>';
+    
+    notice.innerHTML = html;
     notice.style.display = 'block';
     return;
   }
-  notice.textContent = '';
+  
+  notice.innerHTML = '';
   notice.style.display = 'none';
 }
 

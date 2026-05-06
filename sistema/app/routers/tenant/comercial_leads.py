@@ -31,8 +31,8 @@ from app.models.models import (
 )
 from app.services.email_service import send_email_simples
 from app.services.ia_service import analisar_leads
-from app.services.template_anexos_service import validar_template_anexo_path
-from app.services.whatsapp_service import enviar_mensagem_texto
+from app.services.template_anexos_service import obter_bytes_anexo, validar_template_anexo_path
+from app.services.whatsapp_service import enviar_imagem, enviar_mensagem_texto, enviar_pdf
 from app.routers.tenant.tenant_comercial_serialization import (
     sync_lead_status_from_etapa,
     tenant_lead_to_out,
@@ -893,15 +893,45 @@ async def enviar_whatsapp(
 
     template = _buscar_template_ativo(db, usuario.empresa_id, body.template_id)
     mensagem_final = body.mensagem
-    if template and template.anexo_arquivo_path:
-        mensagem_final = f"{body.mensagem}\n\n{template.anexo_arquivo_path}"
-
     empresa = db.query(Empresa).filter(Empresa.id == usuario.empresa_id).first()
 
     sucesso = False
     erro_msg = None
+    
     try:
-        sucesso = await enviar_mensagem_texto(lead.telefone, mensagem_final, empresa=empresa)
+        if template and template.anexo_arquivo_path:
+            # Tenta enviar com anexo real
+            try:
+                anexo_bytes = await obter_bytes_anexo(template.anexo_arquivo_path)
+                mime = template.anexo_mime_type or ""
+                
+                if mime.startswith("image/"):
+                    sucesso = await enviar_imagem(
+                        lead.telefone, 
+                        anexo_bytes, 
+                        caption=mensagem_final, 
+                        mime_type=mime,
+                        empresa=empresa
+                    )
+                elif mime == "application/pdf":
+                    # Para PDF, o caption costuma ir separado ou em campo específico dependendo do provider
+                    # No EvolutionProvider.enviar_pdf, o caption é usado como caption do documento
+                    sucesso = await enviar_pdf(
+                        lead.telefone,
+                        anexo_bytes,
+                        numero=template.anexo_nome_original or "documento",
+                        caption=mensagem_final,
+                        empresa=empresa
+                    )
+                else:
+                    # Fallback para texto se o mime não for suportado como mídia direta
+                    sucesso = await enviar_mensagem_texto(lead.telefone, mensagem_final, empresa=empresa)
+            except Exception as e:
+                logger.warning(f"Falha ao processar anexo do template: {e}. Enviando apenas texto.")
+                sucesso = await enviar_mensagem_texto(lead.telefone, mensagem_final, empresa=empresa)
+        else:
+            # Envio normal apenas texto
+            sucesso = await enviar_mensagem_texto(lead.telefone, mensagem_final, empresa=empresa)
     except Exception as e:
         erro_msg = str(e)
 

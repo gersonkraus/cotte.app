@@ -81,6 +81,13 @@ class WhatsAppProvider(ABC):
         ...
 
     @abstractmethod
+    async def enviar_imagem(
+        self, telefone: str, image_bytes: bytes, caption: str = "", mime_type: str = "image/png"
+    ) -> bool:
+        """Envia uma imagem com legenda opcional. Retorna True em caso de sucesso."""
+        ...
+
+    @abstractmethod
     async def enviar_orcamento_completo(
         self, telefone: str, orcamento: dict, pdf_bytes: bytes = b""
     ) -> bool:

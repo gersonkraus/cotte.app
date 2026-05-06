@@ -89,6 +89,26 @@ class ZAPIProvider(WhatsAppProvider):
 
         return await _retry_async(_do_send)
 
+    async def enviar_imagem(
+        self, telefone: str, image_bytes: bytes, caption: str = "", mime_type: str = "image/png"
+    ) -> bool:
+        async def _do_send() -> bool:
+            phone = self.normalizar_telefone(telefone)
+            img_b64 = base64.b64encode(image_bytes).decode()
+            async with httpx.AsyncClient(timeout=20) as client:
+                resp = await client.post(
+                    f"{self._base}/send-image",
+                    headers=self._headers(),
+                    json={
+                        "phone": phone,
+                        "image": f"data:{mime_type};base64,{img_b64}",
+                        "caption": caption,
+                    },
+                )
+                return resp.status_code == 200
+
+        return await _retry_async(_do_send)
+
     async def enviar_orcamento_completo(
         self, telefone: str, orcamento: dict, pdf_bytes: bytes = b""
     ) -> bool:

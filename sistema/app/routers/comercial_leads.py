@@ -45,7 +45,8 @@ from app.schemas.schemas import (
     DashboardMetrics,
     ReenviarSenhaResponse,
 )
-from app.services.whatsapp_service import enviar_mensagem_texto
+from app.services.template_anexos_service import obter_bytes_anexo
+from app.services.whatsapp_service import enviar_imagem, enviar_mensagem_texto, enviar_pdf
 from app.services.email_service import send_email_simples, enviar_email_boas_vindas
 from app.services.ia_service import analisar_leads
 from app.services.audit_service import registrar_auditoria
@@ -742,13 +743,42 @@ async def enviar_template_para_lead(
     enviado = False
 
     if canal in ("whatsapp", "ambos") and lead.whatsapp:
-        enviado = await enviar_mensagem_texto(lead.whatsapp, conteudo)
+        if hasattr(template, "anexo_arquivo_path") and template.anexo_arquivo_path:
+            try:
+                anexo_bytes = await obter_bytes_anexo(template.anexo_arquivo_path)
+                mime = getattr(template, "anexo_mime_type", "image/png")
+                if mime.startswith("image/"):
+                    enviado = await enviar_imagem(lead.whatsapp, anexo_bytes, caption=conteudo, mime_type=mime)
+                elif mime == "application/pdf":
+                    enviado = await enviar_pdf(lead.whatsapp, anexo_bytes, numero=getattr(template, "anexo_nome_original", "documento"), caption=conteudo)
+                else:
+                    enviado = await enviar_mensagem_texto(lead.whatsapp, conteudo)
+            except Exception as e:
+                logger.warning(f"Falha ao processar anexo do template: {e}")
+                enviado = await enviar_mensagem_texto(lead.whatsapp, conteudo)
+        else:
+            enviado = await enviar_mensagem_texto(lead.whatsapp, conteudo)
+            
     if canal in ("email", "ambos") and lead.email:
         try:
+            attachments = None
+            if hasattr(template, "anexo_arquivo_path") and template.anexo_arquivo_path:
+                try:
+                    anexo_bytes = await obter_bytes_anexo(template.anexo_arquivo_path)
+                    attachments = [{
+                        "path": template.anexo_arquivo_path,
+                        "name": getattr(template, "anexo_nome_original", "anexo"),
+                        "mime_type": getattr(template, "anexo_mime_type", "application/pdf"),
+                        "content_bytes": anexo_bytes
+                    }]
+                except Exception as e:
+                    logger.warning(f"Falha ao processar anexo para e-mail: {e}")
+
             await send_email_simples(
                 destinatario=lead.email,
                 assunto=template.assunto or template.nome,
                 mensagem=conteudo,
+                attachments=attachments
             )
             enviado = True
         except Exception:
@@ -1102,6 +1132,14 @@ async def enviar_lote(
     falhas = 0
     total_leads = len(leads)
 
+    # Carregar anexo se existir
+    anexo_bytes = None
+    if hasattr(template, "anexo_arquivo_path") and template.anexo_arquivo_path:
+        try:
+            anexo_bytes = await obter_bytes_anexo(template.anexo_arquivo_path)
+        except Exception as e:
+            logger.warning(f"Falha ao carregar anexo para lote: {e}")
+
     for idx, lead in enumerate(leads):
         try:
             if canal == "whatsapp":
@@ -1116,9 +1154,21 @@ async def enviar_lote(
                     )
                     continue
                 mensagem_personalizada = _preparar_mensagem(lead, mensagem_campaign)
-                sucesso = await enviar_mensagem_texto(
-                    lead.whatsapp, mensagem_personalizada
-                )
+                
+                sucesso = False
+                if anexo_bytes:
+                    mime = getattr(template, "anexo_mime_type", "image/png")
+                    if mime.startswith("image/"):
+                        sucesso = await enviar_imagem(lead.whatsapp, anexo_bytes, caption=mensagem_personalizada, mime_type=mime)
+                    elif mime == "application/pdf":
+                        sucesso = await enviar_pdf(lead.whatsapp, anexo_bytes, numero=getattr(template, "anexo_nome_original", "documento"), caption=mensagem_personalizada)
+                    else:
+                        sucesso = await enviar_mensagem_texto(lead.whatsapp, mensagem_personalizada)
+                else:
+                    sucesso = await enviar_mensagem_texto(
+                        lead.whatsapp, mensagem_personalizada
+                    )
+                
                 if sucesso:
                     enviados += 1
                     resultados.append(
@@ -1162,8 +1212,18 @@ async def enviar_lote(
                     lead, template.assunto or template.nome
                 )
                 corpo_personalizado = _preparar_mensagem(lead, mensagem_campaign)
+                
+                attachments = None
+                if anexo_bytes:
+                    attachments = [{
+                        "path": template.anexo_arquivo_path,
+                        "name": getattr(template, "anexo_nome_original", "anexo"),
+                        "mime_type": getattr(template, "anexo_mime_type", "application/pdf"),
+                        "content_bytes": anexo_bytes
+                    }]
+
                 sucesso = send_email_simples(
-                    lead.email, assunto_personalizado, corpo_personalizado
+                    lead.email, assunto_personalizado, corpo_personalizado, attachments=attachments
                 )
                 if sucesso:
                     enviados += 1
