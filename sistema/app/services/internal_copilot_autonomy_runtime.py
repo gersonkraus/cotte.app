@@ -289,15 +289,6 @@ async def _interpret_message(*, mensagem: str, current_user, sessao_id: str | No
 async def _build_plan(*, intent: dict[str, Any], raw_message: str, history_text: str, current_user, sessao_id: str | None, request_id: str | None) -> dict[str, Any]:
     intent_name = (intent or {}).get("intent")
 
-    if llm_sql_planner_enabled():
-        llm_plan = await try_generate_sql_from_llm(
-            message=raw_message,
-            period_days=30,
-            historico=history_text,
-        )
-        if llm_plan.used and llm_plan.sql:
-            return {"sql_candidate": llm_plan.sql, "llm_rationale": llm_plan.rationale, "input_tokens": llm_plan.input_tokens, "output_tokens": llm_plan.output_tokens}
-
     if intent_name == "listar_orcamentos":
         return {"sql_candidate": "SELECT id, cliente_nome FROM orcamentos"}
     if intent_name == "listar_orcamentos_aprovados":
@@ -308,6 +299,15 @@ async def _build_plan(*, intent: dict[str, Any], raw_message: str, history_text:
         return {"sql_candidate": _build_orcamentos_status_query(status_sql="= 'RASCUNHO'", date_column="criado_em", raw_message=raw_message)}
     if intent_name == "listar_orcamentos_nao_aprovados":
         return {"sql_candidate": _build_orcamentos_status_query(status_sql="<> 'APROVADO'", date_column="criado_em", raw_message=raw_message)}
+    if llm_sql_planner_enabled():
+        llm_plan = await try_generate_sql_from_llm(
+            message=raw_message,
+            period_days=30,
+            historico=history_text,
+        )
+        if llm_plan.used and llm_plan.sql:
+            return {"sql_candidate": llm_plan.sql, "llm_rationale": llm_plan.rationale, "input_tokens": llm_plan.input_tokens, "output_tokens": llm_plan.output_tokens}
+
     if intent_name == "contar_orcamentos_aprovados":
         return {"sql_candidate": "SELECT COUNT(*) as total FROM orcamentos WHERE status = 'APROVADO'"}
     if intent_name == "contar_orcamentos":

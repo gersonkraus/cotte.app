@@ -5258,3 +5258,39 @@ async def assistente_v2_stream_core(
         }
     )
     return
+
+
+async def assistente_unificado_stream(
+    mensagem: str,
+    sessao_id: str,
+    db,
+    current_user,
+    engine: str = DEFAULT_ENGINE,
+    request_id: str | None = None,
+    confirmation_token: str | None = None,
+    override_args: dict | None = None,
+):
+    """Ponto de entrada SSE — delega para assistente_v2_stream_core (Tool Use v2).
+
+    Mantém compatibilidade de URL com o frontend. O router deve passar
+    `current_user` (objeto User completo) e os tokens de confirmação.
+    """
+    import asyncio
+
+    try:
+        async for event in assistente_v2_stream_core(
+            mensagem=mensagem,
+            sessao_id=sessao_id,
+            db=db,
+            current_user=current_user,
+            engine=engine,
+            request_id=request_id,
+            confirmation_token=confirmation_token,
+            override_args=override_args,
+        ):
+            yield event
+    except asyncio.TimeoutError:
+        yield f"data: {json.dumps({'error': 'Tempo limite atingido. Tente novamente.'})}\n\n"
+    except Exception as exc:
+        logger.exception("[assistente_unificado_stream] Erro inesperado")
+        yield f"data: {json.dumps({'error': str(exc)})}\n\n"

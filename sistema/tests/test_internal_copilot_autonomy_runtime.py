@@ -679,6 +679,37 @@ async def test_build_plan_uses_aprovado_em_for_aprovados_with_named_month(monkey
 
 
 @pytest.mark.asyncio
+async def test_build_plan_prefers_deterministic_query_over_llm_for_aprovados_with_named_month(monkeypatch):
+    from app.services import internal_copilot_autonomy_runtime as runtime
+    from app.services.assistant_autonomy.llm_sql_planner import LLMSqlPlan
+
+    monkeypatch.setattr(runtime, "llm_sql_planner_enabled", lambda: True)
+
+    async def fake_llm_plan(message, *, period_days, historico=""):
+        return LLMSqlPlan(
+            sql="SELECT SUM(total) as total_orcamentos_aprovados, COUNT(*) as quantidade_orcamentos_aprovados FROM orcamentos WHERE status = 'APROVADO'",
+            rationale="LLM inferiu uma agregacao livre",
+            used=True,
+        )
+
+    monkeypatch.setattr(runtime, "try_generate_sql_from_llm", fake_llm_plan)
+
+    plan = await runtime._build_plan(
+        intent={"intent": "listar_orcamentos_aprovados"},
+        raw_message="relatorio gerencial do mes de abril de orcamentos aprovados",
+        history_text="",
+        current_user=None,
+        sessao_id=None,
+        request_id=None,
+    )
+
+    assert "SUM(total)" not in plan["sql_candidate"]
+    assert "status = 'APROVADO'" in plan["sql_candidate"]
+    assert "aprovado_em" in plan["sql_candidate"]
+    assert "2024" not in plan["sql_candidate"]
+
+
+@pytest.mark.asyncio
 async def test_build_plan_uses_criado_em_for_recusados_with_relative_day(monkeypatch):
     from app.services import internal_copilot_autonomy_runtime as runtime
 
