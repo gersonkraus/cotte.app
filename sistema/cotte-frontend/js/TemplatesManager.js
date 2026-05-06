@@ -117,7 +117,7 @@ class TemplatesManager {
     var id = document.getElementById('tpl-id').value;
     try {
       if (id) { 
-        await api.patch('/comercial/templates/' + id, data); 
+        await api.put('/comercial/templates/' + id, data); 
         if (typeof showToast !== 'undefined') showToast('Template atualizado!', 'success'); 
       } else { 
         await api.post('/comercial/templates', data); 
