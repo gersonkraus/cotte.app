@@ -1127,11 +1127,11 @@ function renderKanban(leads) {
       ? colLeads.map(function(l) { return kanbanCard(l); }).join('')
       : '<div class="k-empty">Nenhum lead nesta etapa</div>';
     return '<div class="k-col" data-s="' + slug + '" role="region" aria-label="' + esc(s.label) + '">' +
-      '<div class="k-head" style="border-top-color:' + stageColor + ';align-items:flex-start;gap:8px">' +
-        '<div class="k-head-left" style="min-width:0;flex:1"><div class="k-title" style="line-height:1.25;overflow-wrap:anywhere;word-break:break-word">' + (s.emoji || '') + ' ' + esc(s.label) + '</div>' +
+      '<div class="k-head" style="border-top-color:' + stageColor + '">' +
+        '<div class="k-head-left k-head-left--row"><span class="k-title-emoji" aria-hidden="true">' + esc(s.emoji || '') + '</span><div class="k-title">' + esc(s.label) + '</div>' +
           (valorStr ? '<div class="k-sub">' + valorStr + '</div>' : '') +
         '</div>' +
-        '<span class="k-count" style="flex-shrink:0;white-space:nowrap">' + colLeads.length + '</span>' +
+        '<span class="k-count">' + colLeads.length + '</span>' +
       '</div>' +
       '<div class="k-cards" id="col-' + slug + '">' +
         cardsHtml +
