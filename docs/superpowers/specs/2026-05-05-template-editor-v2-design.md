@@ -15,10 +15,11 @@ Permitir que o usuário cole imagens diretamente (Ctrl+V, drag & drop) no editor
 ## Escopo
 
 ### O que muda
-1. Etapa 2 ganha layout em 2 colunas: Editor (60%) | Preview (40%)
-2. Input de arquivo de anexo é substituído por zona visual de drop/paste de imagens
-3. Painel de preview ao vivo simulando WhatsApp (bolha verde) ou Email
-4. Contador de caracteres mostra estimativa de mensagens WhatsApp
+1. Etapa 2 ganha layout em 2 colunas: Editor (60%) | Preview (40%). O modal é alargado para `850px` (`modal-slide-over`).
+2. Input de arquivo de anexo é movido para fora da zona de drop dinâmica para garantir persistência dos eventos de clique.
+3. Zona visual de drop/paste de imagens delega o clique para o input oculto.
+4. Painel de preview ao vivo simulando WhatsApp (bolha verde) ou Email.
+5. Contador de caracteres mostra estimativa de mensagens WhatsApp.
 
 ### O que NÃO muda
 - Wizard de 2 etapas (Tipo → Mensagem) permanece igual
