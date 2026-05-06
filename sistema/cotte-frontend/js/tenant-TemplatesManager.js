@@ -484,7 +484,75 @@ class TemplatesManager {
     return response;
   }
 
+  static _initV2Events() {
+    const zone = document.getElementById('tpl-image-zone');
+    if (!zone) return;
+
+    zone.addEventListener('click', () => {
+      const input = document.getElementById('tpl-anexo');
+      if (input) input.click();
+    });
+    
+    zone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      zone.classList.add('dragover');
+    });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      zone.classList.remove('dragover');
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        TemplatesManager._handleFileSelection(e.dataTransfer.files[0]);
+      }
+    });
+
+    const conteudo = document.getElementById('tpl-conteudo');
+    if (conteudo) {
+      conteudo.addEventListener('paste', (e) => {
+        const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        for (let index in items) {
+          const item = items[index];
+          if (item.kind === 'file') {
+            const blob = item.getAsFile();
+            TemplatesManager._handleFileSelection(blob);
+          }
+        }
+      });
+      conteudo.addEventListener('input', () => {
+        TemplatesManager._updateCharCounter();
+        TemplatesManager._updateLivePreview();
+      });
+    }
+
+    const assunto = document.getElementById('tpl-assunto');
+    if (assunto) {
+      assunto.addEventListener('input', () => TemplatesManager._updateLivePreview());
+    }
+
+    const anexo = document.getElementById('tpl-anexo');
+    if (anexo) {
+      anexo.addEventListener('change', (e) => {
+        document.getElementById('tpl-anexo-remover').value = '0';
+        if (e.target.files && e.target.files[0]) {
+          TemplatesManager._handleFileSelection(e.target.files[0]);
+        }
+        TemplatesManager._updateAnexoUI();
+      });
+    }
+  }
+
+  static _handleFileSelection(file) {
+    // Task 4 will implement this fully
+    console.log('File selected:', file);
+  }
+
+  static _updateLivePreview() {
+    // Task 4 will implement this fully
+    console.log('Updating live preview...');
+  }
+
   static initVariablesEvents() {
+    TemplatesManager._initV2Events();
     document.querySelectorAll('.btn-var-badge').forEach(btn => {
       btn.addEventListener('mousedown', e => e.preventDefault());
       btn.addEventListener('click', e => {
@@ -494,17 +562,6 @@ class TemplatesManager {
 
     const btnVoltar = document.getElementById('btn-tpl-voltar');
     if (btnVoltar) btnVoltar.addEventListener('click', TemplatesManager._voltarEtapa1);
-
-    const textarea = document.getElementById('tpl-conteudo');
-    if (textarea) textarea.addEventListener('input', TemplatesManager._updateCharCounter);
-
-    const anexoInput = document.getElementById('tpl-anexo');
-    if (anexoInput) {
-      anexoInput.addEventListener('change', function() {
-        document.getElementById('tpl-anexo-remover').value = '0';
-        TemplatesManager._updateAnexoUI();
-      });
-    }
 
     const btnRemoverAnexo = document.getElementById('btn-tpl-remover-anexo');
     if (btnRemoverAnexo) btnRemoverAnexo.addEventListener('click', TemplatesManager._removeAnexo);
