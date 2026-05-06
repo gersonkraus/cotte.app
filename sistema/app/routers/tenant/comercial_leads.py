@@ -18,6 +18,7 @@ from app.models.models import (
     CanalInteracao,
     Empresa,
     LeadScore,
+    TenantCommercialTemplate,
     TenantCommercialInteraction,
     TenantCommercialLead,
     TenantCommercialLeadSource,
@@ -30,6 +31,7 @@ from app.models.models import (
 )
 from app.services.email_service import send_email_simples
 from app.services.ia_service import analisar_leads
+from app.services.template_anexos_service import validar_template_anexo_path
 from app.services.whatsapp_service import enviar_mensagem_texto
 from app.routers.tenant.tenant_comercial_serialization import (
     sync_lead_status_from_etapa,
@@ -123,11 +125,13 @@ class ObservacaoBody(BaseModel):
 
 class MensagemBody(BaseModel):
     mensagem: str
+    template_id: Optional[int] = None
 
 
 class EmailBody(BaseModel):
     assunto: str
     mensagem: str
+    template_id: Optional[int] = None
 
 
 router = APIRouter(
@@ -161,6 +165,28 @@ def _etapa_padrao(db: Session, empresa_id: int) -> Optional[int]:
         .first()
     )
     return etapa.id if etapa else None
+
+
+def _buscar_template_ativo(
+    db: Session,
+    empresa_id: int,
+    template_id: Optional[int],
+) -> Optional[TenantCommercialTemplate]:
+    if template_id is None:
+        return None
+
+    template = (
+        db.query(TenantCommercialTemplate)
+        .filter(
+            TenantCommercialTemplate.id == template_id,
+            TenantCommercialTemplate.empresa_id == empresa_id,
+            TenantCommercialTemplate.ativo.is_(True),
+        )
+        .first()
+    )
+    if template is None:
+        raise HTTPException(status_code=404, detail="Template não encontrado")
+    return template
 
 
 @router.get("/check-duplicata")
@@ -855,7 +881,7 @@ def add_observacao(
 
 
 @router.post("/{lead_id}/whatsapp")
-async def log_whatsapp(
+async def enviar_whatsapp(
     lead_id: int,
     body: MensagemBody,
     db: Session = Depends(get_db),
@@ -864,16 +890,21 @@ async def log_whatsapp(
     lead = _buscar_lead(db, usuario.empresa_id, lead_id)
     if not lead.telefone:
         raise HTTPException(status_code=400, detail="Lead não possui WhatsApp cadastrado")
-    
+
+    template = _buscar_template_ativo(db, usuario.empresa_id, body.template_id)
+    mensagem_final = body.mensagem
+    if template and template.anexo_arquivo_path:
+        mensagem_final = f"{body.mensagem}\n\n{template.anexo_arquivo_path}"
+
     empresa = db.query(Empresa).filter(Empresa.id == usuario.empresa_id).first()
-    
+
     sucesso = False
     erro_msg = None
     try:
-        sucesso = await enviar_mensagem_texto(lead.telefone, body.mensagem, empresa=empresa)
+        sucesso = await enviar_mensagem_texto(lead.telefone, mensagem_final, empresa=empresa)
     except Exception as e:
         erro_msg = str(e)
-    
+
     lead.ultimo_contato_em = datetime.now(timezone.utc)
     db.add(
         TenantCommercialInteraction(
@@ -881,21 +912,25 @@ async def log_whatsapp(
             lead_id=lead.id,
             tipo=TipoInteracao.WHATSAPP,
             canal=CanalInteracao.WHATSAPP,
-            conteudo=body.mensagem,
+            conteudo=mensagem_final,
         )
     )
     db.commit()
-    
+
     if not sucesso:
         raise HTTPException(
-            status_code=502, 
+            status_code=502,
             detail=f"Falha ao enviar WhatsApp: {erro_msg or 'Erro desconhecido'}"
         )
-    return {"ok": True, "detail": "Mensagem enviada com sucesso via WhatsApp"}
+    return {
+        "ok": True,
+        "success": True,
+        "detail": "Mensagem enviada com sucesso via WhatsApp",
+    }
 
 
 @router.post("/{lead_id}/email")
-def log_email(
+def enviar_email(
     lead_id: int,
     body: EmailBody,
     db: Session = Depends(get_db),
@@ -904,14 +939,32 @@ def log_email(
     lead = _buscar_lead(db, usuario.empresa_id, lead_id)
     if not lead.email:
         raise HTTPException(status_code=400, detail="Lead não possui e-mail cadastrado")
-    
+
+    template = _buscar_template_ativo(db, usuario.empresa_id, body.template_id)
+    attachments = None
+    if template and template.anexo_arquivo_path:
+        anexo_path = validar_template_anexo_path(template.anexo_arquivo_path, usuario.empresa_id)
+        attachments = [
+            {
+                "path": anexo_path,
+                "name": template.anexo_nome_original,
+                "mime_type": template.anexo_mime_type,
+                "size_bytes": template.anexo_tamanho_bytes,
+            }
+        ]
+
     sucesso = False
     erro_msg = None
     try:
-        sucesso = send_email_simples(lead.email, body.assunto, body.mensagem)
+        sucesso = send_email_simples(
+            lead.email,
+            body.assunto,
+            body.mensagem,
+            attachments=attachments,
+        )
     except Exception as e:
         erro_msg = str(e)
-    
+
     lead.ultimo_contato_em = datetime.now(timezone.utc)
     db.add(
         TenantCommercialInteraction(
@@ -923,13 +976,21 @@ def log_email(
         )
     )
     db.commit()
-    
+
     if not sucesso:
         raise HTTPException(
             status_code=502,
             detail=f"Falha ao enviar e-mail: {erro_msg or 'Verifique a configuração de e-mail da empresa'}"
         )
-    return {"ok": True, "detail": "E-mail enviado com sucesso"}
+    return {
+        "ok": True,
+        "success": True,
+        "detail": "E-mail enviado com sucesso",
+    }
+
+
+log_whatsapp = enviar_whatsapp
+log_email = enviar_email
 
 
 @router.patch("/{lead_id}", response_model=LeadResponse)

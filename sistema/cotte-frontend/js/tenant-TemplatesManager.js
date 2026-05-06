@@ -97,9 +97,10 @@ class TemplatesManager {
         const cfg = TIPOS_TPL_CONFIG.find(c => c.tipo === t.tipo);
         const tipoLabel = cfg ? (cfg.emoji + ' ' + cfg.label) : t.tipo;
         const canalLabel = t.canal === 'ambos' ? '📱📧 Ambos' : ((canalEmoji[t.canal] || '') + ' ' + (t.canal === 'whatsapp' ? 'WhatsApp' : 'E-mail'));
+        const anexoBadge = t.anexo_nome_original ? '<span style="display:inline-flex;margin-left:6px;padding:2px 6px;border:1px solid var(--border);border-radius:999px;font-size:10px;color:var(--muted)">Com anexo</span>' : '';
 
         return '<tr>' +
-          '<td><strong>' + (typeof esc === 'function' ? esc(t.nome) : t.nome) + '</strong><div style="font-size:11px;color:var(--muted);margin-top:2px">' + (typeof esc === 'function' ? esc(preview) : preview) + '</div></td>' +
+          '<td><strong>' + (typeof esc === 'function' ? esc(t.nome) : t.nome) + '</strong>' + anexoBadge + '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + (typeof esc === 'function' ? esc(preview) : preview) + '</div></td>' +
           '<td>' + tipoLabel + '</td>' +
           '<td>' + canalLabel + '</td>' +
           '<td><span class="badge-active ' + (t.ativo ? 'on' : 'off') + '">' + (t.ativo ? 'Ativo' : 'Inativo') + '</span></td>' +
@@ -130,6 +131,7 @@ class TemplatesManager {
       const cfg = TIPOS_TPL_CONFIG.find(c => c.tipo === t.tipo);
       const tipoLabel = cfg ? (cfg.emoji + ' ' + cfg.label) : t.tipo;
       const canalLabel = t.canal === 'ambos' ? '📱📧 Ambos' : ((canalEmoji[t.canal] || '') + ' ' + (t.canal === 'whatsapp' ? 'WhatsApp' : 'E-mail'));
+      const anexoInfo = t.anexo_nome_original ? '<div style="font-size:11px;color:var(--muted);margin-top:4px">📎 Com anexo</div>' : '';
 
       return '<div class="crud-mobile-card">' +
         '<div class="crud-mobile-card-header">' +
@@ -138,6 +140,7 @@ class TemplatesManager {
         '</div>' +
         '<div class="crud-mobile-card-body">' +
           '<div>' + canalLabel + ' | ' + tipoLabel + '</div>' +
+          anexoInfo +
           '<div style="font-size:11px;color:var(--muted)">' + (typeof esc === 'function' ? esc(preview) : preview) + '</div>' +
         '</div>' +
         '<div class="crud-mobile-card-actions">' +
@@ -156,6 +159,7 @@ class TemplatesManager {
     document.getElementById('tpl-assunto').value = '';
     document.getElementById('tpl-conteudo').value = '';
     _tplTipoAtual = null;
+    TemplatesManager._resetAnexoState();
     TemplatesManager._mostrarEtapa(1);
     document.getElementById('modal-template').classList.add('open');
   }
@@ -171,6 +175,13 @@ class TemplatesManager {
       document.getElementById('tpl-assunto').value = t.assunto || '';
       document.getElementById('tpl-conteudo').value = t.conteudo;
       _tplTipoAtual = t.tipo;
+      TemplatesManager._resetAnexoState();
+      TemplatesManager._setAnexoMetadata({
+        arquivo_path: t.anexo_arquivo_path || t.anexo_url || '',
+        arquivo_nome_original: t.anexo_nome_original || '',
+        mime_type: t.anexo_mime_type || '',
+        tamanho_bytes: t.anexo_tamanho_bytes || ''
+      });
       const cfg = TIPOS_TPL_CONFIG.find(c => c.tipo === t.tipo);
       TemplatesManager._mostrarEtapa(2);
       TemplatesManager._updateContextBanner(t.tipo, t.canal);
@@ -199,6 +210,20 @@ class TemplatesManager {
     };
     var id = document.getElementById('tpl-id').value;
     try {
+      var uploadMeta = await TemplatesManager._uploadSelectedAnexo();
+      if (uploadMeta) {
+        TemplatesManager._setAnexoMetadata(uploadMeta);
+      }
+      var anexoMeta = TemplatesManager._getAnexoMetadata();
+      if (anexoMeta.anexo_nome_original) {
+        data.anexo_arquivo_path = anexoMeta.anexo_arquivo_path;
+        data.anexo_nome_original = anexoMeta.anexo_nome_original;
+        data.anexo_mime_type = anexoMeta.anexo_mime_type;
+        data.anexo_tamanho_bytes = anexoMeta.anexo_tamanho_bytes;
+      }
+      if (id && document.getElementById('tpl-anexo-remover').value === '1') {
+        data.remover_anexo = true;
+      }
       if (id) {
         await api.put('/tenant/comercial/templates/' + id, data);
         if (typeof showToast !== 'undefined') showToast('Template atualizado!', 'success');
@@ -365,6 +390,100 @@ class TemplatesManager {
     counter.style.color = len > 1000 ? 'var(--red)' : 'var(--muted)';
   }
 
+  static _formatFileSize(size) {
+    var bytes = parseInt(size, 10);
+    if (!bytes) return '';
+    if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1).replace(/\.0$/, '') + ' MB';
+    if (bytes >= 1024) return Math.round(bytes / 1024) + ' KB';
+    return bytes + ' bytes';
+  }
+
+  static _updateAnexoUI() {
+    var info = document.getElementById('tpl-anexo-atual');
+    var btnRemover = document.getElementById('btn-tpl-remover-anexo');
+    var input = document.getElementById('tpl-anexo');
+    if (!info || !btnRemover || !input) return;
+
+    var nome = document.getElementById('tpl-anexo-nome').value;
+    var path = document.getElementById('tpl-anexo-path').value;
+    var tamanho = TemplatesManager._formatFileSize(document.getElementById('tpl-anexo-tamanho').value);
+    var selecionado = input.files && input.files[0];
+
+    if (selecionado) {
+      info.textContent = 'Arquivo selecionado: ' + selecionado.name + (selecionado.size ? ' (' + TemplatesManager._formatFileSize(selecionado.size) + ')' : '') + '. Será enviado ao salvar.';
+      btnRemover.style.display = '';
+      return;
+    }
+
+    if (nome) {
+      info.textContent = '';
+      info.appendChild(document.createTextNode('Anexo atual: '));
+      if (path) {
+        var link = document.createElement('a');
+        link.href = path;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.textContent = nome;
+        info.appendChild(link);
+      } else {
+        info.appendChild(document.createTextNode(nome));
+      }
+      if (tamanho) {
+        info.appendChild(document.createTextNode(' (' + tamanho + ')'));
+      }
+      btnRemover.style.display = '';
+      return;
+    }
+
+    info.textContent = 'Nenhum anexo selecionado.';
+    btnRemover.style.display = 'none';
+  }
+
+  static _setAnexoMetadata(meta) {
+    document.getElementById('tpl-anexo-path').value = meta && meta.arquivo_path ? meta.arquivo_path : '';
+    document.getElementById('tpl-anexo-nome').value = meta && meta.arquivo_nome_original ? meta.arquivo_nome_original : '';
+    document.getElementById('tpl-anexo-mime').value = meta && meta.mime_type ? meta.mime_type : '';
+    document.getElementById('tpl-anexo-tamanho').value = meta && meta.tamanho_bytes ? String(meta.tamanho_bytes) : '';
+    document.getElementById('tpl-anexo-remover').value = '0';
+    TemplatesManager._updateAnexoUI();
+  }
+
+  static _getAnexoMetadata() {
+    return {
+      anexo_arquivo_path: document.getElementById('tpl-anexo-path').value || null,
+      anexo_nome_original: document.getElementById('tpl-anexo-nome').value || null,
+      anexo_mime_type: document.getElementById('tpl-anexo-mime').value || null,
+      anexo_tamanho_bytes: document.getElementById('tpl-anexo-tamanho').value ? parseInt(document.getElementById('tpl-anexo-tamanho').value, 10) : null
+    };
+  }
+
+  static _resetAnexoState() {
+    document.getElementById('tpl-anexo').value = '';
+    document.getElementById('tpl-anexo-remover').value = '0';
+    TemplatesManager._setAnexoMetadata(null);
+  }
+
+  static _removeAnexo() {
+    document.getElementById('tpl-anexo').value = '';
+    document.getElementById('tpl-anexo-path').value = '';
+    document.getElementById('tpl-anexo-nome').value = '';
+    document.getElementById('tpl-anexo-mime').value = '';
+    document.getElementById('tpl-anexo-tamanho').value = '';
+    document.getElementById('tpl-anexo-remover').value = '1';
+    TemplatesManager._updateAnexoUI();
+  }
+
+  static async _uploadSelectedAnexo() {
+    var input = document.getElementById('tpl-anexo');
+    if (!input || !input.files || !input.files[0]) return null;
+
+    var formData = new FormData();
+    formData.append('file', input.files[0]);
+    var response = await api.post('/tenant/comercial/templates/upload-anexo', formData);
+    input.value = '';
+    return response;
+  }
+
   static initVariablesEvents() {
     document.querySelectorAll('.btn-var-badge').forEach(btn => {
       btn.addEventListener('mousedown', e => e.preventDefault());
@@ -378,6 +497,17 @@ class TemplatesManager {
 
     const textarea = document.getElementById('tpl-conteudo');
     if (textarea) textarea.addEventListener('input', TemplatesManager._updateCharCounter);
+
+    const anexoInput = document.getElementById('tpl-anexo');
+    if (anexoInput) {
+      anexoInput.addEventListener('change', function() {
+        document.getElementById('tpl-anexo-remover').value = '0';
+        TemplatesManager._updateAnexoUI();
+      });
+    }
+
+    const btnRemoverAnexo = document.getElementById('btn-tpl-remover-anexo');
+    if (btnRemoverAnexo) btnRemoverAnexo.addEventListener('click', TemplatesManager._removeAnexo);
   }
 
   static injetarVariavel(variavelText) {

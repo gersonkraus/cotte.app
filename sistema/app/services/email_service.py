@@ -2,7 +2,9 @@
 import asyncio
 import base64
 import concurrent.futures
+import mimetypes
 import logging
+from pathlib import Path
 import re
 import smtplib
 from html import escape
@@ -1566,7 +1568,62 @@ def _texto_plano_para_html_email(mensagem: str) -> str:
     )
 
 
-def send_email_simples(destinatario: str, assunto: str, mensagem: str) -> bool:
+def _normalizar_attachments_email(attachments: list[dict] | None) -> tuple[list[dict], list[dict]]:
+    if not attachments:
+        return [], []
+
+    brevo_attachments = []
+    smtp_attachments = []
+    for attachment in attachments:
+        path_value = (attachment.get("path") or "").strip()
+        if not path_value:
+            raise ValueError("Anexo informado sem caminho válido")
+
+        nome = attachment.get("name") or Path(path_value).name or "anexo"
+        mime_type = attachment.get("mime_type") or mimetypes.guess_type(path_value)[0]
+
+        content_bytes = b""
+        if path_value.startswith(("http://", "https://")):
+            try:
+                response = httpx.get(path_value, timeout=30.0)
+                response.raise_for_status()
+                content_bytes = response.content
+                mime_type = mime_type or response.headers.get("Content-Type")
+            except Exception:
+                logging.exception("Falha ao baixar anexo remoto para e-mail: %s", path_value)
+                raise ValueError("Falha ao materializar anexo remoto para e-mail")
+        else:
+            arquivo = Path(path_value)
+            if not arquivo.is_file():
+                raise ValueError("Falha ao materializar anexo local para e-mail")
+            content_bytes = arquivo.read_bytes()
+            mime_type = mime_type or mimetypes.guess_type(str(arquivo))[0]
+
+        mime_type = mime_type or "application/octet-stream"
+
+        brevo_attachments.append(
+            {
+                "name": nome,
+                "content": base64.b64encode(content_bytes).decode("utf-8"),
+            }
+        )
+        smtp_attachments.append(
+            {
+                "name": nome,
+                "mime_type": mime_type,
+                "content_bytes": content_bytes,
+            }
+        )
+
+    return brevo_attachments, smtp_attachments
+
+
+def send_email_simples(
+    destinatario: str,
+    assunto: str,
+    mensagem: str,
+    attachments: list[dict] | None = None,
+) -> bool:
     """
     Envia um e-mail simples (texto plano).
     Usa API Brevo se configurada, senão SMTP.
@@ -1576,14 +1633,40 @@ def send_email_simples(destinatario: str, assunto: str, mensagem: str) -> bool:
         logging.error("Serviço de e-mail não configurado")
         return False
 
+    try:
+        brevo_attachments, smtp_attachments = _normalizar_attachments_email(attachments)
+    except Exception as e:
+        logging.exception("Falha ao preparar anexos do e-mail simples: %s", e)
+        return False
+
     if brevo_api_habilitado():
         html_body = _texto_plano_para_html_email(mensagem)
         return _enviar_via_brevo_api(
-            destinatario, assunto, html_body, texto=mensagem
+            destinatario,
+            assunto,
+            html_body,
+            texto=mensagem,
+            attachments=brevo_attachments or None,
         )[0]
 
     try:
-        msg = MIMEText(mensagem, "plain", "utf-8")
+        if smtp_attachments:
+            msg = MIMEMultipart()
+            msg.attach(MIMEText(mensagem, "plain", "utf-8"))
+            for attachment in smtp_attachments:
+                mime_type = attachment["mime_type"]
+                maintype, _, subtype = mime_type.partition("/")
+                part = MIMEBase(maintype or "application", subtype or "octet-stream")
+                part.set_payload(attachment["content_bytes"])
+                encoders.encode_base64(part)
+                part.add_header(
+                    "Content-Disposition",
+                    f'attachment; filename="{attachment["name"]}"',
+                )
+                part.add_header("Content-Type", mime_type)
+                msg.attach(part)
+        else:
+            msg = MIMEText(mensagem, "plain", "utf-8")
         msg["Subject"] = assunto
         msg["From"] = settings.SMTP_FROM or settings.SMTP_USER
         msg["To"] = destinatario

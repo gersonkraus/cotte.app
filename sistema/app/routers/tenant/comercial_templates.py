@@ -1,12 +1,23 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
-from typing import List, Optional
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from datetime import datetime, timezone
+from typing import List, Optional
+
+from sqlalchemy.orm import Session
 
 from app.core.auth import exigir_modulo, exigir_permissao
 from app.core.database import get_db
 from app.models.models import TenantCommercialLead, TenantCommercialTemplate, Usuario
-from app.schemas.schemas import TemplateCreate, TemplateOut, TemplatePreview, TemplateUpdate
+from app.schemas.tenant_comercial_templates import (
+    TemplatePreviewBody,
+    TenantTemplateCreate,
+    TenantTemplateOut,
+    TenantTemplatePreview,
+    TenantTemplateUpdate,
+)
+from app.services.template_anexos_service import (
+    salvar_upload_template_anexo,
+    validar_template_anexo_path,
+)
 
 
 router = APIRouter(
@@ -16,20 +27,38 @@ router = APIRouter(
 )
 
 
-@router.post("/", response_model=TemplateOut)
+def _limpar_anexo_template(template: TenantCommercialTemplate) -> None:
+    template.anexo_arquivo_path = None
+    template.anexo_nome_original = None
+    template.anexo_mime_type = None
+    template.anexo_tamanho_bytes = None
+
+
+def _validar_metadados_anexo_template(data: dict, empresa_id: int) -> None:
+    campos_anexo = (
+        "anexo_arquivo_path",
+        "anexo_nome_original",
+        "anexo_mime_type",
+        "anexo_tamanho_bytes",
+    )
+    if not any(data.get(campo) is not None for campo in campos_anexo):
+        return
+
+    validar_template_anexo_path(data.get("anexo_arquivo_path"), empresa_id)
+
+
+@router.post("/", response_model=TenantTemplateOut)
 async def create_template(
-    request: TemplateCreate,
+    request: TenantTemplateCreate,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(exigir_permissao("comercial", "escrita")),
 ):
+    data = request.model_dump()
+    _validar_metadados_anexo_template(data, current_user.empresa_id)
     template = TenantCommercialTemplate(
         empresa_id=current_user.empresa_id,
-        nome=request.nome,
-        tipo=request.tipo,
-        canal=request.canal,
-        assunto=request.assunto,
-        conteudo=request.conteudo,
         ativo=True,
+        **data,
     )
     db.add(template)
     db.commit()
@@ -37,7 +66,16 @@ async def create_template(
     return template
 
 
-@router.get("/", response_model=List[TemplateOut])
+@router.post("/upload-anexo")
+async def upload_template_anexo(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("comercial", "escrita")),
+):
+    return salvar_upload_template_anexo(current_user.empresa_id, file)
+
+
+@router.get("/", response_model=List[TenantTemplateOut])
 async def list_templates(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(exigir_permissao("comercial", "leitura")),
@@ -59,7 +97,7 @@ async def list_templates(
     return q.order_by(TenantCommercialTemplate.id.desc()).all()
 
 
-@router.get("/{template_id}", response_model=TemplateOut)
+@router.get("/{template_id}", response_model=TenantTemplateOut)
 async def get_template(
     template_id: int,
     db: Session = Depends(get_db),
@@ -79,10 +117,10 @@ async def get_template(
     return template
 
 
-@router.put("/{template_id}", response_model=TemplateOut)
+@router.put("/{template_id}", response_model=TenantTemplateOut)
 async def update_template(
     template_id: int,
-    request: TemplateUpdate,
+    request: TenantTemplateUpdate,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(exigir_permissao("comercial", "escrita")),
 ):
@@ -98,8 +136,14 @@ async def update_template(
     if not template:
         raise HTTPException(status_code=404, detail="Template não encontrado")
 
-    for field, value in request.model_dump(exclude_unset=True).items():
+    data = request.model_dump(exclude_unset=True)
+    remover_anexo = data.pop("remover_anexo", False)
+    _validar_metadados_anexo_template(data, current_user.empresa_id)
+
+    for field, value in data.items():
         setattr(template, field, value)
+    if remover_anexo:
+        _limpar_anexo_template(template)
     db.commit()
     db.refresh(template)
     return template
@@ -127,10 +171,10 @@ async def delete_template(
     return {"message": "Template deletado com sucesso"}
 
 
-@router.post("/{template_id}/preview", response_model=TemplatePreview)
+@router.post("/{template_id}/preview", response_model=TenantTemplatePreview)
 async def preview_template(
     template_id: int,
-    lead_id: int,
+    body: TemplatePreviewBody,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(exigir_permissao("comercial", "escrita")),
 ):
@@ -149,7 +193,7 @@ async def preview_template(
     lead = (
         db.query(TenantCommercialLead)
         .filter(
-            TenantCommercialLead.id == lead_id,
+            TenantCommercialLead.id == getattr(body, "lead_id", body),
             TenantCommercialLead.empresa_id == current_user.empresa_id,
         )
         .first()
@@ -199,11 +243,15 @@ async def preview_template(
         assunto = assunto.replace("{etapa}", etapa_str)
         assunto = assunto.replace("{valor}", valor_str)
 
-    return TemplatePreview(
+    return TenantTemplatePreview(
         assunto=assunto,
         conteudo=conteudo,
         dias_sem_contato=dias_sem_contato,
         score=score_str,
         etapa=lead.status_pipeline,
         valor=float(lead.valor_estimado) if lead.valor_estimado else None,
+        anexo_url=template.anexo_arquivo_path,
+        anexo_nome_original=template.anexo_nome_original,
+        anexo_mime_type=template.anexo_mime_type,
+        anexo_tamanho_bytes=template.anexo_tamanho_bytes,
     )

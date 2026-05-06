@@ -167,7 +167,8 @@ const ADMIN_PREFIX = '/admin';
 async function apiRequest(method, endpoint, body = null, options = {}) {
   const { bypassAutoLogout = false, useMock = false } = options;
   const token = localStorage.getItem('cotte_token');
-  const headers = { 'Content-Type': 'application/json' };
+  const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+  const headers = isFormData ? {} : { 'Content-Type': 'application/json' };
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
     // Token não é mais logado por segurança
@@ -176,7 +177,7 @@ async function apiRequest(method, endpoint, body = null, options = {}) {
   }
 
   const fetchOptions = { method, headers };
-  if (body) fetchOptions.body = JSON.stringify(body);
+  if (body) fetchOptions.body = isFormData ? body : JSON.stringify(body);
 
   const url = finalizeFetchUrlForMixedContent(buildApiRequestUrl(endpoint));
 
