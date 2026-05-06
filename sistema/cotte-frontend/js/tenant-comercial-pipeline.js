@@ -48,7 +48,7 @@ function renderKanban(leads) {
       : '<div class="k-empty">Nenhum lead nesta etapa</div>';
     return '<div class="k-col" data-s="' + slug + '" role="region" aria-label="' + esc(s.label) + '">' +
       '<div class="k-head" style="border-top-color:' + stageColor + ';align-items:flex-start;gap:8px">' +
-        '<div class="k-head-left" style="min-width:0;flex:1"><div class="k-title" style="line-height:1.25;word-break:break-word">' + (s.emoji || '') + ' ' + esc(s.label) + '</div>' +
+        '<div class="k-head-left" style="min-width:0;flex:1;flex-direction:row;align-items:center"><span class="k-title-emoji">' + (s.emoji || '') + '</span><div class="k-title" style="line-height:1.25;word-break:break-word">' + esc(s.label) + '</div>' +
           (valorStr ? '<div class="k-sub">' + valorStr + '</div>' : '') +
         '</div>' +
         '<span class="k-count" style="flex-shrink:0;white-space:nowrap">' + colLeads.length + '</span>' +
