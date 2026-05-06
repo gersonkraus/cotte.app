@@ -231,6 +231,7 @@ Quando houver dúvida entre suposição e verificação, verificar.
 - No fluxo do assistente IA, priorizar estabilidade e anti-regressão: contratos claros, testes de regressão e mudanças incrementais antes de refactors amplos.
 - Para autonomia do assistente, privilegiar desenho arquitetural (políticas, orquestração, capacidades) em detrimento de multiplicar tools como solução principal (“tool sprawl”).
 - Na evolução do assistente IA, priorizar autonomia real para consultar dados e gerar relatórios completos, sem restringir o foco apenas a ranking/receita.
+- Em telas usadas por operadores leigos, priorizar UX simplificada com menos botões visíveis e agrupamento de ações secundárias em menu “Mais”, preservando acesso ao modo avançado.
 - Quando o usuário solicitar visualização analítica, priorizar respostas com tabela renderizada e formatação condicional (cores/estilo), em vez de texto simples.
 - Em análises de consumo de tokens do assistente IA, preferir diagnóstico detalhado de causa raiz com proposta de ajuste que preserve funcionalidades e desempenho.
 

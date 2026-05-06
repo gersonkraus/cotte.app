@@ -42,16 +42,16 @@ function renderKanban(leads) {
     var stageColor = s.cor || STATUS_COLORS[slug] || '#94a3b8';
     var colLeads = groups[slug] || [];
     var totalValor = colLeads.reduce(function(sum, l) { return sum + (l.valor_proposto || 0); }, 0);
-    var valorStr = totalValor > 0 ? '<span style="font-size:10px;color:#10b981;font-weight:600">R$ ' + fmtMoeda(totalValor) + '</span>' : '';
+    var valorStr = totalValor > 0 ? '<span class="k-valor-total">R$ ' + fmtMoeda(totalValor) + '</span>' : '';
     var cardsHtml = colLeads.length
       ? colLeads.map(function(l) { return kanbanCard(l); }).join('')
       : '<div class="k-empty">Nenhum lead nesta etapa</div>';
     return '<div class="k-col" data-s="' + slug + '" role="region" aria-label="' + esc(s.label) + '">' +
-      '<div class="k-head" style="border-top-color:' + stageColor + ';align-items:flex-start;gap:8px">' +
-        '<div class="k-head-left" style="min-width:0;flex:1;flex-direction:row;align-items:center"><span class="k-title-emoji">' + (s.emoji || '') + '</span><div class="k-title" style="line-height:1.25;word-break:break-word">' + esc(s.label) + '</div>' +
+      '<div class="k-head" style="border-top-color:' + stageColor + '">' +
+        '<div class="k-head-left k-head-left--row"><span class="k-title-emoji" aria-hidden="true">' + esc(s.emoji || '') + '</span><div class="k-title">' + esc(s.label) + '</div>' +
           (valorStr ? '<div class="k-sub">' + valorStr + '</div>' : '') +
         '</div>' +
-        '<span class="k-count" style="flex-shrink:0;white-space:nowrap">' + colLeads.length + '</span>' +
+        '<span class="k-count">' + colLeads.length + '</span>' +
       '</div>' +
       '<div class="k-cards" id="col-' + slug + '">' +
         cardsHtml +
@@ -89,8 +89,8 @@ function kanbanCard(l) {
   var diasCls = diasNoSistema >= 14 ? 'danger' : diasNoSistema >= 7 ? 'warn' : '';
   var proxVencido = l.proximo_contato_em && new Date(l.proximo_contato_em) < new Date();
 
-  return '<div class="k-card" draggable="true" data-id="' + l.id + '" style="' + (proxVencido ? 'border-color:#fca5a5;background:rgba(254,242,242,0.4)' : '') + '" title="' + (proxVencido ? '\u26A0\uFE0F Próximo contato vencido' : '') + '">' +
-    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px">' +
+  return '<div class="k-card' + (proxVencido ? ' k-card--vencido' : '') + '" draggable="true" data-id="' + l.id + '" title="' + (proxVencido ? '\u26A0\uFE0F Próximo contato vencido' : '') + '">' +
+    '<div class="k-card-header">' +
       '<div class="kc-company" style="flex:1;min-width:0">' + esc(l.nome_empresa) + '</div>' +
       '<span class="kc-days ' + diasCls + '">' + diasStr + '</span>' +
     '</div>' +
@@ -99,7 +99,7 @@ function kanbanCard(l) {
       (l.lead_score ? '<span class="kc-badge ' + scoreClass + '">' + esc(l.lead_score) + '</span>' : '') +
       (l.segmento_nome ? '<span class="kc-badge">' + esc(l.segmento_nome) + '</span>' : '') +
       (l.interesse_plano ? '<span class="kc-badge">' + esc(l.interesse_plano.toUpperCase()) + '</span>' : '') +
-      (proxVencido ? '<span class="kc-badge" style="background:#fef2f2;color:#dc2626;border-color:transparent">\u26A0\uFE0F vencido</span>' : '') +
+      (proxVencido ? '<span class="kc-badge kc-badge--vencido">\u26A0\uFE0F vencido</span>' : '') +
     '</div>' +
     (l.valor_proposto ? '<div class="kc-value">\uD83D\uDCB0 R$ ' + fmtMoeda(l.valor_proposto) + '</div>' : '') +
     '<div class="kc-actions">' +

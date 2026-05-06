@@ -130,6 +130,11 @@
 }
 .k-sub { font-size: 0.625rem; color: var(--muted); }
 .k-count { font-size: 0.75rem; font-weight: 700; color: var(--muted); background: var(--surface); padding: 3px 10px; border-radius: 20px; border: 1px solid var(--border); flex-shrink: 0; white-space: nowrap; }
+.k-head-left--row { flex-direction: row !important; align-items: center !important; }
+.k-valor-total { font-size: 10px; color: #10b981; font-weight: 600; }
+.k-card--vencido { border-color: #fca5a5 !important; background: rgba(254, 242, 242, 0.4) !important; }
+.k-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 3px; }
+.kc-badge--vencido { background: #fef2f2 !important; color: #dc2626 !important; border-color: transparent !important; }
 .k-col[data-s="novo"] .k-head { border-top-color: #94a3b8; }
 .k-col[data-s="contato_iniciado"] .k-head { border-top-color: #3b82f6; }
 .k-col[data-s="proposta_enviada"] .k-head { border-top-color: #f59e0b; }
