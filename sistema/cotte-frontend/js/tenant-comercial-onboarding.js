@@ -6,57 +6,65 @@
 
   var PASSOS = [
     {
-      id: 'segmento',
-      titulo: 'Criar um Segmento',
-      descricao: 'Classifica seus leads por área de atuação (ex: Tecnologia, Varejo, Saúde)',
-      tab: 'cadastros',
-      check: function() { return typeof segmentosCache !== 'undefined' && segmentosCache.length > 0; }
-    },
-    {
-      id: 'origem',
-      titulo: 'Criar uma Origem',
-      descricao: 'Indica de onde o lead veio (ex: Instagram, Indicação, Google)',
-      tab: 'cadastros',
-      check: function() { return typeof origensCache !== 'undefined' && origensCache.length > 0; }
+      id: 'lead',
+      titulo: 'Cadastrar o primeiro contato',
+      descricao: 'Adicione pelo menos um contato para começar o trabalho comercial.',
+      tab: 'leads',
+      check: function() { return OnboardingComercial._temLead; }
     },
     {
       id: 'pipeline',
-      titulo: 'Criar Etapas do Pipeline',
-      descricao: 'As fases do seu processo de vendas: ex. Contato → Proposta → Fechado. Necessário para o Kanban.',
-      tab: 'cadastros',
-      check: function() { return typeof pipelineStages !== 'undefined' && pipelineStages.length > 0; }
+      titulo: 'Organizar no funil',
+      descricao: 'Abra um lead e mova para a etapa correta do funil de vendas.',
+      tab: 'pipeline',
+      check: function() { return OnboardingComercial._temLeadComStatus; }
+    },
+    {
+      id: 'followup',
+      titulo: 'Agendar próximo contato',
+      descricao: 'Defina data/hora de retorno para não perder oportunidades.',
+      tab: 'lembretes',
+      check: function() { return OnboardingComercial._temLeadComProximoContato; }
     },
     {
       id: 'template',
-      titulo: 'Criar um Template de Mensagem',
-      descricao: 'Mensagens pré-escritas com variáveis como {nome} e {empresa}, para WhatsApp ou e-mail',
-      tab: 'templates',
+      titulo: 'Preparar mensagem padrão',
+      descricao: 'Crie um modelo simples para agilizar WhatsApp e e-mail.',
+      tab: 'config',
       check: function() { return typeof templatesCache !== 'undefined' && templatesCache.length > 0; }
     },
     {
-      id: 'lead',
-      titulo: 'Adicionar seu primeiro Lead',
-      descricao: 'Contatos que você quer converter em clientes',
-      dica: '💡 Tem uma lista? Use a Importação em lote',
+      id: 'importacao',
+      titulo: 'Importar lista (opcional)',
+      descricao: 'Se já tiver contatos prontos, use importação para ganhar tempo.',
+      dica: 'Tem lista de WhatsApp ou CSV? Use importação guiada',
       tabDica: 'importacao',
-      tab: 'leads',
-      check: function() { return OnboardingComercial._temLead; }
+      tab: 'importacao',
+      check: function() { return OnboardingComercial._temLead || OnboardingComercial._temImportacao; }
     }
   ];
 
   var OnboardingComercial = {
     _temLead: false,
+    _temLeadComStatus: false,
+    _temLeadComProximoContato: false,
+    _temImportacao: false,
 
     init: async function() {
       if (sessionStorage.getItem(SESSION_KEY)) return;
 
       try {
-        var res = await api.get('/tenant/comercial/leads?limit=1&per_page=1');
-        this._temLead = (res && typeof res.total === 'number')
-          ? res.total > 0
-          : (Array.isArray(res) && res.length > 0);
+        var res = await api.get('/tenant/comercial/leads?per_page=20');
+        var leads = Array.isArray(res && res.items) ? res.items : (Array.isArray(res) ? res : []);
+        this._temLead = (res && typeof res.total === 'number') ? res.total > 0 : leads.length > 0;
+        this._temLeadComStatus = leads.some(function(l) { return !!(l && l.status_pipeline && l.status_pipeline !== 'novo'); });
+        this._temLeadComProximoContato = leads.some(function(l) { return !!(l && l.proximo_contato_em); });
+        this._temImportacao = this._temLead && leads.length >= 3;
       } catch(e) {
         this._temLead = false;
+        this._temLeadComStatus = false;
+        this._temLeadComProximoContato = false;
+        this._temImportacao = false;
       }
 
       var status = this._getStatus();
@@ -126,8 +134,8 @@
         '<div class="ob-bloco" id="ob-bloco">' +
           '<div class="ob-header">' +
             '<div>' +
-              '<div class="ob-titulo-principal">🚀 Configure o Comercial</div>' +
-              '<div class="ob-subtitulo">Complete os passos abaixo para começar a usar o CRM</div>' +
+              '<div class="ob-titulo-principal">🚀 Rotina guiada do Comercial</div>' +
+              '<div class="ob-subtitulo">Siga os passos para operar o CRM com segurança no dia a dia</div>' +
             '</div>' +
             '<div>' +
               '<div class="ob-progresso-label">Progresso</div>' +

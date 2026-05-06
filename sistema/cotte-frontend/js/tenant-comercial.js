@@ -1119,6 +1119,7 @@ function renderKanban(leads) {
 
   board.innerHTML = stages.map(function(s) {
     var slug = s.slug;
+    var stageColor = s.cor || STATUS_COLORS[slug] || '#94a3b8';
     var colLeads = groups[slug] || [];
     var totalValor = colLeads.reduce(function(sum, l) { return sum + (l.valor_proposto || 0); }, 0);
     var valorStr = totalValor > 0 ? '<span style="font-size:10px;color:#10b981;font-weight:600">R$ ' + fmtMoeda(totalValor) + '</span>' : '';
@@ -1126,11 +1127,11 @@ function renderKanban(leads) {
       ? colLeads.map(function(l) { return kanbanCard(l); }).join('')
       : '<div class="k-empty">Nenhum lead nesta etapa</div>';
     return '<div class="k-col" data-s="' + slug + '" role="region" aria-label="' + esc(s.label) + '">' +
-      '<div class="k-head">' +
-        '<div class="k-head-left"><div class="k-title">' + (s.emoji || '') + ' ' + esc(s.label) + '</div>' +
+      '<div class="k-head" style="border-top-color:' + stageColor + ';align-items:flex-start;gap:8px">' +
+        '<div class="k-head-left" style="min-width:0;flex:1"><div class="k-title" style="line-height:1.25;overflow-wrap:anywhere;word-break:break-word">' + (s.emoji || '') + ' ' + esc(s.label) + '</div>' +
           (valorStr ? '<div class="k-sub">' + valorStr + '</div>' : '') +
         '</div>' +
-        '<span class="k-count">' + colLeads.length + '</span>' +
+        '<span class="k-count" style="flex-shrink:0;white-space:nowrap">' + colLeads.length + '</span>' +
       '</div>' +
       '<div class="k-cards" id="col-' + slug + '">' +
         cardsHtml +
@@ -1179,10 +1180,7 @@ function kanbanCard(l) {
     '</div>' +
     (l.valor_proposto ? '<div class="kc-value">\uD83D\uDCB0 R$ ' + fmtMoeda(l.valor_proposto) + '</div>' : '') +
     '<div class="kc-actions">' +
-      '<button class="kc-btn btn-kc-detail" data-id="' + l.id + '" title="Ver detalhes">\uD83D\uDC41</button>' +
-      '<button class="kc-btn btn-kc-edit" data-id="' + l.id + '" title="Editar">\u270F\uFE0F</button>' +
-      (l.whatsapp ? '<button class="kc-btn btn-kc-wa" data-id="' + l.id + '" title="WhatsApp">\uD83D\uDCF1</button>' : '') +
-      (l.email ? '<button class="kc-btn btn-kc-em" data-id="' + l.id + '" title="E-mail">\uD83D\uDCE7</button>' : '') +
+      '<button class="kc-btn btn-kc-detail" data-id="' + l.id + '" title="Abrir lead">Abrir</button>' +
     '</div>' +
   '</div>';
 }
@@ -1191,12 +1189,6 @@ function kanbanCard(l) {
 document.addEventListener('click', function(e) {
   var btn = e.target.closest('.btn-kc-detail');
   if (btn) { e.stopPropagation(); abrirDetalhe(parseInt(btn.dataset.id)); return; }
-  btn = e.target.closest('.btn-kc-edit');
-  if (btn) { e.stopPropagation(); editarLead(parseInt(btn.dataset.id)); return; }
-  btn = e.target.closest('.btn-kc-wa');
-  if (btn) { e.stopPropagation(); abrirModalWhatsApp(parseInt(btn.dataset.id)); return; }
-  btn = e.target.closest('.btn-kc-em');
-  if (btn) { e.stopPropagation(); abrirModalEmail(parseInt(btn.dataset.id)); return; }
 });
 
 async function dropCard(e, novoStatus) {
@@ -1289,31 +1281,13 @@ async function carregarLeadsTabela() {
       tbody.querySelectorAll('.leads-actions-cell').forEach(function(cell) {
         cell.addEventListener('click', function(e) { e.stopPropagation(); });
         var id = parseInt(cell.dataset.id);
-        if (cell.dataset.wa) {
-          var btnWa = document.createElement('button');
-          btnWa.className = 'btn btn-sm btn-ghost';
-          btnWa.style.cssText = 'padding:4px 7px';
-          btnWa.textContent = '\uD83D\uDCF1';
-          btnWa.title = 'WhatsApp';
-          btnWa.addEventListener('click', function() { abrirModalWhatsApp(id); });
-          cell.appendChild(btnWa);
-        }
-        if (cell.dataset.em) {
-          var btnEm = document.createElement('button');
-          btnEm.className = 'btn btn-sm btn-ghost';
-          btnEm.style.cssText = 'padding:4px 7px';
-          btnEm.textContent = '\uD83D\uDCE7';
-          btnEm.title = 'E-mail';
-          btnEm.addEventListener('click', function() { abrirModalEmail(id); });
-          cell.appendChild(btnEm);
-        }
-        var btnLemb = document.createElement('button');
-        btnLemb.className = 'btn btn-sm btn-ghost';
-        btnLemb.style.cssText = 'padding:4px 7px';
-        btnLemb.textContent = '\u23F0';
-        btnLemb.title = 'Lembrete';
-        btnLemb.addEventListener('click', function() { abrirModalLembrete(id); });
-        cell.appendChild(btnLemb);
+        var btnAbrir = document.createElement('button');
+        btnAbrir.className = 'btn btn-sm btn-secondary';
+        btnAbrir.style.cssText = 'padding:5px 10px';
+        btnAbrir.textContent = 'Abrir';
+        btnAbrir.title = 'Abrir lead';
+        btnAbrir.addEventListener('click', function() { abrirDetalhe(id); });
+        cell.appendChild(btnAbrir);
       });
 
       // Mobile cards
@@ -1343,25 +1317,11 @@ async function carregarLeadsTabela() {
       mobileContainer.querySelectorAll('.lmc-actions').forEach(function(actions) {
         actions.addEventListener('click', function(e) { e.stopPropagation(); });
         var id = parseInt(actions.dataset.id);
-        if (actions.dataset.wa) {
-          var btn = document.createElement('button');
-          btn.className = 'btn btn-sm btn-ghost';
-          btn.textContent = '\uD83D\uDCF1 WhatsApp';
-          btn.addEventListener('click', function() { abrirModalWhatsApp(id); });
-          actions.appendChild(btn);
-        }
-        if (actions.dataset.em) {
-          var btn2 = document.createElement('button');
-          btn2.className = 'btn btn-sm btn-ghost';
-          btn2.textContent = '\uD83D\uDCE7 E-mail';
-          btn2.addEventListener('click', function() { abrirModalEmail(id); });
-          actions.appendChild(btn2);
-        }
-        var btn3 = document.createElement('button');
-        btn3.className = 'btn btn-sm btn-ghost';
-        btn3.textContent = '\u23F0 Lembrete';
-        btn3.addEventListener('click', function() { abrirModalLembrete(id); });
-        actions.appendChild(btn3);
+        var btnAbrir = document.createElement('button');
+        btnAbrir.className = 'btn btn-sm btn-secondary';
+        btnAbrir.textContent = 'Abrir lead';
+        btnAbrir.addEventListener('click', function() { abrirDetalhe(id); });
+        actions.appendChild(btnAbrir);
       });
     }
     var pg = document.getElementById('leads-pagination');
@@ -1444,69 +1404,119 @@ async function abrirDetalhe(id) {
       ? esc(propostaNomeDetalhe) + (propostaStatusDetalhe ? ' (' + esc(propostaStatusDetalhe) + ')' : '')
       : '<span class="lead-field-value empty">—</span>';
 
-    var html = '';
+    var now = new Date();
+    var proximoContatoDate = l.proximo_contato_em ? new Date(l.proximo_contato_em) : null;
+    var isAtrasado = !!(proximoContatoDate && proximoContatoDate < now);
+    var semProximoContato = !proximoContatoDate;
+    var propostaEnviada = propostaStatusDetalhe === 'Enviada' || propostaStatusDetalhe === 'Visualizada';
+    var currentStageIndex = stagesForSelect.findIndex(function(s) { return s.slug === l.status_pipeline; });
+    var nextStage = currentStageIndex >= 0 && currentStageIndex < (stagesForSelect.length - 1)
+      ? stagesForSelect[currentStageIndex + 1]
+      : null;
 
-    // HEADER
-    html += '<div style="display:flex;align-items:center;gap:14px;padding:20px 24px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:5">' +
+    var ctaPrincipal = {
+      label: 'Registrar retorno',
+      hint: 'Sem próximo contato definido. Agende para não perder este lead.',
+      actionClass: 'btn-detail-lemb'
+    };
+    if (isAtrasado && l.whatsapp) {
+      ctaPrincipal = {
+        label: 'Enviar mensagem agora',
+        hint: 'O próximo contato está atrasado. Reative o atendimento com uma mensagem.',
+        actionClass: 'btn-detail-wa'
+      };
+    } else if (propostaEnviada && l.whatsapp) {
+      ctaPrincipal = {
+        label: 'Enviar follow-up agora',
+        hint: 'A proposta já foi enviada. Faça um follow-up para avançar o fechamento.',
+        actionClass: 'btn-detail-wa'
+      };
+    } else if (!semProximoContato) {
+      ctaPrincipal = {
+        label: 'Registrar retorno',
+        hint: 'Mantenha a próxima atividade atualizada para facilitar o atendimento.',
+        actionClass: 'btn-detail-lemb'
+      };
+    }
+
+    var estadosOperacionais = [
+      isAtrasado ? '<span class="lead-state-badge danger">Atrasado</span>' : '',
+      semProximoContato ? '<span class="lead-state-badge warn">Sem próximo contato</span>' : '',
+      propostaEnviada ? '<span class="lead-state-badge info">Proposta enviada</span>' : '',
+    ].filter(Boolean).join('');
+
+    var html = '';
+    html += '<div class="lead-detail-header">' +
       '<div class="lead-panel-avatar ' + avatarCls + '" style="width:48px;height:48px;border-radius:13px;font-size:16px">' + ini + '</div>' +
       '<div style="flex:1;min-width:0">' +
-        '<div style="font-family:\'Outfit\',sans-serif;font-size:19px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(l.nome_empresa) + '</div>' +
-        '<div style="font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:2px">' +
+        '<div class="lead-header-company">' + esc(l.nome_empresa) + '</div>' +
+        '<div class="lead-header-meta">' +
           '<span>' + esc(l.nome_responsavel) + '</span>' +
-          '<span style="color:var(--border)">\u00B7</span>' +
+          '<span class="lead-header-sep">•</span>' +
           '<span class="lead-badge status-' + statusAtual + '">' + esc(statusLabel) + '</span>' +
           (l.lead_score ? '<span class="score ' + l.lead_score + '">' + esc(l.lead_score) + '</span>' : '') +
-          '<span style="color:var(--border)">\u00B7</span>' +
-          '<span style="font-size:11px;color:var(--muted2)">' + diasStr + ' no pipeline</span>' +
+          '<span class="lead-header-sep">•</span>' +
+          '<span>' + diasStr + ' no pipeline</span>' +
         '</div>' +
       '</div>' +
-      '<div style="display:flex;gap:6px;flex-shrink:0">' +
-        (l.whatsapp ? '<button class="btn btn-sm btn-ghost btn-detail-wa" data-id="' + l.id + '" style="padding:7px 10px" title="WhatsApp">\uD83D\uDCF1</button>' : '') +
-        (l.email ? '<button class="btn btn-sm btn-ghost btn-detail-em" data-id="' + l.id + '" style="padding:7px 10px" title="E-mail">\uD83D\uDCE7</button>' : '') +
-        '<button class="btn btn-sm btn-ghost btn-detail-lemb" data-id="' + l.id + '" style="padding:7px 10px" title="Lembrete">\u23F0</button>' +
-        '<button class="btn btn-sm btn-ghost btn-detail-edit" data-id="' + l.id + '" style="padding:7px 10px" title="Editar">\u270F\uFE0F</button>' +
+      '<div class="lead-header-actions">' +
+        '<button class="btn btn-sm btn-ghost btn-detail-edit" data-id="' + l.id + '" title="Editar lead">Editar</button>' +
         '<button class="modal-close" id="btn-close-detail" style="margin-left:4px" aria-label="Fechar">&times;</button>' +
       '</div>' +
     '</div>';
 
-    // BODY
-    html += '<div class="lead-detail-scroll" style="padding:20px 24px;display:flex;flex-direction:column;gap:16px">';
-
-    // QUICK ACTIONS
-    html += '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
-      '<div style="flex:1;min-width:200px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:6px">Status do Pipeline</div><div class="lead-status-quick" style="flex-wrap:wrap">' + statusPills + '</div></div>' +
-      '<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:6px">Score</div><div class="score-picker">' + scorePicks + '</div></div>' +
+    html += '<div class="lead-detail-scroll" style="padding:20px 24px;display:flex;flex-direction:column;gap:14px">';
+    html += '<div class="lead-main-cta-wrap">' +
+      '<div class="lead-main-cta-copy">' +
+        '<div class="lead-main-cta-title">Próxima ação recomendada</div>' +
+        '<div class="lead-main-cta-hint">' + esc(ctaPrincipal.hint) + '</div>' +
+      '</div>' +
+      '<button class="btn btn-primary lead-main-cta-btn ' + ctaPrincipal.actionClass + '" data-id="' + l.id + '">' + esc(ctaPrincipal.label) + '</button>' +
     '</div>';
 
-    // TWO COLUMN LAYOUT
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="lead-detail-grid">';
+    html += '<div class="lead-quick-bar">' +
+      (l.whatsapp ? '<button class="btn btn-sm btn-secondary btn-detail-wa" data-id="' + l.id + '" aria-label="Enviar mensagem no WhatsApp">Enviar mensagem agora</button>' : '') +
+      '<button class="btn btn-sm btn-secondary btn-detail-lemb" data-id="' + l.id + '" aria-label="Agendar retorno">Registrar retorno</button>' +
+      (nextStage ? '<button class="btn btn-sm btn-secondary btn-quick-move" data-lead-id="' + l.id + '" data-status="' + nextStage.slug + '" aria-label="Mover etapa">Mover etapa para ' + esc(nextStage.label) + '</button>' : '') +
+    '</div>';
 
-    // LEFT COLUMN
+    html += '<div class="lead-state-strip">' +
+      '<span class="lead-state-badge neutral">Status: ' + esc(statusLabel) + '</span>' +
+      estadosOperacionais +
+      '</div>';
+
+    html += '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<div style="flex:1;min-width:200px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:6px">Mover etapa</div><div class="lead-status-quick" style="flex-wrap:wrap">' + statusPills + '</div></div>' +
+      '<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:6px">Classificar prioridade</div><div class="score-picker">' + scorePicks + '</div></div>' +
+    '</div>';
+
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="lead-detail-grid">';
     html += '<div style="display:flex;flex-direction:column;gap:14px">';
     html += '<div class="lead-panel-section">' +
-      '<div class="lead-panel-section-title">\uD83D\uDC64 Contato</div>' +
+      '<div class="lead-panel-section-title">Contato</div>' +
       '<div class="lead-field"><span class="lead-field-label">Responsável</span><span class="lead-field-value">' + fmt(l.nome_responsavel) + '</span></div>' +
       '<div class="lead-field"><span class="lead-field-label">Empresa</span><span class="lead-field-value">' + fmt(l.nome_empresa) + '</span></div>' +
-      '<div class="lead-field"><span class="lead-field-label">WhatsApp</span><span class="lead-field-value">' + (l.whatsapp ? esc(l.whatsapp) + ' <button class=\"lead-field-action btn-detail-wa\" data-id=\"' + l.id + '\" title=\"Enviar WhatsApp\">\uD83D\uDCF1</button>' : '<span class="lead-field-value empty">\u2014</span>') + '</span></div>' +
-      '<div class="lead-field"><span class="lead-field-label">E-mail</span><span class="lead-field-value">' + (l.email ? esc(l.email) + ' <button class=\"lead-field-action btn-detail-em\" data-id=\"' + l.id + '\" title=\"Enviar E-mail\">\uD83D\uDCE7</button>' : '<span class="lead-field-value empty">\u2014</span>') + '</span></div>' +
+      '<div class="lead-field"><span class="lead-field-label">WhatsApp</span><span class="lead-field-value">' + (l.whatsapp ? esc(l.whatsapp) : '<span class="lead-field-value empty">—</span>') + '</span></div>' +
+      '<div class="lead-field"><span class="lead-field-label">E-mail</span><span class="lead-field-value">' + (l.email ? esc(l.email) : '<span class="lead-field-value empty">—</span>') + '</span></div>' +
       '<div class="lead-field"><span class="lead-field-label">Cidade</span><span class="lead-field-value">' + fmt(l.cidade) + '</span></div>' +
     '</div>';
 
     html += '<div class="lead-panel-section">' +
-      '<div class="lead-panel-section-title">\uD83D\uDCBC Negócio</div>' +
+      '<div class="lead-panel-section-title">Negócio</div>' +
       '<div class="lead-field"><span class="lead-field-label">Segmento</span><span class="lead-field-value">' + fmt(l.segmento_nome) + '</span></div>' +
       '<div class="lead-field"><span class="lead-field-label">Origem</span><span class="lead-field-value">' + fmt(l.origem_nome) + '</span></div>' +
-      '<div class="lead-field"><span class="lead-field-label">Plano Interesse</span><span class="lead-field-value">' + (l.interesse_plano ? esc(l.interesse_plano.toUpperCase()) : '<span class="lead-field-value empty">\u2014</span>') + '</span></div>' +
-      '<div class="lead-field"><span class="lead-field-label">Valor Proposto</span><span class="lead-field-value">' + (l.valor_proposto ? '<strong style="color:var(--green)">R$ ' + fmtMoeda(l.valor_proposto) + '</strong> <button class="lead-field-action btn-detail-gerar-orcamento" data-id="' + l.id + '" data-valor="' + (l.valor_proposto || 0) + '" data-desc="' + esc(l.nome_empresa || l.nome_responsavel) + '" title="Gerar orçamento">\uD83D\uDCC4</button>' : '<span class="lead-field-value empty">\u2014</span>') + '</span></div>' +
-      '<div class="lead-field"><span class="lead-field-label">Proposta Pública</span><span class="lead-field-value">' + propostaResumoDetalhe + '</span></div>' +
-      '<div class="lead-field"><span class="lead-field-label">Próx. Contato</span><span class="lead-field-value">' + (l.proximo_contato_em ? fmtDataHora(l.proximo_contato_em) : '<span class="lead-field-value empty">\u2014</span>') + '</span></div>' +
+      '<div class="lead-field"><span class="lead-field-label">Plano de interesse</span><span class="lead-field-value">' + (l.interesse_plano ? esc(l.interesse_plano.toUpperCase()) : '<span class="lead-field-value empty">—</span>') + '</span></div>' +
+      '<div class="lead-field"><span class="lead-field-label">Valor proposto</span><span class="lead-field-value">' + (l.valor_proposto ? '<strong style="color:var(--green)">R$ ' + fmtMoeda(l.valor_proposto) + '</strong>' : '<span class="lead-field-value empty">—</span>') + '</span></div>' +
+      '<div class="lead-field"><span class="lead-field-label">Proposta pública</span><span class="lead-field-value">' + propostaResumoDetalhe + '</span></div>' +
+      '<div class="lead-field"><span class="lead-field-label">Próximo contato</span><span class="lead-field-value">' + (l.proximo_contato_em ? fmtDataHora(l.proximo_contato_em) : '<span class="lead-field-value empty">Sem agendamento</span>') + '</span></div>' +
       '<div class="lead-field"><span class="lead-field-label">Criado em</span><span class="lead-field-value">' + fmtData(l.criado_em) + ' (' + diasStr + ')</span></div>' +
     '</div>';
     html += '</div>';
 
-    // RIGHT COLUMN
     html += '<div style="display:flex;flex-direction:column;gap:14px">';
-
+    html += '<details class="lead-accordion-block">' +
+      '<summary>Empresa e contexto</summary>' +
+      '<div class="lead-accordion-content">';
     if (l.empresa) {
       var emp = l.empresa;
       var empStatusMap = {'trial':{label:'Trial',color:'#8b5cf6'},'pagante':{label:'Ativo',color:'#10b981'},'bloqueado':{label:'Bloqueado',color:'#ef4444'},'expirado':{label:'Expirado',color:'#f59e0b'}};
@@ -1514,91 +1524,63 @@ async function abrirDetalhe(id) {
       var usuariosHtml = emp.usuarios && emp.usuarios.length
         ? emp.usuarios.map(function(u) {
             return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">' +
-              '<span style="width:6px;height:6px;border-radius:50%;background:' + (u.online ? '#10b981' : 'var(--border)') + ';flex-shrink:0;' + (u.online ? 'box-shadow:0 0 0 2px rgba(16,185,129,0.25)' : '') + '"></span>' +
+              '<span style="width:6px;height:6px;border-radius:50%;background:' + (u.online ? '#10b981' : 'var(--border)') + ';flex-shrink:0"></span>' +
               '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(u.nome) + '</div><div style="font-size:10px;color:var(--muted)">' + (u.ultima_atividade_em ? fmtDataHora(u.ultima_atividade_em) : 'Nunca acessou') + '</div></div>' +
             '</div>';
           }).join('')
         : '<div style="font-size:12px;color:var(--muted);padding:4px 0">Nenhum usuário</div>';
-
-      html += '<div class="lead-panel-section" style="border-left:3px solid ' + empSt.color + '">' +
-        '<div class="lead-panel-section-title">\uD83C\uDFE2 Empresa no Sistema <span class="pill" style="background:' + empSt.color + '20;color:' + empSt.color + ';font-size:10px;margin-left:auto">' + empSt.label + '</span></div>' +
-        '<div class="lead-stats-row" style="margin-bottom:12px">' +
-          '<div class="lead-stat-box"><div class="lead-stat-value" style="color:var(--accent)">' + (emp.total_orcamentos || 0) + '</div><div class="lead-stat-label">Orçamentos</div></div>' +
-          '<div class="lead-stat-box"><div class="lead-stat-value" style="color:#10b981">' + (emp.orcamentos_aprovados || 0) + '</div><div class="lead-stat-label">Aprovados</div></div>' +
-          '<div class="lead-stat-box"><div class="lead-stat-value" style="color:#f59e0b">' + (emp.orcamentos_pendentes || 0) + '</div><div class="lead-stat-label">Pendentes</div></div>' +
-        '</div>' +
-        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--muted);margin-bottom:6px">Usuários (' + (emp.usuarios ? emp.usuarios.length : 0) + ')</div>' +
-        usuariosHtml +
-        '<div style="display:flex;gap:6px;margin-top:10px">' +
-        '</div>' +
-      '</div>';
+      html += '<div class="lead-field"><span class="lead-field-label">Status da empresa</span><span class="lead-field-value"><span class="pill" style="background:' + empSt.color + '20;color:' + empSt.color + ';font-size:10px">' + empSt.label + '</span></span></div>';
+      html += '<div class="lead-field"><span class="lead-field-label">Visão rápida</span><span class="lead-field-value">' + (emp.total_orcamentos || 0) + ' orçamentos • ' + (emp.orcamentos_aprovados || 0) + ' aprovados</span></div>';
+      html += '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--muted);margin:8px 0 6px">Usuários (' + (emp.usuarios ? emp.usuarios.length : 0) + ')</div>' + usuariosHtml;
     } else {
-      html += '<div class="lead-panel-section" style="background:var(--accent-dim);border-color:rgba(6,182,212,0.2)">' +
-        '<div style="text-align:center;padding:12px 0">' +
-          '<div style="font-size:28px;margin-bottom:8px">\uD83D\uDE80</div>' +
-        '</div>' +
-      '</div>';
+      html += '<div style="font-size:12px;color:var(--muted)">Este lead ainda não está vinculado a uma empresa no sistema.</div>';
     }
+    html += '</div></details>';
 
-    // Lembretes
-    if (l.lembretes && l.lembretes.length) {
-      html += '<div class="lead-panel-section"><div class="lead-panel-section-title">\u23F0 Lembretes (' + l.lembretes.length + ')</div>';
-      html += l.lembretes.slice(0, 3).map(function(r) {
-        var atrasado = (r.status || '').toLowerCase() === 'atrasado';
-        var concluido = (r.status || '').toLowerCase().startsWith('conclu');
-        return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);' + (concluido ? 'opacity:.5' : '') + '">' +
-          '<span style="width:6px;height:6px;border-radius:50%;background:' + (atrasado ? '#ef4444' : concluido ? '#10b981' : 'var(--accent)') + ';flex-shrink:0"></span>' +
-          '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600">' + esc(r.titulo) + '</div><div style="font-size:10px;color:var(--muted)">' + fmtDataHora(r.data_hora) + '</div></div>' +
-          (!concluido ? '<button class="lead-field-action btn-concluir-lembrete" data-id="' + r.id + '" title="Concluir">\u2713</button>' : '') +
-        '</div>';
-      }).join('');
-      if (l.lembretes.length > 3) html += '<div style="font-size:11px;color:var(--muted);margin-top:4px">+' + (l.lembretes.length - 3) + ' mais</div>';
-      html += '</div>';
-    }
+    html += '<details class="lead-accordion-block">' +
+      '<summary>Análise comercial</summary>' +
+      '<div class="lead-accordion-content">' +
+        '<div class="lead-field"><span class="lead-field-label">Estado de atendimento</span><span class="lead-field-value">' + (isAtrasado ? 'Atrasado' : semProximoContato ? 'Sem retorno agendado' : 'Em dia') + '</span></div>' +
+        '<div class="lead-field"><span class="lead-field-label">Microcopy sugerida</span><span class="lead-field-value">' + (l.whatsapp ? 'Enviar mensagem agora' : 'Registrar retorno') + '</span></div>' +
+        '<div class="lead-field"><span class="lead-field-label">Próxima etapa sugerida</span><span class="lead-field-value">' + (nextStage ? esc(nextStage.label) : 'Manter etapa atual') + '</span></div>' +
+      '</div>' +
+    '</details>';
 
-    // Notes
     html += '<div class="lead-panel-section">' +
-      '<div class="lead-panel-section-title">\uD83D\uDCDD Adicionar Nota</div>' +
+      '<div class="lead-panel-section-title">Registrar anotação</div>' +
       '<div class="lead-note-composer">' +
-        '<textarea id="obs-input" placeholder="Escreva uma observação sobre este lead..." rows="2"></textarea>' +
-        '<button class="btn btn-sm btn-primary btn-add-obs" data-id="' + l.id + '" style="flex-shrink:0;padding:6px 12px">Enviar</button>' +
+        '<textarea id="obs-input" placeholder="Ex: cliente pediu retorno amanhã às 14h" rows="2"></textarea>' +
+        '<button class="btn btn-sm btn-primary btn-add-obs" data-id="' + l.id + '" style="flex-shrink:0;padding:6px 12px">Salvar nota</button>' +
       '</div>' +
     '</div>';
+    html += '</div>';
+    html += '</div>';
 
-    if (l.observacoes) {
-      html += '<div class="lead-panel-section"><div class="lead-panel-section-title">\uD83D\uDCCB Observações</div><div style="font-size:13px;color:var(--text);line-height:1.6;white-space:pre-wrap">' + esc(l.observacoes) + '</div></div>';
-    }
-
-    html += '</div>'; // end right column
-    html += '</div>'; // end grid
-
-    // TIMELINE
     if (l.interacoes && l.interacoes.length) {
-      html += '<div class="lead-panel-section"><div class="lead-panel-section-title">\uD83D\uDCCB Timeline de Interações (' + l.interacoes.length + ')</div><div class="lead-timeline">';
+      html += '<details class="lead-accordion-block">' +
+        '<summary>Timeline de interações (' + l.interacoes.length + ')</summary>' +
+        '<div class="lead-accordion-content"><div class="lead-timeline">';
       html += l.interacoes.slice(0, 15).map(function(i) {
         var tipo = (i.tipo || '').toLowerCase();
-        var emoji = '\uD83D\uDCDD';
-        if (tipo.includes('whatsapp')) emoji = '\uD83D\uDCF1';
-        else if (tipo.includes('email')) emoji = '\uD83D\uDCE7';
-        else if (tipo.includes('status')) emoji = '\uD83D\uDD04';
-        else if (tipo.includes('lembrete')) emoji = '\u23F0';
+        var icone = tipo.includes('whatsapp') ? 'WA' : tipo.includes('email') ? 'EM' : tipo.includes('status') ? 'ET' : tipo.includes('lembrete') ? 'LE' : 'NT';
         var sistema = tipo.includes('sistema') || tipo.includes('status') || tipo.includes('cadastro') || tipo.includes('origem');
-        return '<div class="lead-tl-item"><div class="lead-tl-dot">' + emoji + '</div><div class="lead-tl-content"><div class="lead-tl-text">' + esc(i.conteudo || '') + '</div><div class="lead-tl-meta"><span class="lead-tl-tag ' + (sistema ? 'system' : 'user') + '">' + (sistema ? 'Sistema' : 'Comentário') + '</span></div></div><div class="lead-tl-time">' + fmtDataHora(i.criado_em) + '</div></div>';
+        return '<div class="lead-tl-item"><div class="lead-tl-dot">' + icone + '</div><div class="lead-tl-content"><div class="lead-tl-text">' + esc(i.conteudo || '') + '</div><div class="lead-tl-meta"><span class="lead-tl-tag ' + (sistema ? 'system' : 'user') + '">' + (sistema ? 'Sistema' : 'Comentário') + '</span></div></div><div class="lead-tl-time">' + fmtDataHora(i.criado_em) + '</div></div>';
       }).join('');
       if (l.interacoes.length > 15) html += '<div style="font-size:11px;color:var(--muted);padding:8px 0 0 46px">+' + (l.interacoes.length - 15) + ' interações mais antigas</div>';
-      html += '</div></div>';
+      html += '</div></div></details>';
     }
 
-    // DANGER ZONE
-    html += '<div class="danger-zone" style="margin-top:4px">' +
-      '<div class="danger-zone-title">\u26A0\uFE0F Zona de Perigo</div>' +
-      '<div class="danger-zone-actions">' +
-        '<button class="btn btn-sm btn-ghost btn-arquivar" data-id="' + l.id + '">' + (l.ativo ? '\uD83D\uDCE6 Arquivar Lead' : '\u267B\uFE0F Reativar Lead') + '</button>' +
-        '<button class="btn btn-sm btn-danger btn-excluir-lead" data-id="' + l.id + '">\uD83D\uDDD1 Excluir permanentemente</button>' +
+    html += '<details class="lead-accordion-block lead-accordion-danger">' +
+      '<summary>Zona de risco (ações destrutivas)</summary>' +
+      '<div class="lead-accordion-content">' +
+        '<div class="danger-zone-actions">' +
+          '<button class="btn btn-sm btn-ghost btn-arquivar" data-id="' + l.id + '">' + (l.ativo ? 'Arquivar lead' : 'Reativar lead') + '</button>' +
+          '<button class="btn btn-sm btn-danger btn-excluir-lead" data-id="' + l.id + '">Excluir permanentemente</button>' +
+        '</div>' +
       '</div>' +
-    '</div>';
+    '</details>';
 
-    html += '</div>'; // end scroll body
+    html += '</div>';
     document.getElementById('detail-content').innerHTML = html;
 
     // === Event listeners do detail panel ===
@@ -1620,6 +1602,11 @@ async function abrirDetalhe(id) {
     });
     detailContent.querySelectorAll('.btn-detail-gerar-orcamento').forEach(function(btn) {
       btn.addEventListener('click', function() { irParaGerarOrcamento(parseInt(this.dataset.id), parseFloat(this.dataset.valor), this.dataset.desc); });
+    });
+    detailContent.querySelectorAll('.btn-quick-move').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        alterarStatusLead(parseInt(this.dataset.leadId), this.dataset.status);
+      });
     });
 
     detailContent.querySelectorAll('.lead-status-quick-btn').forEach(function(btn) {

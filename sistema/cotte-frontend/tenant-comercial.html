@@ -10,8 +10,8 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="css/style.css?v=3">
   <link rel="stylesheet" href="css/precision-atelier.css?v=2">
-  <link rel="stylesheet" href="css/tenant-comercial.css?v=9">
-  <link rel="stylesheet" href="css/tenant-comercial-precision.css?v=1">
+  <link rel="stylesheet" href="css/tenant-comercial.css?v=10">
+  <link rel="stylesheet" href="css/tenant-comercial-precision.css?v=2">
 </head>
 <body>
   <aside class="sidebar" id="sidebar"></aside>
@@ -23,10 +23,20 @@
       </div>
       <div class="crm-topbar-actions">
         <span id="topbar-notificacoes"></span>
-        <button class="btn btn-primary" id="btn-novo-lead" type="button">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          Novo Contato
-        </button>
+        <div class="btn-split-group" id="topbar-acoes-rapidas">
+          <button class="btn btn-primary btn-split-main" id="btn-novo-lead" type="button">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Cadastrar Contato
+          </button>
+          <button class="btn btn-primary btn-split-chevron" id="btn-topbar-mais-acoes" type="button" aria-label="Abrir menu de ações rápidas" aria-haspopup="menu" aria-expanded="false">▾</button>
+          <div class="btn-split-dropdown" id="topbar-acoes-dropdown" role="menu" aria-label="Ações rápidas">
+            <button class="btn-split-item" type="button" data-open-tab="importacao" role="menuitem">📥 Importar contatos</button>
+            <button class="btn-split-item" type="button" data-open-tab="lembretes" role="menuitem">⏰ Registrar lembrete</button>
+            <button class="btn-split-item" type="button" data-open-tab="campanhas" role="menuitem">📧 Criar campanha</button>
+            <button class="btn-split-item" type="button" data-open-tab="config" role="menuitem">⚙️ Ajustar configurações</button>
+            <button class="btn-split-item" type="button" id="btn-toggle-modo-ux" role="menuitem">🧩 Ativar modo avançado</button>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -50,21 +60,31 @@
         <button class="admin-tab" data-tab="pipeline" role="tab" aria-selected="false" aria-controls="tab-pipeline" id="tab-pipeline-btn" title="Funil de vendas: acompanhe em qual etapa cada contato está">
           <span class="admin-tab-icon">🔄</span> Funil
         </button>
-        <button class="admin-tab" data-tab="campanhas" role="tab" aria-selected="false" aria-controls="tab-campanhas" id="tab-campanhas-btn" title="Envie campanhas em massa por WhatsApp ou e-mail para vários contatos ao mesmo tempo">
+        <button class="admin-tab admin-tab-secondary" data-tab="campanhas" role="tab" aria-selected="false" aria-controls="tab-campanhas" id="tab-campanhas-btn" title="Envie campanhas em massa por WhatsApp ou e-mail para vários contatos ao mesmo tempo">
           <span class="admin-tab-icon">📧</span> Campanhas
         </button>
-        <button class="admin-tab" data-tab="lembretes" role="tab" aria-selected="false" aria-controls="tab-lembretes" id="tab-lembretes-btn" title="Compromissos e tarefas com data e hora agendados">
+        <button class="admin-tab admin-tab-secondary" data-tab="lembretes" role="tab" aria-selected="false" aria-controls="tab-lembretes" id="tab-lembretes-btn" title="Compromissos e tarefas com data e hora agendados">
           <span class="admin-tab-icon">⏰</span> Lembretes
         </button>
-        <button class="admin-tab" data-tab="dashboard" role="tab" aria-selected="false" aria-controls="tab-dashboard" id="tab-dashboard-btn" title="Visão geral com métricas e tarefas do dia">
+        <button class="admin-tab admin-tab-secondary" data-tab="dashboard" role="tab" aria-selected="false" aria-controls="tab-dashboard" id="tab-dashboard-btn" title="Visão geral com métricas e tarefas do dia">
           <span class="admin-tab-icon">📊</span> Painel
         </button>
-        <button class="admin-tab" data-tab="importacao" role="tab" aria-selected="false" aria-controls="tab-importacao" id="tab-importacao-btn" title="Importe contatos de planilhas, listas de texto ou CSV">
+        <button class="admin-tab admin-tab-secondary" data-tab="importacao" role="tab" aria-selected="false" aria-controls="tab-importacao" id="tab-importacao-btn" title="Importe contatos de planilhas, listas de texto ou CSV">
           <span class="admin-tab-icon">📥</span> Importação
         </button>
-        <button class="admin-tab" data-tab="config" role="tab" aria-selected="false" aria-controls="tab-config" id="tab-config-btn" title="Configurações, modelos, propostas e cadastros">
+        <button class="admin-tab admin-tab-secondary" data-tab="config" role="tab" aria-selected="false" aria-controls="tab-config" id="tab-config-btn" title="Configurações, modelos, propostas e cadastros">
           <span class="admin-tab-icon">⚙️</span> Config
         </button>
+        <div class="admin-tabs-more-wrap" id="admin-tabs-more-wrap">
+          <button class="admin-tab admin-tab-more" id="tab-mais-btn" type="button" aria-haspopup="menu" aria-expanded="false" title="Ações e telas secundárias">⋯ Mais</button>
+          <div class="admin-tabs-more-menu" id="admin-tabs-more-menu" role="menu" aria-label="Abas secundárias">
+            <button type="button" class="admin-tabs-more-item" data-open-tab="dashboard" role="menuitem">📊 Painel</button>
+            <button type="button" class="admin-tabs-more-item" data-open-tab="campanhas" role="menuitem">📧 Campanhas</button>
+            <button type="button" class="admin-tabs-more-item" data-open-tab="lembretes" role="menuitem">⏰ Lembretes</button>
+            <button type="button" class="admin-tabs-more-item" data-open-tab="importacao" role="menuitem">📥 Importação</button>
+            <button type="button" class="admin-tabs-more-item" data-open-tab="config" role="menuitem">⚙️ Config</button>
+          </div>
+        </div>
       </div>
 
       <!-- ═══ TAB: Hoje (Briefing IA) ═══ -->
@@ -1035,15 +1055,15 @@ Exemplos de formatos aceitos:
   <script src="js/tenant-comercial-core.js?v=1"></script>
   <script src="js/tenant-comercial-onboarding.js?v=1"></script>
   <script src="js/tenant-comercial-dashboard.js?v=1"></script>
-  <script src="js/tenant-comercial-leads.js?v=2"></script>
-  <script src="js/tenant-comercial-pipeline.js?v=1"></script>
+  <script src="js/tenant-comercial-leads.js?v=3"></script>
+  <script src="js/tenant-comercial-pipeline.js?v=2"></script>
   <script src="js/tenant-TemplatesManager.js?v=2"></script>
   <script src="js/tenant-comercial-mensagens.js?v=1"></script>
   <script src="js/tenant-comercial-lembretes.js?v=1"></script>
   <script src="js/tenant-comercial-cadastros.js?v=1"></script>
   <script src="js/tenant-comercial-propostas-publicas.js?v=1"></script>
   <script src="js/tenant-comercial-briefing.js?v=1"></script>
-  <script src="js/tenant-comercial.js?v=1"></script>
+  <script src="js/tenant-comercial.js?v=2"></script>
   <script>
     /**
      * Gerenciamento do Seletor de Abas Mobile (Elite UX)
@@ -1053,7 +1073,7 @@ Exemplos de formatos aceitos:
       document.addEventListener('DOMContentLoaded', () => {
         const mobileCurrent = document.getElementById('mobile-tabs-current');
         const mobileMenu = document.getElementById('mobile-tabs-menu');
-        const adminTabs = document.querySelectorAll('.admin-tab');
+        const adminTabs = document.querySelectorAll('.admin-tab[data-tab]');
         
         if (!mobileCurrent || !mobileMenu) return;
 
@@ -1164,6 +1184,25 @@ Exemplos de formatos aceitos:
             if (loaders[sub]) loaders[sub]();
           });
         });
+
+        // Fallback defensivo: menu "... Mais" (caso a rotina principal não ligue por erro externo)
+        const maisBtn = document.getElementById('tab-mais-btn');
+        const maisMenu = document.getElementById('admin-tabs-more-menu');
+        if (maisBtn && maisMenu && !maisBtn.dataset.boundFallback) {
+          maisBtn.dataset.boundFallback = '1';
+          maisBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const open = !maisMenu.classList.contains('open');
+            maisMenu.classList.toggle('open', open);
+            maisBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+          });
+          document.addEventListener('click', () => {
+            if (maisMenu.classList.contains('open')) {
+              maisMenu.classList.remove('open');
+              maisBtn.setAttribute('aria-expanded', 'false');
+            }
+          });
+        }
       });
     })();
   </script>

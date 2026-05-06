@@ -39,6 +39,7 @@ function renderKanban(leads) {
 
   board.innerHTML = stages.map(function(s) {
     var slug = s.slug;
+    var stageColor = s.cor || STATUS_COLORS[slug] || '#94a3b8';
     var colLeads = groups[slug] || [];
     var totalValor = colLeads.reduce(function(sum, l) { return sum + (l.valor_proposto || 0); }, 0);
     var valorStr = totalValor > 0 ? '<span style="font-size:10px;color:#10b981;font-weight:600">R$ ' + fmtMoeda(totalValor) + '</span>' : '';
@@ -46,11 +47,11 @@ function renderKanban(leads) {
       ? colLeads.map(function(l) { return kanbanCard(l); }).join('')
       : '<div class="k-empty">Nenhum lead nesta etapa</div>';
     return '<div class="k-col" data-s="' + slug + '" role="region" aria-label="' + esc(s.label) + '">' +
-      '<div class="k-head">' +
-        '<div class="k-head-left"><div class="k-title">' + (s.emoji || '') + ' ' + esc(s.label) + '</div>' +
+      '<div class="k-head" style="border-top-color:' + stageColor + ';align-items:flex-start;gap:8px">' +
+        '<div class="k-head-left" style="min-width:0;flex:1"><div class="k-title" style="line-height:1.25;word-break:break-word">' + (s.emoji || '') + ' ' + esc(s.label) + '</div>' +
           (valorStr ? '<div class="k-sub">' + valorStr + '</div>' : '') +
         '</div>' +
-        '<span class="k-count">' + colLeads.length + '</span>' +
+        '<span class="k-count" style="flex-shrink:0;white-space:nowrap">' + colLeads.length + '</span>' +
       '</div>' +
       '<div class="k-cards" id="col-' + slug + '">' +
         cardsHtml +
