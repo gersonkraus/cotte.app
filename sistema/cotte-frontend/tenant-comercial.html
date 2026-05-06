@@ -23,20 +23,10 @@
       </div>
       <div class="crm-topbar-actions">
         <span id="topbar-notificacoes"></span>
-        <div class="btn-split-group" id="topbar-acoes-rapidas">
-          <button class="btn btn-primary btn-split-main" id="btn-novo-lead" type="button">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            Cadastrar Contato
-          </button>
-          <button class="btn btn-primary btn-split-chevron" id="btn-topbar-mais-acoes" type="button" aria-label="Abrir menu de ações rápidas" aria-haspopup="menu" aria-expanded="false">▾</button>
-          <div class="btn-split-dropdown" id="topbar-acoes-dropdown" role="menu" aria-label="Ações rápidas">
-            <button class="btn-split-item" type="button" data-open-tab="importacao" role="menuitem">📥 Importar contatos</button>
-            <button class="btn-split-item" type="button" data-open-tab="lembretes" role="menuitem">⏰ Registrar lembrete</button>
-            <button class="btn-split-item" type="button" data-open-tab="campanhas" role="menuitem">📧 Criar campanha</button>
-            <button class="btn-split-item" type="button" data-open-tab="config" role="menuitem">⚙️ Ajustar configurações</button>
-            <button class="btn-split-item" type="button" id="btn-toggle-modo-ux" role="menuitem">🧩 Ativar modo avançado</button>
-          </div>
-        </div>
+        <button class="btn btn-primary" id="btn-novo-lead" type="button">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          Cadastrar Contato
+        </button>
       </div>
     </header>
 
@@ -83,6 +73,8 @@
             <button type="button" class="admin-tabs-more-item" data-open-tab="lembretes" role="menuitem">⏰ Lembretes</button>
             <button type="button" class="admin-tabs-more-item" data-open-tab="importacao" role="menuitem">📥 Importação</button>
             <button type="button" class="admin-tabs-more-item" data-open-tab="config" role="menuitem">⚙️ Config</button>
+            <hr style="border:none; border-top:1px solid var(--border); margin: 4px 0;">
+            <button type="button" class="admin-tabs-more-item" id="btn-toggle-modo-ux" role="menuitem">🧩 Ativar modo avançado</button>
           </div>
         </div>
       </div>
@@ -1188,7 +1180,7 @@ Exemplos de formatos aceitos:
         // Fallback defensivo: menu "... Mais" (caso a rotina principal não ligue por erro externo)
         const maisBtn = document.getElementById('tab-mais-btn');
         const maisMenu = document.getElementById('admin-tabs-more-menu');
-        if (maisBtn && maisMenu && !maisBtn.dataset.boundFallback) {
+        if (maisBtn && maisMenu && !maisBtn.dataset.boundFallback && typeof bindSimplifiedNavigationMenus === 'undefined') {
           maisBtn.dataset.boundFallback = '1';
           maisBtn.addEventListener('click', (e) => {
             e.stopPropagation();

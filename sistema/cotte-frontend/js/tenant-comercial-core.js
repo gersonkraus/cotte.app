@@ -160,7 +160,8 @@ function bindSimplifiedNavigationMenus() {
     if (tabsMoreMenu) tabsMoreMenu.classList.remove('open');
   }
 
-  if (topbarMenuBtn && topbarMenu) {
+  if (topbarMenuBtn && topbarMenu && !topbarMenuBtn.dataset.boundFallback) {
+    topbarMenuBtn.dataset.boundFallback = '1';
     topbarMenuBtn.addEventListener('click', function(e) {
       e.stopPropagation();
       var willOpen = !topbarMenu.classList.contains('open');
@@ -172,7 +173,8 @@ function bindSimplifiedNavigationMenus() {
     });
   }
 
-  if (tabsMoreBtn && tabsMoreMenu) {
+  if (tabsMoreBtn && tabsMoreMenu && !tabsMoreBtn.dataset.boundFallback) {
+    tabsMoreBtn.dataset.boundFallback = '1';
     tabsMoreBtn.addEventListener('click', function(e) {
       e.stopPropagation();
       var willOpen = !tabsMoreMenu.classList.contains('open');
