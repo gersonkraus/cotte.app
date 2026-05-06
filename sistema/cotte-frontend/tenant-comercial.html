@@ -788,49 +788,61 @@ Exemplos de formatos aceitos:
         </div>
         <!-- ── Etapa 2: Composição ── -->
         <div id="tpl-step-2" style="display:none">
-          <div class="tpl-context-banner" id="tpl-context-banner"></div>
-          <div class="fg" style="margin-top:14px">
-            <label class="fl">Nome do modelo *</label>
-            <input type="text" class="fi" id="tpl-nome" required placeholder="Ex: Follow-up — Minha Empresa">
-            <div class="tpl-sugestao-nome" id="tpl-sugestao-nome"></div>
-          </div>
-          <div class="fg" id="tpl-canal-group">
-            <label class="fl">Canal de envio</label>
-            <div class="tpl-canal-pills" id="tpl-canal-pills"></div>
-          </div>
-          <div class="fg" id="tpl-assunto-group" style="display:none">
-            <label class="fl">Assunto do e-mail</label>
-            <input type="text" class="fi" id="tpl-assunto" placeholder="Ex: Proposta Comercial — Minha Empresa">
-          </div>
-          <div class="fg">
-            <label class="fl">Conteúdo * <span style="font-weight:400;color:var(--muted)">(edite o exemplo abaixo)</span></label>
-            <textarea class="ft" id="tpl-conteudo" rows="7" required></textarea>
-            <div class="tpl-char-counter" id="tpl-char-counter">0 caracteres</div>
-          </div>
-          <div class="fg">
-            <label class="fl">Anexo opcional</label>
-            <input type="file" class="fi" id="tpl-anexo" accept=".pdf,image/png,image/jpeg,image/webp">
-            <div id="tpl-anexo-atual" style="margin-top:8px;font-size:12px;color:var(--muted)">Nenhum anexo selecionado.</div>
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px">
-              <button type="button" class="btn btn-ghost btn-sm" id="btn-tpl-remover-anexo" style="display:none">Remover anexo</button>
-              <span style="font-size:11px;color:var(--muted)">Aceita PDF, PNG, JPG e WEBP ate 15 MB. O arquivo sera enviado ao salvar.</span>
+            <div class="tpl-v2-container">
+                <!-- Coluna Esquerda: Editor -->
+                <div class="tpl-v2-editor">
+                    <div class="form-group">
+                        <label>Nome do Template</label>
+                        <input type="text" id="tpl-nome" class="form-control" placeholder="Ex: Boas-vindas Soluções">
+                        <small id="tpl-sugestao-nome" class="tpl-sugestao-nome"></small>
+                    </div>
+
+                    <div class="form-group" id="tpl-assunto-group">
+                        <label>Assunto do E-mail</label>
+                        <input type="text" id="tpl-assunto" class="form-control" placeholder="Assunto que o cliente verá">
+                    </div>
+
+                    <div class="form-group">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:8px">
+                            <label style="margin:0">Mensagem</label>
+                            <div id="tpl-char-counter" class="tpl-char-counter">0 caracteres</div>
+                        </div>
+                        <textarea id="tpl-conteudo" class="form-control" rows="8" placeholder="Digite sua mensagem..."></textarea>
+                        
+                        <div class="tpl-vars-interactive" style="margin-top: 10px;">
+                            <button type="button" class="btn-var-badge" data-var="{nome_responsavel}">Nome</button>
+                            <button type="button" class="btn-var-badge" data-var="{nome_empresa}">Empresa</button>
+                            <button type="button" class="btn-var-badge" data-var="{whatsapp}">WhatsApp</button>
+                            <button type="button" class="btn-var-badge" data-var="{dias_sem_contato}">Dias sem contato</button>
+                            <button type="button" class="btn-var-badge" data-var="{valor}">Valor</button>
+                            <button type="button" class="btn-var-badge" data-var="{etapa}">Etapa</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Imagem / Anexo</label>
+                        <div id="tpl-image-zone" class="tpl-image-zone">
+                            <i class="fas fa-image" style="font-size: 24px; margin-bottom: 8px;"></i>
+                            <span>Arraste uma imagem ou <strong>Cole (Ctrl+V)</strong></span>
+                            <input type="file" id="tpl-anexo" style="display:none" accept="image/*,application/pdf">
+                        </div>
+                        <div id="tpl-image-previews" class="tpl-image-preview-container"></div>
+                        <small class="text-muted">WhatsApp permite apenas 1 imagem.</small>
+                    </div>
+                </div>
+
+                <!-- Coluna Direita: Preview -->
+                <div class="tpl-v2-preview-panel">
+                    <div class="tpl-preview-header">
+                        <span>Visualização Real</span>
+                        <span id="tpl-preview-canal-label">WhatsApp</span>
+                    </div>
+                    <div class="tpl-live-preview-window">
+                        <img id="tpl-preview-img" class="tpl-preview-image" style="display:none">
+                        <div id="tpl-preview-text" style="white-space: pre-wrap;"></div>
+                    </div>
+                </div>
             </div>
-          </div>
-          <div class="tpl-vars-interactive">
-            <span style="font-size:11px;color:var(--muted);display:block;margin-bottom:6px">Inserir variável no cursor:</span>
-            <div style="display:flex;gap:6px;flex-wrap:wrap">
-              <button type="button" class="btn-var-badge" data-var="{nome}" title="Nome do responsável pelo contato">nome</button>
-              <button type="button" class="btn-var-badge" data-var="{empresa}" title="Nome da empresa do contato">empresa</button>
-              <button type="button" class="btn-var-badge" data-var="{cidade}" title="Cidade do contato">cidade</button>
-              <button type="button" class="btn-var-badge" data-var="{whatsapp}" title="Número de WhatsApp">whatsapp</button>
-              <button type="button" class="btn-var-badge" data-var="{email}" title="E-mail do contato">email</button>
-              <button type="button" class="btn-var-badge" data-var="{dias_sem_contato}" title="Dias desde o último contato">dias_sem_contato</button>
-              <button type="button" class="btn-var-badge" data-var="{score}" title="Score do lead">score</button>
-              <button type="button" class="btn-var-badge" data-var="{etapa}" title="Etapa atual no funil">etapa</button>
-              <button type="button" class="btn-var-badge" data-var="{valor}" title="Valor proposto">valor</button>
-            </div>
-            <p style="font-size:10px;color:var(--muted);margin-top:8px"><strong>Briefing IA:</strong> dias_sem_contato, score, etapa, valor</p>
-          </div>
         </div>
       </div>
       <footer class="modal-footer">
