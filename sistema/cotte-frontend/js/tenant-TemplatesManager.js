@@ -188,6 +188,7 @@ class TemplatesManager {
       if (cfg) TemplatesManager._renderCanalPills(cfg, t.canal);
       TemplatesManager._toggleAssunto(t.canal);
       TemplatesManager._updateCharCounter();
+      TemplatesManager._updateLivePreview();
       document.getElementById('modal-template').classList.add('open');
     } catch(e) {
       if (typeof showToast !== 'undefined') showToast('Erro', 'error');
@@ -321,6 +322,7 @@ class TemplatesManager {
     TemplatesManager._renderCanalPills(cfg, canalPadrao);
     TemplatesManager._toggleAssunto(canalPadrao);
     TemplatesManager._updateCharCounter();
+    TemplatesManager._updateLivePreview();
     TemplatesManager._mostrarEtapa(2);
   }
 
@@ -362,6 +364,7 @@ class TemplatesManager {
         }
         TemplatesManager._updateContextBanner(tipo, canal);
         TemplatesManager._toggleAssunto(canal);
+        TemplatesManager._updateLivePreview();
       });
     });
   }
@@ -446,6 +449,21 @@ class TemplatesManager {
     document.getElementById('tpl-anexo-tamanho').value = meta && meta.tamanho_bytes ? String(meta.tamanho_bytes) : '';
     document.getElementById('tpl-anexo-remover').value = '0';
     TemplatesManager._updateAnexoUI();
+
+    const zone = document.getElementById('tpl-image-zone');
+    const previewImg = document.getElementById('tpl-preview-img');
+    if (zone && meta && meta.arquivo_path) {
+      if (meta.mime_type && meta.mime_type.startsWith('image/')) {
+        zone.innerHTML = `<img src="${meta.arquivo_path}" style="max-height: 100%; max-width: 100%; object-fit: contain;">`;
+        if (previewImg) previewImg.innerHTML = `<img src="${meta.arquivo_path}" style="max-width: 100%; border-radius: 8px;">`;
+      } else if (meta.mime_type === 'application/pdf') {
+        zone.innerHTML = `<div class="tpl-image-zone-placeholder"><span>📄</span><p>${meta.arquivo_nome_original}</p></div>`;
+        if (previewImg) previewImg.innerHTML = `<div style="padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); display: flex; align-items: center; gap: 8px;"><span>📄</span> ${meta.arquivo_nome_original}</div>`;
+      }
+    } else if (zone) {
+      zone.innerHTML = '<div class="tpl-image-zone-placeholder"><span>📸</span><p>Clique ou arraste uma imagem/PDF aqui</p></div>';
+      if (previewImg) previewImg.innerHTML = '';
+    }
   }
 
   static _getAnexoMetadata() {
@@ -471,6 +489,7 @@ class TemplatesManager {
     document.getElementById('tpl-anexo-tamanho').value = '';
     document.getElementById('tpl-anexo-remover').value = '1';
     TemplatesManager._updateAnexoUI();
+    TemplatesManager._renderImagePreview(null);
   }
 
   static async _uploadSelectedAnexo() {
@@ -542,13 +561,90 @@ class TemplatesManager {
   }
 
   static _handleFileSelection(file) {
-    // Task 4 will implement this fully
-    console.log('File selected:', file);
+    if (!file) return;
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf', 'image/jpg'];
+    if (!allowedTypes.includes(file.type) && !file.type.startsWith('image/')) {
+      if (typeof showToast !== 'undefined') showToast('Tipo de arquivo não permitido', 'error');
+      return;
+    }
+
+    const input = document.getElementById('tpl-anexo');
+    if (input) {
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(file);
+      input.files = dataTransfer.files;
+      document.getElementById('tpl-anexo-remover').value = '0';
+    }
+
+    TemplatesManager._renderImagePreview(file);
+    TemplatesManager._updateAnexoUI();
+  }
+
+  static _renderImagePreview(file) {
+    const zone = document.getElementById('tpl-image-zone');
+    const previewImg = document.getElementById('tpl-preview-img');
+    if (!zone) return;
+
+    if (!file) {
+      zone.innerHTML = '<div class="tpl-image-zone-placeholder"><span>📸</span><p>Clique ou arraste uma imagem/PDF aqui</p></div>';
+      if (previewImg) previewImg.innerHTML = '';
+      return;
+    }
+
+    if (file.type && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        zone.innerHTML = `<img src="${e.target.result}" style="max-height: 100%; max-width: 100%; object-fit: contain;">`;
+        if (previewImg) {
+          previewImg.innerHTML = `<img src="${e.target.result}" style="max-width: 100%; border-radius: 8px;">`;
+        }
+      };
+      reader.readAsDataURL(file);
+    } else if (file.type === 'application/pdf') {
+      zone.innerHTML = '<div class="tpl-image-zone-placeholder"><span>📄</span><p>PDF Selecionado</p></div>';
+      if (previewImg) {
+        previewImg.innerHTML = '<div style="padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); display: flex; align-items: center; gap: 8px;"><span>📄</span> PDF Anexo</div>';
+      }
+    }
   }
 
   static _updateLivePreview() {
-    // Task 4 will implement this fully
-    console.log('Updating live preview...');
+    const conteudo = document.getElementById('tpl-conteudo')?.value || '';
+    const canal = document.getElementById('tpl-canal')?.value || 'whatsapp';
+    const assunto = document.getElementById('tpl-assunto')?.value || '';
+    const previewText = document.getElementById('tpl-preview-text');
+    
+    if (!previewText) return;
+
+    const SAMPLE_DATA = {
+      nome: 'João Silva',
+      empresa: 'Sua Empresa',
+      empresa_lead: 'Loja do João',
+      valor: '2.500,00',
+      nome_responsavel: 'João'
+    };
+
+    let finalHtml = '';
+    
+    if (canal === 'email' || canal === 'ambos') {
+      if (assunto) {
+        finalHtml += `<div style="font-weight: 600; margin-bottom: 8px; font-size: 13px; color: var(--muted)">Assunto: ${TemplatesManager._replaceVars(assunto, SAMPLE_DATA)}</div>`;
+      }
+    }
+
+    let processedBody = TemplatesManager._replaceVars(conteudo, SAMPLE_DATA);
+    
+    finalHtml += `<div class="tpl-preview-body" style="font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-word;">${processedBody}</div>`;
+    
+    previewText.innerHTML = finalHtml;
+  }
+
+  static _replaceVars(text, data) {
+    if (!text) return '';
+    return text.replace(/\{(\w+)\}/g, (match, key) => {
+      return data[key] || match;
+    });
   }
 
   static initVariablesEvents() {
@@ -579,6 +675,7 @@ class TemplatesManager {
     const newPos = startPos + variavelText.length;
     textarea.setSelectionRange(newPos, newPos);
     TemplatesManager._updateCharCounter();
+    TemplatesManager._updateLivePreview();
   }
 }
 
