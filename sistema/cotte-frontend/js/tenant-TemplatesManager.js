@@ -461,7 +461,10 @@ class TemplatesManager {
         if (previewImg) previewImg.innerHTML = `<div style="padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); display: flex; align-items: center; gap: 8px;"><span>📄</span> ${meta.arquivo_nome_original}</div>`;
       }
     } else if (zone) {
-      zone.innerHTML = '<div class="tpl-image-zone-placeholder"><span>📸</span><p>Clique ou arraste uma imagem/PDF aqui</p></div>';
+      zone.innerHTML = `
+        <i class="fas fa-image" style="font-size: 24px; margin-bottom: 8px;"></i>
+        <span>Clique ou arraste uma imagem/PDF aqui ou <strong>Cole (Ctrl+V)</strong></span>
+      `;
       if (previewImg) previewImg.innerHTML = '';
     }
   }
@@ -507,9 +510,12 @@ class TemplatesManager {
     const zone = document.getElementById('tpl-image-zone');
     if (!zone) return;
 
-    zone.addEventListener('click', () => {
+    zone.addEventListener('click', (e) => {
       const input = document.getElementById('tpl-anexo');
-      if (input) input.click();
+      if (input) {
+          console.log('Triggering file input click');
+          input.click();
+      }
     });
     
     zone.addEventListener('dragover', (e) => {
@@ -587,7 +593,10 @@ class TemplatesManager {
     if (!zone) return;
 
     if (!file) {
-      zone.innerHTML = '<div class="tpl-image-zone-placeholder"><span>📸</span><p>Clique ou arraste uma imagem/PDF aqui</p></div>';
+      zone.innerHTML = `
+        <i class="fas fa-image" style="font-size: 24px; margin-bottom: 8px;"></i>
+        <span>Clique ou arraste uma imagem/PDF aqui ou <strong>Cole (Ctrl+V)</strong></span>
+      `;
       if (previewImg) previewImg.innerHTML = '';
       return;
     }
