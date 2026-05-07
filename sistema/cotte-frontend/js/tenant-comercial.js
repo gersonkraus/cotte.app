@@ -1495,7 +1495,6 @@ async function abrirDetalhe(id) {
     html += '<div class="lead-panel-section">' +
       '<div class="lead-panel-section-title">Contato</div>' +
       '<div class="lead-field"><span class="lead-field-label">Responsável</span><span class="lead-field-value">' + fmt(l.nome_responsavel) + '</span></div>' +
-      '<div class="lead-field"><span class="lead-field-label">Empresa</span><span class="lead-field-value">' + fmt(l.nome_empresa) + '</span></div>' +
       '<div class="lead-field"><span class="lead-field-label">WhatsApp</span><span class="lead-field-value">' + (l.whatsapp ? esc(l.whatsapp) : '<span class="lead-field-value empty">—</span>') + '</span></div>' +
       '<div class="lead-field"><span class="lead-field-label">E-mail</span><span class="lead-field-value">' + (l.email ? esc(l.email) : '<span class="lead-field-value empty">—</span>') + '</span></div>' +
       '<div class="lead-field"><span class="lead-field-label">Cidade</span><span class="lead-field-value">' + fmt(l.cidade) + '</span></div>' +
@@ -1505,7 +1504,6 @@ async function abrirDetalhe(id) {
       '<div class="lead-panel-section-title">Negócio</div>' +
       '<div class="lead-field"><span class="lead-field-label">Segmento</span><span class="lead-field-value">' + fmt(l.segmento_nome) + '</span></div>' +
       '<div class="lead-field"><span class="lead-field-label">Origem</span><span class="lead-field-value">' + fmt(l.origem_nome) + '</span></div>' +
-      '<div class="lead-field"><span class="lead-field-label">Plano de interesse</span><span class="lead-field-value">' + (l.interesse_plano ? esc(l.interesse_plano.toUpperCase()) : '<span class="lead-field-value empty">—</span>') + '</span></div>' +
       '<div class="lead-field"><span class="lead-field-label">Valor proposto</span><span class="lead-field-value">' + (l.valor_proposto ? '<strong style="color:var(--green)">R$ ' + fmtMoeda(l.valor_proposto) + '</strong>' : '<span class="lead-field-value empty">—</span>') + '</span></div>' +
       '<div class="lead-field"><span class="lead-field-label">Proposta pública</span><span class="lead-field-value">' + propostaResumoDetalhe + '</span></div>' +
       '<div class="lead-field"><span class="lead-field-label">Próximo contato</span><span class="lead-field-value">' + (l.proximo_contato_em ? fmtDataHora(l.proximo_contato_em) : '<span class="lead-field-value empty">Sem agendamento</span>') + '</span></div>' +
@@ -1514,29 +1512,6 @@ async function abrirDetalhe(id) {
     html += '</div>';
 
     html += '<div style="display:flex;flex-direction:column;gap:14px">';
-    html += '<details class="lead-accordion-block">' +
-      '<summary>Empresa e contexto</summary>' +
-      '<div class="lead-accordion-content">';
-    if (l.empresa) {
-      var emp = l.empresa;
-      var empStatusMap = {'trial':{label:'Trial',color:'#8b5cf6'},'pagante':{label:'Ativo',color:'#10b981'},'bloqueado':{label:'Bloqueado',color:'#ef4444'},'expirado':{label:'Expirado',color:'#f59e0b'}};
-      var empSt = empStatusMap[emp.status] || {label: emp.status, color:'var(--muted)'};
-      var usuariosHtml = emp.usuarios && emp.usuarios.length
-        ? emp.usuarios.map(function(u) {
-            return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">' +
-              '<span style="width:6px;height:6px;border-radius:50%;background:' + (u.online ? '#10b981' : 'var(--border)') + ';flex-shrink:0"></span>' +
-              '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(u.nome) + '</div><div style="font-size:10px;color:var(--muted)">' + (u.ultima_atividade_em ? fmtDataHora(u.ultima_atividade_em) : 'Nunca acessou') + '</div></div>' +
-            '</div>';
-          }).join('')
-        : '<div style="font-size:12px;color:var(--muted);padding:4px 0">Nenhum usuário</div>';
-      html += '<div class="lead-field"><span class="lead-field-label">Status da empresa</span><span class="lead-field-value"><span class="pill" style="background:' + empSt.color + '20;color:' + empSt.color + ';font-size:10px">' + empSt.label + '</span></span></div>';
-      html += '<div class="lead-field"><span class="lead-field-label">Visão rápida</span><span class="lead-field-value">' + (emp.total_orcamentos || 0) + ' orçamentos • ' + (emp.orcamentos_aprovados || 0) + ' aprovados</span></div>';
-      html += '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--muted);margin:8px 0 6px">Usuários (' + (emp.usuarios ? emp.usuarios.length : 0) + ')</div>' + usuariosHtml;
-    } else {
-      html += '<div style="font-size:12px;color:var(--muted)">Este lead ainda não está vinculado a uma empresa no sistema.</div>';
-    }
-    html += '</div></details>';
-
     html += '<details class="lead-accordion-block">' +
       '<summary>Análise comercial</summary>' +
       '<div class="lead-accordion-content">' +
@@ -1739,7 +1714,12 @@ async function concluirLembrete(id) {
   try {
     await api.post('/tenant/comercial/lembretes/' + id + '/concluir');
     showToast('Lembrete concluído!', 'success');
-    if (leadAtualId) abrirDetalhe(leadAtualId);
+    carregarLembretes();
+    carregarLeadsTabela();
+    carregarPipeline();
+    if (leadAtualId && document.getElementById('modal-detail').classList.contains('open')) {
+      abrirDetalhe(leadAtualId);
+    }
   } catch(e) { showToast('Erro', 'error'); }
 }
 
@@ -2322,6 +2302,11 @@ async function salvarLembrete() {
     showToast('Lembrete criado!', 'success');
     fecharModal('modal-lembrete');
     carregarLembretes();
+    carregarLeadsTabela();
+    carregarPipeline();
+    if (document.getElementById('modal-detail').classList.contains('open')) {
+      abrirDetalhe(leadId);
+    }
   } catch(e) { showToast(e.message || 'Erro', 'error'); }
 }
 
