@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request, Query
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Optional, Literal
+from pydantic import BaseModel
 import secrets
 
 from app.core.config import settings
@@ -19,6 +20,7 @@ from app.services.rate_limit_service import (
     ia_interpretar_rate_limiter,
 )
 from app.services.ia_service import interpretar_mensagem
+from app.core.auth import get_superadmin
 import logging
 
 logger = logging.getLogger(__name__)
@@ -254,6 +256,58 @@ async def _tratar_connection_update(raw_body: dict, empresa: Empresa, db: Sessio
         empresa_db.whatsapp_conectado = False
 
     db.commit()
+
+
+class TesteInterativoRequest(BaseModel):
+    numero: str
+    tipo: Literal["poll", "lista", "ambos"] = "ambos"
+
+
+@router.post("/test-interactive")
+async def testar_mensagens_interativas(
+    dados: TesteInterativoRequest,
+    _=Depends(get_superadmin),
+):
+    from app.services.whatsapp_evolution import EvolutionProvider
+
+    provider = EvolutionProvider()
+    resultados = []
+
+    if dados.tipo in ("poll", "ambos"):
+        ok = await provider.enviar_poll(
+            telefone=dados.numero,
+            pergunta="Qual o melhor horário para seu atendimento?",
+            opcoes=["🌅 Manhã (8h–12h)", "☀️ Tarde (12h–18h)", "🌙 Noite (18h–20h)"],
+        )
+        resultados.append({"tipo": "poll", "sucesso": ok})
+
+    if dados.tipo in ("lista", "ambos"):
+        ok = await provider.enviar_lista(
+            telefone=dados.numero,
+            titulo="Serviços Disponíveis",
+            descricao="Selecione um serviço para saber mais",
+            secoes=[
+                {
+                    "titulo": "Acabamento",
+                    "itens": [
+                        {"id": "pintura_int", "titulo": "Pintura Interna", "desc": "Ambientes internos"},
+                        {"id": "pintura_ext", "titulo": "Pintura Externa", "desc": "Fachadas e muros"},
+                    ],
+                },
+                {
+                    "titulo": "Instalações",
+                    "itens": [
+                        {"id": "eletrica", "titulo": "Elétrica Residencial", "desc": "Instalação e manutenção"},
+                        {"id": "hidraulica", "titulo": "Hidráulica", "desc": "Encanamentos e reparos"},
+                    ],
+                },
+            ],
+            botao_texto="Ver serviços",
+        )
+        resultados.append({"tipo": "lista", "sucesso": ok})
+
+    todos_ok = all(r["sucesso"] for r in resultados)
+    return {"success": todos_ok, "resultados": resultados}
 
 
 @router.post("/interpretar")

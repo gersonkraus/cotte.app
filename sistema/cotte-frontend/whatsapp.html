@@ -121,8 +121,10 @@
     </div>
   </div>
 
-  <!-- Teste do Bot -->
-  <div style="max-width:520px">
+  <!-- Testes -->
+  <div style="max-width:520px;display:flex;flex-direction:column;gap:20px">
+
+    <!-- Teste do Bot (IA) -->
     <div class="card">
       <div class="card-header">
         <div class="card-title">Testar Interpretacao por IA</div>
@@ -139,6 +141,33 @@
         <div id="ia-result" style="display:none;background:var(--surface2);border-radius:12px;padding:16px;font-size:13px;line-height:1.8;border:1px solid var(--border)"></div>
       </div>
     </div>
+
+    <!-- Teste de Mensagens Interativas -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Testar Mensagens Interativas</div>
+        <div style="font-size:12px;color:var(--muted)">Envia poll e/ou lista real para um numero de teste</div>
+      </div>
+      <div style="padding:20px;display:flex;flex-direction:column;gap:14px">
+        <div class="form-group">
+          <label>Numero de destino</label>
+          <input type="tel" id="interactive-numero" placeholder="Ex: 5511988880000" style="font-family:monospace">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <button class="btn btn-ghost" onclick="testarInterativo('poll')" id="btn-test-poll" style="justify-content:center;gap:6px">
+            📊 Enviar Poll
+          </button>
+          <button class="btn btn-ghost" onclick="testarInterativo('lista')" id="btn-test-lista" style="justify-content:center;gap:6px">
+            📋 Enviar Lista
+          </button>
+        </div>
+        <button class="btn btn-primary" onclick="testarInterativo('ambos')" id="btn-test-ambos" style="width:100%;justify-content:center">
+          Enviar os dois
+        </button>
+        <div id="interactive-result" style="display:none;border-radius:12px;padding:14px 16px;font-size:13px;line-height:1.8;border:1px solid var(--border)"></div>
+      </div>
+    </div>
+
   </div>
 </main>
 
@@ -360,6 +389,42 @@
       showNotif('❌', 'Erro', err.message, 'error');
     } finally {
       setLoading(btn, false, 'Interpretar com IA');
+    }
+  }
+
+  // ── TESTAR MENSAGENS INTERATIVAS ──────────────────────────────────────
+  async function testarInterativo(tipo) {
+    const numero = document.getElementById('interactive-numero').value.trim();
+    if (!numero) {
+      showNotif('⚠️', 'Número obrigatório', 'Informe o número de destino antes de enviar.', 'warning');
+      return;
+    }
+
+    const btns = ['btn-test-poll', 'btn-test-lista', 'btn-test-ambos'].map(id => document.getElementById(id));
+    btns.forEach(b => b.disabled = true);
+    const resultEl = document.getElementById('interactive-result');
+    resultEl.style.display = 'none';
+
+    try {
+      const res = await api.post('/whatsapp/test-interactive', { numero, tipo });
+      const linhas = res.resultados.map(r => {
+        const icone = r.sucesso ? '✅' : '❌';
+        const label = r.tipo === 'poll' ? 'Poll (enquete)' : 'Lista de seleção';
+        return `<div>${icone} <strong>${label}</strong>: ${r.sucesso ? 'enviado com sucesso' : 'falhou'}</div>`;
+      }).join('');
+      const bg   = res.success ? 'var(--green-dim)' : 'rgba(239,68,68,0.08)';
+      const border = res.success ? 'rgba(0,229,160,0.2)' : 'rgba(239,68,68,0.25)';
+      resultEl.style.background = bg;
+      resultEl.style.borderColor = border;
+      resultEl.style.display = 'block';
+      resultEl.innerHTML = linhas;
+    } catch (err) {
+      resultEl.style.background = 'rgba(239,68,68,0.08)';
+      resultEl.style.borderColor = 'rgba(239,68,68,0.25)';
+      resultEl.style.display = 'block';
+      resultEl.innerHTML = `<div>❌ Erro: ${err.message}</div>`;
+    } finally {
+      btns.forEach(b => b.disabled = false);
     }
   }
 
