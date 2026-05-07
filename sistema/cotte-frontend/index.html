@@ -1881,6 +1881,18 @@
       } catch (err) { showNotif('❌', 'Erro', err.message, 'error'); }
     }
 
+    async function enviarMenuInterativo(id, btnEl) {
+      if (btnEl) { btnEl.disabled = true; btnEl.textContent = '⏳ Enviando...'; }
+      try {
+        const res = await api.post(`/whatsapp/enviar-menu-orcamento/${id}`);
+        showNotif('🎛️', 'Menu enviado!', res.message || 'Menu interativo enviado ao cliente');
+      } catch (err) {
+        showNotif('❌', 'Erro', err.message || 'Falha ao enviar menu interativo', 'error');
+      } finally {
+        if (btnEl) { btnEl.disabled = false; btnEl.textContent = '🎛️ Menu interativo'; }
+      }
+    }
+
     async function enviarEmail(id) {
       const orc = orcamentosCache.find(o => o.id === id);
       const st = (orc?.status || '').toLowerCase();

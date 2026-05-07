@@ -298,6 +298,18 @@ async def processar_operador_wpp(
         # Mensagem não é resposta de poll → trata como novo comando
         _limpar_pending_wpp(sessao_id)
 
+    # 2a. Trigger para wizard interativo de criação de orçamento via lista
+    msg_lower = mensagem.strip().lower()
+    _TRIGGERS_WIZARD = {"novo orçamento", "novo orcamento", "criar orçamento", "criar orcamento", "orc interativo"}
+    if any(t in msg_lower for t in _TRIGGERS_WIZARD):
+        try:
+            from app.services.whatsapp_interativo_service import iniciar_fluxo_operador
+            await iniciar_fluxo_operador(db, telefone, empresa)
+        except Exception:
+            logger.exception("[OperadorWPP] Falha ao iniciar wizard interativo")
+            await enviar_mensagem_texto(telefone, "Erro ao iniciar o wizard. Tente pelo painel.", empresa=empresa)
+        return
+
     # 2. Processar com assistente_unificado_v2 (engine unificado com Tool Use nativo)
     try:
         from app.services.cotte_ai_hub import assistente_unificado_v2

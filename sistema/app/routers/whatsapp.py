@@ -6,7 +6,7 @@ import secrets
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.models.models import Empresa
+from app.models.models import Empresa, Orcamento
 from app.schemas.schemas import WebhookZAPI, WebhookEvolution, IAInterpretacaoRequest
 from app.services.whatsapp_service import (
     get_status,
@@ -20,7 +20,7 @@ from app.services.rate_limit_service import (
     ia_interpretar_rate_limiter,
 )
 from app.services.ia_service import interpretar_mensagem
-from app.core.auth import get_superadmin
+from app.core.auth import get_superadmin, exigir_permissao
 import logging
 
 logger = logging.getLogger(__name__)
@@ -154,8 +154,20 @@ async def _webhook_evolution(
         return {"status": "ignored"}
 
     telefone = sanitizar_telefone(payload.phone)
-    mensagem = sanitizar_mensagem(payload.mensagem_texto)
     empresa_id = empresa_instancia.id if empresa_instancia else None
+
+    # Lista interativa (listResponseMessage) — roteado pelo serviço interativo
+    row_id = payload.list_response_row_id
+    if row_id and telefone:
+        background_tasks.add_task(
+            _processar_lista_interativa,
+            telefone,
+            row_id,
+            empresa_instancia,
+        )
+        return {"status": "ok", "type": "list_response"}
+
+    mensagem = sanitizar_mensagem(payload.mensagem_texto)
 
     # Áudio (PTT ou audioMessage) — tenta transcrever para operadores
     if not mensagem and payload.audio_message_data:
@@ -172,6 +184,24 @@ async def _webhook_evolution(
 
     background_tasks.add_task(processar_mensagem, telefone, mensagem, empresa_id)
     return {"status": "ok"}
+
+
+async def _processar_lista_interativa(
+    telefone: str,
+    row_id: str,
+    empresa_instancia: "Empresa | None",
+) -> None:
+    """Background task: processa seleção de lista interativa (cliente ou operador)."""
+    from app.core.database import SessionLocal
+    from app.services.whatsapp_interativo_service import processar_resposta_lista
+
+    db = SessionLocal()
+    try:
+        await processar_resposta_lista(db, telefone, row_id, empresa_instancia)
+    except Exception:
+        logger.exception("[Interativo] Erro ao processar lista de %s (rowId=%s)", telefone, row_id)
+    finally:
+        db.close()
 
 
 async def _processar_audio_operador(
@@ -256,6 +286,40 @@ async def _tratar_connection_update(raw_body: dict, empresa: Empresa, db: Sessio
         empresa_db.whatsapp_conectado = False
 
     db.commit()
+
+
+class EnviarMenuOrcamentoRequest(BaseModel):
+    pass  # orcamento_id vem na URL
+
+
+@router.post("/enviar-menu-orcamento/{orcamento_id}")
+async def enviar_menu_interativo(
+    orcamento_id: int,
+    db: Session = Depends(get_db),
+    usuario=Depends(exigir_permissao("orcamento:enviar")),
+):
+    """Envia menu interativo de aprovação/recusa ao cliente do orçamento."""
+    from app.services.whatsapp_interativo_service import enviar_menu_orcamento_cliente
+
+    orc = db.query(Orcamento).filter(
+        Orcamento.id == orcamento_id,
+        Orcamento.empresa_id == usuario.empresa_id,
+    ).first()
+    if not orc:
+        raise HTTPException(status_code=404, detail="Orçamento não encontrado")
+
+    empresa = db.query(Empresa).filter(Empresa.id == usuario.empresa_id).first()
+    if not empresa:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+
+    if not orc.cliente or not orc.cliente.telefone:
+        raise HTTPException(status_code=422, detail="Cliente sem telefone cadastrado")
+
+    ok = await enviar_menu_orcamento_cliente(db, orcamento_id, empresa)
+    if not ok:
+        raise HTTPException(status_code=422, detail="Não foi possível enviar o menu interativo. Verifique o status do orçamento.")
+
+    return {"success": True, "message": f"Menu enviado ao cliente {orc.cliente.nome}"}
 
 
 class TesteInterativoRequest(BaseModel):

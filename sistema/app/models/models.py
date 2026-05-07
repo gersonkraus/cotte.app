@@ -2548,4 +2548,20 @@ class AIChatMensagem(Base):
     content = Column(Text, nullable=False)
     criado_em = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
+
+class SessaoWhatsapp(Base):
+    """Sessão do wizard interativo do operador no WhatsApp. Expira em 15 min."""
+
+    __tablename__ = "sessao_whatsapp"
+
+    id = Column(Integer, primary_key=True, index=True)
+    telefone = Column(String(20), unique=True, nullable=False, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=True, index=True)
+    etapa = Column(String(50), nullable=False)
+    contexto = Column(JSON, nullable=False, default=dict)
+    expira_em = Column(DateTime(timezone=True), nullable=False)
+    atualizado_em = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
     sessao = relationship("AIChatSessao", back_populates="mensagens")

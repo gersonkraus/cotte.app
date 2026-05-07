@@ -164,6 +164,10 @@ async function abrirDetalhesOrcamento(id) {
   if (temWhats) {
     footerHtml += `
     <button class="btn ${['rascunho','enviado'].includes(orc.status) ? 'btn-ghost' : 'btn-primary'}" onclick="fecharDetalhes();enviarWhatsapp(${orc.id})" title="Enviar via WhatsApp">📲 WhatsApp</button>`;
+    if (['rascunho','enviado'].includes(orc.status)) {
+      footerHtml += `
+    <button class="btn btn-ghost" onclick="enviarMenuInterativo(${orc.id},this)" title="Enviar menu interativo de aprovação ao cliente">🎛️ Menu interativo</button>`;
+    }
   }
   if (temEmail) {
     footerHtml += `

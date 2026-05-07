@@ -680,6 +680,18 @@ class WebhookEvolution(BaseModel):
         return None
 
     @property
+    def list_response_row_id(self) -> Optional[str]:
+        """Retorna o rowId selecionado quando o tipo é listResponseMessage."""
+        if not self.data:
+            return None
+        msg = self.data.get("message") or {}
+        list_resp = msg.get("listResponseMessage") or {}
+        if list_resp:
+            reply = list_resp.get("singleSelectReply") or {}
+            return reply.get("selectedRowId") or None
+        return None
+
+    @property
     def audio_message_data(self) -> Optional[dict]:
         """Retorna os dados do audioMessage se presente, para transcrição de voz."""
         if not self.data:
