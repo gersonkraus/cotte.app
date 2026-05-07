@@ -117,6 +117,19 @@ async function salvarLembrete() {
   if (!titulo) { showToast('Preencha o título', 'error'); return; }
   if (!dataHora) { showToast('Preencha a data/hora', 'error'); return; }
   var data = { lead_id: leadId, titulo: titulo, descricao: document.getElementById('lemb-descricao').value || null, data_hora: dataHora, canal_sugerido: document.getElementById('lemb-canal').value || null };
+  try {
+    await api.post('/tenant/comercial/lembretes', data);
+    showToast('Lembrete criado!', 'success');
+    fecharModal('modal-lembrete');
+    carregarLembretes();
+    carregarLeadsTabela();
+    carregarPipeline();
+    if (document.getElementById('modal-detail').classList.contains('open')) {
+      abrirDetalhe(leadId);
+    }
+  } catch(e) { showToast(e.message || 'Erro', 'error'); }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // NLU - Parser de Texto para Lembretes
 // ═══════════════════════════════════════════════════════════════════════════════

@@ -1180,6 +1180,11 @@ function kanbanCard(l) {
     '</div>' +
     (l.valor_proposto ? '<div class="kc-value">\uD83D\uDCB0 R$ ' + fmtMoeda(l.valor_proposto) + '</div>' : '') +
     '<div class="kc-actions">' +
+      '<button class="kc-btn btn-kc-fast-followup" data-id="' + l.id + '" title="Segure para Follow-up amanhã 9h" aria-label="Agendar follow-up rápido" style="user-select:none;-webkit-touch-callout:none;touch-action:manipulation;">' +
+        '<svg class="kc-fast-followup-icon" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
+          '<path d="M13 2 4 14h7l-1 8 10-13h-7l1-7Z" fill="currentColor"></path>' +
+        '</svg>' +
+      '</button>' +
       '<button class="kc-btn btn-kc-detail" data-id="' + l.id + '" title="Abrir lead">Abrir</button>' +
     '</div>' +
   '</div>';

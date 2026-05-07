@@ -165,7 +165,10 @@
 .btn-kc-fast-followup {
   color: #f59e0b; /* Emoji cor padrão yellow/orange para destacar mesmo sem hover */
   background: rgba(245, 158, 11, 0.1);
+  min-width: 28px;
+  min-height: 24px;
 }
+.kc-fast-followup-icon { display: block; flex: 0 0 auto; }
 .btn-kc-fast-followup:hover {
   background: rgba(245, 158, 11, 0.2);
   color: #d97706;
