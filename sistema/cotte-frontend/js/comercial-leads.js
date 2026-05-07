@@ -414,42 +414,50 @@ async function abrirDetalhe(id) {
     var html = '';
 
     // HEADER
-    html += '<div style="display:flex;align-items:center;gap:14px;padding:20px 24px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:5">' +
+    html += '<div class="lead-detail-header ' + (l.arquivado ? 'lead-arquivado' : '') + '">' +
       '<div class="lead-panel-avatar ' + avatarCls + '" style="width:48px;height:48px;border-radius:13px;font-size:16px">' + ini + '</div>' +
-      '<div style="flex:1;min-width:0">' +
-        '<div style="font-family:\'Outfit\',sans-serif;font-size:19px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(l.nome_empresa) + '</div>' +
-        '<div style="font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:2px">' +
+      '<div class="lead-header-info">' +
+        '<div class="lead-header-company">' + esc(l.nome_empresa) + '</div>' +
+        '<div class="lead-header-meta">' +
           '<span>' + esc(l.nome_responsavel) + '</span>' +
-          '<span style="color:var(--border)">\u00B7</span>' +
+          '<span class="lead-header-sep">\u00B7</span>' +
           '<span class="lead-badge status-' + statusAtual + '">' + esc(statusLabel) + '</span>' +
           (l.lead_score ? '<span class="score ' + l.lead_score + '">' + esc(l.lead_score) + '</span>' : '') +
-          '<span style="color:var(--border)">\u00B7</span>' +
-          '<span style="font-size:11px;color:var(--muted2)">' + diasStr + ' no pipeline</span>' +
+          '<span class="lead-header-sep">\u00B7</span>' +
+          '<span class="lead-time-pipeline">' + diasStr + ' no pipeline</span>' +
         '</div>' +
       '</div>' +
-      '<div style="display:flex;gap:6px;flex-shrink:0">' +
-        (l.whatsapp ? '<button class="btn btn-sm btn-ghost btn-detail-wa" data-id="' + l.id + '" style="padding:7px 10px" title="WhatsApp">\uD83D\uDCF1</button>' : '') +
-        (l.email ? '<button class="btn btn-sm btn-ghost btn-detail-em" data-id="' + l.id + '" style="padding:7px 10px" title="E-mail">\uD83D\uDCE7</button>' : '') +
-        '<button class="btn btn-sm btn-ghost btn-detail-lemb" data-id="' + l.id + '" style="padding:7px 10px" title="Lembrete">\u23F0</button>' +
-        '<button class="btn btn-sm btn-ghost btn-detail-edit" data-id="' + l.id + '" style="padding:7px 10px" title="Editar">\u270F\uFE0F</button>' +
-        '<button class="modal-close" id="btn-close-detail" style="margin-left:4px" aria-label="Fechar">&times;</button>' +
+      '<div class="lead-header-actions">' +
+        (l.whatsapp ? '<button class="btn btn-sm btn-ghost btn-detail-wa" data-id="' + l.id + '" title="WhatsApp">\uD83D\uDCF1</button>' : '') +
+        (l.email ? '<button class="btn btn-sm btn-ghost btn-detail-em" data-id="' + l.id + '" title="E-mail">\uD83D\uDCE7</button>' : '') +
+        '<button class="btn btn-sm btn-ghost btn-detail-lemb" data-id="' + l.id + '" title="Lembrete">\u23F0</button>' +
+        '<button class="btn btn-sm btn-ghost btn-detail-edit" data-id="' + l.id + '" title="Editar">\u270F\uFE0F</button>' +
+        '<button class="modal-close" id="btn-close-detail" aria-label="Fechar">&times;</button>' +
       '</div>' +
     '</div>';
 
     // BODY
-    html += '<div class="lead-detail-scroll" style="padding:20px 24px;display:flex;flex-direction:column;gap:16px">';
+    html += '<div class="lead-detail-scroll">';
 
     // QUICK ACTIONS
-    html += '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
-      '<div style="flex:1;min-width:200px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:6px">Status do Pipeline</div><div class="lead-status-quick" style="flex-wrap:wrap">' + statusPills + '</div></div>' +
-      '<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:6px">Score</div><div class="score-picker">' + scorePicks + '</div></div>' +
+    html += '<div class="lead-quick-actions">' +
+      '<div class="lead-quick-status"><div class="lead-quick-label">Status do Pipeline</div><div class="lead-status-quick">' + statusPills + '</div></div>' +
+      '<div class="lead-quick-score"><div class="lead-quick-label">Score</div><div class="score-picker">' + scorePicks + '</div></div>' +
     '</div>';
 
     // TWO COLUMN LAYOUT
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="lead-detail-grid">';
+    html += '<div class="lead-detail-grid">';
 
     // LEFT COLUMN
-    html += '<div style="display:flex;flex-direction:column;gap:14px">';
+    html += '<div class="lead-detail-col">';
+    html += '<div class="lead-panel-section">' +
+      '<div class="lead-panel-section-title">\uD83D\uDC64 Contato</div>' +
+      '<div class="lead-field"><span class="lead-field-label">Responsável</span><span class="lead-field-value">' + fmt(l.nome_responsavel) + '</span></div>' +
+      '<div class="lead-field"><span class="lead-field-label">WhatsApp</span><span class="lead-field-value">' + (l.whatsapp ? esc(l.whatsapp) + ' <button class=\"lead-field-action btn-detail-wa\" data-id=\"' + l.id + '\" title=\"Enviar WhatsApp\">\uD83D\uDCF1</button>' : '<span class="lead-field-value empty">\u2014</span>') + '</span></div>' +
+      '<div class="lead-field"><span class="lead-field-label">E-mail</span><span class="lead-field-value">' + (l.email ? esc(l.email) + ' <button class=\"lead-field-action btn-detail-em\" data-id=\"' + l.id + '\" title=\"Enviar E-mail\">\uD83D\uDCE7</button>' : '<span class="lead-field-value empty">\u2014</span>') + '</span></div>' +
+      '<div class="lead-field"><span class="lead-field-label">Cidade</span><span class="lead-field-value">' + fmt(l.cidade) + '</span></div>' +
+    '</div>';
+
     html += '<div class="lead-panel-section">' +
       '<div class="lead-panel-section-title">\uD83D\uDC64 Contato</div>' +
       '<div class="lead-field"><span class="lead-field-label">Responsável</span><span class="lead-field-value">' + fmt(l.nome_responsavel) + '</span></div>' +
@@ -471,44 +479,7 @@ async function abrirDetalhe(id) {
     html += '</div>';
 
     // RIGHT COLUMN
-    html += '<div style="display:flex;flex-direction:column;gap:14px">';
-
-    if (l.empresa) {
-      var emp = l.empresa;
-      var empStatusMap = {'trial':{label:'Trial',color:'#8b5cf6'},'pagante':{label:'Ativo',color:'#10b981'},'bloqueado':{label:'Bloqueado',color:'#ef4444'},'expirado':{label:'Expirado',color:'#f59e0b'}};
-      var empSt = empStatusMap[emp.status] || {label: emp.status, color:'var(--muted)'};
-      var usuariosHtml = emp.usuarios && emp.usuarios.length
-        ? emp.usuarios.map(function(u) {
-            return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">' +
-              '<span style="width:6px;height:6px;border-radius:50%;background:' + (u.online ? '#10b981' : 'var(--border)') + ';flex-shrink:0;' + (u.online ? 'box-shadow:0 0 0 2px rgba(16,185,129,0.25)' : '') + '"></span>' +
-              '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(u.nome) + '</div><div style="font-size:10px;color:var(--muted)">' + (u.ultima_atividade_em ? fmtDataHora(u.ultima_atividade_em) : 'Nunca acessou') + '</div></div>' +
-            '</div>';
-          }).join('')
-        : '<div style="font-size:12px;color:var(--muted);padding:4px 0">Nenhum usuário</div>';
-
-      html += '<div class="lead-panel-section" style="border-left:3px solid ' + empSt.color + '">' +
-        '<div class="lead-panel-section-title">\uD83C\uDFE2 Empresa no Sistema <span class="pill" style="background:' + empSt.color + '20;color:' + empSt.color + ';font-size:10px;margin-left:auto">' + empSt.label + '</span></div>' +
-        '<div class="lead-stats-row" style="margin-bottom:12px">' +
-          '<div class="lead-stat-box"><div class="lead-stat-value" style="color:var(--accent)">' + (emp.total_orcamentos || 0) + '</div><div class="lead-stat-label">Orçamentos</div></div>' +
-          '<div class="lead-stat-box"><div class="lead-stat-value" style="color:#10b981">' + (emp.orcamentos_aprovados || 0) + '</div><div class="lead-stat-label">Aprovados</div></div>' +
-          '<div class="lead-stat-box"><div class="lead-stat-value" style="color:#f59e0b">' + (emp.orcamentos_pendentes || 0) + '</div><div class="lead-stat-label">Pendentes</div></div>' +
-        '</div>' +
-        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--muted);margin-bottom:6px">Usuários (' + (emp.usuarios ? emp.usuarios.length : 0) + ')</div>' +
-        usuariosHtml +
-        '<div style="display:flex;gap:6px;margin-top:10px">' +
-          '<button class="btn btn-sm btn-primary btn-reenviar-senha" data-id="' + l.id + '" style="font-size:11px;padding:5px 10px">\uD83D\uDD10 Reenviar Senha</button>' +
-        '</div>' +
-      '</div>';
-    } else {
-      html += '<div class="lead-panel-section" style="background:var(--accent-dim);border-color:rgba(6,182,212,0.2)">' +
-        '<div style="text-align:center;padding:12px 0">' +
-          '<div style="font-size:28px;margin-bottom:8px">\uD83D\uDE80</div>' +
-          '<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px">Converter Lead em Cliente</div>' +
-          '<div style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.4">Crie uma conta no sistema para este lead e envie as credenciais automaticamente.</div>' +
-          '<button class="btn btn-primary btn-criar-empresa" data-id="' + l.id + '" style="width:100%;justify-content:center">\u2795 Criar Empresa e Enviar Credenciais</button>' +
-        '</div>' +
-      '</div>';
-    }
+    html += '<div class="lead-detail-col">';
 
     // Propostas Públicas
     html += '<div class="lead-panel-section">' +

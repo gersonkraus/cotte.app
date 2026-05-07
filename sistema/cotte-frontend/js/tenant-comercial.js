@@ -1451,9 +1451,9 @@ async function abrirDetalhe(id) {
     ].filter(Boolean).join('');
 
     var html = '';
-    html += '<div class="lead-detail-header">' +
-      '<div class="lead-panel-avatar ' + avatarCls + '" style="width:48px;height:48px;border-radius:13px;font-size:16px">' + ini + '</div>' +
-      '<div style="flex:1;min-width:0">' +
+    html += '<div class="lead-detail-header ' + (l.arquivado ? 'lead-arquivado' : '') + '">' +
+      '<div class="lead-panel-avatar ' + avatarCls + '">' + ini + '</div>' +
+      '<div class="lead-header-info">' +
         '<div class="lead-header-company">' + esc(l.nome_empresa) + '</div>' +
         '<div class="lead-header-meta">' +
           '<span>' + esc(l.nome_responsavel) + '</span>' +
@@ -1461,16 +1461,16 @@ async function abrirDetalhe(id) {
           '<span class="lead-badge status-' + statusAtual + '">' + esc(statusLabel) + '</span>' +
           (l.lead_score ? '<span class="score ' + l.lead_score + '">' + esc(l.lead_score) + '</span>' : '') +
           '<span class="lead-header-sep">•</span>' +
-          '<span>' + diasStr + ' no pipeline</span>' +
+          '<span class="lead-time-pipeline">' + diasStr + ' no pipeline</span>' +
         '</div>' +
       '</div>' +
       '<div class="lead-header-actions">' +
         '<button class="btn btn-sm btn-ghost btn-detail-edit" data-id="' + l.id + '" title="Editar lead">Editar</button>' +
-        '<button class="modal-close" id="btn-close-detail" style="margin-left:4px" aria-label="Fechar">&times;</button>' +
+        '<button class="modal-close" id="btn-close-detail" aria-label="Fechar">&times;</button>' +
       '</div>' +
     '</div>';
 
-    html += '<div class="lead-detail-scroll" style="padding:20px 24px;display:flex;flex-direction:column;gap:14px">';
+    html += '<div class="lead-detail-scroll">';
     html += '<div class="lead-main-cta-wrap">' +
       '<div class="lead-main-cta-copy">' +
         '<div class="lead-main-cta-title">Próxima ação recomendada</div>' +
@@ -1480,9 +1480,9 @@ async function abrirDetalhe(id) {
     '</div>';
 
     html += '<div class="lead-quick-bar">' +
-      (l.whatsapp ? '<button class="btn btn-sm btn-secondary btn-detail-wa" data-id="' + l.id + '" aria-label="Enviar mensagem no WhatsApp">Enviar mensagem agora</button>' : '') +
-      '<button class="btn btn-sm btn-secondary btn-detail-lemb" data-id="' + l.id + '" aria-label="Agendar retorno">Registrar retorno</button>' +
-      (nextStage ? '<button class="btn btn-sm btn-secondary btn-quick-move" data-lead-id="' + l.id + '" data-status="' + nextStage.slug + '" aria-label="Mover etapa">Mover etapa para ' + esc(nextStage.label) + '</button>' : '') +
+      (l.whatsapp ? '<button class="btn btn-sm btn-secondary btn-detail-wa" data-id="' + l.id + '" aria-label="Enviar mensagem no WhatsApp">\uD83D\uDCF1 WhatsApp</button>' : '') +
+      '<button class="btn btn-sm btn-secondary btn-detail-lemb" data-id="' + l.id + '" aria-label="Agendar retorno">\u23F0 Registrar retorno</button>' +
+      (nextStage ? '<button class="btn btn-sm btn-secondary btn-quick-move" data-lead-id="' + l.id + '" data-status="' + nextStage.slug + '" aria-label="Mover etapa">Mover para ' + esc(nextStage.label) + '</button>' : '') +
     '</div>';
 
     html += '<div class="lead-state-strip">' +
@@ -1490,13 +1490,13 @@ async function abrirDetalhe(id) {
       estadosOperacionais +
       '</div>';
 
-    html += '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
-      '<div style="flex:1;min-width:200px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:6px">Mover etapa</div><div class="lead-status-quick" style="flex-wrap:wrap">' + statusPills + '</div></div>' +
-      '<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:6px">Classificar prioridade</div><div class="score-picker">' + scorePicks + '</div></div>' +
+    html += '<div class="lead-quick-actions">' +
+      '<div class="lead-quick-status"><div class="lead-quick-label">Mover etapa</div><div class="lead-status-quick">' + statusPills + '</div></div>' +
+      '<div class="lead-quick-score"><div class="lead-quick-label">Classificar prioridade</div><div class="score-picker">' + scorePicks + '</div></div>' +
     '</div>';
 
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="lead-detail-grid">';
-    html += '<div style="display:flex;flex-direction:column;gap:14px">';
+    html += '<div class="lead-detail-grid">';
+    html += '<div class="lead-detail-col">';
     html += '<div class="lead-panel-section">' +
       '<div class="lead-panel-section-title">Contato</div>' +
       '<div class="lead-field"><span class="lead-field-label">Responsável</span><span class="lead-field-value">' + fmt(l.nome_responsavel) + '</span></div>' +
@@ -1516,8 +1516,8 @@ async function abrirDetalhe(id) {
     '</div>';
     html += '</div>';
 
-    html += '<div style="display:flex;flex-direction:column;gap:14px">';
-    html += '<details class="lead-accordion-block">' +
+    html += '<div class="lead-detail-col">';
+    html += '<details class="lead-accordion-block" open>' +
       '<summary>Análise comercial</summary>' +
       '<div class="lead-accordion-content">' +
         '<div class="lead-field"><span class="lead-field-label">Estado de atendimento</span><span class="lead-field-value">' + (isAtrasado ? 'Atrasado' : semProximoContato ? 'Sem retorno agendado' : 'Em dia') + '</span></div>' +
@@ -1530,7 +1530,7 @@ async function abrirDetalhe(id) {
       '<div class="lead-panel-section-title">Registrar anotação</div>' +
       '<div class="lead-note-composer">' +
         '<textarea id="obs-input" placeholder="Ex: cliente pediu retorno amanhã às 14h" rows="2"></textarea>' +
-        '<button class="btn btn-sm btn-primary btn-add-obs" data-id="' + l.id + '" style="flex-shrink:0;padding:6px 12px">Salvar nota</button>' +
+        '<button class="btn btn-sm btn-primary btn-add-obs" data-id="' + l.id + '">Salvar</button>' +
       '</div>' +
     '</div>';
     html += '</div>';

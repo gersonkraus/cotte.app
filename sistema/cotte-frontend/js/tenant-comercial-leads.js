@@ -438,42 +438,42 @@ async function abrirDetalhe(id) {
     var html = '';
 
     // HEADER
-    html += '<div style="display:flex;align-items:center;gap:14px;padding:20px 24px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:5">' +
+    html += '<div class="lead-detail-header ' + (l.arquivado ? 'lead-arquivado' : '') + '">' +
       '<div class="lead-panel-avatar ' + avatarCls + '" style="width:48px;height:48px;border-radius:13px;font-size:16px">' + ini + '</div>' +
-      '<div style="flex:1;min-width:0">' +
-        '<div style="font-family:\'Outfit\',sans-serif;font-size:19px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(l.nome_empresa) + '</div>' +
-        '<div style="font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:2px">' +
+      '<div class="lead-header-info">' +
+        '<div class="lead-header-company">' + esc(l.nome_empresa) + '</div>' +
+        '<div class="lead-header-meta">' +
           '<span>' + esc(l.nome_responsavel) + '</span>' +
-          '<span style="color:var(--border)">\u00B7</span>' +
+          '<span class="lead-header-sep">\u00B7</span>' +
           '<span class="lead-badge status-' + statusAtual + '">' + esc(statusLabel) + '</span>' +
           (l.lead_score ? '<span class="score ' + l.lead_score + '">' + esc(l.lead_score) + '</span>' : '') +
-          '<span style="color:var(--border)">\u00B7</span>' +
-          '<span style="font-size:11px;color:var(--muted2)">' + diasStr + ' no pipeline</span>' +
+          '<span class="lead-header-sep">\u00B7</span>' +
+          '<span class="lead-time-pipeline">' + diasStr + ' no pipeline</span>' +
         '</div>' +
       '</div>' +
-      '<div style="display:flex;gap:6px;flex-shrink:0">' +
-        (l.whatsapp ? '<button class="btn btn-sm btn-ghost btn-detail-wa" data-id="' + l.id + '" style="padding:7px 10px" title="WhatsApp">\uD83D\uDCF1</button>' : '') +
-        (l.email ? '<button class="btn btn-sm btn-ghost btn-detail-em" data-id="' + l.id + '" style="padding:7px 10px" title="E-mail">\uD83D\uDCE7</button>' : '') +
-        '<button class="btn btn-sm btn-ghost btn-detail-lemb" data-id="' + l.id + '" style="padding:7px 10px" title="Lembrete">\u23F0</button>' +
-        '<button class="btn btn-sm btn-ghost btn-detail-edit" data-id="' + l.id + '" style="padding:7px 10px" title="Editar">\u270F\uFE0F</button>' +
-        '<button class="modal-close" id="btn-close-detail" style="margin-left:4px" aria-label="Fechar">&times;</button>' +
+      '<div class="lead-header-actions">' +
+        (l.whatsapp ? '<button class="btn btn-sm btn-ghost btn-detail-wa" data-id="' + l.id + '" title="WhatsApp">\uD83D\uDCF1</button>' : '') +
+        (l.email ? '<button class="btn btn-sm btn-ghost btn-detail-em" data-id="' + l.id + '" title="E-mail">\uD83D\uDCE7</button>' : '') +
+        '<button class="btn btn-sm btn-ghost btn-detail-lemb" data-id="' + l.id + '" title="Lembrete">\u23F0</button>' +
+        '<button class="btn btn-sm btn-ghost btn-detail-edit" data-id="' + l.id + '" title="Editar">\u270F\uFE0F</button>' +
+        '<button class="modal-close" id="btn-close-detail" aria-label="Fechar">&times;</button>' +
       '</div>' +
     '</div>';
 
     // BODY
-    html += '<div class="lead-detail-scroll" style="padding:20px 24px;display:flex;flex-direction:column;gap:16px">';
+    html += '<div class="lead-detail-scroll">';
 
     // QUICK ACTIONS
-    html += '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
-      '<div style="flex:1;min-width:200px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:6px">Status do Pipeline</div><div class="lead-status-quick" style="flex-wrap:wrap">' + statusPills + '</div></div>' +
-      '<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:6px">Score</div><div class="score-picker">' + scorePicks + '</div></div>' +
+    html += '<div class="lead-quick-actions">' +
+      '<div class="lead-quick-status"><div class="lead-quick-label">Status do Pipeline</div><div class="lead-status-quick">' + statusPills + '</div></div>' +
+      '<div class="lead-quick-score"><div class="lead-quick-label">Score</div><div class="score-picker">' + scorePicks + '</div></div>' +
     '</div>';
 
     // TWO COLUMN LAYOUT
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="lead-detail-grid">';
+    html += '<div class="lead-detail-grid">';
 
     // LEFT COLUMN
-    html += '<div style="display:flex;flex-direction:column;gap:14px">';
+    html += '<div class="lead-detail-col">';
     html += '<div class="lead-panel-section">' +
       '<div class="lead-panel-section-title">\uD83D\uDC64 Contato</div>' +
       '<div class="lead-field"><span class="lead-field-label">Responsável</span><span class="lead-field-value">' + fmt(l.nome_responsavel) + '</span></div>' +
@@ -493,7 +493,7 @@ async function abrirDetalhe(id) {
     html += '</div>';
 
     // RIGHT COLUMN
-    html += '<div style="display:flex;flex-direction:column;gap:14px">';
+    html += '<div class="lead-detail-col">';
 
     // Propostas Públicas
     html += '<div class="lead-panel-section">' +
