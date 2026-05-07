@@ -35,7 +35,18 @@ const CANAL_TPL_LABELS = {whatsapp:'WhatsApp',email:'E-mail',ambos:'Ambos'};
 // UTILS (acessível por todos os módulos)
 // ═══════════════════════════════════════════════════════════════════════════════
 function fecharModal(id) {
-  document.getElementById(id)?.classList.remove('open');
+  var overlay = document.getElementById(id);
+  if (!overlay) return;
+  var modal = overlay.querySelector('.modal');
+  if (modal && window.innerWidth <= 640) {
+    modal.classList.add('closing');
+    setTimeout(function() {
+      overlay.classList.remove('open');
+      modal.classList.remove('closing');
+    }, 250);
+  } else {
+    overlay.classList.remove('open');
+  }
 }
 
 function esc(s) {
@@ -118,9 +129,35 @@ function bindTabEvents() {
   });
 }
 
+function initBottomSheets() {
+  document.querySelectorAll('.modal').forEach(function(modal) {
+    if (!modal.querySelector('.modal-drag-handle')) {
+      var handle = document.createElement('div');
+      handle.className = 'modal-drag-handle';
+      var startY = 0;
+      handle.addEventListener('touchstart', function(e) {
+        startY = e.touches[0].clientY;
+      }, {passive: true});
+      handle.addEventListener('touchend', function(e) {
+        var endY = e.changedTouches[0].clientY;
+        if (endY - startY > 30) {
+          var overlay = modal.closest('.modal-overlay');
+          if (overlay && overlay.id) fecharModal(overlay.id);
+        }
+      });
+      handle.addEventListener('click', function() {
+        var overlay = modal.closest('.modal-overlay');
+        if (overlay && overlay.id) fecharModal(overlay.id);
+      });
+      modal.insertBefore(handle, modal.firstChild);
+    }
+  });
+}
+
 document.addEventListener('DOMContentLoaded', async function() {
   inicializarLayout('comercial');
   bindTabEvents();
+  initBottomSheets();
   await carregarCadastrosCache();
   carregarDashboard();
 });

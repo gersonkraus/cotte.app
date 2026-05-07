@@ -268,6 +268,7 @@ async function carregarLeadsTabela() {
   try {
     var res = await api.get(url);
     var items = res.items || [];
+    items.forEach(function(l) { window.leadsCache[l.id] = Object.assign(window.leadsCache[l.id] || {}, l); });
     atualizarBannerFollowUpLeads();
     var tbody = document.getElementById('leads-tbody');
     var mobileContainer = document.getElementById('leads-mobile-cards');
@@ -397,14 +398,13 @@ async function carregarLeadsTabela() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+window.leadsCache = window.leadsCache || {};
+
 // LEAD DETAIL
 // ═══════════════════════════════════════════════════════════════════════════════
-async function abrirDetalhe(id) {
-  leadAtualId = id;
-  document.getElementById('modal-detail').classList.add('open');
-  document.getElementById('detail-content').innerHTML = '<div class="loading" style="padding:60px"><div class="spinner"></div></div>';
-  try {
-    var l = await api.get('/tenant/comercial/leads/' + id);
+function renderLeadDetail(l) {
+
+    
     var scoreAtual = l.lead_score || 'frio';
     var statusAtual = l.status_pipeline || 'novo';
     var statusLabel = STATUS_LABELS[statusAtual] || statusAtual;
@@ -617,12 +617,33 @@ async function abrirDetalhe(id) {
       btn.addEventListener('click', function() { excluirLead(parseInt(this.dataset.id)); });
     });
 
+  
+}
+
+async function abrirDetalhe(id) {
+  leadAtualId = id;
+  document.getElementById('modal-detail').classList.add('open');
+  
+  if (window.leadsCache[id]) {
+    renderLeadDetail(window.leadsCache[id]);
+  } else {
+    document.getElementById('detail-content').innerHTML = '<div class="loading" style="padding:60px"><div class="spinner"></div></div>';
+  }
+  
+  try {
+    var l = await api.get('/tenant/comercial/leads/' + id);
+    window.leadsCache[id] = Object.assign(window.leadsCache[id] || {}, l);
+    renderLeadDetail(l);
   } catch(e) {
+    if (!window.leadsCache[id]) {
+      
     document.getElementById('detail-content').innerHTML = '<div style="padding:40px;text-align:center">' +
       '<div style="font-size:40px;margin-bottom:12px">\uD83D\uDE15</div>' +
       '<div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:4px">Erro ao carregar detalhes</div>' +
       '<div style="font-size:13px;color:var(--muted)">' + esc(e.message || 'Tente novamente') + '</div>' +
     '</div>';
+  
+    }
   }
 }
 
@@ -670,6 +691,7 @@ async function buscarLeadLembrete() {
   try {
     var res = await api.get('/tenant/comercial/leads?search=' + encodeURIComponent(q) + '&per_page=10&ativo=true');
     var items = res.items || [];
+    items.forEach(function(l) { window.leadsCache[l.id] = Object.assign(window.leadsCache[l.id] || {}, l); });
     if (!items.length) { dd.style.display = 'none'; return; }
     dd.innerHTML = items.map(function(l) {
       return '<div class="lead-ac-item" data-id="' + l.id + '" data-label="' + esc(l.nome_empresa) + ' \u2014 ' + esc(l.nome_responsavel) + '">' + esc(l.nome_empresa) + ' \u2014 ' + esc(l.nome_responsavel) + '</div>';
@@ -782,12 +804,9 @@ function abrirModalLead() {
   document.getElementById('modal-lead').classList.add('open');
 }
 
-async function editarLead(id) {
-  leadAtualId = id;
-  populateLeadSelects();
-  await carregarOpcoesPropostaLead();
-  try {
-    var l = await api.get('/tenant/comercial/leads/' + id);
+async function preencherFormLead(l) {
+
+    
     document.getElementById('modal-lead-title').textContent = 'Editar Lead';
     document.getElementById('lead-id').value = l.id;
     document.getElementById('lead-nome-responsavel').value = l.nome_responsavel || '';
@@ -811,8 +830,26 @@ async function editarLead(id) {
     document.getElementById('lead-proposta-publica-id').value = '';
     document.getElementById('lead-proposta-validade').value = '7';
     await carregarResumoPropostaVinculadaLead(id);
+    
+}
+
+async function editarLead(id) {
+  leadAtualId = id;
+  populateLeadSelects();
+  await carregarOpcoesPropostaLead();
+  if (window.leadsCache[id]) {
+    await preencherFormLead(window.leadsCache[id]);
     fecharModal('modal-detail');
     document.getElementById('modal-lead').classList.add('open');
+  }
+  try {
+    var l = await api.get('/tenant/comercial/leads/' + id);
+    window.leadsCache[id] = Object.assign(window.leadsCache[id] || {}, l);
+    await preencherFormLead(l);
+    if (!document.getElementById('modal-lead').classList.contains('open')) {
+      fecharModal('modal-detail');
+      document.getElementById('modal-lead').classList.add('open');
+    }
   } catch(e) { showToast('Erro ao carregar lead', 'error'); }
 }
 
