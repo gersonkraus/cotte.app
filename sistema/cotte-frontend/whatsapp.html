@@ -410,7 +410,8 @@
       const linhas = res.resultados.map(r => {
         const icone = r.sucesso ? '✅' : '❌';
         const label = r.tipo === 'poll' ? 'Poll (enquete)' : 'Lista de seleção';
-        return `<div>${icone} <strong>${label}</strong>: ${r.sucesso ? 'enviado com sucesso' : 'falhou'}</div>`;
+        const detalhe = r.erro ? `<div style="font-size:11px;font-family:monospace;margin-top:4px;color:#ef4444;word-break:break-all">${r.erro}</div>` : '';
+        return `<div>${icone} <strong>${label}</strong>: ${r.sucesso ? 'enviado com sucesso' : 'falhou'}${detalhe}</div>`;
       }).join('');
       const bg   = res.success ? 'var(--green-dim)' : 'rgba(239,68,68,0.08)';
       const border = res.success ? 'rgba(0,229,160,0.2)' : 'rgba(239,68,68,0.25)';

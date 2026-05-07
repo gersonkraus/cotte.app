@@ -87,6 +87,8 @@ async def enviar_lista_selecao(
                     "Content-Type": "application/json",
                 },
             )
+            if r.status_code not in (200, 201):
+                logger.warning("[Lista] Evolution retornou %s: %s", r.status_code, r.text[:500])
             return r.status_code in (200, 201)
     except Exception as e:
         logger.warning("[Lista] Falha ao enviar lista: %s", e)

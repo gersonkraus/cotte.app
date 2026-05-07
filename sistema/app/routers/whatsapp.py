@@ -282,29 +282,34 @@ async def testar_mensagens_interativas(
         resultados.append({"tipo": "poll", "sucesso": ok})
 
     if dados.tipo in ("lista", "ambos"):
-        ok = await provider.enviar_lista(
-            telefone=dados.numero,
-            titulo="Serviços Disponíveis",
-            descricao="Selecione um serviço para saber mais",
-            secoes=[
-                {
-                    "titulo": "Acabamento",
-                    "itens": [
-                        {"id": "pintura_int", "titulo": "Pintura Interna", "desc": "Ambientes internos"},
-                        {"id": "pintura_ext", "titulo": "Pintura Externa", "desc": "Fachadas e muros"},
-                    ],
-                },
-                {
-                    "titulo": "Instalações",
-                    "itens": [
-                        {"id": "eletrica", "titulo": "Elétrica Residencial", "desc": "Instalação e manutenção"},
-                        {"id": "hidraulica", "titulo": "Hidráulica", "desc": "Encanamentos e reparos"},
-                    ],
-                },
+        import httpx as _httpx
+        from app.core.config import settings as _s
+        _url = f"{_s.EVOLUTION_API_URL.rstrip('/')}/message/sendList/{_s.EVOLUTION_INSTANCE}"
+        _payload = {
+            "number": dados.numero,
+            "title": "Serviços Disponíveis",
+            "description": "Selecione um serviço para saber mais",
+            "buttonText": "Ver serviços",
+            "sections": [
+                {"title": "Acabamento", "rows": [
+                    {"title": "Pintura Interna", "description": "Ambientes internos", "rowId": "pintura_int"},
+                    {"title": "Pintura Externa", "description": "Fachadas e muros", "rowId": "pintura_ext"},
+                ]},
+                {"title": "Instalações", "rows": [
+                    {"title": "Elétrica Residencial", "description": "Instalação e manutenção", "rowId": "eletrica"},
+                    {"title": "Hidráulica", "description": "Encanamentos e reparos", "rowId": "hidraulica"},
+                ]},
             ],
-            botao_texto="Ver serviços",
-        )
-        resultados.append({"tipo": "lista", "sucesso": ok})
+        }
+        try:
+            async with _httpx.AsyncClient(timeout=10) as _c:
+                _r = await _c.post(_url, json=_payload, headers={"apikey": _s.EVOLUTION_API_KEY, "Content-Type": "application/json"})
+            ok = _r.status_code in (200, 201)
+            erro = None if ok else _r.text[:300]
+        except Exception as _e:
+            ok = False
+            erro = str(_e)
+        resultados.append({"tipo": "lista", "sucesso": ok, "erro": erro})
 
     todos_ok = all(r["sucesso"] for r in resultados)
     return {"success": todos_ok, "resultados": resultados}
