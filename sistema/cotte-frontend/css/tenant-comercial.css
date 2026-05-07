@@ -216,7 +216,7 @@
 .btn:disabled, .btn.loading { opacity: .5; cursor: not-allowed; pointer-events: none; }
 
 /* ── Modal ────────────────────────────────── */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); display: none; align-items: flex-start; justify-content: center; z-index: 1000; padding: 40px 24px; overflow-y: auto; }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); display: none; align-items: flex-start; justify-content: center; z-index: 11000; padding: 40px 24px; overflow-y: auto; }
 .modal-overlay.open { display: flex; }
 .modal { background: var(--surface); border-radius: 12px; width: 100%; max-width: 600px; box-shadow: 0 20px 60px rgba(0, 0, 0, .2); animation: modalIn .2s ease; }
 .modal.wide { max-width: 900px; }
@@ -394,6 +394,15 @@
 .crm-topbar-left { display: flex; align-items: center; gap: 14px; }
 .crm-topbar-title { font-family: 'Outfit', sans-serif; font-size: 1.375rem; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
 .crm-topbar-badge { font-size: 0.6875rem; font-weight: 600; padding: 4px 10px; border-radius: 20px; background: var(--accent-dim); color: var(--accent); }
+#topbar-notificacoes { display: inline-flex; align-items: center; flex: 0 0 auto; }
+#topbar-notificacoes .topbar-notification-btn { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; min-width: 36px; border: none; border-radius: 10px; background: var(--surface2); color: var(--text); cursor: pointer; font-size: 16px; padding: 0; }
+#topbar-notificacoes .topbar-notification-btn.is-empty { color: var(--muted); }
+#topbar-notificacoes .topbar-notification-badge { position: absolute; top: 2px; right: 2px; background: #ef4444; color: #fff; font-size: 10px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; display: flex; align-items: center; justify-content: center; line-height: 1; }
+
+@media (max-width: 768px) {
+  #topbar-notificacoes { align-self: flex-start; width: auto !important; }
+  #topbar-notificacoes .topbar-notification-btn { width: 36px !important; max-width: 36px !important; display: inline-flex !important; margin: 0 !important; text-align: center !important; white-space: nowrap !important; }
+}
 
 /* ── Navegação simplificada (operador leigo) ── */
 .admin-tabs-more-wrap {
@@ -648,6 +657,20 @@ body.comercial-simple-mode .lmc-actions .btn {
 @media (max-width: 480px) {
   .crud-mobile-card { padding: 12px 14px; }
   .crud-mobile-card-title { font-size: 0.8125rem; }
+}
+
+@media (max-width: 560px) {
+  #modal-detail.modal-overlay { padding: 8px; }
+  #modal-detail .modal { width: 100%; max-width: 100% !important; max-height: calc(100vh - 16px); border-radius: 14px; }
+  #modal-detail #detail-content { min-width: 0; }
+  #modal-detail .lead-detail-header { padding: 14px; gap: 10px; }
+  #modal-detail .lead-header-actions { margin-left: auto; }
+  #modal-detail .lead-detail-scroll { padding: 14px !important; gap: 12px !important; }
+  #modal-detail .lead-quick-bar .btn,
+  #modal-detail .danger-zone-actions .btn { width: 100%; justify-content: center; }
+  #modal-detail .lead-tl-item { grid-template-columns:32px 1fr; }
+  #modal-detail .lead-tl-time { grid-column:2; white-space:normal; padding-top:0; }
+  #modal-detail .lead-note-composer { flex-direction:column; align-items:stretch; }
 }
 
 /* ── Modal Proposta Pública ──────────────── */

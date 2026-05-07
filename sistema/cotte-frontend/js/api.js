@@ -446,8 +446,8 @@ async function carregarSidebar() {
     if (notifEl) {
       const count = dados.notificacoes_nao_lidas || 0;
       notifEl.innerHTML = count > 0
-        ? `<button type="button" onclick="abrirDropdownNotificacoes(event)" style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border:none;border-radius:10px;background:var(--surface2);color:var(--text);cursor:pointer;font-size:16px">🔔<span style="position:absolute;top:2px;right:2px;background:#ef4444;color:#fff;font-size:10px;min-width:16px;height:16px;border-radius:8px;display:flex;align-items:center;justify-content:center">${count > 99 ? '99+' : count}</span></button>`
-        : `<button type="button" onclick="abrirDropdownNotificacoes(event)" style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border:none;border-radius:10px;background:var(--surface2);color:var(--muted);cursor:pointer;font-size:16px">🔔</button>`;
+        ? `<button type="button" class="topbar-notification-btn" onclick="abrirDropdownNotificacoes(event)">🔔<span class="topbar-notification-badge">${count > 99 ? '99+' : count}</span></button>`
+        : `<button type="button" class="topbar-notification-btn is-empty" onclick="abrirDropdownNotificacoes(event)">🔔</button>`;
     }
 
     // CRM tenant (módulo comercial): exige plano pago + permissão
@@ -964,8 +964,8 @@ async function preencherNotificacoes() {
     const r = await api.get('/notificacoes/contagem-nao-lidas');
     const count = r.contagem || 0;
     el.innerHTML = count > 0
-      ? `<button type="button" onclick="abrirDropdownNotificacoes(event)" style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border:none;border-radius:10px;background:var(--surface2);color:var(--text);cursor:pointer;font-size:16px">🔔<span style="position:absolute;top:2px;right:2px;background:#ef4444;color:#fff;font-size:10px;min-width:16px;height:16px;border-radius:8px;display:flex;align-items:center;justify-content:center">${count > 99 ? '99+' : count}</span></button>`
-      : `<button type="button" onclick="abrirDropdownNotificacoes(event)" style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border:none;border-radius:10px;background:var(--surface2);color:var(--muted);cursor:pointer;font-size:16px">🔔</button>`;
+      ? `<button type="button" class="topbar-notification-btn" onclick="abrirDropdownNotificacoes(event)">🔔<span class="topbar-notification-badge">${count > 99 ? '99+' : count}</span></button>`
+      : `<button type="button" class="topbar-notification-btn is-empty" onclick="abrirDropdownNotificacoes(event)">🔔</button>`;
   } catch (_) { el.innerHTML = ''; }
 }
 
