@@ -98,7 +98,7 @@
                 <h2>📌 O que fazer hoje</h2>
                 <span class="badge" id="badge-followups">0</span>
               </div>
-              <p class="dash-section-hint">Com base no <strong>Próximo contato</strong> do lead (pipeline aberto).</p>
+              <p class="dash-section-hint">Com base no <strong>Próximo contato</strong> agendado com o cliente.</p>
             </header>
             <div class="dash-section-body">
               <div id="followups-list" class="action-list"><div class="loading"><div class="spinner"></div></div></div>
@@ -132,7 +132,7 @@
 
       <!-- ═══ TAB: Pipeline ═══ -->
       <div class="tab-panel" id="tab-pipeline" role="tabpanel" aria-labelledby="tab-pipeline-btn">
-        <div class="tab-desc-banner"><span class="tab-desc-icon">🔄</span> Visualize em qual etapa da venda cada contato está. Arraste os cards entre colunas para mover de etapa.</div>
+        <div class="tab-desc-banner"><span class="tab-desc-icon">🔄</span> Arraste os cartões entre as colunas para atualizar o andamento do cliente.</div>
         <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
           <button type="button" class="btn btn-secondary btn-sm" id="btn-toggle-fechados">👁 Mostrar fechados</button>
         </div>
@@ -145,22 +145,25 @@
       <div class="tab-panel" id="tab-leads" role="tabpanel" aria-labelledby="tab-leads-btn">
         <div class="tab-desc-banner"><span class="tab-desc-icon">👥</span> Cadastro completo de todos os seus prospectos e clientes potenciais. Clique em um contato para ver o histórico completo.</div>
         <div id="leads-followup-banner" class="leads-followup-banner" style="display:none" role="status" aria-live="polite"></div>
-        <div class="leads-toolbar">
-          <input type="search" class="search-input" id="leads-search" placeholder="Buscar por empresa, responsável ou contato..." autocomplete="off">
-          <select id="leads-filter-status">
-            <option value="">Todos os status</option>
-          </select>
-          <select id="leads-filter-score">
-            <option value="">Todo score</option>
-            <option value="quente">🔴 Quente</option>
-            <option value="morno">🟡 Morno</option>
-            <option value="frio">🔵 Frio</option>
-          </select>
-          <select id="leads-filter-arquivados">
-            <option value="ativos">Apenas ativos</option>
-            <option value="arquivados">Apenas arquivados</option>
-            <option value="todos">Todos</option>
-          </select>
+        <div class="leads-toolbar" style="flex-wrap: wrap; align-items: center;">
+          <input type="search" class="search-input" id="leads-search" placeholder="Buscar por empresa, responsável ou contato..." autocomplete="off" style="flex: 1; min-width: 200px;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('leads-advanced-filters').style.display = document.getElementById('leads-advanced-filters').style.display === 'none' ? 'flex' : 'none'" style="white-space: nowrap;">Filtros ▾</button>
+          <div id="leads-advanced-filters" style="display:none; gap:8px; flex-wrap: wrap;">
+            <select id="leads-filter-status">
+              <option value="">Todos os status</option>
+            </select>
+            <select id="leads-filter-score">
+              <option value="">Toda temperatura</option>
+              <option value="quente">🔴 Quente</option>
+              <option value="morno">🟡 Morno</option>
+              <option value="frio">🔵 Frio</option>
+            </select>
+            <select id="leads-filter-arquivados">
+              <option value="ativos">Apenas ativos</option>
+              <option value="arquivados">Apenas arquivados</option>
+              <option value="todos">Todos</option>
+            </select>
+          </div>
         </div>
         <div class="leads-table-wrap">
           <table class="leads-table" id="leads-table">
@@ -172,7 +175,7 @@
                 <th>Segmento</th>
                 <th>Origem</th>
                 <th data-col="status_pipeline">Status ↕</th>
-                <th data-col="lead_score">Score ↕</th>
+                <th data-col="lead_score">Temperatura ↕</th>
                 <th data-col="criado_em">Criado ↕</th>
                 <th style="width:120px">Ações</th>
               </tr>
@@ -580,7 +583,7 @@ Exemplos de formatos aceitos:
               <div class="fg"><label class="fl">WhatsApp</label><input type="tel" class="fi" id="lead-whatsapp" placeholder="(48) 99999-9999"></div>
               <div class="fg"><label class="fl">E-mail</label><input type="email" class="fi" id="lead-email" placeholder="email@empresa.com"></div>
             </div>
-            <div class="fg"><label class="fl">Cidade</label><input type="text" class="fi" id="lead-cidade" placeholder="Cidade do lead"></div>
+            <div class="fg"><label class="fl">Cidade</label><input type="text" class="fi" id="lead-cidade" placeholder="Cidade do contato"></div>
           </div>
           <!-- Card de duplicata detectada -->
           <div id="lead-duplicata-card" style="display:none" role="alert" aria-live="polite"></div>
@@ -616,11 +619,12 @@ Exemplos de formatos aceitos:
               </div>
             </div>
           </details>
-          <div style="border-top:1px solid var(--border);padding-top:16px;margin-bottom:16px">
-            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin-bottom:12px">💼 Negócio</div>
+          <details class="lead-accordion" id="accordion-negocio" style="border-top:1px solid var(--border);padding-top:16px;margin-bottom:16px">
+            <summary>💼 Opções Avançadas <span class="lead-accordion-hint">(segmento, valor, propostas)</span></summary>
+            <div class="lead-accordion-body" style="padding-top: 12px">
             <div class="fr">
               <div class="fg"><label class="fl">Segmento</label><select class="fs" id="lead-segmento-id"><option value="">Selecione...</option></select></div>
-              <div class="fg"><label class="fl">Origem do Lead</label><select class="fs" id="lead-origem-id"><option value="">Selecione...</option></select></div>
+              <div class="fg"><label class="fl">Como nos conheceu?</label><select class="fs" id="lead-origem-id"><option value="">Selecione...</option></select></div>
             </div>
             <div class="fg"><label class="fl">Valor Proposto (R$)</label><input type="number" class="fi" id="lead-valor" step="0.01" placeholder="0,00"></div>
             <div class="fg"><label class="fl">Próximo Contato</label><input type="datetime-local" class="fi" id="lead-proximo-contato"></div>
@@ -639,14 +643,15 @@ Exemplos de formatos aceitos:
                 </div>
               </div>
               <p style="font-size:12px;color:var(--color-on-surface-muted);margin:8px 0 0">
-                Ao salvar o lead com uma proposta selecionada, o sistema já cria o vínculo e gera o link público.
+                Ao salvar o contato com uma proposta selecionada, o sistema já cria o vínculo e gera o link público.
               </p>
               <div id="lead-proposta-vinculada-info" style="display:none;margin-top:10px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);font-size:12px;color:var(--color-on-surface-muted)"></div>
             </div>
-          </div>
+            </div>
+          </details>
           <div>
             <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:12px">📝 Observações</div>
-            <div class="fg"><textarea class="ft" id="lead-observacoes" placeholder="Informações adicionais sobre este lead..."></textarea></div>
+            <div class="fg"><textarea class="ft" id="lead-observacoes" placeholder="Informações adicionais sobre este contato..."></textarea></div>
           </div>
         </form>
       </div>
@@ -721,8 +726,8 @@ Exemplos de formatos aceitos:
           </div>
         </div>
         <div class="fg">
-          <label class="fl">Leads (selecione ou deixe vazio para todos)</label>
-          <div id="camp-leads-info" style="font-size: 12px; color: var(--muted); margin-bottom: 8px;">Carregando leads...</div>
+          <label class="fl">Contatos (selecione ou deixe vazio para todos)</label>
+          <div id="camp-leads-info" style="font-size: 12px; color: var(--muted); margin-bottom: 8px;">Carregando contatos...</div>
           <select class="fs" id="camp-leads" multiple style="min-height:120px" onchange="atualizarContagemLeadsCampanha()"></select>
         </div>
       </div>
@@ -743,10 +748,10 @@ Exemplos de formatos aceitos:
       <div class="modal-body">
         <div id="camp-metricas-content"></div>
         <div style="margin-top:20px">
-          <div class="sec-title" style="font-size:14px;margin-bottom:8px">Leads da Campanha</div>
+          <div class="sec-title" style="font-size:14px;margin-bottom:8px">Contatos da Campanha</div>
           <div style="overflow-x:auto">
             <table class="crud-table" style="font-size:12px">
-              <thead><tr><th>Lead</th><th>Status</th><th>Envio</th><th>Entrega</th><th>Resposta</th></tr></thead>
+              <thead><tr><th>Contato</th><th>Status</th><th>Envio</th><th>Entrega</th><th>Resposta</th></tr></thead>
               <tbody id="camp-leads-tbody"></tbody>
             </table>
           </div>
@@ -882,9 +887,9 @@ Exemplos de formatos aceitos:
       <div class="modal-body">
         <input type="hidden" id="lemb-id">
         <div class="fg">
-          <label class="fl">Lead *</label>
+          <label class="fl">Contato *</label>
           <div class="lead-ac-wrapper">
-            <input type="search" class="fi" id="lemb-lead-search" placeholder="Buscar lead por nome ou empresa..." autocomplete="off">
+            <input type="search" class="fi" id="lemb-lead-search" placeholder="Buscar contato por nome ou empresa..." autocomplete="off">
             <div id="lemb-lead-dropdown" class="lead-ac-dropdown" style="display:none"></div>
           </div>
           <input type="hidden" id="lemb-lead-id">
@@ -1026,7 +1031,7 @@ Exemplos de formatos aceitos:
         <button class="modal-close" aria-label="Fechar">&times;</button>
       </header>
       <div class="modal-body">
-        <p id="msg-reenvio" style="margin:0">Esta proposta já foi enviada para este lead. Deseja enviar novamente?</p>
+        <p id="msg-reenvio" style="margin:0">Esta proposta já foi enviada para este contato. Deseja enviar novamente?</p>
       </div>
       <footer class="modal-footer">
         <button class="btn btn-secondary" onclick="fecharModal('modal-confirmar-reenvio')">Cancelar</button>
