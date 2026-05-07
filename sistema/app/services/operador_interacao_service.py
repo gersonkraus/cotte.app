@@ -74,6 +74,7 @@ async def enviar_lista_selecao(
         "number": _fmt_phone(telefone),
         "title": titulo,
         "description": descricao,
+        "footerText": "",
         "buttonText": botao_texto,
         "sections": sections,
     }

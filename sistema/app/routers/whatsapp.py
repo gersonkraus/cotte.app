@@ -289,6 +289,7 @@ async def testar_mensagens_interativas(
             "number": dados.numero,
             "title": "Serviços Disponíveis",
             "description": "Selecione um serviço para saber mais",
+            "footerText": "",
             "buttonText": "Ver serviços",
             "sections": [
                 {"title": "Acabamento", "rows": [
