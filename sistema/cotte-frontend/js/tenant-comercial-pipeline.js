@@ -103,6 +103,7 @@ function kanbanCard(l) {
     '</div>' +
     (l.valor_proposto ? '<div class="kc-value">\uD83D\uDCB0 R$ ' + fmtMoeda(l.valor_proposto) + '</div>' : '') +
     '<div class="kc-actions">' +
+      '<button class="kc-btn btn-kc-fast-followup" data-id="' + l.id + '" title="Segure para Follow-up amanhã 9h" style="user-select:none;-webkit-touch-callout:none;touch-action:manipulation;">⚡</button>' +
       '<button class="kc-btn btn-kc-detail" data-id="' + l.id + '" title="Ver detalhes">\uD83D\uDC41</button>' +
       '<button class="kc-btn btn-kc-edit" data-id="' + l.id + '" title="Editar">\u270F\uFE0F</button>' +
       (l.whatsapp ? '<button class="kc-btn btn-kc-wa" data-id="' + l.id + '" title="WhatsApp">\uD83D\uDCF1</button>' : '') +
@@ -122,6 +123,105 @@ document.addEventListener('click', function(e) {
   btn = e.target.closest('.btn-kc-em');
   if (btn) { e.stopPropagation(); abrirModalEmail(parseInt(btn.dataset.id)); return; }
 });
+
+// 1-Click Fast Follow-up (Long Press)
+var lpTimer = null;
+var lpTarget = null;
+var lpFired = false;
+
+function cancelLongPress() {
+  if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
+  if (lpTarget) {
+    lpTarget.style.transform = '';
+    lpTarget.style.background = '';
+    lpTarget = null;
+  }
+}
+
+document.addEventListener('mousedown', function(e) {
+  var btn = e.target.closest('.btn-kc-fast-followup');
+  if (btn) {
+    e.stopPropagation();
+    lpFired = false;
+    lpTarget = btn;
+    btn.style.transition = 'transform 0.6s ease, background 0.6s ease';
+    btn.style.transform = 'scale(1.3)';
+    btn.style.background = '#fef08a';
+    lpTimer = setTimeout(function() {
+      lpFired = true;
+      btn.style.transform = '';
+      btn.style.background = '';
+      agendarFastFollowup(parseInt(btn.dataset.id));
+      lpTarget = null;
+    }, 600);
+  }
+});
+
+document.addEventListener('touchstart', function(e) {
+  var btn = e.target.closest('.btn-kc-fast-followup');
+  if (btn) {
+    e.stopPropagation();
+    lpFired = false;
+    lpTarget = btn;
+    btn.style.transition = 'transform 0.6s ease, background 0.6s ease';
+    btn.style.transform = 'scale(1.3)';
+    btn.style.background = '#fef08a';
+    lpTimer = setTimeout(function() {
+      lpFired = true;
+      btn.style.transform = '';
+      btn.style.background = '';
+      agendarFastFollowup(parseInt(btn.dataset.id));
+      lpTarget = null;
+    }, 600);
+  }
+}, {passive: true});
+
+document.addEventListener('mouseup', function(e) {
+  var btn = e.target.closest('.btn-kc-fast-followup');
+  if (btn && !lpFired) {
+    // If they just clicked without holding, show tooltip or do nothing
+    showToast('Segure o botão ⚡ por meio segundo para agendar', 'info');
+  }
+  cancelLongPress();
+});
+document.addEventListener('mouseleave', cancelLongPress);
+document.addEventListener('touchend', function(e) {
+  var btn = e.target.closest('.btn-kc-fast-followup');
+  if (btn && !lpFired) {
+    showToast('Segure o botão ⚡ por meio segundo para agendar', 'info');
+  }
+  cancelLongPress();
+});
+document.addEventListener('touchcancel', cancelLongPress);
+
+async function agendarFastFollowup(leadId) {
+  var d = new Date();
+  d.setDate(d.getDate() + 1);
+  if (d.getDay() === 6) d.setDate(d.getDate() + 2);
+  else if (d.getDay() === 0) d.setDate(d.getDate() + 1);
+  d.setHours(9, 0, 0, 0);
+
+  var yyyy = d.getFullYear();
+  var mm = String(d.getMonth() + 1).padStart(2, '0');
+  var dd = String(d.getDate()).padStart(2, '0');
+  var hh = String(d.getHours()).padStart(2, '0');
+  var min = String(d.getMinutes()).padStart(2, '0');
+  
+  var data = { 
+    lead_id: leadId, 
+    titulo: 'Follow-up', 
+    data_hora: `${yyyy}-${mm}-${dd}T${hh}:${min}`, 
+    canal_sugerido: 'whatsapp' 
+  };
+  
+  try {
+    await api.post('/tenant/comercial/lembretes', data);
+    showToast('Follow-up agendado para amanhã 9h!', 'success');
+    if (typeof carregarLembretes === 'function') carregarLembretes();
+  } catch(e) { 
+    showToast('Erro ao agendar follow-up', 'error'); 
+  }
+}
 
 async function dropCard(e, novoStatus) {
   e.preventDefault();

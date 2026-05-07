@@ -894,10 +894,28 @@ Exemplos de formatos aceitos:
           </div>
           <input type="hidden" id="lemb-lead-id">
         </div>
-        <div class="fg"><label class="fl">Título *</label><input type="text" class="fi" id="lemb-titulo" required></div>
+        <div class="fg">
+          <label class="fl">Título *</label>
+          <input type="text" class="fi" id="lemb-titulo" required placeholder="Ex: Ligar para follow-up">
+          <div style="display:flex; gap:6px; margin-top:6px; flex-wrap:wrap;">
+            <button type="button" class="btn-var-badge" onclick="document.getElementById('lemb-titulo').value='Retornar contato'; document.getElementById('lemb-canal').value='whatsapp'">Retornar contato</button>
+            <button type="button" class="btn-var-badge" onclick="document.getElementById('lemb-titulo').value='Apresentar proposta'; document.getElementById('lemb-canal').value='reuniao'">Apresentar proposta</button>
+            <button type="button" class="btn-var-badge" onclick="document.getElementById('lemb-titulo').value='Follow-up'; document.getElementById('lemb-canal').value='whatsapp'">Follow-up</button>
+            <button type="button" class="btn-var-badge" onclick="document.getElementById('lemb-titulo').value='Ligar'; document.getElementById('lemb-canal').value='ligacao'">Ligar</button>
+          </div>
+        </div>
         <div class="fg"><label class="fl">Descrição</label><textarea class="ft" id="lemb-descricao" rows="2"></textarea></div>
         <div class="fr">
-          <div class="fg"><label class="fl">Data/Hora *</label><input type="datetime-local" class="fi" id="lemb-data-hora" required></div>
+          <div class="fg">
+            <label class="fl">Data/Hora *</label>
+            <input type="datetime-local" class="fi" id="lemb-data-hora" required>
+            <div style="display:flex; gap:6px; margin-top:6px; flex-wrap:wrap;">
+              <button type="button" class="btn-var-badge" onclick="setLembreteData(0, 15)">Hoje Tarde</button>
+              <button type="button" class="btn-var-badge" onclick="setLembreteData(1, 9)">Amanhã 9h</button>
+              <button type="button" class="btn-var-badge" onclick="setLembreteData(2, 9)">Em 2 dias</button>
+              <button type="button" class="btn-var-badge" onclick="setLembreteData(7, 9)">1 Semana</button>
+            </div>
+          </div>
           <div class="fg"><label class="fl">Canal sugerido</label>
             <select class="fs" id="lemb-canal"><option value="">Nenhum</option><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option><option value="ligacao">Ligação</option><option value="reuniao">Reunião</option></select>
           </div>
