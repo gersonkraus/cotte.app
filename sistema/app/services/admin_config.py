@@ -54,6 +54,44 @@ def get_admin_config(db: Session) -> Dict[str, Any]:
     }
 
 
+async def notificar_admins_novo_cadastro(
+    db: Session,
+    empresa_nome: str,
+    nome: str,
+    email: str,
+    telefone: str,
+) -> None:
+    """Envia WhatsApp para todos os números de monitoramento configurados."""
+    from app.services.whatsapp_service import enviar_mensagem_texto
+
+    cfg = get_admin_config(db)
+    numeros = cfg.get(_CHAVE_NUMEROS, [])
+
+    if not numeros:
+        logger.warning("notificar_admins: nenhum número configurado em numeros_monitoramento")
+        return
+
+    msg = (
+        f"🚨 *Novo Cadastro no COTTE*\n\n"
+        f"🏢 *Empresa:* {empresa_nome}\n"
+        f"👤 *Responsável:* {nome}\n"
+        f"📧 *E-mail:* {email}\n"
+        f"📱 *WhatsApp:* {telefone}"
+    )
+    for num in numeros:
+        num = str(num).strip()
+        if not num:
+            continue
+        try:
+            await enviar_mensagem_texto(num, msg)
+            logger.info("Notificação de novo cadastro enviada para %s", num)
+        except Exception as exc:
+            logger.error(
+                "Falha ao notificar admin %s sobre novo cadastro '%s': %s",
+                num, empresa_nome, exc, exc_info=True,
+            )
+
+
 def save_admin_config(cfg: Dict[str, Any], db: Session) -> Dict[str, Any]:
     from app.models.models import ConfigGlobal
     

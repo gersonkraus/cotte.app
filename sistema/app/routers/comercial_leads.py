@@ -902,6 +902,18 @@ async def criar_empresa_from_lead(
         except Exception as e:
             logging.warning(f"Falha ao enviar e-mail para lead {lead_id}: {e}")
 
+        try:
+            from app.services.admin_config import notificar_admins_novo_cadastro
+            await notificar_admins_novo_cadastro(
+                db,
+                lead.empresa_nome or lead.nome_responsavel or "",
+                lead.nome_responsavel or "",
+                lead.email or "",
+                lead.whatsapp or "",
+            )
+        except Exception as e:
+            logging.error(f"Falha ao notificar admins (criar_empresa_from_lead {lead_id}): {e}", exc_info=True)
+
         return {
             "sucesso": True,
             "empresa_id": empresa.id,

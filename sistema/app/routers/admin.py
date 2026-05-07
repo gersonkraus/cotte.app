@@ -347,7 +347,7 @@ def listar_empresas(
 
 
 @router.post("/empresas", response_model=EmpresaAdminOut, status_code=201)
-def criar_empresa(
+async def criar_empresa(
     dados: EmpresaAdminCreate, db: Session = Depends(get_db), _=Depends(get_superadmin)
 ):
     """Cria uma nova empresa com seu primeiro usuário gestor."""
@@ -380,6 +380,20 @@ def criar_empresa(
     db.add(usuario)
     db.commit()
     db.refresh(empresa)
+
+    try:
+        from app.services.admin_config import notificar_admins_novo_cadastro
+        await notificar_admins_novo_cadastro(
+            db,
+            dados.nome,
+            dados.usuario_nome,
+            dados.email or "",
+            dados.telefone or "",
+        )
+    except Exception as e:
+        import logging as _log
+        _log.getLogger(__name__).error("Falha ao notificar admins (criar_empresa): %s", e, exc_info=True)
+
     return _to_out(empresa)
 
 

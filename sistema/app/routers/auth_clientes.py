@@ -225,26 +225,10 @@ async def registro_publico(dados: RegistroPublico, db: Session = Depends(get_db)
 
         # Envia notificação de monitoramento para administradores
         try:
-            from app.services.admin_config import get_admin_config
-            from app.services.whatsapp_service import enviar_mensagem_texto
-
-            cfg = get_admin_config(db)
-            numeros_monitoramento = cfg.get("numeros_monitoramento", [])
-
-            if numeros_monitoramento:
-                msg_admin = (
-                    f"🚨 *Novo Cadastro no COTTE*\n\n"
-                    f"🏢 *Empresa:* {dados.empresa_nome}\n"
-                    f"👤 *Responsável:* {dados.nome}\n"
-                    f"📧 *E-mail:* {dados.email}\n"
-                    f"📱 *WhatsApp:* {dados.telefone}"
-                )
-                for num in numeros_monitoramento:
-                    num = str(num).strip()
-                    if num:
-                        await enviar_mensagem_texto(num, msg_admin)
+            from app.services.admin_config import notificar_admins_novo_cadastro
+            await notificar_admins_novo_cadastro(db, dados.empresa_nome, dados.nome, dados.email, dados.telefone)
         except Exception as e:
-            logging.warning("Falha ao notificar admin no WhatsApp: %s", e)
+            logging.error("Falha ao notificar admins (registro_publico): %s", e, exc_info=True)
 
         # Envia e-mail de boas-vindas (silencioso se SMTP/Brevo não configurado)
         enviar_email_boas_vindas(dados.email, dados.nome, senha)
