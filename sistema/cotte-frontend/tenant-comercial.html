@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="css/precision-atelier.css?v=2">
   <link rel="stylesheet" href="css/tenant-comercial.css?v=12">
   <link rel="stylesheet" href="css/tenant-comercial-precision.css?v=2">
+  <link rel="stylesheet" href="css/tenant-comercial-modal-detail.css?v=1">
 </head>
 <body>
   <aside class="sidebar" id="sidebar"></aside>
@@ -662,9 +663,10 @@ Exemplos de formatos aceitos:
     </div>
   </div>
 
-  <!-- Modal Detalhe Lead (CRM Profissional) -->
-  <div class="modal-overlay" id="modal-detail">
-    <div class="modal wide" style="max-width:820px;max-height:92vh;display:flex;flex-direction:column">
+  <!-- Modal Detalhe Lead -->
+  <div class="modal-overlay" id="modal-detail" role="dialog" aria-modal="true" aria-labelledby="ld-title">
+    <div class="lead-sheet" id="lead-sheet-inner">
+      <div class="lead-sheet-grabber" aria-hidden="true"></div>
       <div id="detail-content"><div class="loading" style="padding:60px"><div class="spinner"></div></div></div>
     </div>
   </div>
