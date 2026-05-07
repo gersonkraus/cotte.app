@@ -477,7 +477,6 @@ async function abrirDetalhe(id) {
     html += '<div class="lead-panel-section">' +
       '<div class="lead-panel-section-title">\uD83D\uDC64 Contato</div>' +
       '<div class="lead-field"><span class="lead-field-label">Responsável</span><span class="lead-field-value">' + fmt(l.nome_responsavel) + '</span></div>' +
-      '<div class="lead-field"><span class="lead-field-label">Empresa</span><span class="lead-field-value">' + fmt(l.nome_empresa) + '</span></div>' +
       '<div class="lead-field"><span class="lead-field-label">WhatsApp</span><span class="lead-field-value">' + (l.whatsapp ? esc(l.whatsapp) + ' <button class=\"lead-field-action btn-detail-wa\" data-id=\"' + l.id + '\" title=\"Enviar WhatsApp\">\uD83D\uDCF1</button>' : '<span class="lead-field-value empty">\u2014</span>') + '</span></div>' +
       '<div class="lead-field"><span class="lead-field-label">E-mail</span><span class="lead-field-value">' + (l.email ? esc(l.email) + ' <button class=\"lead-field-action btn-detail-em\" data-id=\"' + l.id + '\" title=\"Enviar E-mail\">\uD83D\uDCE7</button>' : '<span class="lead-field-value empty">\u2014</span>') + '</span></div>' +
       '<div class="lead-field"><span class="lead-field-label">Cidade</span><span class="lead-field-value">' + fmt(l.cidade) + '</span></div>' +
@@ -487,7 +486,6 @@ async function abrirDetalhe(id) {
       '<div class="lead-panel-section-title">\uD83D\uDCBC Negócio</div>' +
       '<div class="lead-field"><span class="lead-field-label">Segmento</span><span class="lead-field-value">' + fmt(l.segmento_nome) + '</span></div>' +
       '<div class="lead-field"><span class="lead-field-label">Origem</span><span class="lead-field-value">' + fmt(l.origem_nome) + '</span></div>' +
-      '<div class="lead-field"><span class="lead-field-label">Plano Interesse</span><span class="lead-field-value">' + (l.interesse_plano ? esc(l.interesse_plano.toUpperCase()) : '<span class="lead-field-value empty">\u2014</span>') + '</span></div>' +
       '<div class="lead-field"><span class="lead-field-label">Valor Proposto</span><span class="lead-field-value">' + (l.valor_proposto ? '<strong style="color:var(--green)">R$ ' + fmtMoeda(l.valor_proposto) + '</strong> <button class="lead-field-action btn-detail-gerar-orcamento" data-id="' + l.id + '" data-valor="' + (l.valor_proposto || 0) + '" data-desc="' + esc(l.nome_empresa || l.nome_responsavel) + '" title="Gerar orçamento">\uD83D\uDCC4</button>' : '<span class="lead-field-value empty">\u2014</span>') + '</span></div>' +
       '<div class="lead-field"><span class="lead-field-label">Próx. Contato</span><span class="lead-field-value">' + (l.proximo_contato_em ? fmtDataHora(l.proximo_contato_em) : '<span class="lead-field-value empty">\u2014</span>') + '</span></div>' +
       '<div class="lead-field"><span class="lead-field-label">Criado em</span><span class="lead-field-value">' + fmtData(l.criado_em) + ' (' + diasStr + ')</span></div>' +
@@ -496,39 +494,6 @@ async function abrirDetalhe(id) {
 
     // RIGHT COLUMN
     html += '<div style="display:flex;flex-direction:column;gap:14px">';
-
-    if (l.empresa) {
-      var emp = l.empresa;
-      var empStatusMap = {'trial':{label:'Trial',color:'#8b5cf6'},'pagante':{label:'Ativo',color:'#10b981'},'bloqueado':{label:'Bloqueado',color:'#ef4444'},'expirado':{label:'Expirado',color:'#f59e0b'}};
-      var empSt = empStatusMap[emp.status] || {label: emp.status, color:'var(--muted)'};
-      var usuariosHtml = emp.usuarios && emp.usuarios.length
-        ? emp.usuarios.map(function(u) {
-            return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">' +
-              '<span style="width:6px;height:6px;border-radius:50%;background:' + (u.online ? '#10b981' : 'var(--border)') + ';flex-shrink:0;' + (u.online ? 'box-shadow:0 0 0 2px rgba(16,185,129,0.25)' : '') + '"></span>' +
-              '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(u.nome) + '</div><div style="font-size:10px;color:var(--muted)">' + (u.ultima_atividade_em ? fmtDataHora(u.ultima_atividade_em) : 'Nunca acessou') + '</div></div>' +
-            '</div>';
-          }).join('')
-        : '<div style="font-size:12px;color:var(--muted);padding:4px 0">Nenhum usuário</div>';
-
-      html += '<div class="lead-panel-section" style="border-left:3px solid ' + empSt.color + '">' +
-        '<div class="lead-panel-section-title">\uD83C\uDFE2 Empresa no Sistema <span class="pill" style="background:' + empSt.color + '20;color:' + empSt.color + ';font-size:10px;margin-left:auto">' + empSt.label + '</span></div>' +
-        '<div class="lead-stats-row" style="margin-bottom:12px">' +
-          '<div class="lead-stat-box"><div class="lead-stat-value" style="color:var(--accent)">' + (emp.total_orcamentos || 0) + '</div><div class="lead-stat-label">Orçamentos</div></div>' +
-          '<div class="lead-stat-box"><div class="lead-stat-value" style="color:#10b981">' + (emp.orcamentos_aprovados || 0) + '</div><div class="lead-stat-label">Aprovados</div></div>' +
-          '<div class="lead-stat-box"><div class="lead-stat-value" style="color:#f59e0b">' + (emp.orcamentos_pendentes || 0) + '</div><div class="lead-stat-label">Pendentes</div></div>' +
-        '</div>' +
-        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--muted);margin-bottom:6px">Usuários (' + (emp.usuarios ? emp.usuarios.length : 0) + ')</div>' +
-        usuariosHtml +
-        '<div style="display:flex;gap:6px;margin-top:10px">' +
-        '</div>' +
-      '</div>';
-    } else {
-      html += '<div class="lead-panel-section" style="background:var(--accent-dim);border-color:rgba(6,182,212,0.2)">' +
-        '<div style="text-align:center;padding:12px 0">' +
-          '<div style="font-size:28px;margin-bottom:8px">\uD83D\uDE80</div>' +
-        '</div>' +
-      '</div>';
-    }
 
     // Propostas Públicas
     html += '<div class="lead-panel-section">' +
