@@ -39,6 +39,25 @@ def _lead(db: Session, empresa_id: int, lead_id: int) -> TenantCommercialLead:
     return lead
 
 
+def _sync_proximo_contato(db: Session, empresa_id: int, lead_id: int):
+    lead = _lead(db, empresa_id, lead_id)
+    next_reminder = (
+        db.query(TenantCommercialReminder)
+        .filter(
+            TenantCommercialReminder.empresa_id == empresa_id,
+            TenantCommercialReminder.lead_id == lead_id,
+            TenantCommercialReminder.status == StatusLembrete.PENDENTE,
+        )
+        .order_by(TenantCommercialReminder.data_hora.asc())
+        .first()
+    )
+    if next_reminder:
+        lead.proximo_contato_em = next_reminder.data_hora
+    else:
+        lead.proximo_contato_em = None
+    db.commit()
+
+
 @router.get("/leads/{lead_id}/interactions")
 def list_interactions(
     lead_id: int,
@@ -87,6 +106,7 @@ def create_lembrete(
         )
         db.commit()
         db.refresh(reminder)
+        _sync_proximo_contato(db, usuario.empresa_id, data.lead_id)
         out = {c.name: getattr(reminder, c.name) for c in reminder.__table__.columns}
         out["lead_nome_empresa"] = lead.nome_empresa or lead.nome
         out["lead_nome_responsavel"] = lead.nome
@@ -162,6 +182,7 @@ def update_lembrete(
         setattr(reminder, k, v)
     db.commit()
     db.refresh(reminder)
+    _sync_proximo_contato(db, usuario.empresa_id, reminder.lead_id)
     lead = _lead(db, usuario.empresa_id, reminder.lead_id)
     rd = {c.name: getattr(reminder, c.name) for c in reminder.__table__.columns}
     rd["lead_nome_empresa"] = lead.nome_empresa or lead.nome
@@ -188,4 +209,5 @@ def concluir_lembrete(
     reminder.status = StatusLembrete.CONCLUIDO
     reminder.concluido_em = datetime.now(timezone.utc)
     db.commit()
+    _sync_proximo_contato(db, usuario.empresa_id, reminder.lead_id)
     return {"status": "concluido"}
