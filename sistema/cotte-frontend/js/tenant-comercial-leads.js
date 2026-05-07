@@ -249,6 +249,9 @@ async function carregarResumoPropostaVinculadaLead(leadId) {
 }
 
 async function carregarLeadsTabela() {
+  if (window._isCarregandoLeads) return;
+  window._isCarregandoLeads = true;
+  setTimeout(() => window._isCarregandoLeads = false, 200);
   var search = document.getElementById('leads-search')?.value || '';
   var status = document.getElementById('leads-filter-status')?.value || '';
   var score = document.getElementById('leads-filter-score')?.value || '';
@@ -829,7 +832,7 @@ async function preencherFormLead(l) {
     if (l.cep || l.logradouro) document.getElementById('accordion-endereco').open = true;
     document.getElementById('lead-proposta-publica-id').value = '';
     document.getElementById('lead-proposta-validade').value = '7';
-    await carregarResumoPropostaVinculadaLead(id);
+    await carregarResumoPropostaVinculadaLead(l.id);
     
 }
 

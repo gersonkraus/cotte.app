@@ -267,7 +267,11 @@ class ComercialCampanhas {
 
         btnSubmit.disabled = blockSubmit;
     }
+
+    renderCampanhas() {
         const list = document.getElementById('campaigns-list');
+        if (!list) return; // Safely return if DOM element doesn't exist
+        
         list.innerHTML = '';
 
         if (this.filteredCampanhas.length === 0) {

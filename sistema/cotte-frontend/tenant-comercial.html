@@ -1067,19 +1067,159 @@ Exemplos de formatos aceitos:
   <script src="js/api.js?v=17"></script>
   <script src="js/layout.js?v=5"></script>
   <!-- Comercial — módulos (ordem importa!) -->
-  <script src="js/tenant-comercial-core.js?v=1"></script>
+  <script src="js/tenant-comercial-core.js?v=99"></script>
+  <script src="js/tenant-comercial.js?v=3"></script>
   <script src="js/tenant-comercial-onboarding.js?v=1"></script>
   <script src="js/tenant-comercial-dashboard.js?v=1"></script>
-  <script src="js/tenant-comercial-leads.js?v=3"></script>
+  <script src="js/tenant-comercial-leads.js?v=99"></script>
   <script src="js/tenant-TemplatesManager.js?v=2"></script>
   <script src="js/tenant-comercial-mensagens.js?v=1"></script>
   <script src="js/tenant-comercial-lembretes.js?v=2"></script>
   <script src="js/tenant-comercial-cadastros.js?v=1"></script>
   <script src="js/tenant-comercial-propostas-publicas.js?v=1"></script>
   <script src="js/tenant-comercial-briefing.js?v=1"></script>
-  <script src="js/tenant-comercial-templates.js?v=1"></script>
-  <script src="js/tenant-comercial-import.js?v=1"></script>
-  <script src="js/tenant-comercial-campanhas.js?v=1"></script>
-  <script src="js/tenant-comercial-pipeline.js?v=6"></script>
+    <script src="js/tenant-comercial-pipeline.js?v=6"></script>
+  <script>
+    /**
+     * Gerenciamento do Seletor de Abas Mobile (Elite UX)
+     * Refatorado para melhor performance e acessibilidade
+     */
+    (function() {
+      document.addEventListener('DOMContentLoaded', () => {
+        const mobileCurrent = document.getElementById('mobile-tabs-current');
+        const mobileMenu = document.getElementById('mobile-tabs-menu');
+        const adminTabs = document.querySelectorAll('.admin-tab[data-tab]');
+        
+        if (!mobileCurrent || !mobileMenu) return;
+
+        // 1. Popular o menu mobile baseado nas abas reais
+        const fragment = document.createDocumentFragment();
+        adminTabs.forEach(tab => {
+          const item = document.createElement('div');
+          item.className = 'mobile-tabs-item';
+          item.setAttribute('role', 'menuitem');
+          item.setAttribute('tabindex', '0');
+          
+          if (tab.classList.contains('active')) {
+            item.classList.add('active');
+            mobileCurrent.innerHTML = tab.innerHTML;
+          }
+          
+          item.innerHTML = tab.innerHTML;
+          item.dataset.tab = tab.dataset.tab;
+          
+          item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // Sincronizar com o clique na aba real
+            tab.click();
+            
+            // Atualizar UI do seletor
+            mobileCurrent.innerHTML = tab.innerHTML;
+            mobileMenu.querySelectorAll('.mobile-tabs-item').forEach(i => i.classList.remove('active'));
+            item.classList.add('active');
+            
+            // Fechar menu
+            mobileMenu.classList.remove('open');
+            mobileCurrent.setAttribute('aria-expanded', 'false');
+          });
+          
+          fragment.appendChild(item);
+        });
+        mobileMenu.innerHTML = '';
+        mobileMenu.appendChild(fragment);
+
+        // 2. Toggle do menu
+        mobileCurrent.setAttribute('role', 'button');
+        mobileCurrent.setAttribute('aria-haspopup', 'true');
+        mobileCurrent.setAttribute('aria-expanded', 'false');
+        
+        mobileCurrent.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const isOpen = mobileMenu.classList.toggle('open');
+          mobileCurrent.setAttribute('aria-expanded', isOpen);
+        });
+
+        // 3. Fechar ao clicar fora
+        document.addEventListener('click', () => {
+          if (mobileMenu.classList.contains('open')) {
+            mobileMenu.classList.remove('open');
+            mobileCurrent.setAttribute('aria-expanded', 'false');
+          }
+        });
+
+        // 4. Sincronização reversa (se o core mudar a aba via código)
+        const observer = new MutationObserver((mutations) => {
+          mutations.forEach((mutation) => {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+              const tab = mutation.target;
+              if (tab.classList.contains('active')) {
+                mobileCurrent.innerHTML = tab.innerHTML;
+                mobileMenu.querySelectorAll('.mobile-tabs-item').forEach(i => {
+                  i.classList.toggle('active', i.dataset.tab === tab.dataset.tab);
+                });
+                
+                // Atualizar ARIA nas abas reais
+                adminTabs.forEach(t => {
+                  t.setAttribute('aria-selected', t === tab ? 'true' : 'false');
+                });
+              }
+            }
+          });
+        });
+
+        adminTabs.forEach(tab => {
+          observer.observe(tab, { attributes: true });
+        });
+      });
+    })();
+
+    // Config — Sub-navegação interna
+    (function() {
+      document.addEventListener('DOMContentLoaded', () => {
+        const loaders = {
+          'templates': () => typeof carregarTemplates === 'function' && carregarTemplates(),
+          'propostas-publicas': () => typeof carregarPropostasPublicas === 'function' && carregarPropostasPublicas(),
+          'cadastros': () => {
+            typeof carregarSegmentos === 'function' && carregarSegmentos();
+            typeof carregarOrigens === 'function' && carregarOrigens();
+            typeof carregarPipelineStagesUI === 'function' && carregarPipelineStagesUI();
+          },
+          'config-settings': () => typeof carregarConfig === 'function' && carregarConfig(),
+        };
+        document.querySelectorAll('.config-subnav-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const sub = btn.dataset.sub;
+            document.querySelectorAll('.config-subnav-btn').forEach(b => {
+              b.classList.toggle('active', b === btn);
+              b.setAttribute('aria-selected', b === btn ? 'true' : 'false');
+            });
+            document.querySelectorAll('.config-subpanel').forEach(p => {
+              p.classList.toggle('active', p.id === 'config-sub-' + sub);
+            });
+            if (loaders[sub]) loaders[sub]();
+          });
+        });
+
+        // Fallback defensivo: menu "... Mais" (caso a rotina principal não ligue por erro externo)
+        const maisBtn = document.getElementById('tab-mais-btn');
+        const maisMenu = document.getElementById('admin-tabs-more-menu');
+        if (maisBtn && maisMenu && !maisBtn.dataset.boundFallback && typeof bindSimplifiedNavigationMenus === 'undefined') {
+          maisBtn.dataset.boundFallback = '1';
+          maisBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const open = !maisMenu.classList.contains('open');
+            maisMenu.classList.toggle('open', open);
+            maisBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+          });
+          document.addEventListener('click', () => {
+            if (maisMenu.classList.contains('open')) {
+              maisMenu.classList.remove('open');
+              maisBtn.setAttribute('aria-expanded', 'false');
+            }
+          });
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
