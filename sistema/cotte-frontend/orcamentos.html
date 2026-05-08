@@ -1681,7 +1681,15 @@
       const res = await api.post(`/whatsapp/enviar-menu-orcamento/${id}`);
       showNotif('🎛️', 'Menu enviado!', res.message || 'Menu interativo enviado ao cliente');
     } catch (err) {
-      showNotif('❌', 'Erro', err.message || 'Falha ao enviar menu interativo', 'error');
+      const msg = err.message || 'Falha ao enviar menu interativo';
+      console.error('[Menu Interativo] Erro ao enviar:', msg);
+      if (msg.toLowerCase().includes('whatsapp') || msg.toLowerCase().includes('conectado')) {
+        if (confirm(`⚠️ ${msg}\n\nDeseja ir para as Configurações para conectar o WhatsApp?`)) {
+          window.location.href = 'configuracoes.html';
+        }
+      } else {
+        showNotif('❌', 'Erro ao enviar menu', msg, 'error');
+      }
     } finally {
       if (btnEl) { btnEl.disabled = false; btnEl.textContent = '🎛️ Menu interativo'; }
     }
