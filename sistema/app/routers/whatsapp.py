@@ -156,8 +156,15 @@ async def _webhook_evolution(
     telefone = sanitizar_telefone(payload.phone)
     empresa_id = empresa_instancia.id if empresa_instancia else None
 
+    # Log de diagnóstico: tipo da mensagem recebida
+    _data = raw_body.get("data") or {}
+    _msg_type = _data.get("messageType", "") if isinstance(_data, dict) else ""
+    _msg_keys = list((_data.get("message") or {}).keys()) if isinstance(_data, dict) else []
+    logger.info("[webhook] Evolution msg de %s: messageType='%s' keys=%s", telefone, _msg_type, _msg_keys)
+
     # Lista interativa (listResponseMessage) — roteado pelo serviço interativo
     row_id = payload.list_response_row_id
+    logger.info("[webhook] Evolution list_response_row_id=%r de %s", row_id, telefone)
     if row_id and telefone:
         background_tasks.add_task(
             _processar_lista_interativa,

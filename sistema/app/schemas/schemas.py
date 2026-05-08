@@ -681,14 +681,24 @@ class WebhookEvolution(BaseModel):
 
     @property
     def list_response_row_id(self) -> Optional[str]:
-        """Retorna o rowId selecionado quando o tipo é listResponseMessage."""
+        """Retorna o rowId selecionado quando o tipo é listResponseMessage.
+        Tenta múltiplos caminhos para compatibilidade com versões da Evolution API."""
         if not self.data:
             return None
         msg = self.data.get("message") or {}
         list_resp = msg.get("listResponseMessage") or {}
-        if list_resp:
-            reply = list_resp.get("singleSelectReply") or {}
-            return reply.get("selectedRowId") or None
+        if not list_resp:
+            return None
+        # Caminho padrão Evolution API v2
+        reply = list_resp.get("singleSelectReply") or {}
+        row_id = reply.get("selectedRowId")
+        if row_id:
+            return str(row_id)
+        # Caminho alternativo (algumas versões enviam diretamente)
+        row_id = list_resp.get("selectedRowId") or list_resp.get("rowId")
+        if row_id:
+            return str(row_id)
+        # Caminho via title quando rowId não está presente (fallback)
         return None
 
     @property
