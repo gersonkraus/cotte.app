@@ -56,20 +56,16 @@ async def enviar_lista_selecao(
     """Envia menu de lista (sendList) — para selecionar clientes, serviços etc."""
     inst = instancia or settings.EVOLUTION_INSTANCE
     url = f"{settings.EVOLUTION_API_URL.rstrip('/')}/message/sendList/{inst}"
-    sections = [
-        {
-            "title": s["titulo"],
-            "rows": [
-                {
-                    "title": i["titulo"],
-                    "description": i.get("desc", ""),
-                    "rowId": i["id"],
-                }
-                for i in s["itens"]
-            ],
-        }
-        for s in secoes
-    ]
+    sections = []
+    for s in secoes:
+        rows = []
+        for i in s["itens"]:
+            row: dict = {"title": i["titulo"], "rowId": i["id"]}
+            desc = (i.get("desc") or "").strip()
+            if desc:
+                row["description"] = desc
+            rows.append(row)
+        sections.append({"title": s["titulo"], "rows": rows})
     payload = {
         "number": _fmt_phone(telefone),
         "title": titulo,
