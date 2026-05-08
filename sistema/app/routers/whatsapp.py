@@ -296,10 +296,11 @@ class EnviarMenuOrcamentoRequest(BaseModel):
 async def enviar_menu_interativo(
     orcamento_id: int,
     db: Session = Depends(get_db),
-    usuario=Depends(exigir_permissao("orcamento:enviar")),
+    usuario=Depends(exigir_permissao("orcamento", "escrita")),
 ):
     """Envia menu interativo de aprovação/recusa ao cliente do orçamento."""
     from app.services.whatsapp_interativo_service import enviar_menu_orcamento_cliente
+    from app.models.models import StatusOrcamento
 
     orc = db.query(Orcamento).filter(
         Orcamento.id == orcamento_id,
@@ -315,9 +316,22 @@ async def enviar_menu_interativo(
     if not orc.cliente or not orc.cliente.telefone:
         raise HTTPException(status_code=422, detail="Cliente sem telefone cadastrado")
 
+    _STATUS_VALIDOS = {StatusOrcamento.ENVIADO, StatusOrcamento.RASCUNHO}
+    if orc.status not in _STATUS_VALIDOS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Status '{orc.status}' não permite envio de menu interativo. Use orçamentos com status 'rascunho' ou 'enviado'.",
+        )
+
+    if not empresa.whatsapp_conectado:
+        raise HTTPException(status_code=422, detail="WhatsApp não está conectado. Verifique a integração em Configurações.")
+
     ok = await enviar_menu_orcamento_cliente(db, orcamento_id, empresa)
     if not ok:
-        raise HTTPException(status_code=422, detail="Não foi possível enviar o menu interativo. Verifique o status do orçamento.")
+        raise HTTPException(
+            status_code=502,
+            detail="Falha ao enviar mensagem via Evolution API. Verifique os logs do servidor.",
+        )
 
     return {"success": True, "message": f"Menu enviado ao cliente {orc.cliente.nome}"}
 
