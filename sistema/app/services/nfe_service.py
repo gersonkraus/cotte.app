@@ -108,7 +108,7 @@ def _montar_payload_nfe(
             },
         })
 
-    total = float(orcamento.total)
+    total = str(orcamento.total)
 
     return {
         "ide": {
@@ -120,9 +120,9 @@ def _montar_payload_nfe(
         "emit": emitente,
         "dest": destinatario,
         "det": det,
-        "total": {"ICMSTot": {"vNF": str(total), "vProd": str(total)}},
+        "total": {"ICMSTot": {"vNF": total, "vProd": total}},
         "transp": {"modFrete": 9},
-        "pag": {"detPag": [{"indPag": 0, "tPag": "01", "vPag": str(total)}]},
+        "pag": {"detPag": [{"indPag": 0, "tPag": "01", "vPag": total}]},
     }
 
 
@@ -134,7 +134,7 @@ def _montar_payload_nfse(
 ) -> dict:
     """Monta payload para NFS-e (serviço)."""
     cliente: Cliente = orcamento.cliente
-    total = float(orcamento.total)
+    total = str(orcamento.total)
 
     return {
         "prestador": {
@@ -156,7 +156,7 @@ def _montar_payload_nfse(
             },
         },
         "servico": {
-            "valorServicos": str(total),
+            "valorServicos": total,
             "issRetido": False,
             "aliquota": float(aliquota_iss),
             "itemListaServico": codigo_servico,
@@ -214,6 +214,18 @@ async def emitir_nota(
             except httpx.RequestError:
                 continue
 
+            if status_resp.status_code == 404:
+                nota_fiscal.status = "erro"
+                nota_fiscal.erro_codigo = "INVOICE_NOT_FOUND"
+                nota_fiscal.erro_mensagem = "Invoice não encontrado na Notaas"
+                db.commit()
+                return nota_fiscal
+            if status_resp.status_code >= 400:
+                nota_fiscal.status = "erro"
+                nota_fiscal.erro_codigo = str(status_resp.status_code)
+                nota_fiscal.erro_mensagem = status_resp.text[:200]
+                db.commit()
+                return nota_fiscal
             if status_resp.status_code != 200:
                 continue
 
@@ -261,13 +273,16 @@ async def cancelar_nota(
     payload = {"invoiceId": invoice_id, "justificativa": motivo}
 
     async with _get_client(empresa.notaas_api_key) as client:
-        resp = await client.post(endpoint, json=payload)
-        if resp.status_code not in (200, 202):
-            raise httpx.HTTPStatusError(
-                f"Cancelamento falhou: {resp.status_code}",
-                request=resp.request,
-                response=resp,
-            )
+        try:
+            resp = await client.post(endpoint, json=payload)
+            if resp.status_code not in (200, 202):
+                raise httpx.HTTPStatusError(
+                    f"Cancelamento falhou: {resp.status_code}",
+                    request=resp.request,
+                    response=resp,
+                )
+        except httpx.RequestError as e:
+            raise ValueError(f"Erro de conexão ao cancelar nota: {e}") from e
 
     nota_fiscal.status = "cancelada"
     nota_fiscal.cancelada_em = datetime.utcnow()
