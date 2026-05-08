@@ -2545,6 +2545,48 @@ Estamos à disposição! 😊"></textarea>
           </div>
         </div>
 
+        <!-- Card: Mercado Livre -->
+        <div class="cfg-block">
+          <div class="cfg-card" id="card-mercadolivre">
+            <div class="cfg-card-header">
+              <div class="cfg-card-header-info">
+                <div class="cfg-card-title">Mercado Livre</div>
+                <div class="cfg-card-subtitle">Conecte sua conta para sincronizar pedidos e anúncios</div>
+              </div>
+            </div>
+            <div class="cfg-card-body">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 0;border-bottom:1px solid var(--border)">
+                <div id="ml-status-dot" style="width:10px;height:10px;border-radius:50%;background:var(--muted2)"></div>
+                <span id="ml-status-text" style="font-size:13px;color:var(--muted);font-weight:500">Desconectado</span>
+              </div>
+
+              <div id="ml-connected-meta" style="display:none;margin-bottom:14px">
+                <div style="font-size:12px;color:var(--muted);line-height:1.6">
+                  <div><strong>Conta:</strong> <span id="ml-account">—</span></div>
+                  <div><strong>Último sync pedidos:</strong> <span id="ml-last-pedidos">—</span></div>
+                  <div><strong>Último sync anúncios:</strong> <span id="ml-last-anuncios">—</span></div>
+                </div>
+              </div>
+
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn btn-primary" id="ml-btn-conectar" onclick="mlConectar()">
+                  Conectar Mercado Livre
+                </button>
+                <button class="btn btn-ghost" id="ml-btn-sync-pedidos" onclick="mlSyncPedidos()" disabled>
+                  Sincronizar pedidos
+                </button>
+                <button class="btn btn-ghost" id="ml-btn-sync-anuncios" onclick="mlSyncAnuncios()" disabled>
+                  Sincronizar anúncios
+                </button>
+                <button class="btn btn-ghost" id="ml-btn-desconectar" onclick="mlDesconectar()" disabled style="color:var(--red);border-color:rgba(239,68,68,.35)">
+                  Desconectar Mercado Livre
+                </button>
+              </div>
+              <div id="ml-last-error" style="display:none;margin-top:10px;font-size:12px;color:var(--red)"></div>
+            </div>
+          </div>
+        </div>
+
       </section>
 
       <!-- ════════════════════════════════════════

@@ -2520,6 +2520,77 @@ class WebhookEvent(Base):
     )
 
 
+# ── INTEGRAÇÃO MERCADO LIVRE ────────────────────────────────────────────────
+
+
+class IntegracaoMercadoLivre(TenantScopedMixin, Base):
+    __tablename__ = "integracoes_mercadolivre"
+
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(
+        Integer, ForeignKey("empresas.id"), nullable=False, unique=True, index=True
+    )
+    ml_user_id = Column(String(30), nullable=True, unique=True, index=True)
+    ml_nickname = Column(String(120), nullable=True)
+    access_token = Column(Text, nullable=True)
+    refresh_token = Column(Text, nullable=True)
+    token_type = Column(String(20), nullable=True)
+    token_scope = Column(String(200), nullable=True)
+    token_expires_at = Column(DateTime(timezone=True), nullable=True)
+    conectado = Column(Boolean, default=False, nullable=False)
+    oauth_state = Column(String(255), nullable=True)
+    oauth_state_expira_em = Column(DateTime(timezone=True), nullable=True)
+    ultimo_sync_pedidos_em = Column(DateTime(timezone=True), nullable=True)
+    ultimo_sync_anuncios_em = Column(DateTime(timezone=True), nullable=True)
+    ultimo_erro = Column(Text, nullable=True)
+    criado_em = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    atualizado_em = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    empresa = relationship("Empresa")
+
+
+class MercadoLivrePedidoSnapshot(TenantScopedMixin, Base):
+    __tablename__ = "mercadolivre_pedidos_snapshot"
+    __table_args__ = (
+        UniqueConstraint(
+            "empresa_id", "resource_id", name="uq_mercadolivre_pedido_empresa_resource"
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False, index=True)
+    resource_id = Column(String(80), nullable=False, index=True)
+    status = Column(String(40), nullable=True)
+    atualizado_em_remoto = Column(DateTime(timezone=True), nullable=True)
+    payload_hash = Column(String(64), nullable=False, index=True)
+    payload_json = Column(JSON, nullable=False)
+    sincronizado_em = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    empresa = relationship("Empresa")
+
+
+class MercadoLivreAnuncioSnapshot(TenantScopedMixin, Base):
+    __tablename__ = "mercadolivre_anuncios_snapshot"
+    __table_args__ = (
+        UniqueConstraint(
+            "empresa_id", "resource_id", name="uq_mercadolivre_anuncio_empresa_resource"
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False, index=True)
+    resource_id = Column(String(80), nullable=False, index=True)
+    status = Column(String(40), nullable=True)
+    atualizado_em_remoto = Column(DateTime(timezone=True), nullable=True)
+    payload_hash = Column(String(64), nullable=False, index=True)
+    payload_json = Column(JSON, nullable=False)
+    sincronizado_em = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    empresa = relationship("Empresa")
+
+
 # ── TELEMETRIA DO ASSISTENTE ───────────────────────────────────────────────────
 
 

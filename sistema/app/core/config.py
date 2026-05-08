@@ -119,6 +119,14 @@ class Settings(BaseSettings):
     NOTION_API_KEY: str = ""
     NOTION_PAGE_ID: str = ""
 
+    # Mercado Livre (aplicação integradora)
+    ML_CLIENT_ID: str = ""
+    ML_CLIENT_SECRET: str = ""
+    ML_REDIRECT_URI: str = ""
+    ML_APP_ID: str = ""
+    ML_AUTH_URL: str = "https://auth.mercadolivre.com.br/authorization"
+    ML_API_BASE_URL: str = "https://api.mercadolibre.com"
+
     # Prefixo da API (alguns módulos usam /api/v1, outros usam /)
     API_V1_STR: str = ""
 

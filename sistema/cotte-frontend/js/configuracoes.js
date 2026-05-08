@@ -1070,6 +1070,198 @@ async function wpDesconectar() {
   }
 }
 
+// ── MERCADO LIVRE ──────────────────────────────────────────────────────
+
+function _mlExtrairData(resp) {
+  if (resp && typeof resp === 'object' && typeof resp.success === 'boolean') {
+    return resp.data || {};
+  }
+  return resp || {};
+}
+
+function _mlFormatarData(valor) {
+  if (!valor) return '—';
+  const dt = new Date(valor);
+  if (Number.isNaN(dt.getTime())) return '—';
+  return dt.toLocaleString('pt-BR');
+}
+
+function _renderizarMercadoLivre(status) {
+  const dot = document.getElementById('ml-status-dot');
+  const txt = document.getElementById('ml-status-text');
+  const conta = document.getElementById('ml-account');
+  const ultPedidos = document.getElementById('ml-last-pedidos');
+  const ultAnuncios = document.getElementById('ml-last-anuncios');
+  const erro = document.getElementById('ml-last-error');
+  const meta = document.getElementById('ml-connected-meta');
+  const btnSyncPedidos = document.getElementById('ml-btn-sync-pedidos');
+  const btnSyncAnuncios = document.getElementById('ml-btn-sync-anuncios');
+  const btnDesconectar = document.getElementById('ml-btn-desconectar');
+
+  const conectado = Boolean(status.connected);
+  if (dot) dot.style.background = conectado ? 'var(--green)' : 'var(--muted2)';
+  if (txt) txt.textContent = conectado ? 'Conectado' : 'Desconectado';
+  if (txt) txt.style.color = conectado ? 'var(--green)' : 'var(--muted)';
+
+  if (btnSyncPedidos) btnSyncPedidos.disabled = !conectado;
+  if (btnSyncAnuncios) btnSyncAnuncios.disabled = !conectado;
+  if (btnDesconectar) btnDesconectar.disabled = !conectado;
+
+  if (meta) meta.style.display = conectado ? 'block' : 'none';
+  if (conta) {
+    const nick = status.ml_nickname ? String(status.ml_nickname) : null;
+    const userId = status.ml_user_id ? String(status.ml_user_id) : null;
+    conta.textContent = nick ? `${nick}${userId ? ` (#${userId})` : ''}` : (userId || '—');
+  }
+  if (ultPedidos) ultPedidos.textContent = _mlFormatarData(status.last_sync_pedidos_at);
+  if (ultAnuncios) ultAnuncios.textContent = _mlFormatarData(status.last_sync_anuncios_at);
+
+  if (erro) {
+    if (status.last_error) {
+      erro.style.display = 'block';
+      erro.textContent = status.last_error;
+    } else {
+      erro.style.display = 'none';
+      erro.textContent = '';
+    }
+  }
+}
+
+async function carregarStatusMercadoLivre() {
+  try {
+    const resp = await api.get('/mercadolivre/status');
+    const data = _mlExtrairData(resp);
+    _renderizarMercadoLivre(data);
+  } catch (err) {
+    const erro = document.getElementById('ml-last-error');
+    if (erro) {
+      erro.style.display = 'block';
+      erro.textContent = err.message || 'Falha ao obter status da integração.';
+    }
+  }
+}
+
+async function mlConectar() {
+  const btn = document.getElementById('ml-btn-conectar');
+  const textoOriginal = btn ? btn.textContent : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Conectando...';
+  }
+  try {
+    const resp = await api.get('/mercadolivre/auth/url');
+    const data = _mlExtrairData(resp);
+    if (!data.authorization_url) {
+      throw new Error('URL de autorização não foi retornada.');
+    }
+    window.location.href = data.authorization_url;
+  } catch (err) {
+    showNotif('❌', 'Erro', err.message || 'Não foi possível iniciar conexão com Mercado Livre.', 'error');
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = textoOriginal || 'Conectar Mercado Livre';
+    }
+  }
+}
+
+async function mlSyncPedidos() {
+  const btn = document.getElementById('ml-btn-sync-pedidos');
+  const textoOriginal = btn ? btn.textContent : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Sincronizando...';
+  }
+  try {
+    const resp = await api.post('/mercadolivre/sync/pedidos?limit=50', {});
+    const data = _mlExtrairData(resp);
+    showNotif(
+      '✅',
+      'Pedidos sincronizados',
+      `${data.total_recebido || 0} recebidos · ${data.inseridos || 0} novos`,
+      'success'
+    );
+    await carregarStatusMercadoLivre();
+  } catch (err) {
+    showNotif('❌', 'Erro', err.message || 'Falha ao sincronizar pedidos', 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = textoOriginal || 'Sincronizar pedidos';
+    }
+  }
+}
+
+async function mlSyncAnuncios() {
+  const btn = document.getElementById('ml-btn-sync-anuncios');
+  const textoOriginal = btn ? btn.textContent : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Sincronizando...';
+  }
+  try {
+    const resp = await api.post('/mercadolivre/sync/anuncios?limit=50', {});
+    const data = _mlExtrairData(resp);
+    showNotif(
+      '✅',
+      'Anúncios sincronizados',
+      `${data.total_recebido || 0} recebidos · ${data.inseridos || 0} novos`,
+      'success'
+    );
+    await carregarStatusMercadoLivre();
+  } catch (err) {
+    showNotif('❌', 'Erro', err.message || 'Falha ao sincronizar anúncios', 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = textoOriginal || 'Sincronizar anúncios';
+    }
+  }
+}
+
+async function mlDesconectar() {
+  if (!window.confirm('Deseja desconectar a conta do Mercado Livre desta empresa?')) {
+    return;
+  }
+  const btn = document.getElementById('ml-btn-desconectar');
+  const textoOriginal = btn ? btn.textContent : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Desconectando...';
+  }
+  try {
+    await api.delete('/mercadolivre/desconectar');
+    showNotif('✅', 'Mercado Livre desconectado', 'A conta foi desvinculada com sucesso.', 'success');
+    await carregarStatusMercadoLivre();
+  } catch (err) {
+    showNotif('❌', 'Erro', err.message || 'Falha ao desconectar conta do Mercado Livre.', 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = textoOriginal || 'Desconectar Mercado Livre';
+    }
+  }
+}
+
+function _tratarRetornoOauthMercadoLivre() {
+  try {
+    const url = new URL(window.location.href);
+    const ml = url.searchParams.get('ml');
+    const msg = url.searchParams.get('msg');
+    if (ml === 'connected') {
+      showNotif('✅', 'Mercado Livre conectado', 'Conta autorizada com sucesso.', 'success');
+    } else if (ml === 'error') {
+      showNotif('❌', 'Falha na conexão', msg || 'Não foi possível concluir a autorização.', 'error');
+    } else {
+      return;
+    }
+    url.searchParams.delete('ml');
+    url.searchParams.delete('msg');
+    history.replaceState({}, '', url.pathname + url.search + url.hash);
+  } catch (_) {
+    // Silencioso
+  }
+}
+
 // ── LOGO ──────────────────────────────────────────────────────────────
 function mostrarLogo(url) {
   const img        = document.getElementById('logo-img');
@@ -1382,6 +1574,8 @@ function atualizarPreview() {
 
 carregarEmpresa();
 carregarStatusWhatsapp();
+_tratarRetornoOauthMercadoLivre();
+carregarStatusMercadoLivre();
 
 // ── FORMAS DE PAGAMENTO ──────────────────────────────────────────────────
 
