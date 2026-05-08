@@ -80,7 +80,9 @@ const NFeService = (() => {
     try {
       resp = await api.post('/notas-fiscais/emitir', payload);
     } catch (e) {
-      resp = null;
+      if (btn) { btn.disabled = false; btn.textContent = 'Emitir NF'; }
+      if (statusMsg) statusMsg.textContent = `Erro: ${e.message || 'Falha na emissão'}`;
+      return;
     }
 
     if (btn) { btn.disabled = false; btn.textContent = 'Emitir NF'; }
@@ -89,8 +91,7 @@ const NFeService = (() => {
       if (statusMsg) statusMsg.textContent = 'Processando... aguardando SEFAZ.';
       _aguardarStatus(resp.id);
     } else {
-      const errMsg = resp?.detail || resp?.error || 'Falha na emissão';
-      if (statusMsg) statusMsg.textContent = `Erro: ${errMsg}`;
+      if (statusMsg) statusMsg.textContent = 'Erro: resposta inesperada do servidor';
     }
   }
 
@@ -130,16 +131,11 @@ const NFeService = (() => {
       alert('Motivo deve ter pelo menos 15 caracteres.');
       return;
     }
-    let resp = null;
     try {
-      resp = await api.post(`/notas-fiscais/${notaId}/cancelar`, { motivo });
-    } catch (_) {
-      resp = null;
-    }
-    if (resp && (resp.id || resp.success)) {
+      await api.post(`/notas-fiscais/${notaId}/cancelar`, { motivo });
       if (_orcamentoId) carregarNotasExistentes(_orcamentoId);
-    } else {
-      alert(resp?.detail || resp?.error || 'Erro ao cancelar nota');
+    } catch (e) {
+      alert(e.message || 'Erro ao cancelar nota');
     }
   }
 
