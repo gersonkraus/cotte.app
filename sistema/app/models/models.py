@@ -951,12 +951,12 @@ class ItemOrcamento(Base):
 # ── NOTA FISCAL ────────────────────────────────────────────────────────────
 
 
-class NotaFiscal(Base):
+class NotaFiscal(TenantScopedMixin, Base):
     __tablename__ = "notas_fiscais"
 
     id = Column(Integer, primary_key=True, index=True)
-    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False)
-    orcamento_id = Column(Integer, ForeignKey("orcamentos.id"), nullable=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False, index=True)
+    orcamento_id = Column(Integer, ForeignKey("orcamentos.id"), nullable=True, index=True)
     tipo = Column(String(10), nullable=False)          # "nfe" | "nfce" | "nfse"
     modelo = Column(Integer, nullable=True)            # 55 (NF-e), 65 (NFC-e), None (NFS-e)
     serie = Column(String(10), nullable=True)
@@ -972,9 +972,9 @@ class NotaFiscal(Base):
     payload_enviado = Column(JSON, nullable=True)
     erro_codigo = Column(String(50), nullable=True)
     erro_mensagem = Column(Text, nullable=True)
-    criado_em = Column(DateTime, default=datetime.utcnow)
-    emitida_em = Column(DateTime, nullable=True)
-    cancelada_em = Column(DateTime, nullable=True)
+    criado_em = Column(DateTime(timezone=True), server_default=func.now())
+    emitida_em = Column(DateTime(timezone=True), nullable=True)
+    cancelada_em = Column(DateTime(timezone=True), nullable=True)
     cancelamento_motivo = Column(String(500), nullable=True)
     criado_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
 
