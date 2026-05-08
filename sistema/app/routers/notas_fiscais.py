@@ -240,10 +240,23 @@ async def receber_webhook_notaas(
     x_notaas_delivery: str = Header(None),
     x_notaas_signature: str = Header(None),
 ):
+    """Recebe eventos NF-e, NFC-e e NFS-e da Notaas.
+
+    NF-e/NFC-e: campos dentro de payload["data"] (chaveAcesso, nProt, cStat, xMotivo).
+    NFS-e: campos no root (invoiceId, numeroNfe, chNFSe, errorCode, errorMessage).
+    """
     body = await request.body()
     payload = await request.json()
 
-    invoice_id = payload.get("invoiceId") or payload.get("id")
+    # Evento: vem no body E no header X-Notaas-Event
+    event = payload.get("event") or x_notaas_event or ""
+
+    # deliveryId: vem no body E no header (idempotência)
+    delivery_id = payload.get("deliveryId") or x_notaas_delivery
+
+    # NF-e/NFC-e: invoiceId fica dentro de data{}; NFS-e: fica no root
+    data = payload.get("data") or {}
+    invoice_id = data.get("invoiceId") or payload.get("invoiceId") or payload.get("id")
     if not invoice_id:
         return {"ok": True}
 
@@ -251,31 +264,46 @@ async def receber_webhook_notaas(
     if not nota:
         return {"ok": True}
 
+    # Valida assinatura HMAC-SHA256 se o secret estiver configurado
     empresa = db.query(Empresa).filter(Empresa.id == nota.empresa_id).first()
     if empresa and empresa.notaas_webhook_secret and x_notaas_signature:
         if not nfe_service.verificar_assinatura_webhook(body, x_notaas_signature, empresa.notaas_webhook_secret):
             raise HTTPException(401, "Assinatura de webhook inválida")
 
-    if x_notaas_delivery and nota.notaas_delivery_id == x_notaas_delivery:
+    # Idempotência: ignora reentregas já processadas
+    if delivery_id and nota.notaas_delivery_id == delivery_id:
         return {"ok": True}
-    nota.notaas_delivery_id = x_notaas_delivery
+    nota.notaas_delivery_id = delivery_id
 
-    event = x_notaas_event or ""
-
-    if "issued" in event or payload.get("status") == "issued":
+    if "issued" in event:
         nota.status = "emitida"
-        nota.numero = str(payload.get("nfNumber", nota.numero or ""))
-        nota.serie = str(payload.get("nfSerie", nota.serie or ""))
-        nota.chave_acesso = payload.get("accessKey")
-        nota.protocolo = payload.get("protocol")
-        nota.xml_url = payload.get("xmlUrl")
-        nota.danfe_url = payload.get("pdfUrl")
+        # NF-e/NFC-e: chaveAcesso e nProt ficam em data{}
+        # NFS-e: chNFSe e numeroNfe ficam no root
+        nota.chave_acesso = (
+            data.get("chaveAcesso")
+            or payload.get("chNFSe")
+            or payload.get("accessKey")
+        )
+        nota.protocolo = data.get("nProt") or payload.get("protocol")
+        numero = data.get("nfNumber") or payload.get("numeroNfe") or payload.get("nfNumber")
+        if numero:
+            nota.numero = str(numero)
+        nota.xml_url = data.get("xmlUrl") or payload.get("xmlUrl")
+        nota.danfe_url = data.get("pdfUrl") or payload.get("pdfUrl")
         nota.emitida_em = nota.emitida_em or datetime.utcnow()
-    elif "error" in event or payload.get("status") == "error":
-        erro = payload.get("error", {})
+
+    elif "error" in event:
         nota.status = "erro"
-        nota.erro_codigo = erro.get("code", "WEBHOOK_ERROR")
-        nota.erro_mensagem = erro.get("message", "Erro via webhook")
+        # NF-e/NFC-e: cStat + xMotivo em data{}; NFS-e: errorCode + errorMessage no root
+        nota.erro_codigo = (
+            str(data.get("cStat") or "")
+            or payload.get("errorCode", "WEBHOOK_ERROR")
+        )
+        nota.erro_mensagem = (
+            data.get("xMotivo")
+            or payload.get("errorMessage", "Erro via webhook")
+        )
+
     elif "cancelled" in event:
         nota.status = "cancelada"
         nota.cancelada_em = datetime.utcnow()

@@ -316,9 +316,14 @@ async def cancelar_nota(
 
 
 def verificar_assinatura_webhook(body: bytes, signature: str, secret: str) -> bool:
-    """Valida HMAC-SHA256 do webhook Notaas."""
+    """Valida HMAC-SHA256 do webhook Notaas.
+
+    A Notaas envia o hex do HMAC diretamente no X-Notaas-Signature (sem prefixo sha256=).
+    """
     expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(f"sha256={expected}", signature)
+    # Aceita com ou sem prefixo "sha256=" para compatibilidade
+    sig = signature.removeprefix("sha256=")
+    return hmac.compare_digest(expected, sig)
 
 
 def _limpar_doc(doc: str) -> str:
