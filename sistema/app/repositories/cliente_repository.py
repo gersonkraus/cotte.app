@@ -29,7 +29,7 @@ class ClienteRepository(RepositoryBase[Cliente, ClienteCreate, ClienteUpdate]):
             if empresa_id:
                 stmt = stmt.where(Cliente.empresa_id == empresa_id)
             
-            result = db.execute(stmt)
+            result = db.execute(stmt.order_by(Cliente.id.desc()))
             return result.scalars().first()
         except SQLAlchemyError as e:
             logger.error(f"Erro ao buscar cliente por telefone {telefone}: {e}")

@@ -396,11 +396,19 @@ async function salvarCliente() {
     };
 
     if (clienteEditandoId) {
-      await api.put(`/clientes/${clienteEditandoId}`, payload);
-      showNotif('✅', 'Cliente atualizado!', nome);
+      const result = await api.put(`/clientes/${clienteEditandoId}`, payload);
+      if (result?.aviso) {
+        showNotif('⚠️', 'Cliente atualizado com aviso', result.aviso, 'warning');
+      } else {
+        showNotif('✅', 'Cliente atualizado!', nome);
+      }
     } else {
-      await api.post('/clientes/', payload);
-      showNotif('✅', 'Cliente cadastrado!', nome + ' adicionado com sucesso');
+      const result = await api.post('/clientes/', payload);
+      if (result?.aviso) {
+        showNotif('⚠️', 'Cliente cadastrado com aviso', result.aviso, 'warning');
+      } else {
+        showNotif('✅', 'Cliente cadastrado!', nome + ' adicionado com sucesso');
+      }
     }
 
     fecharModalCliente();

@@ -72,6 +72,7 @@ class ClienteOut(ClienteBase):
     id: int
     empresa_id: int
     criado_em: datetime
+    aviso: Optional[str] = None
 
     class Config:
         from_attributes = True

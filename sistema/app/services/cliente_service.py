@@ -25,15 +25,14 @@ class ClienteService:
     def criar_cliente(self, dados: ClienteCreate, usuario: Usuario) -> Cliente:
         """Cria um novo cliente com validações de negócio."""
         try:
+            aviso_msg = None
             # Verifica se já existe cliente com mesmo telefone na mesma empresa
             if dados.telefone:
                 cliente_existente = self.cliente_repo.get_by_telefone(
                     self.db, dados.telefone, usuario.empresa_id
                 )
                 if cliente_existente:
-                    raise ClienteDuplicadoException(
-                        f"Cliente com telefone {dados.telefone} já existe"
-                    )
+                    aviso_msg = f"Já existe outro cliente com este telefone: {cliente_existente.nome}"
 
             # Verifica se já existe cliente com mesmo email na mesma empresa
             if dados.email:
@@ -53,6 +52,8 @@ class ClienteService:
             # Cria o cliente
             cliente = self.cliente_repo.create(self.db, dados_dict)
             logger.info(f"Cliente criado: ID {cliente.id}, Nome: {cliente.nome}")
+            if aviso_msg:
+                cliente.aviso = aviso_msg
             return cliente
 
         except ClienteDuplicadoException:
@@ -129,14 +130,13 @@ class ClienteService:
         """Atualiza um cliente existente."""
         try:
             cliente = self.obter_cliente(cliente_id, usuario)
+            aviso_msg = None
             if dados.telefone is not None and dados.telefone != cliente.telefone:
                 cliente_existente = self.cliente_repo.get_by_telefone(
                     self.db, dados.telefone, usuario.empresa_id
                 )
                 if cliente_existente and cliente_existente.id != cliente_id:
-                    raise ClienteDuplicadoException(
-                        f"Telefone {dados.telefone} já existe"
-                    )
+                    aviso_msg = f"Já existe outro cliente com este telefone: {cliente_existente.nome}"
 
             if dados.email is not None and dados.email != cliente.email:
                 cliente_existente = self.cliente_repo.get_by_email(
@@ -145,7 +145,10 @@ class ClienteService:
                 if cliente_existente and cliente_existente.id != cliente_id:
                     raise ClienteDuplicadoException(f"Email {dados.email} já existe")
 
-            return self.cliente_repo.update(self.db, cliente, dados)
+            cliente_atualizado = self.cliente_repo.update(self.db, cliente, dados)
+            if aviso_msg:
+                cliente_atualizado.aviso = aviso_msg
+            return cliente_atualizado
         except (ClienteNotFoundException, ClienteDuplicadoException):
             raise
         except SQLAlchemyError as e:
