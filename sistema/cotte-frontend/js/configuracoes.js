@@ -1618,7 +1618,7 @@ async function carregarConfiguracaoFinanceira() {
   }
 }
 
-function _toggleGerarAoAprovar(el) { /* apenas visual; salvo com o botão */ }
+function _toggleGerarAoAprovar(_el) { /* apenas visual; salvo com o botão */ }
 
 function _toggleAutomacoesFinanceiro(el) {
   const cfg = document.getElementById('fin-lembrete-config');
