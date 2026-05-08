@@ -1200,6 +1200,16 @@
         Financeiro
       </div>
 
+      <div class="cfg-nav-item" onclick="irSecao('fiscal')" data-secao="fiscal" data-search-terms="fiscal nfe nfce nfse nota fiscal cnpj inscricao estadual municipal regime tributario simples mei notaas">
+        <span class="cfg-nav-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+        </span>
+        Fiscal / NF-e
+      </div>
+
       <div class="cfg-nav-group-label">Comunicação</div>
 
       <div class="cfg-nav-item" onclick="irSecao('comunicacao')" data-secao="comunicacao" data-search-terms="comunicação whatsapp e-mail sms mensagem notificação template">
@@ -2795,6 +2805,143 @@ Estamos à disposição! 😊"></textarea>
             </div>
           </div>
         </div>
+      </section>
+
+      <!-- ════════════════════════════════════════
+           SEÇÃO: FISCAL / NF-e
+      ════════════════════════════════════════ -->
+      <section class="cfg-section" id="sec-fiscal">
+        <div class="cfg-section-header">
+          <div class="cfg-section-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+              <line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+            </svg>
+          </div>
+          <div>
+            <div class="cfg-section-title">Fiscal / NF-e</div>
+            <div class="cfg-section-desc">Configure os dados fiscais da empresa para emissão de NF-e, NFC-e e NFS-e via API Notaas.</div>
+          </div>
+        </div>
+
+        <!-- Card: Dados Fiscais -->
+        <div class="cfg-block">
+          <div class="cfg-card">
+            <div class="cfg-card-header">
+              <div class="cfg-card-header-info">
+                <div class="cfg-card-title">Dados Fiscais da Empresa</div>
+                <div class="cfg-card-subtitle">CNPJ, inscrições e regime tributário usados na emissão das notas.</div>
+              </div>
+            </div>
+            <div class="cfg-card-body">
+              <div class="cfg-fields-grid">
+                <div class="cfg-form-group">
+                  <label for="fiscal-cnpj">CNPJ da Empresa</label>
+                  <input type="text" id="fiscal-cnpj" class="cfg-input" placeholder="00.000.000/0001-00" maxlength="18">
+                </div>
+                <div class="cfg-form-group">
+                  <label for="fiscal-ie">Inscrição Estadual</label>
+                  <input type="text" id="fiscal-ie" class="cfg-input" placeholder="000.000.000.000">
+                </div>
+                <div class="cfg-form-group">
+                  <label for="fiscal-im">Inscrição Municipal</label>
+                  <input type="text" id="fiscal-im" class="cfg-input" placeholder="Inscrição municipal">
+                </div>
+                <div class="cfg-form-group">
+                  <label for="fiscal-regime">Regime Tributário</label>
+                  <select id="fiscal-regime" class="cfg-select">
+                    <option value="simples_nacional">Simples Nacional</option>
+                    <option value="mei">MEI</option>
+                    <option value="lucro_presumido">Lucro Presumido</option>
+                    <option value="lucro_real">Lucro Real</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card: Endereço Fiscal -->
+        <div class="cfg-block">
+          <div class="cfg-card">
+            <div class="cfg-card-header">
+              <div class="cfg-card-header-info">
+                <div class="cfg-card-title">Endereço Fiscal</div>
+                <div class="cfg-card-subtitle">Endereço que constará nas notas emitidas.</div>
+              </div>
+            </div>
+            <div class="cfg-card-body">
+              <div class="cfg-fields-grid">
+                <div class="cfg-form-group">
+                  <label for="fiscal-cep">CEP</label>
+                  <input type="text" id="fiscal-cep" class="cfg-input" placeholder="00000-000" maxlength="9">
+                </div>
+                <div class="cfg-form-group">
+                  <label for="fiscal-logradouro">Logradouro</label>
+                  <input type="text" id="fiscal-logradouro" class="cfg-input" placeholder="Rua, Avenida...">
+                </div>
+                <div class="cfg-form-group">
+                  <label for="fiscal-numero">Número</label>
+                  <input type="text" id="fiscal-numero" class="cfg-input" placeholder="123">
+                </div>
+                <div class="cfg-form-group">
+                  <label for="fiscal-complemento">Complemento</label>
+                  <input type="text" id="fiscal-complemento" class="cfg-input" placeholder="Sala, Andar...">
+                </div>
+                <div class="cfg-form-group">
+                  <label for="fiscal-bairro">Bairro</label>
+                  <input type="text" id="fiscal-bairro" class="cfg-input">
+                </div>
+                <div class="cfg-form-group">
+                  <label for="fiscal-cidade">Cidade</label>
+                  <input type="text" id="fiscal-cidade" class="cfg-input">
+                </div>
+                <div class="cfg-form-group">
+                  <label for="fiscal-uf">UF</label>
+                  <input type="text" id="fiscal-uf" class="cfg-input" maxlength="2" placeholder="SP">
+                </div>
+                <div class="cfg-form-group">
+                  <label for="fiscal-ibge">Código IBGE do Município</label>
+                  <input type="text" id="fiscal-ibge" class="cfg-input" placeholder="3550308" maxlength="7">
+                  <span class="cfg-field-hint">Obrigatório para NFS-e. Consulte em <a href="https://ibge.gov.br" target="_blank" rel="noopener" style="color:var(--accent)">ibge.gov.br</a></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card: Configuração Notaas -->
+        <div class="cfg-block">
+          <div class="cfg-card">
+            <div class="cfg-card-header">
+              <div class="cfg-card-header-info">
+                <div class="cfg-card-title">Integração Notaas</div>
+                <div class="cfg-card-subtitle">Credenciais para emissão automática via <a href="https://platform.notaas.com.br" target="_blank" rel="noopener" style="color:var(--accent)">platform.notaas.com.br</a></div>
+              </div>
+            </div>
+            <div class="cfg-card-body">
+              <div class="cfg-fields-grid">
+                <div class="cfg-form-group">
+                  <label for="fiscal-api-key">API Key Notaas</label>
+                  <input type="password" id="fiscal-api-key" class="cfg-input" placeholder="Insira sua API key">
+                </div>
+                <div class="cfg-form-group">
+                  <label for="fiscal-ambiente">Ambiente</label>
+                  <select id="fiscal-ambiente" class="cfg-select">
+                    <option value="homologacao">Homologação (testes)</option>
+                    <option value="producao">Produção</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="cfg-card-footer">
+              <button class="btn btn-primary" id="btn-salvar-fiscal" onclick="salvarConfiguracaoFiscal(this)">
+                Salvar configuração fiscal
+              </button>
+            </div>
+          </div>
+        </div>
+
       </section>
 
     </div><!-- /cfg-content -->

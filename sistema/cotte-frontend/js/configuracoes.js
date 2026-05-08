@@ -469,6 +469,7 @@ function irSecao(id) {
   if (id === 'formas-pagamento') carregarFormasPagamento();
   if (id === 'cfg-financeiro') carregarConfiguracaoFinanceira();
   if (id === 'catalogo-modelos') cfgCarregarSegmentos();
+  if (id === 'fiscal') carregarConfiguracaoFiscal();
 }
 
 // ── TEMA ──────────────────────────────────────────────────────────────
@@ -2442,5 +2443,67 @@ window.selecionarTemplate = selecionarTemplate;
 window.salvarTemplateUnificado = salvarTemplateUnificado;
 window.abrirPreviewTemplatePublico = abrirPreviewTemplatePublico;
 window.fecharModalPreviewTemplatePublico = fecharModalPreviewTemplatePublico;
+
+// ── FISCAL / NF-e ─────────────────────────────────────────────────────────────
+async function carregarConfiguracaoFiscal() {
+  try {
+    const d = await api.get('/notas-fiscais/configuracao');
+    if (!d) return;
+    document.getElementById('fiscal-cnpj').value = d.cnpj || '';
+    document.getElementById('fiscal-ie').value = d.inscricao_estadual || '';
+    document.getElementById('fiscal-im').value = d.inscricao_municipal || '';
+    const regime = document.getElementById('fiscal-regime');
+    if (d.regime_tributario) regime.value = d.regime_tributario;
+    document.getElementById('fiscal-cep').value = d.endereco_cep || '';
+    document.getElementById('fiscal-logradouro').value = d.endereco_logradouro || '';
+    document.getElementById('fiscal-numero').value = d.endereco_numero || '';
+    document.getElementById('fiscal-complemento').value = d.endereco_complemento || '';
+    document.getElementById('fiscal-bairro').value = d.endereco_bairro || '';
+    document.getElementById('fiscal-cidade').value = d.endereco_cidade || '';
+    document.getElementById('fiscal-uf').value = d.endereco_uf || '';
+    document.getElementById('fiscal-ibge').value = d.endereco_codigo_municipio_ibge || '';
+    // Exibe placeholder se já tem chave salva, não expõe o valor real
+    document.getElementById('fiscal-api-key').value = d.notaas_api_key ? '***' : '';
+    const ambiente = document.getElementById('fiscal-ambiente');
+    if (d.notaas_ambiente) ambiente.value = d.notaas_ambiente;
+  } catch (err) {
+    console.error('[Fiscal] Erro ao carregar configuração:', err);
+  }
+}
+
+async function salvarConfiguracaoFiscal(btnEl) {
+  if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Salvando...'; }
+  try {
+    const apiKey = document.getElementById('fiscal-api-key').value;
+    const regimeValue = document.getElementById('fiscal-regime').value;
+    const payload = {
+      cnpj: document.getElementById('fiscal-cnpj').value || null,
+      inscricao_estadual: document.getElementById('fiscal-ie').value || null,
+      inscricao_municipal: document.getElementById('fiscal-im').value || null,
+      regime_tributario: regimeValue || null,
+      crt: (regimeValue === 'simples_nacional' || regimeValue === 'mei') ? 1 : 3,
+      endereco_cep: document.getElementById('fiscal-cep').value || null,
+      endereco_logradouro: document.getElementById('fiscal-logradouro').value || null,
+      endereco_numero: document.getElementById('fiscal-numero').value || null,
+      endereco_complemento: document.getElementById('fiscal-complemento').value || null,
+      endereco_bairro: document.getElementById('fiscal-bairro').value || null,
+      endereco_cidade: document.getElementById('fiscal-cidade').value || null,
+      endereco_uf: document.getElementById('fiscal-uf').value || null,
+      endereco_codigo_municipio_ibge: document.getElementById('fiscal-ibge').value || null,
+      notaas_ambiente: document.getElementById('fiscal-ambiente').value,
+    };
+    // Só envia a key se o usuário digitou algo diferente do placeholder
+    if (apiKey && apiKey !== '***') payload.notaas_api_key = apiKey;
+    await api.put('/notas-fiscais/configuracao', payload);
+    showNotif('✅', 'Configuração fiscal salva!', 'Dados atualizados com sucesso.');
+  } catch (err) {
+    showNotif('❌', 'Erro', err.message || 'Falha ao salvar configuração fiscal', 'error');
+  } finally {
+    if (btnEl) { btnEl.disabled = false; btnEl.textContent = 'Salvar configuração fiscal'; }
+  }
+}
+
+window.carregarConfiguracaoFiscal = carregarConfiguracaoFiscal;
+window.salvarConfiguracaoFiscal = salvarConfiguracaoFiscal;
 
 initTemplatePublicoUI();
