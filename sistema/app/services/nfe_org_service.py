@@ -163,6 +163,64 @@ async def criar_api_key(db: Session, empresa: Empresa, project_id: str) -> str:
     return api_key
 
 
+async def registrar_webhook(db: Session, empresa: Empresa, api_key: str) -> dict:
+    """Registra o webhook do COTTE na Notaas para este projeto.
+
+    Usa a ntaas_ API key do projeto.
+    Gera um secret único por empresa para validação HMAC-SHA256.
+    Se o endpoint já existir, apenas renova o secret local.
+    """
+    import secrets as _secrets
+
+    app_url = os.environ.get("APP_URL", "").rstrip("/")
+    if not app_url:
+        logger.warning("APP_URL não configurado — webhook não registrado na Notaas")
+        return {"registered": False, "error": "APP_URL ausente"}
+
+    webhook_url = f"{app_url}/api/v1/notas-fiscais/webhook/notaas"
+    webhook_secret = _secrets.token_hex(32)
+
+    _events = [
+        "nfe.issued", "nfe.error", "nfe.cancelled",
+        "nfce.issued", "nfce.error", "nfce.cancelled",
+        "nfse.issued", "nfse.error", "nfse.cancelled",
+    ]
+
+    async with httpx.AsyncClient(
+        base_url=NOTAAS_BASE_URL,
+        headers={"x-api-key": api_key, "Content-Type": "application/json"},
+        timeout=30.0,
+    ) as client:
+        # Verifica se já existe um endpoint com esta URL para evitar duplicata
+        list_resp = await client.get("/webhooks/endpoints")
+        if list_resp.status_code == 200:
+            body = list_resp.json()
+            endpoints = body.get("data", body) if isinstance(body, dict) else body
+            for ep in (endpoints if isinstance(endpoints, list) else []):
+                if ep.get("url") == webhook_url:
+                    empresa.notaas_webhook_secret = webhook_secret
+                    db.flush()
+                    logger.info("Webhook já registrado para empresa_id=%s, secret renovado", empresa.id)
+                    return {"webhook_url": webhook_url, "registered": True, "already_existed": True}
+
+        resp = await client.post(
+            "/webhooks/endpoints",
+            json={"url": webhook_url, "events": _events, "secret": webhook_secret},
+        )
+        if resp.status_code not in (200, 201):
+            # Não-crítico: onboarding continua mesmo sem webhook registrado
+            logger.warning(
+                "Falha ao registrar webhook Notaas empresa_id=%s: %s — %s",
+                empresa.id, resp.status_code, resp.text[:200],
+            )
+            return {"registered": False, "error": f"{resp.status_code}: {resp.text[:100]}"}
+
+    empresa.notaas_webhook_secret = webhook_secret
+    db.flush()
+    logger.info("Webhook Notaas registrado empresa_id=%s → %s", empresa.id, webhook_url)
+    return {"webhook_url": webhook_url, "registered": True}
+
+
 async def onboarding_completo(
     db: Session,
     empresa: Empresa,
@@ -172,9 +230,10 @@ async def onboarding_completo(
     """Executa o onboarding completo em um único passo:
     1. Cria/obtém projeto
     2. Faz upload do certificado
-    3. Cria API key e salva na empresa
+    3. Cria API key
+    4. Registra webhook com secret único
 
-    Retorna dict com project_id, cert_info e api_key_prefix.
+    Retorna dict com project_id, cert_info, api_key_prefix e webhook_url.
     """
     project_id = await criar_ou_obter_projeto(db, empresa)
     cert_info = await upload_certificado(project_id, cert_bytes, cert_password)
@@ -182,12 +241,16 @@ async def onboarding_completo(
     # Sempre cria nova API key no onboarding (a anterior pode ter sido perdida)
     api_key = await criar_api_key(db, empresa, project_id)
 
+    webhook_info = await registrar_webhook(db, empresa, api_key)
+
     db.commit()
     return {
         "project_id": project_id,
         "cert_valido_ate": cert_info.get("validUntil"),
         "cert_dias_restantes": cert_info.get("daysUntilExpiration"),
         "api_key_prefix": api_key[:12] + "...",  # nunca retornar chave completa ao frontend
+        "webhook_url": webhook_info.get("webhook_url"),
+        "webhook_registrado": webhook_info.get("registered", False),
     }
 
 
