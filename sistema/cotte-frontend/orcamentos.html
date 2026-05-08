@@ -1916,44 +1916,44 @@
 
 <!-- Modal: Emitir Nota Fiscal -->
 <div id="modal-nfe" class="modal-overlay" aria-hidden="true" role="dialog" aria-labelledby="modal-nfe-title" aria-modal="true">
-  <div class="modal-container" style="max-width:580px;width:95%">
+  <div class="modal" style="width:560px">
     <div class="modal-header">
-      <h3 id="modal-nfe-title" style="margin:0">Emitir Nota Fiscal</h3>
-      <button class="modal-close" onclick="NFeService.fecharModal()" aria-label="Fechar" style="background:none;border:none;font-size:1.5rem;cursor:pointer;line-height:1">&times;</button>
+      <span class="modal-title" id="modal-nfe-title">Emitir Nota Fiscal</span>
+      <button class="modal-close" onclick="NFeService.fecharModal()" aria-label="Fechar">&times;</button>
     </div>
     <div class="modal-body">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
+      <div class="form-row">
         <div class="form-group">
-          <label style="display:block;margin-bottom:0.25rem;font-size:0.875rem">Tipo de NF</label>
-          <select id="nfe-tipo" style="width:100%">
+          <label>Tipo de NF</label>
+          <select id="nfe-tipo">
             <option value="nfse">NFS-e (Serviço)</option>
             <option value="nfe">NF-e Modelo 55 (Produto)</option>
             <option value="nfce">NFC-e Modelo 65 (Consumidor)</option>
           </select>
         </div>
         <div class="form-group">
-          <label style="display:block;margin-bottom:0.25rem;font-size:0.875rem">Série</label>
-          <input type="text" id="nfe-serie" value="1" maxlength="3" style="width:100%">
+          <label>Série</label>
+          <input type="text" id="nfe-serie" value="1" maxlength="3">
         </div>
-        <div class="form-group" style="grid-column:span 2">
-          <label style="display:block;margin-bottom:0.25rem;font-size:0.875rem">Natureza da Operação</label>
-          <input type="text" id="nfe-natureza" value="Venda de Serviços" placeholder="Ex: Venda de Serviços" style="width:100%">
-        </div>
-        <div class="form-group">
-          <label style="display:block;margin-bottom:0.25rem;font-size:0.875rem">Código LC116 (NFS-e)</label>
-          <input type="text" id="nfe-codigo-servico" placeholder="Ex: 17.06" style="width:100%">
+        <div class="form-group full">
+          <label>Natureza da Operação</label>
+          <input type="text" id="nfe-natureza" value="Venda de Serviços">
         </div>
         <div class="form-group">
-          <label style="display:block;margin-bottom:0.25rem;font-size:0.875rem">Alíquota ISS (%)</label>
-          <input type="number" id="nfe-aliquota-iss" placeholder="Ex: 5" step="0.01" min="0" max="100" style="width:100%">
+          <label>Código LC116 (NFS-e)</label>
+          <input type="text" id="nfe-codigo-servico" placeholder="Ex: 17.06">
+        </div>
+        <div class="form-group">
+          <label>Alíquota ISS (%)</label>
+          <input type="number" id="nfe-aliquota-iss" placeholder="Ex: 5" step="0.01" min="0" max="100">
         </div>
       </div>
-      <div id="nfe-status-msg" style="min-height:1.5rem;font-size:0.875rem;color:var(--accent,#6c63ff);margin-bottom:0.75rem"></div>
+      <div id="nfe-status-msg" style="min-height:1.25rem;font-size:0.85rem;color:var(--accent)"></div>
       <button id="btn-emitir-nfe" class="btn btn-primary" onclick="NFeService.emitir()" style="width:100%">
         Emitir NF
       </button>
-      <hr style="margin:1.25rem 0;border:none;border-top:1px solid var(--border,#eee)">
-      <h4 style="margin:0 0 0.75rem">Notas emitidas para este orçamento</h4>
+      <hr style="margin:1rem 0;border:none;border-top:1px solid var(--border)">
+      <p style="font-weight:600;margin:0 0 0.5rem;font-size:0.875rem">Notas emitidas para este orçamento</p>
       <div id="nfe-lista-notas"></div>
     </div>
   </div>
