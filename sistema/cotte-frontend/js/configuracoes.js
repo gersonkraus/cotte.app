@@ -1096,6 +1096,7 @@ function _renderizarMercadoLivre(status) {
   const meta = document.getElementById('ml-connected-meta');
   const btnSyncPedidos = document.getElementById('ml-btn-sync-pedidos');
   const btnSyncAnuncios = document.getElementById('ml-btn-sync-anuncios');
+  const btnSyncCatalogoPush = document.getElementById('ml-btn-sync-catalogo-push');
   const btnDesconectar = document.getElementById('ml-btn-desconectar');
 
   const conectado = Boolean(status.connected);
@@ -1105,6 +1106,7 @@ function _renderizarMercadoLivre(status) {
 
   if (btnSyncPedidos) btnSyncPedidos.disabled = !conectado;
   if (btnSyncAnuncios) btnSyncAnuncios.disabled = !conectado;
+  if (btnSyncCatalogoPush) btnSyncCatalogoPush.disabled = !conectado;
   if (btnDesconectar) btnDesconectar.disabled = !conectado;
 
   if (meta) meta.style.display = conectado ? 'block' : 'none';
@@ -1132,12 +1134,37 @@ async function carregarStatusMercadoLivre() {
     const resp = await api.get('/mercadolivre/status');
     const data = _mlExtrairData(resp);
     _renderizarMercadoLivre(data);
+    await carregarJobsMercadoLivre();
   } catch (err) {
     const erro = document.getElementById('ml-last-error');
     if (erro) {
       erro.style.display = 'block';
       erro.textContent = err.message || 'Falha ao obter status da integração.';
     }
+  }
+}
+
+async function carregarJobsMercadoLivre() {
+  const el = document.getElementById('ml-jobs-status');
+  if (!el) return;
+  try {
+    const resp = await api.get('/mercadolivre/jobs?limit=1');
+    const data = _mlExtrairData(resp);
+    const job = data?.items?.[0];
+    if (!job) {
+      el.style.display = 'none';
+      el.textContent = '';
+      return;
+    }
+    const inicio = _mlFormatarData(job.started_at);
+    const status = String(job.status || '').toLowerCase();
+    const tipo = job.tipo || 'sync';
+    const icon = status === 'success' ? '✅' : status === 'error' ? '❌' : '⏳';
+    const extra = status === 'error' && job.error ? ` · ${job.error}` : '';
+    el.style.display = 'block';
+    el.textContent = `${icon} Último job (${tipo}) em ${inicio}: ${status}${extra}`;
+  } catch (_) {
+    el.style.display = 'none';
   }
 }
 
@@ -1177,7 +1204,7 @@ async function mlSyncPedidos() {
     showNotif(
       '✅',
       'Pedidos sincronizados',
-      `${data.total_recebido || 0} recebidos · ${data.inseridos || 0} novos`,
+      `${data.total_recebido || 0} recebidos · ${data.inseridos || 0} snapshots · ${data.importados_criados || 0} pedidos no sistema`,
       'success'
     );
     await carregarStatusMercadoLivre();
@@ -1204,7 +1231,7 @@ async function mlSyncAnuncios() {
     showNotif(
       '✅',
       'Anúncios sincronizados',
-      `${data.total_recebido || 0} recebidos · ${data.inseridos || 0} novos`,
+      `${data.total_recebido || 0} recebidos · ${data.inseridos || 0} snapshots · ${data.catalogo_criados || 0} no catálogo`,
       'success'
     );
     await carregarStatusMercadoLivre();
@@ -1216,6 +1243,40 @@ async function mlSyncAnuncios() {
       btn.textContent = textoOriginal || 'Sincronizar anúncios';
     }
   }
+}
+
+async function _mlExecutarEscopo(escopo, btnId, textos) {
+  const btn = document.getElementById(btnId);
+  const original = btn ? btn.textContent : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = textos?.loading || 'Sincronizando...';
+  }
+  try {
+    const resp = await api.post(`/mercadolivre/sync/executar?escopo=${encodeURIComponent(escopo)}`, {});
+    const data = _mlExtrairData(resp);
+    const counters = data?.counters || {};
+    const resumo = escopo === 'catalogo_push'
+      ? `${counters.push_enviados || 0} enviados · ${counters.push_falhas || 0} falhas`
+      : `${counters.total_recebido || 0} recebidos`;
+    showNotif('✅', textos?.successTitle || 'Sincronização concluída', resumo, 'success');
+    await carregarStatusMercadoLivre();
+  } catch (err) {
+    showNotif('❌', 'Erro', err.message || 'Falha ao executar sincronização', 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = original || (textos?.idle || 'Sincronizar');
+    }
+  }
+}
+
+async function mlSyncCatalogoPush() {
+  return _mlExecutarEscopo('catalogo_push', 'ml-btn-sync-catalogo-push', {
+    loading: 'Enviando...',
+    idle: 'Enviar catálogo p/ ML',
+    successTitle: 'Catálogo enviado para ML'
+  });
 }
 
 async function mlDesconectar() {

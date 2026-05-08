@@ -126,6 +126,10 @@ class Settings(BaseSettings):
     ML_APP_ID: str = ""
     ML_AUTH_URL: str = "https://auth.mercadolivre.com.br/authorization"
     ML_API_BASE_URL: str = "https://api.mercadolibre.com"
+    ML_SYNC_CRON_TOKEN: str = ""
+    ML_SYNC_PERIODIC_ENABLED: bool = False
+    ML_SYNC_PERIODIC_INTERVAL_MINUTES: int = 15
+    ML_TOKEN_CRYPTO_SECRET: str = ""
 
     # Prefixo da API (alguns módulos usam /api/v1, outros usam /)
     API_V1_STR: str = ""

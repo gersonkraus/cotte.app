@@ -2,15 +2,19 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, Optional
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, Iterable, Optional, List
 
 from sqlalchemy.orm import Session
 
 from app.models.models import (
     IntegracaoMercadoLivre,
     MercadoLivreAnuncioSnapshot,
+    MercadoLivreItemVinculo,
     MercadoLivrePedidoSnapshot,
+    MercadoLivrePedidoVinculo,
+    MercadoLivreSyncJob,
+    MercadoLivreSyncLock,
 )
 
 
@@ -227,3 +231,229 @@ class MercadoLivreRepository:
             inseridos += 1
 
         return {"inseridos": inseridos, "atualizados": atualizados, "ignorados": ignorados}
+
+    # ── VÍNCULOS DE PEDIDOS ────────────────────────────────────────────────
+
+    def get_pedido_vinculo(
+        self, empresa_id: int, ml_order_id: str
+    ) -> Optional[MercadoLivrePedidoVinculo]:
+        return (
+            self.db.query(MercadoLivrePedidoVinculo)
+            .filter(
+                MercadoLivrePedidoVinculo.empresa_id == empresa_id,
+                MercadoLivrePedidoVinculo.ml_order_id == str(ml_order_id),
+            )
+            .first()
+        )
+
+    def list_pedido_vinculos(
+        self, empresa_id: int, *, limit: int = 50, offset: int = 0
+    ) -> List[MercadoLivrePedidoVinculo]:
+        return (
+            self.db.query(MercadoLivrePedidoVinculo)
+            .filter(MercadoLivrePedidoVinculo.empresa_id == empresa_id)
+            .order_by(MercadoLivrePedidoVinculo.atualizado_em.desc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+
+    def upsert_pedido_vinculo(
+        self,
+        *,
+        empresa_id: int,
+        ml_order_id: str,
+        orcamento_id: int,
+        status_ml: Optional[str],
+        status_sync: str = "ok",
+        erro: Optional[str] = None,
+    ) -> MercadoLivrePedidoVinculo:
+        registro = self.get_pedido_vinculo(empresa_id=empresa_id, ml_order_id=ml_order_id)
+        if not registro:
+            registro = MercadoLivrePedidoVinculo(
+                empresa_id=empresa_id,
+                ml_order_id=str(ml_order_id),
+                orcamento_id=orcamento_id,
+            )
+        registro.orcamento_id = orcamento_id
+        registro.status_ml = status_ml
+        registro.status_sync = status_sync
+        registro.erro = erro
+        registro.last_seen_at = datetime.now(timezone.utc)
+        self.db.add(registro)
+        self.db.flush()
+        return registro
+
+    # ── VÍNCULOS DE CATÁLOGO ───────────────────────────────────────────────
+
+    def get_item_vinculo_by_ml_item(
+        self, empresa_id: int, ml_item_id: str
+    ) -> Optional[MercadoLivreItemVinculo]:
+        return (
+            self.db.query(MercadoLivreItemVinculo)
+            .filter(
+                MercadoLivreItemVinculo.empresa_id == empresa_id,
+                MercadoLivreItemVinculo.ml_item_id == str(ml_item_id),
+            )
+            .first()
+        )
+
+    def get_item_vinculo_by_servico(
+        self, empresa_id: int, servico_id: int
+    ) -> Optional[MercadoLivreItemVinculo]:
+        return (
+            self.db.query(MercadoLivreItemVinculo)
+            .filter(
+                MercadoLivreItemVinculo.empresa_id == empresa_id,
+                MercadoLivreItemVinculo.servico_id == servico_id,
+            )
+            .first()
+        )
+
+    def list_item_vinculos(
+        self, empresa_id: int, *, limit: int = 100, offset: int = 0
+    ) -> List[MercadoLivreItemVinculo]:
+        return (
+            self.db.query(MercadoLivreItemVinculo)
+            .filter(MercadoLivreItemVinculo.empresa_id == empresa_id)
+            .order_by(MercadoLivreItemVinculo.atualizado_em.desc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+
+    def upsert_item_vinculo(
+        self,
+        *,
+        empresa_id: int,
+        ml_item_id: str,
+        servico_id: int,
+        sync_mode: str = "ml_only_pull",
+        allow_push_price: bool = False,
+        allow_push_stock: bool = False,
+        allow_push_title: bool = False,
+        allow_push_description: bool = False,
+        source_of_truth: str = "ml",
+        last_push_hash: Optional[str] = None,
+    ) -> MercadoLivreItemVinculo:
+        registro = self.get_item_vinculo_by_ml_item(empresa_id=empresa_id, ml_item_id=ml_item_id)
+        if not registro:
+            registro = MercadoLivreItemVinculo(
+                empresa_id=empresa_id,
+                ml_item_id=str(ml_item_id),
+                servico_id=servico_id,
+            )
+        registro.servico_id = servico_id
+        registro.sync_mode = sync_mode
+        registro.allow_push_price = bool(allow_push_price)
+        registro.allow_push_stock = bool(allow_push_stock)
+        registro.allow_push_title = bool(allow_push_title)
+        registro.allow_push_description = bool(allow_push_description)
+        registro.source_of_truth = source_of_truth
+        if last_push_hash is not None:
+            registro.last_push_hash = last_push_hash
+        self.db.add(registro)
+        self.db.flush()
+        return registro
+
+    def delete_item_vinculo(
+        self, *, empresa_id: int, servico_id: int
+    ) -> bool:
+        registro = self.get_item_vinculo_by_servico(
+            empresa_id=empresa_id,
+            servico_id=servico_id,
+        )
+        if not registro:
+            return False
+        self.db.delete(registro)
+        self.db.flush()
+        return True
+
+    # ── JOBS E LOCKS ───────────────────────────────────────────────────────
+
+    def create_sync_job(
+        self, *, empresa_id: int, tipo: str, trigger_source: str = "manual"
+    ) -> MercadoLivreSyncJob:
+        job = MercadoLivreSyncJob(
+            empresa_id=empresa_id,
+            tipo=tipo,
+            status="running",
+            trigger_source=trigger_source,
+        )
+        self.db.add(job)
+        self.db.flush()
+        return job
+
+    def finish_sync_job(
+        self,
+        *,
+        job_id: int,
+        status: str,
+        counters_json: Optional[Dict[str, Any]] = None,
+        erro: Optional[str] = None,
+    ) -> Optional[MercadoLivreSyncJob]:
+        job = self.db.query(MercadoLivreSyncJob).filter(MercadoLivreSyncJob.id == job_id).first()
+        if not job:
+            return None
+        job.status = status
+        job.finished_at = datetime.now(timezone.utc)
+        job.counters_json = counters_json
+        job.erro = erro
+        self.db.add(job)
+        self.db.flush()
+        return job
+
+    def list_sync_jobs(
+        self, empresa_id: int, *, limit: int = 20, offset: int = 0
+    ) -> List[MercadoLivreSyncJob]:
+        return (
+            self.db.query(MercadoLivreSyncJob)
+            .filter(MercadoLivreSyncJob.empresa_id == empresa_id)
+            .order_by(MercadoLivreSyncJob.started_at.desc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+
+    def acquire_lock(
+        self, *, empresa_id: int, tipo: str, lock_token: str, ttl_seconds: int = 600
+    ) -> bool:
+        now = datetime.now(timezone.utc)
+        expires_at = now + timedelta(seconds=max(30, ttl_seconds))
+        lock = (
+            self.db.query(MercadoLivreSyncLock)
+            .filter(
+                MercadoLivreSyncLock.empresa_id == empresa_id,
+                MercadoLivreSyncLock.tipo == tipo,
+            )
+            .first()
+        )
+        if lock and lock.expires_at and lock.expires_at > now and lock.lock_token != lock_token:
+            return False
+        if not lock:
+            lock = MercadoLivreSyncLock(
+                empresa_id=empresa_id,
+                tipo=tipo,
+                lock_token=lock_token,
+                expires_at=expires_at,
+            )
+        else:
+            lock.lock_token = lock_token
+            lock.expires_at = expires_at
+        self.db.add(lock)
+        self.db.flush()
+        return True
+
+    def release_lock(self, *, empresa_id: int, tipo: str, lock_token: str) -> None:
+        lock = (
+            self.db.query(MercadoLivreSyncLock)
+            .filter(
+                MercadoLivreSyncLock.empresa_id == empresa_id,
+                MercadoLivreSyncLock.tipo == tipo,
+                MercadoLivreSyncLock.lock_token == lock_token,
+            )
+            .first()
+        )
+        if lock:
+            self.db.delete(lock)
+            self.db.flush()

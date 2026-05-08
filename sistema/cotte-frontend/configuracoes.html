@@ -2578,10 +2578,14 @@ Estamos à disposição! 😊"></textarea>
                 <button class="btn btn-ghost" id="ml-btn-sync-anuncios" onclick="mlSyncAnuncios()" disabled>
                   Sincronizar anúncios
                 </button>
+                <button class="btn btn-ghost" id="ml-btn-sync-catalogo-push" onclick="mlSyncCatalogoPush()" disabled>
+                  Enviar catálogo p/ ML
+                </button>
                 <button class="btn btn-ghost" id="ml-btn-desconectar" onclick="mlDesconectar()" disabled style="color:var(--red);border-color:rgba(239,68,68,.35)">
                   Desconectar Mercado Livre
                 </button>
               </div>
+              <div id="ml-jobs-status" style="display:none;margin-top:10px;font-size:12px;color:var(--muted)"></div>
               <div id="ml-last-error" style="display:none;margin-top:10px;font-size:12px;color:var(--red)"></div>
             </div>
           </div>

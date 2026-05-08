@@ -6,10 +6,12 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse, FileResponse, RedirectResponse
 from pathlib import Path
 import datetime as _dt
+import asyncio
 import os
 
 # Preenchido no startup_event; usado pelo endpoint /api/v1/version
 _app_started_at: str = ""
+_ml_periodic_task = None
 
 _BASE_DIR = Path(__file__).parent.parent
 
@@ -405,6 +407,7 @@ async def startup_event():
     await _sweep_financeiro()
     await _sweep_agendamentos_followup()
     await _seed_modulos_padrao()
+    await _start_ml_periodic_sync_loop()
 
 
 async def _sweep_assinaturas_expiradas():
@@ -485,6 +488,40 @@ async def _sweep_agendamentos_followup():
         db.rollback()
     finally:
         db.close()
+
+
+async def _start_ml_periodic_sync_loop():
+    """Inicia loop periódico de sincronização ML por empresa (opcional)."""
+    global _ml_periodic_task
+    if _ml_periodic_task is not None:
+        return
+    if not settings.ML_SYNC_PERIODIC_ENABLED:
+        return
+    intervalo = max(5, int(settings.ML_SYNC_PERIODIC_INTERVAL_MINUTES or 15))
+
+    async def _runner():
+        from app.core.database import SessionLocal
+        from app.services.mercadolivre_service import MercadoLivreService
+        import asyncio
+
+        while True:
+            db = SessionLocal()
+            try:
+                service = MercadoLivreService(db)
+                await service.executar_sync_periodico_empresas()
+                db.commit()
+            except Exception as exc:  # noqa: BLE001
+                logging.error("Loop periódico ML falhou: %s", exc)
+                db.rollback()
+            finally:
+                db.close()
+            await asyncio.sleep(intervalo * 60)
+
+    _ml_periodic_task = asyncio.create_task(_runner())
+    logging.info(
+        "Loop periódico de sync Mercado Livre iniciado (intervalo=%s min).",
+        intervalo,
+    )
 
 
 @app.get("/", tags=["Health"])

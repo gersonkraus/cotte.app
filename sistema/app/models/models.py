@@ -2591,6 +2591,107 @@ class MercadoLivreAnuncioSnapshot(TenantScopedMixin, Base):
     empresa = relationship("Empresa")
 
 
+class MercadoLivrePedidoVinculo(TenantScopedMixin, Base):
+    __tablename__ = "mercadolivre_pedido_vinculos"
+    __table_args__ = (
+        UniqueConstraint(
+            "empresa_id", "ml_order_id", name="uq_mercadolivre_pedido_vinculos_empresa_order"
+        ),
+        UniqueConstraint(
+            "empresa_id",
+            "orcamento_id",
+            name="uq_mercadolivre_pedido_vinculos_empresa_orcamento",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False, index=True)
+    ml_order_id = Column(String(80), nullable=False, index=True)
+    orcamento_id = Column(Integer, ForeignKey("orcamentos.id"), nullable=False, index=True)
+    status_ml = Column(String(40), nullable=True)
+    status_sync = Column(String(30), nullable=False, default="ok")
+    erro = Column(Text, nullable=True)
+    last_seen_at = Column(DateTime(timezone=True), nullable=True)
+    criado_em = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    atualizado_em = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    empresa = relationship("Empresa")
+    orcamento = relationship("Orcamento")
+
+
+class MercadoLivreItemVinculo(TenantScopedMixin, Base):
+    __tablename__ = "mercadolivre_item_vinculos"
+    __table_args__ = (
+        UniqueConstraint(
+            "empresa_id", "ml_item_id", name="uq_mercadolivre_item_vinculos_empresa_item"
+        ),
+        UniqueConstraint(
+            "empresa_id",
+            "servico_id",
+            name="uq_mercadolivre_item_vinculos_empresa_servico",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False, index=True)
+    ml_item_id = Column(String(80), nullable=False, index=True)
+    servico_id = Column(Integer, ForeignKey("servicos.id"), nullable=False, index=True)
+    sync_mode = Column(String(20), nullable=False, default="ml_only_pull")
+    allow_push_price = Column(Boolean, nullable=False, default=False)
+    allow_push_stock = Column(Boolean, nullable=False, default=False)
+    allow_push_title = Column(Boolean, nullable=False, default=False)
+    allow_push_description = Column(Boolean, nullable=False, default=False)
+    last_push_at = Column(DateTime(timezone=True), nullable=True)
+    last_pull_at = Column(DateTime(timezone=True), nullable=True)
+    last_push_hash = Column(String(64), nullable=True)
+    source_of_truth = Column(String(20), nullable=False, default="ml")
+    ultimo_erro = Column(Text, nullable=True)
+    criado_em = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    atualizado_em = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    empresa = relationship("Empresa")
+    servico = relationship("Servico")
+
+
+class MercadoLivreSyncJob(TenantScopedMixin, Base):
+    __tablename__ = "mercadolivre_sync_jobs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False, index=True)
+    tipo = Column(String(40), nullable=False, index=True)
+    status = Column(String(20), nullable=False, default="running", index=True)
+    started_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    finished_at = Column(DateTime(timezone=True), nullable=True)
+    counters_json = Column(JSON, nullable=True)
+    erro = Column(Text, nullable=True)
+    trigger_source = Column(String(20), nullable=True)  # manual | periodic | api
+
+    empresa = relationship("Empresa")
+
+
+class MercadoLivreSyncLock(TenantScopedMixin, Base):
+    __tablename__ = "mercadolivre_sync_lock"
+    __table_args__ = (
+        UniqueConstraint("empresa_id", "tipo", name="uq_mercadolivre_sync_lock_empresa_tipo"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False, index=True)
+    tipo = Column(String(40), nullable=False, index=True)
+    lock_token = Column(String(80), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    criado_em = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    atualizado_em = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    empresa = relationship("Empresa")
+
+
 # ── TELEMETRIA DO ASSISTENTE ───────────────────────────────────────────────────
 
 
