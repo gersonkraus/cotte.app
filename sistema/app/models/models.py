@@ -1712,6 +1712,7 @@ class FormaPagamentoConfig(TenantScopedMixin, Base):
     max_parcelas = Column(Integer, default=1)
     taxa_percentual = Column(Numeric(5, 2), default=0)  # taxa sobre o valor (%)
     gera_pix_qrcode = Column(Boolean, default=False)  # gera QR ao registrar pagamento
+    exibir_no_whatsapp = Column(Boolean, default=True)  # aparece no menu interativo do cliente
     ordem = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

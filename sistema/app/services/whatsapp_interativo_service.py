@@ -245,8 +245,17 @@ def _buscar_orc_cliente(db: Session, orcamento_id: int, telefone: str) -> Orcame
 async def _enviar_menu_pagamento(
     db: Session, orc: Orcamento, telefone: str, empresa: Empresa | None
 ) -> bool:
-    """Envia lista com formas de pagamento ativas da empresa."""
+    """Envia lista com formas de pagamento ativas da empresa.
+    Se o orçamento já tem forma definida, aprova diretamente sem segundo menu."""
     from app.models.models import FormaPagamentoConfig
+
+    # Atalho: operador já definiu a forma no orçamento → aprova em 1 clique
+    if orc.regra_pagamento_id:
+        logger.info(
+            "[Interativo] Orc %s já tem regra_pagamento_id=%s → aprovando sem menu de pagamento",
+            orc.id, orc.regra_pagamento_id,
+        )
+        return await _executar_aprovar(db, orc, telefone, empresa, regra_id=orc.regra_pagamento_id)
 
     formas = []
     if empresa:
@@ -255,6 +264,7 @@ async def _enviar_menu_pagamento(
             .filter(
                 FormaPagamentoConfig.empresa_id == empresa.id,
                 FormaPagamentoConfig.ativo == True,
+                FormaPagamentoConfig.exibir_no_whatsapp == True,
             )
             .order_by(FormaPagamentoConfig.ordem)
             .limit(10)
@@ -262,8 +272,8 @@ async def _enviar_menu_pagamento(
         )
 
     if not formas:
-        # Sem formas configuradas → aprova diretamente
-        logger.info("[Interativo] Orc %s sem formas de pagamento → aprovando direto", orc.id)
+        # Sem formas visíveis no WhatsApp → aprova diretamente
+        logger.info("[Interativo] Orc %s sem formas exibíveis no WhatsApp → aprovando direto", orc.id)
         return await _executar_aprovar(db, orc, telefone, empresa, regra_id=None)
 
     itens = [

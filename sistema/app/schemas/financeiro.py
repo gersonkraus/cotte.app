@@ -28,6 +28,7 @@ class FormaPagamentoConfigOut(BaseModel):
     max_parcelas: int
     taxa_percentual: Decimal
     gera_pix_qrcode: bool
+    exibir_no_whatsapp: bool = True
     ordem: int
     created_at: datetime
     # Campos f002
@@ -62,6 +63,7 @@ class FormaPagamentoConfigCreate(BaseModel):
     max_parcelas: int = Field(default=1, ge=1, le=24)
     taxa_percentual: Decimal = Field(default=Decimal("0"), ge=0)
     gera_pix_qrcode: bool = False
+    exibir_no_whatsapp: bool = True
     ordem: int = 0
     # Campos f002
     descricao: Optional[str] = None
@@ -86,6 +88,7 @@ class FormaPagamentoConfigUpdate(BaseModel):
     max_parcelas: Optional[int] = None
     taxa_percentual: Optional[Decimal] = None
     gera_pix_qrcode: Optional[bool] = None
+    exibir_no_whatsapp: Optional[bool] = None
     ordem: Optional[int] = None
     # Campos f002
     descricao: Optional[str] = None

@@ -1424,10 +1424,11 @@ function _resumoRegra(f) {
 function _renderFormaCard(f) {
   const badgePadrao = f.padrao ? '<span style="font-size:10px;padding:2px 8px;border-radius:12px;background:rgba(0,229,160,.15);color:var(--green);font-weight:700;margin-left:6px">PADRÃO</span>' : '';
   const badgeInativo = !f.ativo ? '<span style="font-size:10px;padding:2px 8px;border-radius:12px;background:rgba(239,68,68,.12);color:#ef4444;font-weight:600;margin-left:6px">INATIVO</span>' : '';
+  const badgeWpp = f.exibir_no_whatsapp === false ? '<span style="font-size:10px;padding:2px 8px;border-radius:12px;background:rgba(100,116,139,.12);color:var(--muted);font-weight:600;margin-left:6px" title="Não exibida no menu WhatsApp do cliente">📵 Oculta no WhatsApp</span>' : '';
   return `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface2)">
     <div style="font-size:24px;flex-shrink:0;width:36px;text-align:center">${f.icone || '💳'}</div>
     <div style="flex:1;min-width:0">
-      <div style="font-size:14px;font-weight:600;margin-bottom:2px">${escapeHtml(f.nome)}${badgePadrao}${badgeInativo}</div>
+      <div style="font-size:14px;font-weight:600;margin-bottom:2px">${escapeHtml(f.nome)}${badgePadrao}${badgeInativo}${badgeWpp}</div>
       <div style="margin-top:2px">${_resumoRegra(f)}</div>
     </div>
     <div style="display:flex;gap:6px;flex-shrink:0">
@@ -1447,6 +1448,7 @@ function abrirModalNovaForma() {
   document.getElementById('forma-cor').value = '#00e5a0';
   document.getElementById('forma-descricao').value = '';
   document.getElementById('forma-padrao').checked = false;
+  document.getElementById('forma-exibir-whatsapp').checked = true;
   document.getElementById('forma-exigir-entrada').checked = false;
   document.getElementById('forma-pct-entrada').value = '';
   document.getElementById('forma-pct-saldo').value = '';
@@ -1475,6 +1477,7 @@ async function editarForma(id) {
   document.getElementById('forma-cor').value = f.cor || '#00e5a0';
   document.getElementById('forma-descricao').value = f.descricao || '';
   document.getElementById('forma-padrao').checked = !!f.padrao;
+  document.getElementById('forma-exibir-whatsapp').checked = f.exibir_no_whatsapp !== false;
   document.getElementById('forma-exigir-entrada').checked = !!f.exigir_entrada_na_aprovacao;
   document.getElementById('forma-pct-entrada').value = f.percentual_entrada > 0 ? f.percentual_entrada : '';
   document.getElementById('forma-pct-saldo').value = f.percentual_saldo > 0 ? f.percentual_saldo : '';
@@ -1547,6 +1550,7 @@ async function salvarForma() {
     cor: document.getElementById('forma-cor').value || '#00e5a0',
     descricao: document.getElementById('forma-descricao').value.trim() || null,
     padrao: document.getElementById('forma-padrao').checked,
+    exibir_no_whatsapp: document.getElementById('forma-exibir-whatsapp').checked,
     exigir_entrada_na_aprovacao: exigir,
     percentual_entrada: exigir ? pctEnt : 0,
     metodo_entrada: exigir ? (metEnt || null) : null,
