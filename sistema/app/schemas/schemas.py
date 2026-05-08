@@ -2007,3 +2007,77 @@ class PropostaPublicaView(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ===== NF-e / NFC-e / NFS-e =====
+
+class ItemNFe(BaseModel):
+    descricao: str
+    quantidade: Decimal
+    valor_unit: Decimal
+    ncm: Optional[str] = None
+    cfop: Optional[str] = None
+    unidade: str = "UN"
+    cst_icms: Optional[str] = None
+    cst_pis: Optional[str] = None
+    cst_cofins: Optional[str] = None
+    codigo_servico: Optional[str] = None
+    aliquota_iss: Optional[Decimal] = None
+
+
+class NotaFiscalEmitirRequest(BaseModel):
+    orcamento_id: int
+    tipo: str  # "nfe" | "nfce" | "nfse"
+    natureza_operacao: str = "Venda de Serviços"
+    serie: str = "1"
+    itens_override: Optional[List[ItemNFe]] = None
+    codigo_servico_lc116: Optional[str] = None
+    aliquota_iss: Optional[Decimal] = None
+    destinatario_override: Optional[dict] = None
+
+
+class NotaFiscalOut(BaseModel):
+    id: int
+    tipo: str
+    modelo: Optional[int] = None
+    serie: Optional[str] = None
+    numero: Optional[str] = None
+    status: str
+    natureza_operacao: Optional[str] = None
+    chave_acesso: Optional[str] = None
+    protocolo: Optional[str] = None
+    xml_url: Optional[str] = None
+    danfe_url: Optional[str] = None
+    erro_codigo: Optional[str] = None
+    erro_mensagem: Optional[str] = None
+    criado_em: datetime
+    emitida_em: Optional[datetime] = None
+    cancelada_em: Optional[datetime] = None
+    orcamento_id: Optional[int] = None
+    notaas_invoice_id: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ConfiguracaoFiscalEmpresa(BaseModel):
+    cnpj: Optional[str] = None
+    inscricao_estadual: Optional[str] = None
+    inscricao_municipal: Optional[str] = None
+    regime_tributario: Optional[str] = None
+    crt: Optional[int] = None
+    endereco_logradouro: Optional[str] = None
+    endereco_numero: Optional[str] = None
+    endereco_complemento: Optional[str] = None
+    endereco_bairro: Optional[str] = None
+    endereco_cidade: Optional[str] = None
+    endereco_uf: Optional[str] = None
+    endereco_cep: Optional[str] = None
+    endereco_codigo_municipio_ibge: Optional[str] = None
+    notaas_api_key: Optional[str] = None
+    notaas_ambiente: Optional[str] = "homologacao"
+    notaas_webhook_secret: Optional[str] = None
+
+
+class NotaFiscalCancelarRequest(BaseModel):
+    motivo: str = Field(..., min_length=15, max_length=255)
