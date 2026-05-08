@@ -887,7 +887,7 @@
             <button class="btn btn-ghost" style="padding:4px 8px;font-size:14px" onclick="void abrirModalEditarOrcamento(${o.id})" title="Editar">✏️</button>
             <button class="btn btn-ghost" style="padding:4px 8px;font-size:14px" onclick="enviarWhatsapp(${o.id})" title="WhatsApp">📲</button>
             <button class="btn btn-ghost" style="padding:4px 8px;font-size:14px" onclick="enviarEmail(${o.id})" title="E-mail">📧</button>
-            <button class="btn btn-ghost" style="padding:4px 8px;font-size:12px;font-weight:600" onclick="NFeService.abrirModal(${o.id})" title="Emitir Nota Fiscal">NF-e</button>
+            ${(o.status === 'aprovado' || o.status === 'concluido') ? `<button class="btn btn-ghost" style="padding:4px 8px;font-size:12px;font-weight:600" onclick="NFeService.abrirModal(${o.id})" title="Emitir Nota Fiscal">NF-e</button>` : ''}
             ${podeAprovar ? `<button class="btn btn-ghost" style="padding:4px 8px;font-size:14px;color:#16a34a" onclick="aprovarOrcamento(${o.id},'${numEsc}')" title="Aprovar">✅</button>` : ''}
             ${o.status === 'aprovado' ? `<button class="btn btn-ghost" style="padding:4px 8px;font-size:14px;color:#1a73e8" onclick="abrirModalAgendamentoRapido(${o.id},'${numEsc}','${(o.cliente_nome || '').replace(/'/g, "\\'")}')" title="Agendar">📅</button>` : ''}
           </div>

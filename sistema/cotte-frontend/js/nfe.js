@@ -150,3 +150,6 @@ const NFeService = (() => {
 
   return { abrirModal, fecharModal, emitir, _cancelar };
 })();
+
+// Expõe no escopo global para uso em onclick= attributes
+window.NFeService = NFeService;
