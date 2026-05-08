@@ -153,58 +153,7 @@ async def emitir_nota_fiscal(
     return nota
 
 
-@router.get("/orcamento/{orcamento_id}", response_model=List[NotaFiscalOut])
-def listar_notas_por_orcamento(
-    orcamento_id: int,
-    db: Session = Depends(get_db),
-    usuario=Depends(get_usuario_atual),
-):
-    set_tenant_context(db, empresa_id=usuario.empresa_id, usuario_id=usuario.id)
-    return (
-        db.query(NotaFiscal)
-        .filter(NotaFiscal.empresa_id == usuario.empresa_id, NotaFiscal.orcamento_id == orcamento_id)
-        .order_by(NotaFiscal.criado_em.desc())
-        .all()
-    )
-
-
-@router.get("/{nota_id}", response_model=NotaFiscalOut)
-def get_nota_fiscal(
-    nota_id: int,
-    db: Session = Depends(get_db),
-    usuario=Depends(get_usuario_atual),
-):
-    set_tenant_context(db, empresa_id=usuario.empresa_id, usuario_id=usuario.id)
-    nota = db.query(NotaFiscal).filter(
-        NotaFiscal.id == nota_id, NotaFiscal.empresa_id == usuario.empresa_id
-    ).first()
-    if not nota:
-        raise HTTPException(404, "Nota fiscal não encontrada")
-    return nota
-
-
-@router.post("/{nota_id}/cancelar", response_model=NotaFiscalOut)
-async def cancelar_nota_fiscal(
-    nota_id: int,
-    dados: NotaFiscalCancelarRequest,
-    db: Session = Depends(get_db),
-    usuario=Depends(get_usuario_atual),
-):
-    set_tenant_context(db, empresa_id=usuario.empresa_id, usuario_id=usuario.id)
-    empresa = _get_empresa_com_nfe(db, usuario)
-
-    nota = db.query(NotaFiscal).filter(
-        NotaFiscal.id == nota_id, NotaFiscal.empresa_id == usuario.empresa_id
-    ).first()
-    if not nota:
-        raise HTTPException(404, "Nota fiscal não encontrada")
-    if nota.status != "emitida":
-        raise HTTPException(400, f"Nota em status '{nota.status}' não pode ser cancelada")
-
-    return await nfe_service.cancelar_nota(db, nota, empresa, dados.motivo)
-
-
-# ── Onboarding Notaas (Org API) ──────────────────────────────────────────────
+# ── Onboarding Notaas (Org API) — rotas estáticas ANTES de /{nota_id} ────────
 
 @router.post("/configurar-notaas")
 async def configurar_notaas(
@@ -333,3 +282,56 @@ async def receber_webhook_notaas(
 
     db.commit()
     return {"ok": True}
+
+
+# ── Listagem e consulta por ID — APÓS rotas estáticas ─────────────────────────
+
+@router.get("/orcamento/{orcamento_id}", response_model=List[NotaFiscalOut])
+def listar_notas_por_orcamento(
+    orcamento_id: int,
+    db: Session = Depends(get_db),
+    usuario=Depends(get_usuario_atual),
+):
+    set_tenant_context(db, empresa_id=usuario.empresa_id, usuario_id=usuario.id)
+    return (
+        db.query(NotaFiscal)
+        .filter(NotaFiscal.empresa_id == usuario.empresa_id, NotaFiscal.orcamento_id == orcamento_id)
+        .order_by(NotaFiscal.criado_em.desc())
+        .all()
+    )
+
+
+@router.get("/{nota_id}", response_model=NotaFiscalOut)
+def get_nota_fiscal(
+    nota_id: int,
+    db: Session = Depends(get_db),
+    usuario=Depends(get_usuario_atual),
+):
+    set_tenant_context(db, empresa_id=usuario.empresa_id, usuario_id=usuario.id)
+    nota = db.query(NotaFiscal).filter(
+        NotaFiscal.id == nota_id, NotaFiscal.empresa_id == usuario.empresa_id
+    ).first()
+    if not nota:
+        raise HTTPException(404, "Nota fiscal não encontrada")
+    return nota
+
+
+@router.post("/{nota_id}/cancelar", response_model=NotaFiscalOut)
+async def cancelar_nota_fiscal(
+    nota_id: int,
+    dados: NotaFiscalCancelarRequest,
+    db: Session = Depends(get_db),
+    usuario=Depends(get_usuario_atual),
+):
+    set_tenant_context(db, empresa_id=usuario.empresa_id, usuario_id=usuario.id)
+    empresa = _get_empresa_com_nfe(db, usuario)
+
+    nota = db.query(NotaFiscal).filter(
+        NotaFiscal.id == nota_id, NotaFiscal.empresa_id == usuario.empresa_id
+    ).first()
+    if not nota:
+        raise HTTPException(404, "Nota fiscal não encontrada")
+    if nota.status != "emitida":
+        raise HTTPException(400, f"Nota em status '{nota.status}' não pode ser cancelada")
+
+    return await nfe_service.cancelar_nota(db, nota, empresa, dados.motivo)
