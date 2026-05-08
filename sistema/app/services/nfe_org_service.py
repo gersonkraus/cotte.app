@@ -12,7 +12,6 @@ Fluxo completo de onboarding:
 
 import logging
 import os
-from decimal import Decimal
 
 import httpx
 from sqlalchemy.orm import Session
@@ -192,15 +191,15 @@ async def registrar_webhook(db: Session, empresa: Empresa, api_key: str) -> dict
         timeout=30.0,
     ) as client:
         # Verifica se já existe um endpoint com esta URL para evitar duplicata
+        # BUG2-FIX: se já existe, mantém o secret do banco (não gera um novo que
+        # ficaria divergente do secret registrado na Notaas).
         list_resp = await client.get("/webhooks/endpoints")
         if list_resp.status_code == 200:
             body = list_resp.json()
             endpoints = body.get("data", body) if isinstance(body, dict) else body
             for ep in (endpoints if isinstance(endpoints, list) else []):
                 if ep.get("url") == webhook_url:
-                    empresa.notaas_webhook_secret = webhook_secret
-                    db.flush()
-                    logger.info("Webhook já registrado para empresa_id=%s, secret renovado", empresa.id)
+                    logger.info("Webhook já registrado para empresa_id=%s, mantendo secret atual", empresa.id)
                     return {"webhook_url": webhook_url, "registered": True, "already_existed": True}
 
         resp = await client.post(

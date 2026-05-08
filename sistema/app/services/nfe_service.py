@@ -16,6 +16,7 @@ import httpx
 from sqlalchemy.orm import Session
 
 from app.models.models import Empresa, NotaFiscal, Orcamento, Cliente
+from app.core.database import SessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -175,13 +176,40 @@ def _montar_payload_nfse(
             "codigo": codigo_servico,  # 6 dígitos ex: "010302"
         },
         "valores": {
-            "total": float(orcamento.total),
-            "aliquotaIss": float(aliquota_iss),
+            "total": round(float(orcamento.total), 2),       # BUG5: evita float impreciso
+            "aliquotaIss": round(float(aliquota_iss), 4),
             "issRetido": False,
         },
         "competencia": date.today().strftime("%Y-%m"),
         "referencia": orcamento.numero or str(orcamento.id),
     }
+
+
+async def emitir_nota_background(nota_id: int, empresa_id: int, payload: dict) -> None:
+    """Wrapper para rodar emitir_nota em BackgroundTask com session própria.
+
+    BUG1-FIX: a session do request é fechada antes da background task executar.
+    Esta função cria uma session nova, garantindo que o polling (~60s) funcione.
+    """
+    db = SessionLocal()
+    try:
+        nota = db.query(NotaFiscal).filter(NotaFiscal.id == nota_id).first()
+        empresa = db.query(Empresa).filter(Empresa.id == empresa_id).first()
+        if nota and empresa:
+            await emitir_nota(db, nota, empresa, payload)
+    except Exception as e:
+        logger.error("Erro no background task emitir_nota nota_id=%s: %s", nota_id, e)
+        try:
+            nota = db.query(NotaFiscal).filter(NotaFiscal.id == nota_id).first()
+            if nota and nota.status not in ("emitida", "cancelada"):
+                nota.status = "erro"
+                nota.erro_codigo = "BACKGROUND_ERROR"
+                nota.erro_mensagem = str(e)[:500]
+                db.commit()
+        except Exception:
+            pass
+    finally:
+        db.close()
 
 
 async def emitir_nota(
@@ -193,9 +221,8 @@ async def emitir_nota(
     """Envia payload para API Notaas e aguarda resultado por polling."""
     nota_fiscal.status = "processando"
     nota_fiscal.payload_enviado = payload
-    db.flush()
+    db.commit()  # commit imediato para visibilidade do status
 
-    # Notaas usa /emitir para NFS-e; NF-e/NFC-e usam /nfe/emitir (confirmar quando docs disponíveis)
     endpoint = "/emitir" if nota_fiscal.tipo == "nfse" else "/nfe/emitir"
 
     async with _get_client(empresa.notaas_api_key) as client:
@@ -224,7 +251,7 @@ async def emitir_nota(
             return nota_fiscal
 
         nota_fiscal.notaas_invoice_id = invoice_id
-        db.flush()
+        db.commit()  # BUG4-FIX: commit para persistir invoice_id antes do polling longo
 
         for _ in range(POLLING_MAX_ATTEMPTS):
             await asyncio.sleep(POLLING_INTERVAL)
@@ -253,9 +280,14 @@ async def emitir_nota(
 
             if current_status == "issued":
                 nota_fiscal.status = "emitida"
-                # Campos reais da resposta Notaas (docs confirmados)
                 nota_fiscal.numero = str(status_data.get("numeroNfe") or status_data.get("nfNumber") or "")
-                nota_fiscal.chave_acesso = status_data.get("chNFSe") or status_data.get("accessKey")
+                # BUG3-FIX: NF-e usa chaveAcesso; NFS-e usa chNFSe
+                nota_fiscal.chave_acesso = (
+                    status_data.get("chaveAcesso")      # NF-e/NFC-e
+                    or status_data.get("chNFSe")        # NFS-e
+                    or status_data.get("accessKey")     # fallback legado
+                )
+                nota_fiscal.protocolo = status_data.get("nProt") or status_data.get("protocol")
                 nota_fiscal.xml_url = status_data.get("xmlUrl")
                 nota_fiscal.danfe_url = status_data.get("pdfUrl")
                 nota_fiscal.emitida_em = datetime.utcnow()

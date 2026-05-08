@@ -149,7 +149,9 @@ async def emitir_nota_fiscal(
         )
 
     db.commit()
-    background_tasks.add_task(nfe_service.emitir_nota, db, nota, empresa, payload)
+    # BUG1-FIX: passa IDs em vez de objetos ORM — a session será fechada antes
+    # da background task executar; emitir_nota_background cria session própria.
+    background_tasks.add_task(nfe_service.emitir_nota_background, nota.id, empresa.id, payload)
     return nota
 
 
