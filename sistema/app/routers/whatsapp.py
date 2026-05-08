@@ -195,9 +195,12 @@ async def _processar_lista_interativa(
     from app.core.database import SessionLocal
     from app.services.whatsapp_interativo_service import processar_resposta_lista
 
+    logger.info("[Interativo] Recebido rowId='%s' de %s (instância=%s)", row_id, telefone, getattr(empresa_instancia, "evolution_instance", None))
     db = SessionLocal()
     try:
-        await processar_resposta_lista(db, telefone, row_id, empresa_instancia)
+        ok = await processar_resposta_lista(db, telefone, row_id, empresa_instancia)
+        if not ok:
+            logger.warning("[Interativo] processar_resposta_lista retornou False para %s (rowId=%s)", telefone, row_id)
     except Exception:
         logger.exception("[Interativo] Erro ao processar lista de %s (rowId=%s)", telefone, row_id)
     finally:

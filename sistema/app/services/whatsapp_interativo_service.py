@@ -158,6 +158,7 @@ async def _processar_resposta_cliente(
 ) -> bool:
     """Decodifica rowId e executa ação do cliente."""
     acao, eid = decodificar_row_id(row_id)
+    logger.info("[Interativo] Cliente %s → acao='%s' eid='%s'", telefone, acao, eid)
 
     # aprovar:123 → menu de pagamento
     if acao == "aprovar" and eid:
@@ -196,31 +197,47 @@ async def _processar_resposta_cliente(
     return False
 
 
+def _telefones_compativeis(tel_wpp: str, tel_db: str) -> bool:
+    """Compara telefones tolerando variações: DDI, formatação, 8 vs 9 dígitos."""
+    import re
+    d1 = re.sub(r"\D", "", tel_wpp or "")
+    d2 = re.sub(r"\D", "", tel_db or "")
+    if not d1 or not d2:
+        return False
+    if d1 == d2:
+        return True
+    # Normaliza ambos para 13 dígitos (55 + DDD + 9 dígitos)
+    def _norm(d: str) -> str:
+        if not d.startswith("55"):
+            d = "55" + d
+        return d
+    n1, n2 = _norm(d1), _norm(d2)
+    if n1 == n2:
+        return True
+    # Tolerância 8 vs 9 dígitos: compara os últimos 8 dígitos (número local sem DDD)
+    if len(n1) >= 10 and len(n2) >= 10 and n1[-8:] == n2[-8:]:
+        return True
+    return False
+
+
 def _buscar_orc_cliente(db: Session, orcamento_id: int, telefone: str) -> Orcamento | None:
     """Busca orçamento verificando que o telefone pertence ao cliente."""
-    try:
-        from app.utils.phone import normalize_phone_number
-        tel_norm = normalize_phone_number(telefone) or telefone
-    except Exception:
-        tel_norm = telefone
-
     orc = db.query(Orcamento).filter(Orcamento.id == orcamento_id).first()
     if not orc or not orc.cliente:
+        logger.warning("[Interativo] Orc %s não encontrado ou sem cliente", orcamento_id)
         return None
 
     tel_cliente_raw = orc.cliente.telefone or ""
-    try:
-        from app.utils.phone import normalize_phone_number
-        tel_cliente = normalize_phone_number(tel_cliente_raw) or tel_cliente_raw
-    except Exception:
-        tel_cliente = tel_cliente_raw
-
-    if tel_norm != tel_cliente and telefone not in tel_cliente_raw and tel_cliente_raw not in telefone:
-        logger.warning("[Interativo] Telefone %s ≠ cliente do orc %s", telefone, orcamento_id)
+    if not _telefones_compativeis(telefone, tel_cliente_raw):
+        logger.warning(
+            "[Interativo] Telefone webhook '%s' ≠ cliente do orc %s ('%s')",
+            telefone, orcamento_id, tel_cliente_raw,
+        )
         return None
 
     _ATIVOS = {StatusOrcamento.ENVIADO, StatusOrcamento.RASCUNHO}
     if orc.status not in _ATIVOS:
+        logger.info("[Interativo] Orc %s status '%s' não permite ação", orcamento_id, orc.status)
         return None
     return orc
 
@@ -246,6 +263,7 @@ async def _enviar_menu_pagamento(
 
     if not formas:
         # Sem formas configuradas → aprova diretamente
+        logger.info("[Interativo] Orc %s sem formas de pagamento → aprovando direto", orc.id)
         return await _executar_aprovar(db, orc, telefone, empresa, regra_id=None)
 
     itens = [
@@ -256,14 +274,18 @@ async def _enviar_menu_pagamento(
         }
         for fp in formas
     ]
-    return await enviar_lista_selecao(
+    logger.info("[Interativo] Orc %s → enviando menu de pagamento (%d formas)", orc.id, len(formas))
+    ok = await enviar_lista_selecao(
         telefone=telefone,
         titulo="Como prefere pagar?",
-        descricao="Selecione a forma de pagamento para confirmar sua aprovação.",
+        descricao="Ótimo! Para confirmar a aprovação do orçamento, selecione a forma de pagamento:",
         secoes=[{"titulo": "Formas de pagamento", "itens": itens}],
         botao_texto="Escolher",
         instancia=_instancia(empresa) if empresa else None,
     )
+    if not ok:
+        logger.error("[Interativo] Falha ao enviar menu de pagamento para %s (orc %s)", telefone, orc.id)
+    return ok
 
 
 async def _executar_aprovar(
