@@ -2547,6 +2547,7 @@ class AIChatMensagem(Base):
     role = Column(String(20), nullable=False)  # 'user', 'assistant'
     content = Column(Text, nullable=False)
     criado_em = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    sessao = relationship("AIChatSessao", back_populates="mensagens")
 
 
 class SessaoWhatsapp(Base):
@@ -2563,5 +2564,3 @@ class SessaoWhatsapp(Base):
     atualizado_em = Column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
-
-    sessao = relationship("AIChatSessao", back_populates="mensagens")
