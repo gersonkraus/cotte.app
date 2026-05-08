@@ -50,12 +50,18 @@ def upgrade() -> None:
     op.create_index(op.f('ix_sessao_whatsapp_id'), 'sessao_whatsapp', ['id'], unique=False)
     op.create_index(op.f('ix_sessao_whatsapp_telefone'), 'sessao_whatsapp', ['telefone'], unique=True)
 
+    # Remove o default antes de alterar o tipo (PostgreSQL não converte default automaticamente)
+    op.execute("ALTER TABLE tenant_commercial_leads ALTER COLUMN lead_score DROP DEFAULT")
+
     # USING necessário para PostgreSQL converter VARCHAR → enum
     op.execute("""
         ALTER TABLE tenant_commercial_leads
         ALTER COLUMN lead_score TYPE leadscore
         USING lead_score::leadscore
     """)
+
+    # Restaura o default com o valor correto do enum
+    op.execute("ALTER TABLE tenant_commercial_leads ALTER COLUMN lead_score SET DEFAULT 'FRIO'::leadscore")
 
 
 def downgrade() -> None:
