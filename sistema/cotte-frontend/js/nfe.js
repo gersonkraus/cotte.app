@@ -9,7 +9,7 @@ const NFeService = (() => {
     _orcamentoId = orcamentoId;
     const modal = document.getElementById('modal-nfe');
     if (!modal) return;
-    modal.removeAttribute('hidden');
+    modal.classList.add('open');
     modal.setAttribute('aria-hidden', 'false');
     carregarNotasExistentes(orcamentoId);
   }
@@ -17,7 +17,7 @@ const NFeService = (() => {
   function fecharModal() {
     const modal = document.getElementById('modal-nfe');
     if (modal) {
-      modal.setAttribute('hidden', '');
+      modal.classList.remove('open');
       modal.setAttribute('aria-hidden', 'true');
     }
     const statusMsg = document.getElementById('nfe-status-msg');
