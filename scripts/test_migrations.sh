@@ -6,7 +6,8 @@
 set -e
 
 PG_CONTAINER="cotte_migration_test"
-PG_PORT=5433
+# Usa porta livre dinamicamente para evitar conflito com outros containers
+PG_PORT=$(python3 -c "import socket; s=socket.socket(); s.bind(('',0)); p=s.getsockname()[1]; s.close(); print(p)" 2>/dev/null || echo 5434)
 PG_PASS="test"
 PG_DB="cotte_test"
 DB_URL="postgresql://postgres:${PG_PASS}@localhost:${PG_PORT}/${PG_DB}"
