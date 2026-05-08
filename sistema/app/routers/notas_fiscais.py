@@ -42,7 +42,7 @@ def get_configuracao_fiscal(
     db: Session = Depends(get_db),
     usuario=Depends(get_usuario_atual),
 ):
-    set_tenant_context(usuario.empresa_id)
+    set_tenant_context(db, empresa_id=usuario.empresa_id, usuario_id=usuario.id)
     empresa = db.query(Empresa).filter(Empresa.id == usuario.empresa_id).first()
     if not empresa:
         raise HTTPException(404, "Empresa não encontrada")
@@ -72,7 +72,7 @@ def salvar_configuracao_fiscal(
     usuario=Depends(get_usuario_atual),
     _=Depends(exigir_permissao("configuracoes", "escrita")),
 ):
-    set_tenant_context(usuario.empresa_id)
+    set_tenant_context(db, empresa_id=usuario.empresa_id, usuario_id=usuario.id)
     empresa = db.query(Empresa).filter(Empresa.id == usuario.empresa_id).first()
     if not empresa:
         raise HTTPException(404, "Empresa não encontrada")
@@ -108,7 +108,7 @@ async def emitir_nota_fiscal(
     db: Session = Depends(get_db),
     usuario=Depends(get_usuario_atual),
 ):
-    set_tenant_context(usuario.empresa_id)
+    set_tenant_context(db, empresa_id=usuario.empresa_id, usuario_id=usuario.id)
     empresa = _get_empresa_com_nfe(db, usuario)
 
     orcamento = (
@@ -156,7 +156,7 @@ def listar_notas_por_orcamento(
     db: Session = Depends(get_db),
     usuario=Depends(get_usuario_atual),
 ):
-    set_tenant_context(usuario.empresa_id)
+    set_tenant_context(db, empresa_id=usuario.empresa_id, usuario_id=usuario.id)
     return (
         db.query(NotaFiscal)
         .filter(NotaFiscal.empresa_id == usuario.empresa_id, NotaFiscal.orcamento_id == orcamento_id)
@@ -171,7 +171,7 @@ def get_nota_fiscal(
     db: Session = Depends(get_db),
     usuario=Depends(get_usuario_atual),
 ):
-    set_tenant_context(usuario.empresa_id)
+    set_tenant_context(db, empresa_id=usuario.empresa_id, usuario_id=usuario.id)
     nota = db.query(NotaFiscal).filter(
         NotaFiscal.id == nota_id, NotaFiscal.empresa_id == usuario.empresa_id
     ).first()
@@ -187,7 +187,7 @@ async def cancelar_nota_fiscal(
     db: Session = Depends(get_db),
     usuario=Depends(get_usuario_atual),
 ):
-    set_tenant_context(usuario.empresa_id)
+    set_tenant_context(db, empresa_id=usuario.empresa_id, usuario_id=usuario.id)
     empresa = _get_empresa_com_nfe(db, usuario)
 
     nota = db.query(NotaFiscal).filter(
