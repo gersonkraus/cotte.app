@@ -132,37 +132,55 @@ def _montar_payload_nfse(
     codigo_servico: str,
     aliquota_iss: Decimal,
 ) -> dict:
-    """Monta payload para NFS-e (serviço)."""
+    """Monta payload NFS-e no formato real da API Notaas.
+
+    Emitente NÃO vai no payload — fica configurado na conta Notaas vinculada à API key.
+    Estrutura: tomador + servico + valores + competencia + referencia.
+    """
+    from datetime import date
+
     cliente: Cliente = orcamento.cliente
-    total = str(orcamento.total)
+    nome_cliente = cliente.razao_social or cliente.nome
+
+    # tomador: cnpj ou cpf como chaves separadas (não cpfCnpj)
+    if cliente.tipo_pessoa == "PJ" and cliente.cnpj:
+        doc_tomador = {"cnpj": _limpar_doc(cliente.cnpj)}
+    elif cliente.cpf:
+        doc_tomador = {"cpf": _limpar_doc(cliente.cpf)}
+    else:
+        doc_tomador = {}
+
+    tomador: dict = {"nome": nome_cliente, **doc_tomador}
+    if cliente.email:
+        tomador["email"] = cliente.email
+    if cliente.logradouro:
+        tomador["endereco"] = {
+            "logradouro": cliente.logradouro,
+            "numero": cliente.numero or "S/N",
+            "bairro": cliente.bairro or "",
+            "cidade": cliente.cidade or "",
+            "uf": cliente.estado or "",
+            "cep": _limpar_cep(cliente.cep or ""),
+        }
+        if cliente.complemento:
+            tomador["endereco"]["complemento"] = cliente.complemento
+
+    # descricao agrega os itens do orçamento
+    descricao = "; ".join(i.descricao for i in orcamento.itens) or "Prestação de serviços"
 
     return {
-        "prestador": {
-            "cnpj": _limpar_doc(empresa.cnpj),
-            "im": empresa.inscricao_municipal or "",
-        },
-        "tomador": {
-            "cpfCnpj": _limpar_doc(cliente.cnpj or cliente.cpf or ""),
-            "nome": cliente.razao_social or cliente.nome,
-            "email": cliente.email or "",
-            "endereco": {
-                "logradouro": cliente.logradouro or "",
-                "numero": cliente.numero or "S/N",
-                "complemento": cliente.complemento or "",
-                "bairro": cliente.bairro or "",
-                "codigoMunicipio": empresa.endereco_codigo_municipio_ibge or "",
-                "uf": cliente.estado or "",
-                "cep": _limpar_cep(cliente.cep or ""),
-            },
-        },
+        "tomador": tomador,
         "servico": {
-            "valorServicos": total,
-            "issRetido": False,
-            "aliquota": float(aliquota_iss),
-            "itemListaServico": codigo_servico,
-            "discriminacao": "; ".join(i.descricao for i in orcamento.itens),
-            "codigoMunicipio": empresa.endereco_codigo_municipio_ibge or "",
+            "descricao": descricao,
+            "codigo": codigo_servico,  # 6 dígitos ex: "010302"
         },
+        "valores": {
+            "total": float(orcamento.total),
+            "aliquotaIss": float(aliquota_iss),
+            "issRetido": False,
+        },
+        "competencia": date.today().strftime("%Y-%m"),
+        "referencia": orcamento.numero or str(orcamento.id),
     }
 
 
@@ -177,7 +195,8 @@ async def emitir_nota(
     nota_fiscal.payload_enviado = payload
     db.flush()
 
-    endpoint = "/nfse/emitir" if nota_fiscal.tipo == "nfse" else "/nfe/emitir"
+    # Notaas usa /emitir para NFS-e; NF-e/NFC-e usam /nfe/emitir (confirmar quando docs disponíveis)
+    endpoint = "/emitir" if nota_fiscal.tipo == "nfse" else "/nfe/emitir"
 
     async with _get_client(empresa.notaas_api_key) as client:
         try:
@@ -234,10 +253,9 @@ async def emitir_nota(
 
             if current_status == "issued":
                 nota_fiscal.status = "emitida"
-                nota_fiscal.numero = str(status_data.get("nfNumber", ""))
-                nota_fiscal.serie = str(status_data.get("nfSerie", nota_fiscal.serie or ""))
-                nota_fiscal.chave_acesso = status_data.get("accessKey")
-                nota_fiscal.protocolo = status_data.get("protocol")
+                # Campos reais da resposta Notaas (docs confirmados)
+                nota_fiscal.numero = str(status_data.get("numeroNfe") or status_data.get("nfNumber") or "")
+                nota_fiscal.chave_acesso = status_data.get("chNFSe") or status_data.get("accessKey")
                 nota_fiscal.xml_url = status_data.get("xmlUrl")
                 nota_fiscal.danfe_url = status_data.get("pdfUrl")
                 nota_fiscal.emitida_em = datetime.utcnow()
@@ -245,10 +263,15 @@ async def emitir_nota(
                 return nota_fiscal
 
             if current_status == "error":
-                erro = status_data.get("error", {})
                 nota_fiscal.status = "erro"
-                nota_fiscal.erro_codigo = erro.get("code", "UNKNOWN")
-                nota_fiscal.erro_mensagem = erro.get("message", "Erro desconhecido")
+                nota_fiscal.erro_codigo = status_data.get("errorCode", "UNKNOWN")
+                nota_fiscal.erro_mensagem = status_data.get("errorMessage", "Erro desconhecido")
+                db.commit()
+                return nota_fiscal
+
+            if current_status == "cancelled":
+                nota_fiscal.status = "cancelada"
+                nota_fiscal.cancelada_em = datetime.utcnow()
                 db.commit()
                 return nota_fiscal
 
@@ -269,8 +292,9 @@ async def cancelar_nota(
     if not invoice_id:
         raise ValueError("Nota sem invoiceId para cancelar")
 
-    endpoint = "/nfse/cancelar" if nota_fiscal.tipo == "nfse" else "/nfe/cancelar"
-    payload = {"invoiceId": invoice_id, "justificativa": motivo}
+    # Notaas usa /cancelar para NFS-e; NF-e usa /nfe/cancelar (confirmar quando docs disponíveis)
+    endpoint = "/cancelar" if nota_fiscal.tipo == "nfse" else "/nfe/cancelar"
+    payload = {"invoiceId": invoice_id, "motivo": motivo}
 
     async with _get_client(empresa.notaas_api_key) as client:
         try:
