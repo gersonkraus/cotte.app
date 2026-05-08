@@ -89,6 +89,7 @@ from app.routers.tenant.comercial_campaigns import router as tenant_comercial_ca
 from app.routers.tenant.comercial_propostas_publicas import (
     router as tenant_comercial_propostas_publicas_router,
 )
+from app.routers import notas_fiscais as notas_fiscais_module
 
 
 # Rotas serão importadas e incluídas dinamicamente para facilitar os testes.
@@ -316,6 +317,7 @@ def include_routers(app: FastAPI):
         (tenant_comercial_import_router, "/api/v1/tenant/comercial"),
         (tenant_comercial_campaigns_router, "/api/v1/tenant/comercial"),
         (tenant_comercial_propostas_publicas_router, "/api/v1/tenant/comercial"),
+        (notas_fiscais_module.router, "/api/v1"),
     ]
 
     import logging
