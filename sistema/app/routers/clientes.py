@@ -25,7 +25,11 @@ def criar_cliente(
     cliente_service: ClienteService = Depends(get_cliente_service),
 ):
     """Cria um novo cliente."""
-    return cliente_service.criar_cliente(dados, usuario)
+    cliente = cliente_service.criar_cliente(dados, usuario)
+    aviso = getattr(cliente, 'aviso', None)
+    result = ClienteOut.model_validate(cliente)
+    result.aviso = aviso
+    return result
 
 
 @router.get("/", response_model=List[ClienteOut])
@@ -157,7 +161,11 @@ def atualizar_cliente(
     cliente_service: ClienteService = Depends(get_cliente_service),
 ):
     """Atualiza um cliente existente."""
-    return cliente_service.atualizar_cliente(cliente_id, dados, usuario)
+    cliente = cliente_service.atualizar_cliente(cliente_id, dados, usuario)
+    aviso = getattr(cliente, 'aviso', None)
+    result = ClienteOut.model_validate(cliente)
+    result.aviso = aviso
+    return result
 
 
 @router.delete("/{cliente_id}", status_code=status.HTTP_204_NO_CONTENT)
