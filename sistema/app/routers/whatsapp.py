@@ -323,9 +323,6 @@ async def enviar_menu_interativo(
             detail=f"Status '{orc.status}' não permite envio de menu interativo. Use orçamentos com status 'rascunho' ou 'enviado'.",
         )
 
-    if not empresa.whatsapp_conectado:
-        raise HTTPException(status_code=422, detail="WhatsApp não está conectado. Verifique a integração em Configurações.")
-
     ok = await enviar_menu_orcamento_cliente(db, orcamento_id, empresa)
     if not ok:
         raise HTTPException(

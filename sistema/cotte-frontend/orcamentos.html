@@ -1683,13 +1683,7 @@
     } catch (err) {
       const msg = err.message || 'Falha ao enviar menu interativo';
       console.error('[Menu Interativo] Erro ao enviar:', msg);
-      if (msg.toLowerCase().includes('whatsapp') || msg.toLowerCase().includes('conectado')) {
-        if (confirm(`⚠️ ${msg}\n\nDeseja ir para as Configurações para conectar o WhatsApp?`)) {
-          window.location.href = 'configuracoes.html';
-        }
-      } else {
-        showNotif('❌', 'Erro ao enviar menu', msg, 'error');
-      }
+      showNotif('❌', 'Erro ao enviar menu', msg, 'error');
     } finally {
       if (btnEl) { btnEl.disabled = false; btnEl.textContent = '🎛️ Menu interativo'; }
     }
