@@ -170,21 +170,17 @@ function selecionarTipoPessoa(tipo) {
   const labelNome = document.getElementById('label-cli-nome');
 
   if (tipo === 'PJ') {
-    // Estilo Ativo PJ
-    btnPJ.style.background = 'var(--green)';
+    btnPJ.style.background = 'var(--accent)';
     btnPJ.style.color = 'white';
-    // Estilo Inativo PF
     btnPF.style.background = 'transparent';
     btnPF.style.color = 'var(--muted)';
-    
+
     camposPF.style.display = 'none';
     camposPJ.style.display = 'block';
     if (labelNome) labelNome.textContent = 'Nome Fantasia *';
   } else {
-    // Estilo Ativo PF
-    btnPF.style.background = 'var(--green)';
+    btnPF.style.background = 'var(--accent)';
     btnPF.style.color = 'white';
-    // Estilo Inativo PJ
     btnPJ.style.background = 'transparent';
     btnPJ.style.color = 'var(--muted)';
 

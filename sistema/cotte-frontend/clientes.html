@@ -79,14 +79,14 @@
         <!-- SEÇÃO: IDENTIFICAÇÃO -->
         <div style="display:flex;flex-direction:column;gap:12px">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-            <span style="font-size:12px;background:var(--green-dim);color:var(--green);padding:4px 8px;border-radius:6px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">1. Identificação</span>
+            <span style="font-size:12px;background:var(--accent-dim);color:var(--accent);padding:4px 8px;border-radius:6px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">1. Identificação</span>
           </div>
 
           <!-- TIPO DE PESSOA (Segmented Toggle) -->
           <div class="form-group full">
             <div style="display:flex;background:var(--surface2);padding:4px;border-radius:12px;border:1px solid var(--border)">
               <button type="button" id="btn-pf" onclick="selecionarTipoPessoa('PF')"
-                style="flex:1;padding:8px;border-radius:10px;border:none;background:var(--green);color:white;font-weight:600;cursor:pointer;font-size:13px;transition:all 0.2s">
+                style="flex:1;padding:8px;border-radius:10px;border:none;background:var(--accent);color:white;font-weight:600;cursor:pointer;font-size:13px;transition:all 0.2s">
                 👤 Pessoa Física
               </button>
               <button type="button" id="btn-pj" onclick="selecionarTipoPessoa('PJ')"
@@ -123,7 +123,7 @@
                       onkeydown="if(event.key==='Enter'){event.preventDefault();buscarCnpj();}"
                       style="flex:1;min-width:0">
                     <button type="button" id="btn-buscar-cnpj" onclick="buscarCnpj()" title="Buscar dados do CNPJ"
-                      style="width:38px;height:38px;flex-shrink:0;border-radius:10px;background:var(--green-dim);border:1px solid rgba(0,229,160,0.3);color:var(--green);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .2s">
+                      style="width:38px;height:38px;flex-shrink:0;border-radius:10px;background:var(--accent-dim);border:1px solid var(--accent-glow);color:var(--accent);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .2s">
                       🔍
                     </button>
                   </div>
@@ -145,7 +145,7 @@
         <!-- SEÇÃO: CONTATO -->
         <div style="display:flex;flex-direction:column;gap:12px">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-            <span style="font-size:12px;background:var(--green-dim);color:var(--green);padding:4px 8px;border-radius:6px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">2. Contato</span>
+            <span style="font-size:12px;background:var(--accent-dim);color:var(--accent);padding:4px 8px;border-radius:6px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">2. Contato</span>
           </div>
           <div class="form-row" style="margin:0;display:flex;flex-wrap:wrap;gap:12px">
             <div class="form-group" style="flex:1;min-width:180px">
@@ -162,7 +162,7 @@
         <!-- SEÇÃO: ENDEREÇO -->
         <div style="display:flex;flex-direction:column;gap:12px">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-            <span style="font-size:12px;background:var(--green-dim);color:var(--green);padding:4px 8px;border-radius:6px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">3. Endereço</span>
+            <span style="font-size:12px;background:var(--accent-dim);color:var(--accent);padding:4px 8px;border-radius:6px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">3. Endereço</span>
           </div>
 
           <div class="form-row" style="margin:0;display:flex;flex-wrap:wrap;gap:12px">
@@ -172,7 +172,7 @@
                 <input type="text" id="cli-cep" placeholder="00000-000" maxlength="9" oninput="mascararCep(this)"
                   onkeydown="if(event.key==='Enter'){event.preventDefault();buscarCep();}" style="flex:1;min-width:0">
                 <button type="button" onclick="buscarCep()" id="btn-buscar-cep" title="Buscar CEP"
-                  style="width:38px;height:38px;flex-shrink:0;border-radius:10px;background:var(--green-dim);border:1px solid rgba(0,229,160,0.3);color:var(--green);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .2s">
+                  style="width:38px;height:38px;flex-shrink:0;border-radius:10px;background:var(--accent-dim);border:1px solid var(--accent-glow);color:var(--accent);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .2s">
                   🔍
                 </button>
               </div>
