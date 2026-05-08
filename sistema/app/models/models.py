@@ -348,6 +348,25 @@ class Empresa(Base):
         Boolean, default=False
     )  # se true, anexa o arquivo PDF no disparo do WhatsApp
 
+    # Dados fiscais para emissão de NF
+    cnpj = Column(String(18), nullable=True)
+    inscricao_estadual = Column(String(30), nullable=True)
+    inscricao_municipal = Column(String(30), nullable=True)
+    regime_tributario = Column(String(20), nullable=True)  # "simples_nacional" | "lucro_presumido" | "lucro_real" | "mei"
+    crt = Column(Integer, nullable=True)  # 1=Simples, 2=Simples Excesso, 3=Regime Normal
+    endereco_logradouro = Column(String(200), nullable=True)
+    endereco_numero = Column(String(20), nullable=True)
+    endereco_complemento = Column(String(100), nullable=True)
+    endereco_bairro = Column(String(100), nullable=True)
+    endereco_cidade = Column(String(100), nullable=True)
+    endereco_uf = Column(String(2), nullable=True)
+    endereco_cep = Column(String(9), nullable=True)
+    endereco_codigo_municipio_ibge = Column(String(7), nullable=True)
+    # Configuração Notaas por empresa
+    notaas_api_key = Column(String(200), nullable=True)
+    notaas_ambiente = Column(String(20), default="homologacao")  # "homologacao" | "producao"
+    notaas_webhook_secret = Column(String(200), nullable=True)
+
     pacote = relationship("Plano", back_populates="empresas")
     papeis = relationship("Papel", back_populates="empresa", order_by="Papel.nome")
     usuarios = relationship(
@@ -372,6 +391,7 @@ class Empresa(Base):
         "BancoPIXEmpresa", back_populates="empresa", cascade="all, delete-orphan"
     )
     tool_call_logs: Mapped[List["ToolCallLog"]] = relationship(back_populates="empresa")
+    notas_fiscais = relationship("NotaFiscal", back_populates="empresa", cascade="all, delete-orphan")
 
 
 class BancoPIXEmpresa(TenantScopedMixin, Base):
@@ -896,6 +916,7 @@ class Orcamento(TenantScopedMixin, Base):
         back_populates="orcamento",
         foreign_keys="Agendamento.orcamento_id",
     )
+    notas_fiscais = relationship("NotaFiscal", back_populates="orcamento")
 
 
 # ── ITEM DO ORÇAMENTO ──────────────────────────────────────────────────────
@@ -925,6 +946,41 @@ class ItemOrcamento(Base):
         if self.servico and getattr(self.servico, "imagem_url", None):
             return self.servico.imagem_url
         return None
+
+
+# ── NOTA FISCAL ────────────────────────────────────────────────────────────
+
+
+class NotaFiscal(Base):
+    __tablename__ = "notas_fiscais"
+
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False)
+    orcamento_id = Column(Integer, ForeignKey("orcamentos.id"), nullable=True)
+    tipo = Column(String(10), nullable=False)          # "nfe" | "nfce" | "nfse"
+    modelo = Column(Integer, nullable=True)            # 55 (NF-e), 65 (NFC-e), None (NFS-e)
+    serie = Column(String(10), nullable=True)
+    numero = Column(String(20), nullable=True)
+    status = Column(String(30), default="pendente")    # "pendente" | "processando" | "emitida" | "cancelada" | "erro"
+    natureza_operacao = Column(String(200), nullable=True)
+    notaas_invoice_id = Column(String(100), nullable=True)
+    notaas_delivery_id = Column(String(100), nullable=True)
+    chave_acesso = Column(String(44), nullable=True)
+    protocolo = Column(String(20), nullable=True)
+    xml_url = Column(String(500), nullable=True)
+    danfe_url = Column(String(500), nullable=True)
+    payload_enviado = Column(JSON, nullable=True)
+    erro_codigo = Column(String(50), nullable=True)
+    erro_mensagem = Column(Text, nullable=True)
+    criado_em = Column(DateTime, default=datetime.utcnow)
+    emitida_em = Column(DateTime, nullable=True)
+    cancelada_em = Column(DateTime, nullable=True)
+    cancelamento_motivo = Column(String(500), nullable=True)
+    criado_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+
+    empresa = relationship("Empresa", back_populates="notas_fiscais")
+    orcamento = relationship("Orcamento", back_populates="notas_fiscais")
+    criado_por = relationship("Usuario")
 
 
 # ── HISTÓRICO DE EDIÇÕES ────────────────────────────────────────────────────
