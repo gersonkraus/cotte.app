@@ -363,6 +363,7 @@ class Empresa(Base):
     endereco_cep = Column(String(9), nullable=True)
     endereco_codigo_municipio_ibge = Column(String(7), nullable=True)
     # Configuração Notaas por empresa
+    notaas_project_id = Column(String(100), nullable=True)  # UUID do projeto na Notaas (org API)
     notaas_api_key = Column(String(200), nullable=True)
     notaas_ambiente = Column(String(20), default="homologacao")  # "homologacao" | "producao"
     notaas_webhook_secret = Column(String(200), nullable=True)

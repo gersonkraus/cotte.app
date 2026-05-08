@@ -2074,6 +2074,7 @@ class ConfiguracaoFiscalEmpresa(BaseModel):
     endereco_uf: Optional[str] = None
     endereco_cep: Optional[str] = None
     endereco_codigo_municipio_ibge: Optional[str] = None
+    notaas_project_id: Optional[str] = None
     notaas_api_key: Optional[str] = None
     notaas_ambiente: Optional[str] = "homologacao"
     notaas_webhook_secret: Optional[str] = None

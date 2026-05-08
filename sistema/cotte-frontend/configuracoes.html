@@ -2916,15 +2916,11 @@ Estamos à disposição! 😊"></textarea>
             <div class="cfg-card-header">
               <div class="cfg-card-header-info">
                 <div class="cfg-card-title">Integração Notaas</div>
-                <div class="cfg-card-subtitle">Credenciais para emissão automática via <a href="https://platform.notaas.com.br" target="_blank" rel="noopener" style="color:var(--accent)">platform.notaas.com.br</a></div>
+                <div class="cfg-card-subtitle">Configure o ambiente e salve os dados fiscais antes de configurar o certificado.</div>
               </div>
             </div>
             <div class="cfg-card-body">
               <div class="cfg-fields-grid">
-                <div class="cfg-form-group">
-                  <label for="fiscal-api-key">API Key Notaas</label>
-                  <input type="password" id="fiscal-api-key" class="cfg-input" placeholder="Insira sua API key">
-                </div>
                 <div class="cfg-form-group">
                   <label for="fiscal-ambiente">Ambiente</label>
                   <select id="fiscal-ambiente" class="cfg-select">
@@ -2932,6 +2928,35 @@ Estamos à disposição! 😊"></textarea>
                     <option value="producao">Produção</option>
                   </select>
                 </div>
+              </div>
+
+              <!-- Status da configuração Notaas -->
+              <div id="notaas-status-bar" style="margin-top:1rem;padding:0.75rem 1rem;border-radius:8px;background:var(--bg-secondary);display:none">
+                <div style="display:flex;align-items:center;gap:0.5rem">
+                  <span id="notaas-status-icon" style="font-size:1.2rem">⏳</span>
+                  <span id="notaas-status-text" style="font-size:0.875rem"></span>
+                </div>
+              </div>
+
+              <!-- Seção de certificado A1 -->
+              <div style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border-color)">
+                <div class="cfg-card-title" style="font-size:0.95rem;margin-bottom:0.75rem">Certificado Digital A1</div>
+                <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem">
+                  Envie o arquivo .pfx ou .p12 do certificado A1. O COTTE fará o upload automático para a Notaas e configurará a API key.
+                </p>
+                <div class="cfg-fields-grid">
+                  <div class="cfg-form-group">
+                    <label for="fiscal-certificado">Arquivo do Certificado (.pfx / .p12)</label>
+                    <input type="file" id="fiscal-certificado" class="cfg-input" accept=".pfx,.p12" style="padding:0.4rem">
+                  </div>
+                  <div class="cfg-form-group">
+                    <label for="fiscal-cert-senha">Senha do Certificado</label>
+                    <input type="password" id="fiscal-cert-senha" class="cfg-input" placeholder="Senha do .pfx">
+                  </div>
+                </div>
+                <button class="btn btn-primary" id="btn-configurar-notaas" onclick="configurarNotaas(this)" style="margin-top:0.5rem">
+                  Configurar Notaas automaticamente
+                </button>
               </div>
             </div>
             <div class="cfg-card-footer">

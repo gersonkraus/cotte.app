@@ -2462,19 +2462,59 @@ async function carregarConfiguracaoFiscal() {
     document.getElementById('fiscal-cidade').value = d.endereco_cidade || '';
     document.getElementById('fiscal-uf').value = d.endereco_uf || '';
     document.getElementById('fiscal-ibge').value = d.endereco_codigo_municipio_ibge || '';
-    // Exibe placeholder se já tem chave salva, não expõe o valor real
-    document.getElementById('fiscal-api-key').value = d.notaas_api_key ? '***' : '';
     const ambiente = document.getElementById('fiscal-ambiente');
     if (d.notaas_ambiente) ambiente.value = d.notaas_ambiente;
+    // Carrega status Notaas após dados básicos
+    await carregarStatusNotaas(d.notaas_project_id, d.notaas_api_key);
   } catch (err) {
     console.error('[Fiscal] Erro ao carregar configuração:', err);
+  }
+}
+
+async function carregarStatusNotaas(projectId, apiKey) {
+  const bar = document.getElementById('notaas-status-bar');
+  const icon = document.getElementById('notaas-status-icon');
+  const text = document.getElementById('notaas-status-text');
+  if (!bar) return;
+  bar.style.display = 'block';
+
+  if (!projectId && !apiKey) {
+    bar.style.background = 'var(--bg-secondary)';
+    icon.textContent = '⚙️';
+    text.textContent = 'Notaas não configurada. Preencha os dados fiscais, salve e depois envie o certificado.';
+    return;
+  }
+
+  try {
+    const s = await api.get('/notas-fiscais/status-notaas');
+    if (!s) return;
+    if (s.configurado) {
+      bar.style.background = 'rgba(34,197,94,0.1)';
+      icon.textContent = '✅';
+      text.textContent = `Configurado — Projeto Notaas ativo. Ambiente: ${s.ambiente === 'producao' ? 'Produção' : 'Homologação'}.`;
+    } else if (s.tem_projeto && !s.tem_certificado) {
+      bar.style.background = 'rgba(234,179,8,0.1)';
+      icon.textContent = '⚠️';
+      text.textContent = 'Projeto criado na Notaas mas sem certificado. Envie o certificado A1 abaixo.';
+    } else if (s.tem_projeto && s.tem_certificado && !s.tem_api_key) {
+      bar.style.background = 'rgba(234,179,8,0.1)';
+      icon.textContent = '⚠️';
+      text.textContent = 'Certificado enviado mas API key não gerada. Clique em "Configurar Notaas automaticamente".';
+    } else {
+      bar.style.background = 'rgba(239,68,68,0.1)';
+      icon.textContent = '❌';
+      text.textContent = 'Configuração incompleta. Envie o certificado para concluir.';
+    }
+  } catch (_) {
+    bar.style.background = 'rgba(234,179,8,0.1)';
+    icon.textContent = '⚠️';
+    text.textContent = apiKey ? 'API key configurada manualmente.' : 'Não foi possível verificar status da Notaas.';
   }
 }
 
 async function salvarConfiguracaoFiscal(btnEl) {
   if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Salvando...'; }
   try {
-    const apiKey = document.getElementById('fiscal-api-key').value;
     const regimeValue = document.getElementById('fiscal-regime').value;
     const payload = {
       cnpj: document.getElementById('fiscal-cnpj').value || null,
@@ -2492,8 +2532,6 @@ async function salvarConfiguracaoFiscal(btnEl) {
       endereco_codigo_municipio_ibge: document.getElementById('fiscal-ibge').value || null,
       notaas_ambiente: document.getElementById('fiscal-ambiente').value,
     };
-    // Só envia a key se o usuário digitou algo diferente do placeholder
-    if (apiKey && apiKey !== '***') payload.notaas_api_key = apiKey;
     await api.put('/notas-fiscais/configuracao', payload);
     showNotif('✅', 'Configuração fiscal salva!', 'Dados atualizados com sucesso.');
   } catch (err) {
@@ -2503,7 +2541,69 @@ async function salvarConfiguracaoFiscal(btnEl) {
   }
 }
 
+async function configurarNotaas(btnEl) {
+  const certInput = document.getElementById('fiscal-certificado');
+  const senhaInput = document.getElementById('fiscal-cert-senha');
+  if (!certInput.files || !certInput.files[0]) {
+    showNotif('⚠️', 'Certificado obrigatório', 'Selecione o arquivo .pfx ou .p12 do certificado A1.', 'warning');
+    return;
+  }
+  if (!senhaInput.value) {
+    showNotif('⚠️', 'Senha obrigatória', 'Informe a senha do certificado digital.', 'warning');
+    return;
+  }
+
+  if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Configurando...'; }
+  const statusBar = document.getElementById('notaas-status-bar');
+  const statusIcon = document.getElementById('notaas-status-icon');
+  const statusText = document.getElementById('notaas-status-text');
+  if (statusBar) {
+    statusBar.style.display = 'block';
+    statusBar.style.background = 'var(--bg-secondary)';
+    statusIcon.textContent = '⏳';
+    statusText.textContent = 'Enviando certificado e configurando projeto na Notaas...';
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append('certificado', certInput.files[0]);
+    formData.append('senha_certificado', senhaInput.value);
+
+    const token = localStorage.getItem('cotte_token');
+    const url = buildApiRequestUrl('/notas-fiscais/configurar-notaas');
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: formData,
+    });
+    const data = await resp.json();
+
+    if (!resp.ok) {
+      throw new Error(data.detail || data.error || `Erro ${resp.status}`);
+    }
+
+    if (statusBar) {
+      statusBar.style.background = 'rgba(34,197,94,0.1)';
+      statusIcon.textContent = '✅';
+      statusText.textContent = `Configurado! Certificado válido até ${data.cert_valido_ate ? new Date(data.cert_valido_ate).toLocaleDateString('pt-BR') : '?'} (${data.cert_dias_restantes ?? '?'} dias restantes).`;
+    }
+    senhaInput.value = '';
+    certInput.value = '';
+    showNotif('✅', 'Notaas configurada!', 'Certificado enviado e API key gerada com sucesso.');
+  } catch (err) {
+    if (statusBar) {
+      statusBar.style.background = 'rgba(239,68,68,0.1)';
+      statusIcon.textContent = '❌';
+      statusText.textContent = `Erro: ${err.message}`;
+    }
+    showNotif('❌', 'Erro ao configurar Notaas', err.message || 'Verifique o certificado e senha.', 'error');
+  } finally {
+    if (btnEl) { btnEl.disabled = false; btnEl.textContent = 'Configurar Notaas automaticamente'; }
+  }
+}
+
 window.carregarConfiguracaoFiscal = carregarConfiguracaoFiscal;
 window.salvarConfiguracaoFiscal = salvarConfiguracaoFiscal;
+window.configurarNotaas = configurarNotaas;
 
 initTemplatePublicoUI();

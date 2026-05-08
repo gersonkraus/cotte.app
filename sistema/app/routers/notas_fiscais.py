@@ -6,7 +6,8 @@ import logging
 from datetime import datetime
 from typing import List
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, Request, UploadFile
+from fastapi import Form
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -21,6 +22,7 @@ from app.schemas.schemas import (
     NotaFiscalOut,
 )
 from app.services import nfe_service
+from app.services import nfe_org_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/notas-fiscais", tags=["Notas Fiscais"])
@@ -60,6 +62,7 @@ def get_configuracao_fiscal(
         endereco_uf=empresa.endereco_uf,
         endereco_cep=empresa.endereco_cep,
         endereco_codigo_municipio_ibge=empresa.endereco_codigo_municipio_ibge,
+        notaas_project_id=empresa.notaas_project_id,
         notaas_api_key="***" if empresa.notaas_api_key else None,
         notaas_ambiente=empresa.notaas_ambiente,
     )
@@ -199,6 +202,85 @@ async def cancelar_nota_fiscal(
         raise HTTPException(400, f"Nota em status '{nota.status}' não pode ser cancelada")
 
     return await nfe_service.cancelar_nota(db, nota, empresa, dados.motivo)
+
+
+# ── Onboarding Notaas (Org API) ──────────────────────────────────────────────
+
+@router.post("/configurar-notaas")
+async def configurar_notaas(
+    certificado: UploadFile = File(..., description="Certificado A1 (.pfx ou .p12)"),
+    senha_certificado: str = Form(...),
+    db: Session = Depends(get_db),
+    usuario=Depends(get_usuario_atual),
+    _=Depends(exigir_permissao("configuracoes", "escrita")),
+):
+    """Onboarding automático Notaas: cria projeto + upload certificado + gera API key."""
+    set_tenant_context(db, empresa_id=usuario.empresa_id, usuario_id=usuario.id)
+    empresa = db.query(Empresa).filter(Empresa.id == usuario.empresa_id).first()
+    if not empresa:
+        raise HTTPException(404, "Empresa não encontrada")
+    if not empresa.cnpj:
+        raise HTTPException(422, "CNPJ da empresa é obrigatório. Preencha os dados fiscais primeiro.")
+
+    cert_bytes = await certificado.read()
+    if len(cert_bytes) > 51200:  # 50KB
+        raise HTTPException(413, "Certificado deve ter no máximo 50KB")
+
+    try:
+        resultado = await nfe_org_service.onboarding_completo(
+            db, empresa, cert_bytes, senha_certificado
+        )
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    except Exception as e:
+        logger.error("Erro no onboarding Notaas empresa_id=%s: %s", usuario.empresa_id, e)
+        raise HTTPException(502, f"Erro na comunicação com a Notaas: {e}")
+
+    return {
+        "success": True,
+        "message": "Empresa configurada com sucesso na Notaas",
+        **resultado,
+    }
+
+
+@router.get("/status-notaas")
+async def status_notaas(
+    db: Session = Depends(get_db),
+    usuario=Depends(get_usuario_atual),
+):
+    """Retorna o status de configuração Notaas da empresa (projeto, certificado, API key)."""
+    set_tenant_context(db, empresa_id=usuario.empresa_id, usuario_id=usuario.id)
+    empresa = db.query(Empresa).filter(Empresa.id == usuario.empresa_id).first()
+    if not empresa:
+        raise HTTPException(404, "Empresa não encontrada")
+
+    if not empresa.notaas_project_id:
+        return {
+            "configurado": False,
+            "tem_projeto": False,
+            "tem_certificado": False,
+            "tem_api_key": bool(empresa.notaas_api_key),
+        }
+
+    try:
+        status = await nfe_org_service.verificar_status_projeto(empresa.notaas_project_id)
+    except Exception as e:
+        logger.warning("Erro ao verificar status Notaas: %s", e)
+        return {
+            "configurado": bool(empresa.notaas_api_key),
+            "tem_projeto": True,
+            "project_id": empresa.notaas_project_id,
+            "erro": "Não foi possível verificar status em tempo real",
+        }
+
+    return {
+        "configurado": status.get("hasCertificate") and bool(empresa.notaas_api_key),
+        "tem_projeto": status.get("found", False),
+        "tem_certificado": status.get("hasCertificate", False),
+        "tem_api_key": status.get("hasApiKey", False),
+        "project_id": empresa.notaas_project_id,
+        "ambiente": empresa.notaas_ambiente,
+    }
 
 
 @router.post("/webhook/notaas")
