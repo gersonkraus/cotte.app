@@ -68,7 +68,6 @@ def upgrade() -> None:
             sa.Column('cancelada_em', sa.DateTime(timezone=True), nullable=True),
             sa.Column('cancelamento_motivo', sa.String(500), nullable=True),
             sa.Column('criado_por_id', sa.Integer(), sa.ForeignKey('usuarios.id'), nullable=True),
-            sa.Column('tenant_id', sa.Integer(), sa.ForeignKey('tenants.id'), nullable=False),
         )
         op.create_index(op.f('ix_notas_fiscais_empresa_id'), 'notas_fiscais', ['empresa_id'], unique=False)
         op.create_index(op.f('ix_notas_fiscais_orcamento_id'), 'notas_fiscais', ['orcamento_id'], unique=False)
