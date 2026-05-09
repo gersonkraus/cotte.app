@@ -94,12 +94,12 @@
                 <button class="modal-close" onclick="closeCampaignModal()">×</button>
             </div>
             <div class="modal-body">
-                <form id="campaign-form">
+                <form id="campaign-form" novalidate>
                     <input type="hidden" id="campaign-id">
                     
                     <div class="form-group">
-                        <label for="campaign-nome">Nome da Campanha:</label>
-                        <input type="text" id="campaign-nome" required>
+                        <label for="campaign-nome">Nome da Campanha</label>
+                        <input type="text" id="campaign-nome" placeholder="Ex: Promoção de Maio, Reativação de Clientes…">
                     </div>
 
                     <div class="form-group">

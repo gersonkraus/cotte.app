@@ -1,11 +1,11 @@
 {
   "$schema": "https://stacklit.dev/schema/v1.json",
   "version": "1",
-  "generated_at": "2026-04-30T01:48:05Z",
+  "generated_at": "2026-05-09T13:08:10Z",
   "stacklit_version": "dev",
-  "merkle_hash": "ba36e44da90911c2f2de9d3e5a507b8b104300b54ecd2a547820f4cda87130b1",
+  "merkle_hash": "05ea12bf9a3b12f08058012b8d1f37d7749621f112e5dde17ae3cd6dd996f4ba",
   "project": {
-    "name": "cotte.app",
+    "name": "Projeto-izi",
     "root": ".",
     "type": "single"
   },
@@ -13,16 +13,16 @@
     "primary_language": "python",
     "languages": {
       "javascript": {
-        "files": 93,
-        "lines": 39269
+        "files": 95,
+        "lines": 42186
       },
       "python": {
-        "files": 425,
-        "lines": 95498
+        "files": 478,
+        "lines": 113823
       },
       "shell": {
-        "files": 6,
-        "lines": 278
+        "files": 7,
+        "lines": 317
       }
     },
     "frameworks": [
@@ -34,12 +34,173 @@
   },
   "structure": {
     "entrypoints": [
+      ".agent/skills/ui-ux-pro-max/scripts/search.py",
+      ".codebuddy/skills/ui-ux-pro-max/scripts/search.py",
+      ".github/prompts/ui-ux-pro-max/scripts/search.py",
+      ".kiro/steering/ui-ux-pro-max/scripts/search.py",
+      ".qoder/skills/ui-ux-pro-max/scripts/search.py",
+      ".roo/skills/ui-ux-pro-max/scripts/search.py",
+      ".trae/skills/ui-ux-pro-max/scripts/search.py",
       "sistema/scripts/verificar_urls_r2.py"
     ],
-    "total_files": 524,
-    "total_lines": 135045
+    "total_files": 580,
+    "total_lines": 156326
   },
   "modules": {
+    ".agent/skills/ui-ux-pro-max/scripts": {
+      "purpose": "Scripts",
+      "language": "python",
+      "files": 3,
+      "lines": 1434,
+      "file_list": [
+        "core.py",
+        "design_system.py",
+        "search.py"
+      ],
+      "exports": [
+        "class BM25",
+        "class DesignSystemGenerator",
+        "detect_domain(query)",
+        "format_output(result)",
+        "search(query, domain=None, max_results=MAX_RESULTS)"
+      ],
+      "type_defs": {
+        "BM25": "tokenize, fit, score"
+      },
+      "activity": "low"
+    },
+    ".codebuddy/skills/ui-ux-pro-max/scripts": {
+      "purpose": "Scripts",
+      "language": "python",
+      "files": 3,
+      "lines": 1434,
+      "file_list": [
+        "core.py",
+        "design_system.py",
+        "search.py"
+      ],
+      "exports": [
+        "class BM25",
+        "class DesignSystemGenerator",
+        "detect_domain(query)",
+        "format_output(result)",
+        "search(query, domain=None, max_results=MAX_RESULTS)"
+      ],
+      "type_defs": {
+        "BM25": "tokenize, fit, score"
+      },
+      "activity": "low"
+    },
+    ".github/prompts/ui-ux-pro-max/scripts": {
+      "purpose": "Scripts",
+      "language": "python",
+      "files": 3,
+      "lines": 1434,
+      "file_list": [
+        "core.py",
+        "design_system.py",
+        "search.py"
+      ],
+      "exports": [
+        "class BM25",
+        "class DesignSystemGenerator",
+        "detect_domain(query)",
+        "format_output(result)",
+        "search(query, domain=None, max_results=MAX_RESULTS)"
+      ],
+      "type_defs": {
+        "BM25": "tokenize, fit, score"
+      },
+      "activity": "low"
+    },
+    ".kiro/steering/ui-ux-pro-max/scripts": {
+      "purpose": "Scripts",
+      "language": "python",
+      "files": 3,
+      "lines": 1434,
+      "file_list": [
+        "core.py",
+        "design_system.py",
+        "search.py"
+      ],
+      "exports": [
+        "class BM25",
+        "class DesignSystemGenerator",
+        "detect_domain(query)",
+        "format_output(result)",
+        "search(query, domain=None, max_results=MAX_RESULTS)"
+      ],
+      "type_defs": {
+        "BM25": "tokenize, fit, score"
+      },
+      "activity": "low"
+    },
+    ".qoder/skills/ui-ux-pro-max/scripts": {
+      "purpose": "Scripts",
+      "language": "python",
+      "files": 3,
+      "lines": 1434,
+      "file_list": [
+        "core.py",
+        "design_system.py",
+        "search.py"
+      ],
+      "exports": [
+        "class BM25",
+        "class DesignSystemGenerator",
+        "detect_domain(query)",
+        "format_output(result)",
+        "search(query, domain=None, max_results=MAX_RESULTS)"
+      ],
+      "type_defs": {
+        "BM25": "tokenize, fit, score"
+      },
+      "activity": "low"
+    },
+    ".roo/skills/ui-ux-pro-max/scripts": {
+      "purpose": "Scripts",
+      "language": "python",
+      "files": 3,
+      "lines": 1434,
+      "file_list": [
+        "core.py",
+        "design_system.py",
+        "search.py"
+      ],
+      "exports": [
+        "class BM25",
+        "class DesignSystemGenerator",
+        "detect_domain(query)",
+        "format_output(result)",
+        "search(query, domain=None, max_results=MAX_RESULTS)"
+      ],
+      "type_defs": {
+        "BM25": "tokenize, fit, score"
+      },
+      "activity": "low"
+    },
+    ".trae/skills/ui-ux-pro-max/scripts": {
+      "purpose": "Scripts",
+      "language": "python",
+      "files": 3,
+      "lines": 1434,
+      "file_list": [
+        "core.py",
+        "design_system.py",
+        "search.py"
+      ],
+      "exports": [
+        "class BM25",
+        "class DesignSystemGenerator",
+        "detect_domain(query)",
+        "format_output(result)",
+        "search(query, domain=None, max_results=MAX_RESULTS)"
+      ],
+      "type_defs": {
+        "BM25": "tokenize, fit, score"
+      },
+      "activity": "low"
+    },
     "root": {
       "purpose": "Root package",
       "language": "python",
@@ -70,8 +231,8 @@
     "scripts": {
       "purpose": "Scripts",
       "language": "shell",
-      "files": 9,
-      "lines": 952,
+      "files": 10,
+      "lines": 991,
       "file_list": [
         "auto_tagging_base.py",
         "check_no_gitlinks.sh",
@@ -81,6 +242,7 @@
         "notion-reference.sh",
         "notion-sync.sh",
         "notion-tasks.sh",
+        "test_migrations.sh",
         "validate-contributing-links.mjs"
       ],
       "exports": [
@@ -101,9 +263,6 @@
         "query.py",
         "release.sh"
       ],
-      "depended_by": [
-        "sistema/cotte-frontend/js/dashboard"
-      ],
       "activity": "high"
     },
     "sistema/alembic": {
@@ -123,13 +282,14 @@
     "sistema/alembic/versions": {
       "purpose": "Versions",
       "language": "python",
-      "files": 120,
-      "lines": 7896,
+      "files": 130,
+      "lines": 8780,
       "file_list": [
         "001_initial_schema.py",
         "002_add_comercial_tables.py",
         "003_add_comercial_extended_tables.py",
         "00b953ce3024_backfill_notif_whats_visualizacao_.py",
+        "0659a14bdfbe_add_notaas_project_id_to_empresas.py",
         "1548e7057e6c_refactor_monetary_to_numeric_and_sync.py",
         "1913bf78d9a7_feat_adicionar_campos_de_otp_para_.py",
         "20260323_add_categoria_id_servicos.py",
@@ -144,8 +304,7 @@
         "4f007c9fa25f_unify_tool_call_logs_schema.py",
         "5f2d3c4b1a9e_merge_commercial_and_empresas_heads.py",
         "60754c29faf4_add_performance_indices_orcamentos_.py",
-        "6f8002896a1d_add_copiloto_user_skill.py",
-        "8237a0c4e1d0_legacy_propostas_publicas_alias.py"
+        "6f8002896a1d_add_copiloto_user_skill.py"
       ],
       "exports": [
         "column_exists(table_name, column_name)",
@@ -160,7 +319,7 @@
       "purpose": "App",
       "language": "python",
       "files": 2,
-      "lines": 582,
+      "lines": 624,
       "file_list": [
         "__init__.py",
         "main.py"
@@ -186,11 +345,22 @@
       ],
       "activity": "low"
     },
+    "sistema/app/contracts": {
+      "purpose": "Contracts",
+      "language": "python",
+      "files": 2,
+      "lines": 33,
+      "file_list": [
+        "__init__.py",
+        "internal_copilot_contracts.py"
+      ],
+      "activity": "low"
+    },
     "sistema/app/core": {
       "purpose": "Core",
       "language": "python",
       "files": 12,
-      "lines": 2497,
+      "lines": 2509,
       "file_list": [
         "__init__.py",
         "auth.py",
@@ -229,7 +399,7 @@
       "purpose": "Data models and types",
       "language": "python",
       "files": 3,
-      "lines": 2552,
+      "lines": 2813,
       "file_list": [
         "__init__.py",
         "models.py",
@@ -252,14 +422,15 @@
     "sistema/app/repositories": {
       "purpose": "Repositories",
       "language": "python",
-      "files": 8,
-      "lines": 1401,
+      "files": 9,
+      "lines": 1860,
       "file_list": [
         "__init__.py",
         "base.py",
         "categoria_financeira_repository.py",
         "cliente_repository.py",
         "empresa_repository.py",
+        "mercadolivre_repository.py",
         "orcamento_repository.py",
         "servico_repository.py",
         "usuario_repository.py"
@@ -268,21 +439,23 @@
         "class CategoriaFinanceiraRepository",
         "class ClienteRepository",
         "class EmpresaRepository",
+        "class MercadoLivreRepository",
         "class OrcamentoRepository",
         "class RepositoryBase",
         "class ServicoRepository",
         "class UsuarioRepository"
       ],
       "type_defs": {
-        "CategoriaFinanceiraRepository": "criar_categoria, get_by_id, listar_categorias, verificar_duplicidade, atualizar_categoria, soft_delete_categoria"
+        "CategoriaFinanceiraRepository": "criar_categoria, get_by_id, listar_categorias, verificar_duplicidade, atualizar_categoria, soft_delete_categoria",
+        "MercadoLivreRepository": "get_integracao, get_or_create_integracao, save_tokens, set_oauth_state, marcar_erro, marcar_sync_pedidos, marcar_sync_anuncios, desconectar, upsert_pedidos, upsert_anuncios, get_pedido_vinculo, list_pedido_vinculos, upsert_pedido_vinculo, get_item_vinculo_by_ml_item, get_item_vinculo_by_servico, list_item_vinculos, upsert_item_vinculo, delete_item_vinculo, create_sync_job, finish_sync_job, list_sync_jobs, acquire_lock, release_lock"
       },
       "activity": "low"
     },
     "sistema/app/routers": {
       "purpose": "Routers",
       "language": "python",
-      "files": 32,
-      "lines": 16559,
+      "files": 34,
+      "lines": 17676,
       "file_list": [
         "__init__.py",
         "admin.py",
@@ -322,9 +495,10 @@
     "sistema/app/routers/tenant": {
       "purpose": "Tenant",
       "language": "python",
-      "files": 11,
-      "lines": 2948,
+      "files": 12,
+      "lines": 3296,
       "file_list": [
+        "__init__.py",
         "comercial_campaigns.py",
         "comercial_config.py",
         "comercial_dashboard.py",
@@ -354,15 +528,16 @@
     "sistema/app/schemas": {
       "purpose": "Schemas",
       "language": "python",
-      "files": 6,
-      "lines": 3012,
+      "files": 7,
+      "lines": 3207,
       "file_list": [
         "__init__.py",
         "agendamento.py",
         "financeiro.py",
         "notifications.py",
         "plano.py",
-        "schemas.py"
+        "schemas.py",
+        "tenant_comercial_templates.py"
       ],
       "exports": [
         "class AgendamentoCalendario",
@@ -381,8 +556,8 @@
     "sistema/app/services": {
       "purpose": "Business logic services",
       "language": "python",
-      "files": 70,
-      "lines": 32760,
+      "files": 79,
+      "lines": 35452,
       "file_list": [
         "__init__.py",
         "admin_config.py",
@@ -432,7 +607,7 @@
       "purpose": "Ai Tools",
       "language": "python",
       "files": 13,
-      "lines": 5120,
+      "lines": 5180,
       "file_list": [
         "__init__.py",
         "_base.py",
@@ -465,8 +640,8 @@
     "sistema/app/services/assistant_autonomy": {
       "purpose": "Assistant Autonomy",
       "language": "python",
-      "files": 16,
-      "lines": 2283,
+      "files": 17,
+      "lines": 2659,
       "file_list": [
         "__init__.py",
         "action_advisor.py",
@@ -479,6 +654,7 @@
         "policy_engine.py",
         "response_composer.py",
         "runtime.py",
+        "schema_context.py",
         "semantic_model.py",
         "semantic_planner.py",
         "sql_hybrid_planner.py",
@@ -492,10 +668,10 @@
         "detect_metrics(text: str) -\u003e list[str]",
         "estimate_prompt_tokens(mensagem: str) -\u003e int",
         "evaluate_policy( *, plan: SemanticPlan, current_user: Any, engine: str | None, ) -\u003e PolicyDecision",
-        "llm_sql_planner_enabled() -\u003e bool",
-        "record_semantic_audit( *, db: Any, current_user: Any, request_id: str | None, sessao_id: str | None, plan: SemanticPl...",
-        "route_intent(message: str) -\u003e IntentDomain",
-        "semantic_autonomy_enabled() -\u003e bool"
+        "get_allowed_tables_for_guard() -\u003e dict[str, dict[str, str]]",
+        "get_schema_context_for_llm() -\u003e str",
+        "get_table_hints() -\u003e dict[str, str]",
+        "llm_sql_planner_enabled() -\u003e bool"
       ],
       "activity": "low"
     },
@@ -577,8 +753,8 @@
     "sistema/cotte-frontend/js": {
       "purpose": "Js",
       "language": "javascript",
-      "files": 59,
-      "lines": 33520,
+      "files": 60,
+      "lines": 36411,
       "file_list": [
         "TemplatesManager.js",
         "agendamentos.js",
@@ -600,6 +776,9 @@
         "chat-tooltips.js",
         "chat-virtualization.js",
         "clientes.js"
+      ],
+      "depended_by": [
+        "sistema/cotte-frontend/js/dashboard"
       ],
       "activity": "high"
     },
@@ -638,7 +817,7 @@
         "StatsRow": "constructor, load, calcularStats, render, renderLoading, renderStats, setupEventListeners, handleCardHover, handleCardLeave, handleCardClick, setupDynamicTooltips, update, updateStat, updateCard, destroy"
       },
       "depends_on": [
-        "sistema"
+        "sistema/cotte-frontend/js"
       ],
       "activity": "low"
     },
@@ -703,31 +882,47 @@
     "edges": [
       [
         "sistema/cotte-frontend/js/dashboard",
-        "sistema"
+        "sistema/cotte-frontend/js"
       ]
     ],
     "entrypoints": [
+      ".agent/skills/ui-ux-pro-max/scripts/search.py",
+      ".codebuddy/skills/ui-ux-pro-max/scripts/search.py",
+      ".github/prompts/ui-ux-pro-max/scripts/search.py",
+      ".kiro/steering/ui-ux-pro-max/scripts/search.py",
+      ".qoder/skills/ui-ux-pro-max/scripts/search.py",
+      ".roo/skills/ui-ux-pro-max/scripts/search.py",
+      ".trae/skills/ui-ux-pro-max/scripts/search.py",
       "sistema/scripts/verificar_urls_r2.py"
     ],
     "most_depended": [
-      "sistema",
+      "sistema/cotte-frontend/js",
+      ".agent/skills/ui-ux-pro-max/scripts",
+      ".codebuddy/skills/ui-ux-pro-max/scripts",
+      ".github/prompts/ui-ux-pro-max/scripts",
+      ".kiro/steering/ui-ux-pro-max/scripts",
+      ".qoder/skills/ui-ux-pro-max/scripts",
+      ".roo/skills/ui-ux-pro-max/scripts",
+      ".trae/skills/ui-ux-pro-max/scripts",
       "root",
-      "scripts",
-      "sistema/alembic",
-      "sistema/alembic/versions",
-      "sistema/app",
-      "sistema/app/api",
-      "sistema/app/core",
-      "sistema/app/models",
-      "sistema/app/repositories"
+      "scripts"
     ],
     "isolated": [
+      ".agent/skills/ui-ux-pro-max/scripts",
+      ".codebuddy/skills/ui-ux-pro-max/scripts",
+      ".github/prompts/ui-ux-pro-max/scripts",
+      ".kiro/steering/ui-ux-pro-max/scripts",
+      ".qoder/skills/ui-ux-pro-max/scripts",
+      ".roo/skills/ui-ux-pro-max/scripts",
+      ".trae/skills/ui-ux-pro-max/scripts",
       "root",
       "scripts",
+      "sistema",
       "sistema/alembic",
       "sistema/alembic/versions",
       "sistema/app",
       "sistema/app/api",
+      "sistema/app/contracts",
       "sistema/app/core",
       "sistema/app/models",
       "sistema/app/repositories",
@@ -741,7 +936,6 @@
       "sistema/app/utils",
       "sistema/cotte-frontend",
       "sistema/cotte-frontend/css",
-      "sistema/cotte-frontend/js",
       "sistema/cotte-frontend/js/components",
       "sistema/cotte-frontend/js/services",
       "sistema/cotte-frontend/js/utils",
@@ -751,40 +945,40 @@
   "git": {
     "hot_files": [
       {
-        "path": "sistema/app/services/cotte_ai_hub.py",
-        "commits_90d": 116
+        "path": "sistema/app/models/models.py",
+        "commits_90d": 125
       },
       {
-        "path": "sistema/app/models/models.py",
-        "commits_90d": 114
+        "path": "sistema/app/services/cotte_ai_hub.py",
+        "commits_90d": 118
       },
       {
         "path": "sistema/cotte-frontend/assistente-ia.html",
         "commits_90d": 109
       },
       {
+        "path": "sistema/cotte-frontend/orcamentos.html",
+        "commits_90d": 100
+      },
+      {
+        "path": "sistema/app/schemas/schemas.py",
+        "commits_90d": 98
+      },
+      {
         "path": "sistema/app/routers/orcamentos.py",
         "commits_90d": 95
       },
       {
-        "path": "sistema/app/schemas/schemas.py",
-        "commits_90d": 92
-      },
-      {
-        "path": "sistema/cotte-frontend/orcamentos.html",
-        "commits_90d": 92
-      },
-      {
         "path": "sistema/cotte-frontend/index.html",
-        "commits_90d": 89
+        "commits_90d": 90
       },
       {
         "path": "sistema/cotte-frontend/configuracoes.html",
-        "commits_90d": 75
+        "commits_90d": 80
       },
       {
         "path": "sistema/cotte-frontend/comercial.html",
-        "commits_90d": 74
+        "commits_90d": 78
       },
       {
         "path": "sistema/cotte-frontend/js/assistente-ia.js",
@@ -803,16 +997,20 @@
         "commits_90d": 51
       },
       {
+        "path": "sistema/cotte-frontend/js/api.js",
+        "commits_90d": 49
+      },
+      {
         "path": "sistema/cotte-frontend/css/assistente-ia.css",
         "commits_90d": 48
       },
       {
-        "path": "sistema/cotte-frontend/js/api.js",
-        "commits_90d": 46
+        "path": "sistema/app/routers/whatsapp.py",
+        "commits_90d": 47
       },
       {
         "path": "sistema/cotte-frontend/financeiro.html",
-        "commits_90d": 45
+        "commits_90d": 46
       },
       {
         "path": "memory/.last-session",
@@ -823,41 +1021,37 @@
         "commits_90d": 41
       },
       {
-        "path": "sistema/main.py",
+        "path": "sistema/app/main.py",
         "commits_90d": 41
-      },
-      {
-        "path": "sistema/cotte-frontend/catalogo.html",
-        "commits_90d": 40
       }
     ],
     "recent": [
-      "DEPENDENCIES.md",
-      "stacklit.json",
-      "patch_executor.py",
-      "patch_logging.py",
-      "sistema/app/services/internal_copilot_agents.py",
-      "sistema/app/services/internal_copilot_artifacts.py",
-      "sistema/app/services/internal_copilot_contracts.py",
-      "sistema/app/services/internal_copilot_data_executor.py",
-      "sistema/app/services/internal_copilot_memory.py",
-      "sistema/app/services/internal_copilot_orchestrator.py"
+      "sistema/cotte-frontend/css/tenant-comercial.css",
+      "sistema/cotte-frontend/js/tenant-comercial.js",
+      "sistema/cotte-frontend/tenant-comercial.html",
+      "sistema/.env.example",
+      "sistema/alembic/versions/ml002_add_mercadolivre_domain_tables.py",
+      "sistema/app/core/config.py",
+      "sistema/app/main.py",
+      "sistema/app/models/models.py",
+      "sistema/app/repositories/mercadolivre_repository.py",
+      "sistema/app/routers/mercadolivre.py"
     ],
     "stable": [
       "\"Sem t\\303\\255tulo 1.canvas\"",
       "\"Sem t\\303\\255tulo.base\"",
       "\"Sem t\\303\\255tulo.canvas\"",
-      ".codex",
-      ".github/workflows/assistant-contracts.yml",
-      ".github/workflows/validate-contributing.yml",
-      ".hermes/plans/2026-04-15_003303-em-copiloto-tecnico-html-esta-ferramente-tem-com.md",
-      ".hermes/plans/2026-04-15_105149-estou-logado-no-painel-superadmin-e-copiloto-tec.md",
-      ".hermes/plans/2026-04-15_111631-teria-vantangem-em-usar-algum-modelo-melhor-para.md",
-      ".hermes/plans/2026-04-15_124454-poss-vel-usar-o-litellm-para-poder-definir.md"
+      ".agent/skills/ui-ux-pro-max/SKILL.md",
+      ".agent/skills/ui-ux-pro-max/data/charts.csv",
+      ".agent/skills/ui-ux-pro-max/data/colors.csv",
+      ".agent/skills/ui-ux-pro-max/data/icons.csv",
+      ".agent/skills/ui-ux-pro-max/data/landing.csv",
+      ".agent/skills/ui-ux-pro-max/data/products.csv",
+      ".agent/skills/ui-ux-pro-max/data/react-performance.csv"
     ]
   },
   "hints": {
-    "add_feature": "Add handler in sistema/app/api, register in sistema/scripts/verificar_urls_r2.py",
+    "add_feature": "Add handler in sistema/app/api, register in .agent/skills/ui-ux-pro-max/scripts/search.py",
     "test_command": "npm test",
     "env_vars": [
       "AI_API_KEY",

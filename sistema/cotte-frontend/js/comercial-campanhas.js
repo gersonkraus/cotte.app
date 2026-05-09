@@ -358,6 +358,19 @@ class ComercialCampanhas {
             lead_ids: Array.from(this.selectedLeads.keys())
         };
 
+        if (!data.nome.trim()) {
+            toastr.warning('Informe o nome da campanha.');
+            document.getElementById('campaign-nome').focus();
+            return;
+        }
+        if (!data.canal) {
+            toastr.warning('Selecione o canal de disparo.');
+            return;
+        }
+        if (!data.template_id) {
+            toastr.warning('Selecione um template.');
+            return;
+        }
         if (data.lead_ids.length === 0) {
             toastr.error('Selecione ao menos um lead para a campanha.');
             return;

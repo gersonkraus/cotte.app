@@ -1589,6 +1589,43 @@ body.comercial-simple-mode .lmc-actions .btn {
 }
 .camp-nome-input::placeholder { color: rgba(255,255,255,0.38); font-weight: 400; }
 .camp-nome-input:focus { outline: none; border-color: rgba(255,255,255,0.85); }
+.camp-nome-input.camp-input-error { border-color: #ff8080 !important; animation: campShake .32s ease; }
+@keyframes campShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  60% { transform: translateX(5px); }
+  80% { transform: translateX(-3px); }
+}
+
+/* ── Nome Field — Didático ── */
+.camp-nome-field { display: flex; flex-direction: column; }
+.camp-nome-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.72);
+  margin-bottom: 5px;
+  letter-spacing: .01em;
+}
+.camp-obrig-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  background: rgba(255,255,255,0.17);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: rgba(255,255,255,0.9);
+  padding: 1px 7px;
+  border-radius: 4px;
+}
+.camp-nome-tip {
+  font-size: 10px;
+  color: rgba(255,255,255,0.4);
+  margin-top: 5px;
+  line-height: 1.45;
+}
 
 .camp-close-btn {
   background: rgba(255,255,255,0.14);
@@ -1869,11 +1906,41 @@ body.comercial-simple-mode .lmc-actions .btn {
 /* ── Footer ── */
 .camp-footer {
   display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 26px 16px;
+  border-top: 1px solid var(--border);
+}
+.camp-footer-actions {
+  display: flex;
   justify-content: flex-end;
   align-items: center;
   gap: 10px;
-  padding: 14px 26px 18px;
-  border-top: 1px solid var(--border);
+}
+/* ── Inline Error Banner ── */
+.camp-inline-error {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 9px 13px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #dc2626;
+  line-height: 1.4;
+  animation: campErrIn .18s ease;
+}
+.camp-inline-error.visible { display: flex; }
+@keyframes campErrIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+[data-theme="dark"] .camp-inline-error {
+  background: rgba(220,38,38,0.09);
+  border-color: rgba(220,38,38,0.28);
+  color: #f87171;
 }
 
 .camp-submit-btn {

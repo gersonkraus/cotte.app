@@ -724,7 +724,14 @@ Exemplos de formatos aceitos:
           </div>
           <div class="camp-hero-text">
             <div class="camp-hero-label" id="modal-camp-title">NOVA CAMPANHA</div>
-            <input type="text" class="camp-nome-input" id="camp-nome" placeholder="Dê um nome para sua campanha..." autocomplete="off" required>
+            <div class="camp-nome-field">
+              <div class="camp-nome-label">
+                Nome da campanha
+                <span class="camp-obrig-badge">obrigatório</span>
+              </div>
+              <input type="text" class="camp-nome-input" id="camp-nome" placeholder="Ex: Promoção Maio — Clientes Quentes" autocomplete="off" required>
+              <div class="camp-nome-tip">Identifica esta campanha na lista — use um nome claro e descritivo</div>
+            </div>
           </div>
         </div>
         <button class="camp-close-btn" onclick="fecharModal('modal-campanha')" aria-label="Fechar">
@@ -810,11 +817,14 @@ Exemplos de formatos aceitos:
         <input type="hidden" id="camp-id">
         <select id="camp-leads" multiple style="display:none"></select>
         <div id="camp-leads-info" style="display:none"></div>
-        <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-campanha')">Cancelar</button>
-        <button type="button" class="camp-submit-btn" id="btn-salvar-campanha">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
-          Criar Campanha
-        </button>
+        <div class="camp-inline-error" id="camp-inline-error" role="alert" aria-live="polite"></div>
+        <div class="camp-footer-actions">
+          <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-campanha')">Cancelar</button>
+          <button type="button" class="camp-submit-btn" id="btn-salvar-campanha">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
+            Criar Campanha
+          </button>
+        </div>
       </div>
 
     </div>

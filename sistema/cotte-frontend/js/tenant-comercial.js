@@ -2792,6 +2792,7 @@ function renderCampanhasMobile(campanhas) {
 }
 
 function abrirModalCampanha() {
+  _clearCampError();
   document.getElementById('camp-id').value = '';
   document.getElementById('camp-nome').value = '';
   document.getElementById('camp-template').value = '';
@@ -2953,24 +2954,46 @@ function _campToggleLead(id, checked) {
 function carregarLeadsParaCampanha() { _aplicarFiltrosCampanha(); }
 function atualizarContagemLeadsCampanha() {}
 
+function _showCampError(msg) {
+  var el = document.getElementById('camp-inline-error');
+  if (!el) { showToast(msg, 'error'); return; }
+  el.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>' + msg + '</span>';
+  el.classList.add('visible');
+  el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+function _clearCampError() {
+  var el = document.getElementById('camp-inline-error');
+  if (el) el.classList.remove('visible');
+}
+
 async function salvarCampanha() {
+  _clearCampError();
   var id = document.getElementById('camp-id').value;
   var nome = document.getElementById('camp-nome').value.trim();
   var templateId = document.getElementById('camp-template').value;
   var canal = document.getElementById('camp-canal').value;
   var leadIds = Array.from(_campLeadIds);
 
-  if (!nome || !templateId) {
-    showToast('Preencha nome e template', 'error');
+  if (!nome) {
+    var nomeEl = document.getElementById('camp-nome');
+    nomeEl.classList.add('camp-input-error');
+    nomeEl.focus();
+    setTimeout(function() { nomeEl.classList.remove('camp-input-error'); }, 600);
+    _showCampError('Informe o nome da campanha para continuar.');
+    return;
+  }
+  if (!templateId) {
+    _showCampError('Selecione um template de mensagem antes de criar a campanha.');
     return;
   }
   if (!leadIds.length) {
-    showToast('Selecione ao menos um contato para receber a campanha', 'error');
+    _showCampError('Selecione ao menos um contato para receber esta campanha.');
     return;
   }
 
   var btnSalvar = document.getElementById('btn-salvar-campanha');
-  if (btnSalvar) { btnSalvar.disabled = true; btnSalvar.textContent = 'Salvando...'; }
+  var btnOrigHtml = btnSalvar ? btnSalvar.innerHTML : '';
+  if (btnSalvar) { btnSalvar.disabled = true; btnSalvar.innerHTML = '<span style="opacity:.7">Salvando...</span>'; }
 
   try {
     var body = { nome: nome, template_id: parseInt(templateId), canal: canal, lead_ids: leadIds };
@@ -2984,9 +3007,9 @@ async function salvarCampanha() {
     fecharModal('modal-campanha');
     carregarCampanhas();
   } catch (e) {
-    showToast('Erro: ' + (e.message || 'Falha ao salvar campanha'), 'error');
+    _showCampError('Erro ao salvar: ' + (e.message || 'Falha ao salvar a campanha. Tente novamente.'));
   } finally {
-    if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.textContent = 'Criar Campanha'; }
+    if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.innerHTML = btnOrigHtml; }
   }
 }
 
