@@ -1,11 +1,11 @@
 {
   "$schema": "https://stacklit.dev/schema/v1.json",
   "version": "1",
-  "generated_at": "2026-05-09T13:08:10Z",
+  "generated_at": "2026-05-09T21:56:12Z",
   "stacklit_version": "dev",
-  "merkle_hash": "05ea12bf9a3b12f08058012b8d1f37d7749621f112e5dde17ae3cd6dd996f4ba",
+  "merkle_hash": "46934b90ac3445dd7c6446dfd3a55f56706a1560f01fe0e05bc8d8e4a63582f6",
   "project": {
-    "name": "Projeto-izi",
+    "name": "cotte.app",
     "root": ".",
     "type": "single"
   },
@@ -14,11 +14,11 @@
     "languages": {
       "javascript": {
         "files": 95,
-        "lines": 42186
+        "lines": 42302
       },
       "python": {
         "files": 478,
-        "lines": 113823
+        "lines": 113913
       },
       "shell": {
         "files": 7,
@@ -44,7 +44,7 @@
       "sistema/scripts/verificar_urls_r2.py"
     ],
     "total_files": 580,
-    "total_lines": 156326
+    "total_lines": 156532
   },
   "modules": {
     ".agent/skills/ui-ux-pro-max/scripts": {
@@ -496,7 +496,7 @@
       "purpose": "Tenant",
       "language": "python",
       "files": 12,
-      "lines": 3296,
+      "lines": 3380,
       "file_list": [
         "__init__.py",
         "comercial_campaigns.py",
@@ -529,7 +529,7 @@
       "purpose": "Schemas",
       "language": "python",
       "files": 7,
-      "lines": 3207,
+      "lines": 3213,
       "file_list": [
         "__init__.py",
         "agendamento.py",
@@ -635,7 +635,7 @@
         "class ExecutarSqlAnaliticoInput",
         "class GerarRelatorioRankingClientesInput"
       ],
-      "activity": "low"
+      "activity": "high"
     },
     "sistema/app/services/assistant_autonomy": {
       "purpose": "Assistant Autonomy",
@@ -738,6 +738,9 @@
         "generate_icon.py",
         "sw.js"
       ],
+      "depended_by": [
+        "sistema/cotte-frontend/js/dashboard"
+      ],
       "activity": "high"
     },
     "sistema/cotte-frontend/css": {
@@ -754,7 +757,7 @@
       "purpose": "Js",
       "language": "javascript",
       "files": 60,
-      "lines": 36411,
+      "lines": 36527,
       "file_list": [
         "TemplatesManager.js",
         "agendamentos.js",
@@ -776,9 +779,6 @@
         "chat-tooltips.js",
         "chat-virtualization.js",
         "clientes.js"
-      ],
-      "depended_by": [
-        "sistema/cotte-frontend/js/dashboard"
       ],
       "activity": "high"
     },
@@ -817,7 +817,7 @@
         "StatsRow": "constructor, load, calcularStats, render, renderLoading, renderStats, setupEventListeners, handleCardHover, handleCardLeave, handleCardClick, setupDynamicTooltips, update, updateStat, updateCard, destroy"
       },
       "depends_on": [
-        "sistema/cotte-frontend/js"
+        "sistema/cotte-frontend"
       ],
       "activity": "low"
     },
@@ -882,7 +882,7 @@
     "edges": [
       [
         "sistema/cotte-frontend/js/dashboard",
-        "sistema/cotte-frontend/js"
+        "sistema/cotte-frontend"
       ]
     ],
     "entrypoints": [
@@ -896,7 +896,7 @@
       "sistema/scripts/verificar_urls_r2.py"
     ],
     "most_depended": [
-      "sistema/cotte-frontend/js",
+      "sistema/cotte-frontend",
       ".agent/skills/ui-ux-pro-max/scripts",
       ".codebuddy/skills/ui-ux-pro-max/scripts",
       ".github/prompts/ui-ux-pro-max/scripts",
@@ -934,8 +934,8 @@
       "sistema/app/services/assistant_autonomy",
       "sistema/app/services/rag",
       "sistema/app/utils",
-      "sistema/cotte-frontend",
       "sistema/cotte-frontend/css",
+      "sistema/cotte-frontend/js",
       "sistema/cotte-frontend/js/components",
       "sistema/cotte-frontend/js/services",
       "sistema/cotte-frontend/js/utils",
@@ -945,97 +945,97 @@
   "git": {
     "hot_files": [
       {
-        "path": "sistema/app/models/models.py",
-        "commits_90d": 125
-      },
-      {
         "path": "sistema/app/services/cotte_ai_hub.py",
-        "commits_90d": 118
-      },
-      {
-        "path": "sistema/cotte-frontend/assistente-ia.html",
-        "commits_90d": 109
-      },
-      {
-        "path": "sistema/cotte-frontend/orcamentos.html",
-        "commits_90d": 100
-      },
-      {
-        "path": "sistema/app/schemas/schemas.py",
-        "commits_90d": 98
-      },
-      {
-        "path": "sistema/app/routers/orcamentos.py",
-        "commits_90d": 95
-      },
-      {
-        "path": "sistema/cotte-frontend/index.html",
-        "commits_90d": 90
-      },
-      {
-        "path": "sistema/cotte-frontend/configuracoes.html",
         "commits_90d": 80
       },
       {
-        "path": "sistema/cotte-frontend/comercial.html",
-        "commits_90d": 78
-      },
-      {
-        "path": "sistema/cotte-frontend/js/assistente-ia.js",
-        "commits_90d": 69
-      },
-      {
-        "path": "sistema/cotte-frontend/admin.html",
-        "commits_90d": 59
-      },
-      {
-        "path": "sistema/cotte-frontend/orcamento-publico.html",
-        "commits_90d": 59
-      },
-      {
-        "path": "sistema/app/routers/publico.py",
-        "commits_90d": 51
-      },
-      {
-        "path": "sistema/cotte-frontend/js/api.js",
-        "commits_90d": 49
+        "path": "sistema/cotte-frontend/assistente-ia.html",
+        "commits_90d": 53
       },
       {
         "path": "sistema/cotte-frontend/css/assistente-ia.css",
-        "commits_90d": 48
+        "commits_90d": 40
       },
       {
-        "path": "sistema/app/routers/whatsapp.py",
-        "commits_90d": 47
+        "path": "sistema/cotte-frontend/js/assistente-ia.js",
+        "commits_90d": 38
       },
       {
-        "path": "sistema/cotte-frontend/financeiro.html",
-        "commits_90d": 46
+        "path": "sistema/cotte-frontend/js/assistente-ia-render-types.js",
+        "commits_90d": 36
       },
       {
-        "path": "memory/.last-session",
-        "commits_90d": 41
+        "path": "sistema/app/models/models.py",
+        "commits_90d": 30
       },
       {
-        "path": "memory/.session-log",
-        "commits_90d": 41
+        "path": "sistema/cotte-frontend/tenant-comercial.html",
+        "commits_90d": 30
       },
       {
-        "path": "sistema/app/main.py",
-        "commits_90d": 41
+        "path": "sistema/app/services/ai_intention_classifier.py",
+        "commits_90d": 27
+      },
+      {
+        "path": "AGENTS.md",
+        "commits_90d": 26
+      },
+      {
+        "path": "sistema/cotte-frontend/css/tenant-comercial.css",
+        "commits_90d": 25
+      },
+      {
+        "path": "sistema/app/services/ai_tools/orcamento_tools.py",
+        "commits_90d": 22
+      },
+      {
+        "path": "sistema/cotte-frontend/js/assistente-ia-render.js",
+        "commits_90d": 22
+      },
+      {
+        "path": "sistema/app/routers/ai_hub.py",
+        "commits_90d": 21
+      },
+      {
+        "path": "sistema/cotte-frontend/js/assistente-ia-shell.js",
+        "commits_90d": 20
+      },
+      {
+        "path": "sistema/cotte-frontend/orcamentos.html",
+        "commits_90d": 17
+      },
+      {
+        "path": "sistema/tests/test_assistente_unificado_v2.py",
+        "commits_90d": 17
+      },
+      {
+        "path": "sistema/cotte-frontend/js/tenant-comercial.js",
+        "commits_90d": 16
+      },
+      {
+        "path": "sistema/app/schemas/schemas.py",
+        "commits_90d": 14
+      },
+      {
+        "path": "sistema/app/services/ia_service.py",
+        "commits_90d": 14
+      },
+      {
+        "path": "sistema/cotte-frontend/js/copiloto-tecnico.js",
+        "commits_90d": 14
       }
     ],
     "recent": [
-      "sistema/cotte-frontend/css/tenant-comercial.css",
+      "sistema/app/routers/tenant/comercial_campaigns.py",
+      "sistema/app/schemas/schemas.py",
+      "sistema/cotte-frontend/comercial.html",
       "sistema/cotte-frontend/js/tenant-comercial.js",
       "sistema/cotte-frontend/tenant-comercial.html",
-      "sistema/.env.example",
-      "sistema/alembic/versions/ml002_add_mercadolivre_domain_tables.py",
-      "sistema/app/core/config.py",
-      "sistema/app/main.py",
-      "sistema/app/models/models.py",
-      "sistema/app/repositories/mercadolivre_repository.py",
-      "sistema/app/routers/mercadolivre.py"
+      "sistema/cotte-frontend/css/tenant-comercial.css",
+      "sistema/cotte-frontend/clientes.html",
+      "sistema/cotte-frontend/css/style.css",
+      "sistema/cotte-frontend/documentos.html",
+      "sistema/cotte-frontend/index.html"
     ],
     "stable": [
       "\"Sem t\\303\\255tulo 1.canvas\"",
