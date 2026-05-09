@@ -2719,6 +2719,10 @@ if (csvTrigger && csvInput) {
 // ═══════════════════════════════════════════════════════════════
 
 var campanhasCache = [];
+var _campLeadIds = new Set();
+var _campLeadsCache = [];
+var _campTemperaturas = new Set();
+var _campFiltroDebounce = null;
 
 async function carregarCampanhas() {
   try {
@@ -2794,8 +2798,23 @@ function abrirModalCampanha() {
   document.getElementById('camp-canal').value = 'whatsapp';
   document.getElementById('camp-leads').innerHTML = '';
   document.getElementById('modal-camp-title').textContent = 'Nova Campanha';
+
+  // Resetar estado de filtros
+  _campLeadIds = new Set();
+  _campLeadsCache = [];
+  _campTemperaturas = new Set();
+  document.querySelectorAll('.camp-temp-chip').forEach(function(c) { c.classList.remove('active'); });
+  var etapaEl = document.getElementById('camp-filter-etapa');
+  var importEl = document.getElementById('camp-filter-importacao');
+  var searchEl = document.getElementById('camp-filter-search');
+  if (etapaEl) etapaEl.value = '';
+  if (importEl) importEl.value = '';
+  if (searchEl) searchEl.value = '';
+
   carregarTemplatesCampanha();
-  carregarLeadsParaCampanha();
+  _carregarEtapasPipelineCampanha();
+  _carregarImportacoesCampanha();
+  _aplicarFiltrosCampanha();
   document.getElementById('modal-campanha').classList.add('open');
 }
 
@@ -2812,47 +2831,144 @@ async function carregarTemplatesCampanha() {
   }
 }
 
-async function carregarLeadsParaCampanha() {
+async function _carregarEtapasPipelineCampanha() {
   try {
-    document.getElementById('camp-leads-info').innerText = 'Carregando leads...';
-    var res = await api.get('/tenant/comercial/leads?per_page=1000&status_pipeline_notin=fechado_ganho,fechado_perdido');
-    var sel = document.getElementById('camp-leads');
-    sel.innerHTML = '';
-    (res.items || res || []).forEach(function(l) {
-      var nome = l.nome_responsavel || l.nome_empresa || 'Lead #' + l.id;
-      sel.innerHTML += '<option value="' + l.id + '">' + escapeHtml(nome) + ' - ' + (l.whatsapp || l.email || '') + '</option>';
+    var stages = await api.get('/tenant/comercial/pipeline-stages');
+    var sel = document.getElementById('camp-filter-etapa');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Todas as etapas</option>';
+    (stages || []).filter(function(s) { return s.ativo && !s.fechado; }).forEach(function(s) {
+      sel.innerHTML += '<option value="' + escapeHtml(s.slug) + '">' + (s.emoji ? s.emoji + ' ' : '') + escapeHtml(s.label) + '</option>';
     });
-    atualizarContagemLeadsCampanha();
   } catch (e) {
-    console.error('Erro ao carregar leads:', e);
-    document.getElementById('camp-leads-info').innerText = 'Erro ao carregar leads.';
+    console.error('Erro ao carregar etapas:', e);
   }
 }
 
-function atualizarContagemLeadsCampanha() {
-  var sel = document.getElementById('camp-leads');
-  var total = sel.options.length;
-  var selecionados = sel.selectedOptions.length;
-  
-  var texto = selecionados === 0 
-    ? total + ' leads disponíveis' 
-    : selecionados + ' selecionados de ' + total + ' disponíveis';
-    
-  document.getElementById('camp-leads-info').innerText = texto;
+async function _carregarImportacoesCampanha() {
+  try {
+    var lista = await api.get('/tenant/comercial/import/list');
+    var sel = document.getElementById('camp-filter-importacao');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Qualquer importação</option>';
+    (lista || []).forEach(function(imp) {
+      var data = imp.criado_em ? new Date(imp.criado_em).toLocaleDateString('pt-BR') : '';
+      sel.innerHTML += '<option value="' + imp.id + '">' + escapeHtml(imp.nome || 'Importação #' + imp.id) + (data ? ' — ' + data : '') + ' (' + (imp.total_importados || 0) + ')</option>';
+    });
+  } catch (e) {
+    console.error('Erro ao carregar importações:', e);
+  }
 }
+
+async function _aplicarFiltrosCampanha() {
+  var listaEl = document.getElementById('camp-leads-list');
+  if (!listaEl) return;
+  listaEl.innerHTML = '<div class="loading" style="padding:24px"><div class="spinner"></div></div>';
+
+  try {
+    var importacaoId = document.getElementById('camp-filter-importacao') ? document.getElementById('camp-filter-importacao').value : '';
+    var todos = [];
+
+    if (importacaoId) {
+      var res = await api.get('/tenant/comercial/import/' + importacaoId + '/leads');
+      todos = (res || []).map(function(item) { return item.lead || item; }).filter(function(l) { return l && l.id; });
+    } else {
+      var params = 'per_page=1000&status_pipeline_notin=fechado_ganho,fechado_perdido';
+      var etapa = document.getElementById('camp-filter-etapa') ? document.getElementById('camp-filter-etapa').value : '';
+      if (etapa) params += '&status=' + encodeURIComponent(etapa);
+      var canal = document.getElementById('camp-canal') ? document.getElementById('camp-canal').value : '';
+      if (canal === 'whatsapp') params += '&has_whatsapp=true';
+      else if (canal === 'email') params += '&has_email=true';
+      var search = document.getElementById('camp-filter-search') ? document.getElementById('camp-filter-search').value.trim() : '';
+      if (search) params += '&search=' + encodeURIComponent(search);
+      var res2 = await api.get('/tenant/comercial/leads?' + params);
+      todos = res2.items || res2 || [];
+    }
+
+    // Filtro client-side por temperatura (suporta múltiplos valores)
+    if (_campTemperaturas.size > 0) {
+      todos = todos.filter(function(l) { return _campTemperaturas.has(l.lead_score); });
+    }
+
+    _campLeadsCache = todos;
+    _campLeadIds = new Set(todos.map(function(l) { return l.id; }));
+    _renderizarListaLeadsCampanha();
+  } catch (e) {
+    console.error('Erro ao filtrar leads:', e);
+    listaEl.innerHTML = '<div style="padding:16px;text-align:center;color:var(--red);font-size:13px">Erro ao carregar contatos</div>';
+  }
+}
+
+function _renderizarListaLeadsCampanha() {
+  var listaEl = document.getElementById('camp-leads-list');
+  var countEl = document.getElementById('camp-leads-count');
+  if (!listaEl) return;
+
+  var selecionados = _campLeadIds.size;
+  var total = _campLeadsCache.length;
+  if (countEl) countEl.textContent = selecionados + (selecionados !== total ? ' de ' + total : '') + ' contato' + (selecionados !== 1 ? 's' : '');
+
+  if (!_campLeadsCache.length) {
+    listaEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Nenhum contato encontrado com esses filtros</div>';
+    return;
+  }
+
+  var LIMITE = 150;
+  var exibir = _campLeadsCache.slice(0, LIMITE);
+  var scoreLabel = { quente: '🔴', morno: '🟡', frio: '🔵' };
+
+  var html = exibir.map(function(l) {
+    var nome = escapeHtml(l.nome_empresa || l.nome_responsavel || 'Lead #' + l.id);
+    var contato = escapeHtml(l.whatsapp || l.email || '—');
+    var score = l.lead_score || '';
+    var scoreIcon = scoreLabel[score] || '';
+    var checked = _campLeadIds.has(l.id) ? 'checked' : '';
+    return '<label class="camp-lead-item" data-id="' + l.id + '">' +
+      '<input type="checkbox" ' + checked + ' onchange="_campToggleLead(' + l.id + ', this.checked)">' +
+      '<span class="camp-lead-name">' + nome + '</span>' +
+      '<span class="camp-lead-contact">' + contato + '</span>' +
+      (scoreIcon ? '<span class="camp-lead-score ' + escapeHtml(score) + '">' + scoreIcon + ' ' + escapeHtml(score) + '</span>' : '') +
+      '</label>';
+  }).join('');
+
+  if (_campLeadsCache.length > LIMITE) {
+    html += '<div style="padding:10px 12px;font-size:12px;color:var(--muted);text-align:center">...e mais ' + (_campLeadsCache.length - LIMITE) + ' contatos</div>';
+  }
+
+  listaEl.innerHTML = html;
+}
+
+function _campToggleLead(id, checked) {
+  if (checked) _campLeadIds.add(id);
+  else _campLeadIds.delete(id);
+  var countEl = document.getElementById('camp-leads-count');
+  var total = _campLeadsCache.length;
+  var selecionados = _campLeadIds.size;
+  if (countEl) countEl.textContent = selecionados + (selecionados !== total ? ' de ' + total : '') + ' contato' + (selecionados !== 1 ? 's' : '');
+}
+
+// Mantida para compatibilidade com qualquer chamada externa residual
+function carregarLeadsParaCampanha() { _aplicarFiltrosCampanha(); }
+function atualizarContagemLeadsCampanha() {}
 
 async function salvarCampanha() {
   var id = document.getElementById('camp-id').value;
   var nome = document.getElementById('camp-nome').value.trim();
   var templateId = document.getElementById('camp-template').value;
   var canal = document.getElementById('camp-canal').value;
-  var leadsSel = document.getElementById('camp-leads');
-  var leadIds = Array.from(leadsSel.selectedOptions).map(function(o) { return parseInt(o.value); });
+  var leadIds = Array.from(_campLeadIds);
 
   if (!nome || !templateId) {
     showToast('Preencha nome e template', 'error');
     return;
   }
+  if (!leadIds.length) {
+    showToast('Selecione ao menos um contato para receber a campanha', 'error');
+    return;
+  }
+
+  var btnSalvar = document.getElementById('btn-salvar-campanha');
+  if (btnSalvar) { btnSalvar.disabled = true; btnSalvar.textContent = 'Salvando...'; }
 
   try {
     var body = { nome: nome, template_id: parseInt(templateId), canal: canal, lead_ids: leadIds };
@@ -2861,12 +2977,14 @@ async function salvarCampanha() {
       showToast('Campanha atualizada!');
     } else {
       await api.post('/tenant/comercial/campaigns/', body);
-      showToast('Campanha criada!');
+      showToast('Campanha criada com ' + leadIds.length + ' contato' + (leadIds.length !== 1 ? 's' : '') + '!');
     }
     fecharModal('modal-campanha');
     carregarCampanhas();
   } catch (e) {
     showToast('Erro: ' + (e.message || 'Falha ao salvar campanha'), 'error');
+  } finally {
+    if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.textContent = 'Criar Campanha'; }
   }
 }
 
@@ -2933,10 +3051,48 @@ async function excluirCampanha(id) {
 
 // Event listeners para campanhas
 document.getElementById('btn-nova-campanha')?.addEventListener('click', function() { abrirModalCampanha(); });
-document.getElementById('modal-campanha')?.querySelector('.btn-primary')?.addEventListener('click', function() { salvarCampanha(); });
+document.getElementById('btn-salvar-campanha')?.addEventListener('click', function() { salvarCampanha(); });
 document.querySelector('#modal-campanha .modal-close')?.addEventListener('click', function() { fecharModal('modal-campanha'); });
-document.querySelector('#modal-campanha .btn-secondary')?.addEventListener('click', function() { fecharModal('modal-campanha'); });
 document.querySelector('#modal-campanha-metricas .modal-close')?.addEventListener('click', function() { fecharModal('modal-campanha-metricas'); });
+
+// Filtros do modal de campanha
+(function() {
+  function _debounceFiltro(fn, delay) {
+    return function() {
+      clearTimeout(_campFiltroDebounce);
+      _campFiltroDebounce = setTimeout(fn, delay);
+    };
+  }
+
+  // Chips de temperatura
+  document.querySelectorAll('.camp-temp-chip').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      btn.classList.toggle('active');
+      var score = btn.dataset.score;
+      if (_campTemperaturas.has(score)) _campTemperaturas.delete(score);
+      else _campTemperaturas.add(score);
+      _aplicarFiltrosCampanha();
+    });
+  });
+
+  // Dropdowns e canal
+  document.getElementById('camp-filter-etapa')?.addEventListener('change', _aplicarFiltrosCampanha);
+  document.getElementById('camp-filter-importacao')?.addEventListener('change', _aplicarFiltrosCampanha);
+  document.getElementById('camp-canal')?.addEventListener('change', _aplicarFiltrosCampanha);
+
+  // Busca com debounce
+  document.getElementById('camp-filter-search')?.addEventListener('input', _debounceFiltro(_aplicarFiltrosCampanha, 350));
+
+  // Selecionar todos / Limpar seleção
+  document.getElementById('btn-camp-select-all')?.addEventListener('click', function() {
+    _campLeadIds = new Set(_campLeadsCache.map(function(l) { return l.id; }));
+    _renderizarListaLeadsCampanha();
+  });
+  document.getElementById('btn-camp-clear-sel')?.addEventListener('click', function() {
+    _campLeadIds = new Set();
+    _renderizarListaLeadsCampanha();
+  });
+})();
 
 document.getElementById('btn-confirmar-reenvio')?.addEventListener('click', confirmarReenvioProposta);
 document.querySelector('#modal-confirmar-reenvio .modal-close')?.addEventListener('click', function() { fecharModal('modal-confirmar-reenvio'); });
