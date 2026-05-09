@@ -1,1 +1,0 @@
-{"nodes": [{"id": "patch_render_types", "label": "patch_render_types.py", "file_type": "code", "source_file": "patch_render_types.py", "source_location": "L1"}], "edges": [{"source": "patch_render_types", "target": "re", "relation": "imports", "confidence": "EXTRACTED", "source_file": "patch_render_types.py", "source_location": "L1", "weight": 1.0}]}
