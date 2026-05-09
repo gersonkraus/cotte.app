@@ -396,6 +396,7 @@
   let _filtroStatus  = 'ativos';
   let _mlVinculosMap = new Map();
   let _mlServicoSelecionado = null;
+  let _mlIntegracaoConectada = false;
   let imagemFileNovo = null;  // arquivo selecionado ao criar novo item (enviado após salvar)
   let previewUrlNovo = null;   // object URL para preview no novo item
 
@@ -415,6 +416,7 @@
         carregarCategorias(),
       ]);
       catalogoCache = items || [];
+      await carregarStatusIntegracaoML();
       await carregarVinculosMLCatalogo();
       document.getElementById('page-sub').textContent =
         `${catalogoCache.filter(i => i.ativo).length} item(s) ativo(s)`;
@@ -477,7 +479,7 @@
     grid.innerHTML = lista.map(item => {
       const imgSrc = api.resolveUrl(item.imagem_url);
       const vinculoML = _mlVinculosMap.get(item.id);
-      const badgeML = vinculoML
+      const badgeML = (_mlIntegracaoConectada && vinculoML)
         ? `<span style="font-size:10px;background:var(--blue-dim, rgba(59,130,246,.12));color:#3b82f6;border-radius:6px;padding:2px 8px;white-space:nowrap;flex-shrink:0">ML: ${vinculoML.ml_item_id || 'vinculado'}</span>`
         : '';
       return `
@@ -503,15 +505,35 @@
           ${temPermCatalogo() ? `
           <div class="catalogo-card-actions" style="display:flex;gap:8px">
             <button class="btn btn-ghost catalogo-card-btn" style="flex:1;font-size:13px;padding:8px" onclick="abrirModalEditar(${item.id})">✏️ Editar</button>
-            <button class="btn btn-ghost catalogo-card-btn" style="font-size:13px;padding:8px" onclick="abrirModalMLVinculo(${item.id})">🔗 ML</button>
+            ${_mlIntegracaoConectada
+              ? `<button class="btn btn-ghost catalogo-card-btn" style="font-size:13px;padding:8px" onclick="abrirModalMLVinculo(${item.id})">🔗 ML</button>`
+              : ''}
           </div>` : ''}
         </div>
       </div>`;
     }).join('');
   }
 
+  function _mlExtrairData(resp) {
+    if (!resp || typeof resp !== 'object') return {};
+    if (resp.data && typeof resp.data === 'object') return resp.data;
+    return resp;
+  }
+
+  async function carregarStatusIntegracaoML() {
+    _mlIntegracaoConectada = false;
+    try {
+      const resp = await api.get('/mercadolivre/status');
+      const data = _mlExtrairData(resp);
+      _mlIntegracaoConectada = Boolean(data.connected);
+    } catch (_) {
+      _mlIntegracaoConectada = false;
+    }
+  }
+
   async function carregarVinculosMLCatalogo() {
     _mlVinculosMap = new Map();
+    if (!_mlIntegracaoConectada) return;
     try {
       const resp = await api.get('/mercadolivre/vinculos/catalogo?limit=500');
       const items = (resp && resp.items) ? resp.items : (resp && resp.data && resp.data.items ? resp.data.items : []);
