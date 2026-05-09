@@ -1,10 +1,14 @@
 import asyncio
 import random
+import time
 from datetime import datetime
 from typing import List
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
+
+_running_campaigns: dict[int, bool] = {}
+_campaign_start_times: dict[int, float] = {}
 
 from app.core.auth import exigir_modulo, exigir_permissao
 from app.core.database import get_db
@@ -30,6 +34,28 @@ from app.schemas.schemas import (
     CampaignOut,
     CampaignUpdate,
 )
+
+
+def _calcular_eta(campaign, started_at: float | None = None) -> str | None:
+    if campaign.status != "em_andamento" or not started_at or not campaign.total_leads:
+        return None
+    enviados = campaign.enviados or 0
+    if enviados < 1:
+        return None
+    elapsed = time.time() - started_at
+    rate = enviados / elapsed
+    restantes = campaign.total_leads - enviados
+    if restantes <= 0 or rate <= 0:
+        return None
+    segundos = restantes / rate
+    if segundos < 60:
+        return f"{int(segundos)}s"
+    minutos = segundos / 60
+    if minutos < 60:
+        return f"{int(minutos)}min"
+    horas = int(minutos / 60)
+    mins = int(minutos % 60)
+    return f"{horas}h{mins}min"
 
 
 router = APIRouter(
@@ -88,12 +114,33 @@ async def list_campaigns(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(exigir_permissao("comercial", "leitura")),
 ):
-    return (
+    campanhas = (
         db.query(TenantCommercialCampaign)
         .filter(TenantCommercialCampaign.empresa_id == current_user.empresa_id)
         .order_by(TenantCommercialCampaign.criado_em.desc())
         .all()
     )
+    resultado = []
+    for c in campanhas:
+        eta = _calcular_eta(c, _campaign_start_times.get(c.id))
+        out = CampaignOut.model_validate(c)
+        out.tempo_estimado_restante = eta
+        resultado.append(out)
+    return resultado
+
+
+def _get_campaign_orm(campaign_id: int, empresa_id: int, db: Session):
+    campaign = (
+        db.query(TenantCommercialCampaign)
+        .filter(
+            TenantCommercialCampaign.id == campaign_id,
+            TenantCommercialCampaign.empresa_id == empresa_id,
+        )
+        .first()
+    )
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campanha não encontrada")
+    return campaign
 
 
 @router.get("/{campaign_id}", response_model=CampaignOut)
@@ -102,17 +149,11 @@ async def get_campaign(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(exigir_permissao("comercial", "leitura")),
 ):
-    campaign = (
-        db.query(TenantCommercialCampaign)
-        .filter(
-            TenantCommercialCampaign.id == campaign_id,
-            TenantCommercialCampaign.empresa_id == current_user.empresa_id,
-        )
-        .first()
-    )
-    if not campaign:
-        raise HTTPException(status_code=404, detail="Campanha não encontrada")
-    return campaign
+    campaign = _get_campaign_orm(campaign_id, current_user.empresa_id, db)
+    eta = _calcular_eta(campaign, _campaign_start_times.get(campaign.id))
+    out = CampaignOut.model_validate(campaign)
+    out.tempo_estimado_restante = eta
+    return out
 
 
 @router.put("/{campaign_id}", response_model=CampaignOut)
@@ -122,7 +163,7 @@ async def update_campaign(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(exigir_permissao("comercial", "escrita")),
 ):
-    campaign = await get_campaign(campaign_id, db, current_user)
+    campaign = _get_campaign_orm(campaign_id, current_user.empresa_id, db)
     for field, value in request.model_dump(exclude_unset=True).items():
         setattr(campaign, field, value)
     campaign.atualizado_em = datetime.now()
@@ -139,9 +180,11 @@ async def disparo_campaign(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(exigir_permissao("comercial", "escrita")),
 ):
-    campaign = await get_campaign(campaign_id, db, current_user)
+    campaign = _get_campaign_orm(campaign_id, current_user.empresa_id, db)
     if campaign.status == "concluida":
         raise HTTPException(status_code=400, detail="Esta campanha já foi concluída")
+    if campaign.status == "em_andamento":
+        raise HTTPException(status_code=400, detail="Esta campanha já está em andamento")
 
     # Iniciar disparo em background
     background_tasks.add_task(
@@ -154,6 +197,22 @@ async def disparo_campaign(
     )
 
     return {"message": "Disparo iniciado em background"}
+
+
+@router.post("/{campaign_id}/cancelar")
+async def cancelar_campaign(
+    campaign_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("comercial", "escrita")),
+):
+    campaign = _get_campaign_orm(campaign_id, current_user.empresa_id, db)
+    if campaign.status != "em_andamento":
+        raise HTTPException(status_code=400, detail="Somente campanhas em andamento podem ser canceladas")
+    _running_campaigns[campaign_id] = False
+    campaign.status = "cancelada"
+    campaign.atualizado_em = datetime.now()
+    db.commit()
+    return {"message": "Campanha cancelada"}
 
 
 async def _executar_disparo_background(
@@ -174,12 +233,17 @@ async def _executar_disparo_background(
     else:
         delay_min = 2.0
         delay_max = 5.0
+
+    _running_campaigns[campaign_id] = True
+    _campaign_start_times[campaign_id] = time.time()
+    inicio_ts = time.time()
     try:
         campaign = db.query(TenantCommercialCampaign).filter(TenantCommercialCampaign.id == campaign_id).first()
         if not campaign:
             return
 
         campaign.status = "em_andamento"
+        campaign.atualizado_em = datetime.now()
         db.commit()
 
         template = campaign.template
@@ -204,6 +268,9 @@ async def _executar_disparo_background(
                 logger.warning(f"Falha ao carregar anexo da campanha {campaign_id}: {e}")
 
         for cl in campaign_leads:
+            if not _running_campaigns.get(campaign_id):
+                break
+
             lead = cl.lead
             if not lead:
                 continue
@@ -285,13 +352,18 @@ async def _executar_disparo_background(
                 campaign.atualizado_em = datetime.now()
                 db.commit()
 
-        campaign.status = "concluida"
+        if _running_campaigns.get(campaign_id) is False:
+            campaign.status = "cancelada"
+        else:
+            campaign.status = "concluida"
         campaign.atualizado_em = datetime.now()
         db.commit()
 
     except Exception as e:
         logger.exception(f"Erro fatal no processamento da campanha {campaign_id}: {e}")
     finally:
+        _running_campaigns.pop(campaign_id, None)
+        _campaign_start_times.pop(campaign_id, None)
         db.close()
 
 
@@ -301,7 +373,7 @@ async def list_campaign_leads(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(exigir_permissao("comercial", "leitura")),
 ):
-    _ = await get_campaign(campaign_id, db, current_user)
+    _ = _get_campaign_orm(campaign_id, current_user.empresa_id, db)
     return (
         db.query(TenantCampaignLead)
         .filter(TenantCampaignLead.campaign_id == campaign_id)
@@ -315,7 +387,7 @@ async def get_campaign_metrics(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(exigir_permissao("comercial", "leitura")),
 ):
-    c = await get_campaign(campaign_id, db, current_user)
+    c = _get_campaign_orm(campaign_id, current_user.empresa_id, db)
     total = c.total_leads or 0
     enviados = c.enviados or 0
     entregues = c.entregues or 0
@@ -333,6 +405,7 @@ async def get_campaign_metrics(
             "entregue": entregues,
             "respondido": respondidos,
         },
+        tempo_estimado_restante=_calcular_eta(c, _campaign_start_times.get(c.id)),
     )
 
 
@@ -342,7 +415,7 @@ async def delete_campaign(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(exigir_permissao("comercial", "admin")),
 ):
-    campaign = await get_campaign(campaign_id, db, current_user)
+    campaign = _get_campaign_orm(campaign_id, current_user.empresa_id, db)
     db.query(TenantCampaignLead).filter(TenantCampaignLead.campaign_id == campaign_id).delete()
     db.delete(campaign)
     db.commit()

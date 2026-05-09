@@ -2764,14 +2764,14 @@ async function carregarCampanhas() {
     _checarPollingCampanhas();
   } catch (e) {
     console.error('Erro ao carregar campanhas:', e);
-    document.getElementById('campanhas-tbody').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--red)">Erro ao carregar</td></tr>';
+    document.getElementById('campanhas-tbody').innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--red)">Erro ao carregar</td></tr>';
   }
 }
 
 function renderCampanhasTable(campanhas) {
   var tbody = document.getElementById('campanhas-tbody');
   if (!campanhas.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted)">Nenhuma campanha criada</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted)">Nenhuma campanha criada</td></tr>';
     return;
   }
   var statusLabels = { agendada: 'Agendada', em_andamento: 'Em Andamento', concluida: 'Concluída', cancelada: 'Cancelada' };
@@ -2788,11 +2788,13 @@ function renderCampanhasTable(campanhas) {
       '<td class="camp-enviados-live">' + (c.enviados || 0) + '/' + (c.total_leads || 0) +
         '<div class="camp-progress-bar"><div class="camp-progress-fill' + activeClass + '" style="width:' + pct + '%"></div></div>' +
       '</td>' +
+      '<td>' + (c.tempo_estimado_restante || '-') + '</td>' +
       '<td>' + (c.entregues || 0) + '</td>' +
       '<td>' + (c.respondidos || 0) + '</td>' +
       '<td>' +
         '<button class="btn btn-sm btn-ghost" onclick="verMetricasCampanha(' + c.id + ')" title="Métricas">📊</button>' +
         (c.status === 'agendada' ? '<button class="btn btn-sm btn-primary" onclick="dispararCampanha(' + c.id + ')" title="Disparar">🚀</button>' : '') +
+        (c.status === 'em_andamento' ? '<button class="btn btn-sm btn-ghost" onclick="cancelarCampanha(' + c.id + ')" title="Cancelar" style="color:var(--red)">⏹</button>' : '') +
         '<button class="btn btn-sm btn-ghost" onclick="excluirCampanha(' + c.id + ')" title="Excluir" style="color:var(--red)">🗑️</button>' +
       '</td></tr>';
   }).join('');
@@ -2816,13 +2818,14 @@ function renderCampanhasMobile(campanhas) {
       '</div>' +
       '<div class="crud-mobile-card-body">' +
         '<div><strong>Canal:</strong> ' + (canalLabels[c.canal] || c.canal) + '</div>' +
-        '<div><strong>Enviados:</strong> <span class="camp-enviados-live">' + (c.enviados || 0) + '/' + (c.total_leads || 0) + '</span></div>' +
-        '<div><strong>Entregues:</strong> ' + (c.entregues || 0) + ' | Respondidos: ' + (c.respondidos || 0) + '</div>' +
+        '<div><strong>Enviados:</strong> <span class="camp-enviados-live">' + (c.enviados || 0) + '/' + (c.total_leads || 0) + '</span>' +
+          (c.tempo_estimado_restante ? ' <span style="color:var(--muted);font-size:12px">(~' + c.tempo_estimado_restante + ')</span>' : '') + '</div>' +
         '<div class="camp-progress-bar"><div class="camp-progress-fill' + (c.status === 'em_andamento' ? ' camp-progress-active' : '') + '" style="width:' + pct + '%"></div></div>' +
       '</div>' +
       '<div class="crud-mobile-card-actions">' +
         '<button class="btn btn-sm btn-ghost" onclick="verMetricasCampanha(' + c.id + ')">📊 Métricas</button>' +
         (c.status === 'agendada' ? '<button class="btn btn-sm btn-primary" onclick="dispararCampanha(' + c.id + ')">🚀 Disparar</button>' : '') +
+        (c.status === 'em_andamento' ? '<button class="btn btn-sm btn-ghost" onclick="cancelarCampanha(' + c.id + ')" style="color:var(--red)">⏹ Cancelar</button>' : '') +
         '<button class="btn btn-sm btn-ghost" onclick="excluirCampanha(' + c.id + ')" style="color:var(--red)">🗑️</button>' +
       '</div></div>';
   }).join('');
@@ -3084,7 +3087,7 @@ async function verMetricasCampanha(id) {
     '</div>' +
     '<div class="camp-metricas-progress">' +
       '<div class="camp-progress-bar"><div class="camp-progress-fill' + activeClass + '" style="width:' + pct + '%"></div></div>' +
-      '<div class="camp-pct">' + pct + '% — ' + (metrics.enviados || 0) + ' de ' + (metrics.total_leads || 0) + ' enviados</div>' +
+      '<div class="camp-pct">' + pct + '% — ' + (metrics.enviados || 0) + ' de ' + (metrics.total_leads || 0) + ' enviados' + (metrics.tempo_estimado_restante ? ' <span style="color:var(--muted)">(~' + metrics.tempo_estimado_restante + ' restante)</span>' : '') + '</div>' +
     '</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">' +
       '<div style="padding:12px;background:var(--bg);border-radius:8px;text-align:center"><div style="font-size:18px;font-weight:700">' + (metrics.taxa_entrega || 0).toFixed(1) + '%</div><div style="font-size:11px;color:var(--muted)">Taxa Entrega</div></div>' +
@@ -3113,7 +3116,7 @@ async function verMetricasCampanha(id) {
           var fill = content.querySelector('.camp-progress-fill');
           var pctEl = content.querySelector('.camp-pct');
           if (fill) fill.style.width = p + '%';
-          if (pctEl) pctEl.textContent = p + '% — ' + (m.enviados || 0) + ' de ' + (m.total_leads || 0) + ' enviados';
+          if (pctEl) pctEl.textContent = p + '% — ' + (m.enviados || 0) + ' de ' + (m.total_leads || 0) + ' enviados' + (m.tempo_estimado_restante ? ' (~' + m.tempo_estimado_restante + ' restante)' : '');
           var cards = content.querySelectorAll(':scope > div:first-child > div');
           if (cards[1]) cards[1].querySelector('div:first-child').textContent = m.enviados || 0;
           if (cards[2]) cards[2].querySelector('div:first-child').textContent = m.entregues || 0;
@@ -3124,6 +3127,17 @@ async function verMetricasCampanha(id) {
     }
   } catch (e) {
     showToast('Erro ao carregar métricas: ' + (e.message || 'Falha'), 'error');
+  }
+}
+
+async function cancelarCampanha(id) {
+  if (!confirm('Cancelar esta campanha? Os envios já realizados serão mantidos.')) return;
+  try {
+    await api.post('/tenant/comercial/campaigns/' + id + '/cancelar');
+    showToast('Campanha cancelada.');
+    carregarCampanhas();
+  } catch (e) {
+    showToast('Erro ao cancelar: ' + (e.message || 'Falha'), 'error');
   }
 }
 

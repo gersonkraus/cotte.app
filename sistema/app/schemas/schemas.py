@@ -1774,6 +1774,7 @@ class CampaignOut(BaseModel):
     respondidos: int
     criado_em: datetime
     atualizado_em: Optional[datetime] = None
+    tempo_estimado_restante: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -1806,6 +1807,7 @@ class CampaignMetrics(BaseModel):
     taxa_entrega: float
     taxa_resposta: float
     leads_por_status: dict
+    tempo_estimado_restante: Optional[str] = None
 
 
 class CampaignDisparoRequest(BaseModel):
