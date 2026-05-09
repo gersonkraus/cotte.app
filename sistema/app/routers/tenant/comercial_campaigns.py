@@ -1,3 +1,5 @@
+import asyncio
+import random
 from datetime import datetime
 from typing import List
 
@@ -147,7 +149,8 @@ async def disparo_campaign(
         campaign_id,
         request.lead_ids,
         request.canal,
-        current_user.empresa_id
+        current_user.empresa_id,
+        request.delay_segundos
     )
 
     return {"message": "Disparo iniciado em background"}
@@ -157,13 +160,20 @@ async def _executar_disparo_background(
     campaign_id: int,
     lead_ids: List[int],
     canal_override: str,
-    empresa_id: int
+    empresa_id: int,
+    delay_segundos: float | None = None
 ):
     """Função que roda em background para realizar o disparo real da campanha."""
     from app.core.database import SessionLocal
     from app.models.models import TenantCommercialInteraction, TipoInteracao, CanalInteracao
 
     db = SessionLocal()
+    if delay_segundos is not None:
+        delay_min = delay_segundos
+        delay_max = delay_segundos
+    else:
+        delay_min = 2.0
+        delay_max = 5.0
     try:
         campaign = db.query(TenantCommercialCampaign).filter(TenantCommercialCampaign.id == campaign_id).first()
         if not campaign:
@@ -261,19 +271,20 @@ async def _executar_disparo_background(
                     falhas += 1
                 
                 db.commit()
-                # Delay básico anti-spam entre envios em lote
-                import asyncio
-                import random
-                await asyncio.sleep(random.uniform(2, 5))
+                campaign.enviados = enviados
+                campaign.entregues = enviados
+                campaign.atualizado_em = datetime.now()
+                db.commit()
+                await asyncio.sleep(random.uniform(delay_min, delay_max))
 
             except Exception as e:
                 logger.error(f"Erro ao processar lead {lead.id} na campanha {campaign_id}: {e}")
                 cl.status = "erro"
                 falhas += 1
+                campaign.enviados = enviados
+                campaign.atualizado_em = datetime.now()
                 db.commit()
 
-        campaign.enviados += enviados
-        campaign.entregues += enviados # Simplificação
         campaign.status = "concluida"
         campaign.atualizado_em = datetime.now()
         db.commit()

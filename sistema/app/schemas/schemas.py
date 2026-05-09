@@ -1816,6 +1816,10 @@ class CampaignDisparoRequest(BaseModel):
         None  # Se None, dispara para todos os leads da campanha
     )
     canal: Optional[str] = None  # Se None, usa o canal da campanha
+    delay_segundos: Optional[float] = Field(
+        default=None, ge=1.0, le=60.0,
+        description="Delay fixo (s) entre envios. Se omitido, usa intervalo aleatório 2-5s."
+    )
 
 
 # ── BROADCAST ────────────────────────────────────────────────────────────────

@@ -2723,6 +2723,37 @@ var _campLeadIds = new Set();
 var _campLeadsCache = [];
 var _campTemperaturas = new Set();
 var _campFiltroDebounce = null;
+var _campPollTimer = null;
+var _campMetricasTimer = null;
+
+function _iniciarPollingCampanhas() {
+  _pararPollingCampanhas();
+  _campPollTimer = setInterval(function() {
+    api.get('/tenant/comercial/campaigns/').then(function(res) {
+      campanhasCache = res || [];
+      renderCampanhasTable(campanhasCache);
+      renderCampanhasMobile(campanhasCache);
+      _checarPollingCampanhas();
+    }).catch(function() {});
+  }, 3000);
+}
+
+function _pararPollingCampanhas() {
+  if (_campPollTimer) { clearInterval(_campPollTimer); _campPollTimer = null; }
+}
+
+function _checarPollingCampanhas() {
+  var algumEmAndamento = campanhasCache.some(function(c) { return c.status === 'em_andamento'; });
+  if (algumEmAndamento && !_campPollTimer) {
+    _iniciarPollingCampanhas();
+  } else if (!algumEmAndamento && _campPollTimer) {
+    _pararPollingCampanhas();
+  }
+}
+
+function _pararMetricasPolling() {
+  if (_campMetricasTimer) { clearInterval(_campMetricasTimer); _campMetricasTimer = null; }
+}
 
 async function carregarCampanhas() {
   try {
@@ -2730,6 +2761,7 @@ async function carregarCampanhas() {
     campanhasCache = res || [];
     renderCampanhasTable(campanhasCache);
     renderCampanhasMobile(campanhasCache);
+    _checarPollingCampanhas();
   } catch (e) {
     console.error('Erro ao carregar campanhas:', e);
     document.getElementById('campanhas-tbody').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--red)">Erro ao carregar</td></tr>';
@@ -2745,12 +2777,17 @@ function renderCampanhasTable(campanhas) {
   var statusLabels = { agendada: 'Agendada', em_andamento: 'Em Andamento', concluida: 'Concluída', cancelada: 'Cancelada' };
   var canalLabels = { whatsapp: '📱 WhatsApp', email: '📧 E-mail', ambos: '📱📧 Ambos' };
   tbody.innerHTML = campanhas.map(function(c) {
-    return '<tr>' +
+    var pct = c.total_leads ? Math.round((c.enviados || 0) / c.total_leads * 100) : 0;
+    var activeClass = c.status === 'em_andamento' ? ' camp-progress-active' : '';
+    var rowClass = c.status === 'em_andamento' ? ' class="camp-row-disparando"' : '';
+    return '<tr' + rowClass + ' data-camp-id="' + c.id + '">' +
       '<td>' + escapeHtml(c.nome) + '</td>' +
       '<td>' + (canalLabels[c.canal] || c.canal) + '</td>' +
-      '<td><span class="badge badge-' + c.status + '">' + (statusLabels[c.status] || c.status) + '</span></td>' +
+      '<td><span class="badge badge-' + c.status + '">' + (statusLabels[c.status] || c.status) + (c.status === 'em_andamento' ? ' ⏳' : '') + '</span></td>' +
       '<td>' + (c.total_leads || 0) + '</td>' +
-      '<td>' + (c.enviados || 0) + '</td>' +
+      '<td class="camp-enviados-live">' + (c.enviados || 0) + '/' + (c.total_leads || 0) +
+        '<div class="camp-progress-bar"><div class="camp-progress-fill' + activeClass + '" style="width:' + pct + '%"></div></div>' +
+      '</td>' +
       '<td>' + (c.entregues || 0) + '</td>' +
       '<td>' + (c.respondidos || 0) + '</td>' +
       '<td>' +
@@ -2779,9 +2816,9 @@ function renderCampanhasMobile(campanhas) {
       '</div>' +
       '<div class="crud-mobile-card-body">' +
         '<div><strong>Canal:</strong> ' + (canalLabels[c.canal] || c.canal) + '</div>' +
-        '<div><strong>Leads:</strong> ' + (c.total_leads || 0) + ' | Enviados: ' + (c.enviados || 0) + ' (' + pct + '%)</div>' +
+        '<div><strong>Enviados:</strong> <span class="camp-enviados-live">' + (c.enviados || 0) + '/' + (c.total_leads || 0) + '</span></div>' +
         '<div><strong>Entregues:</strong> ' + (c.entregues || 0) + ' | Respondidos: ' + (c.respondidos || 0) + '</div>' +
-        '<div style="background:var(--bg);border-radius:4px;height:6px;margin-top:8px"><div style="background:var(--green);height:100%;border-radius:4px;width:' + pct + '%"></div></div>' +
+        '<div class="camp-progress-bar"><div class="camp-progress-fill' + (c.status === 'em_andamento' ? ' camp-progress-active' : '') + '" style="width:' + pct + '%"></div></div>' +
       '</div>' +
       '<div class="crud-mobile-card-actions">' +
         '<button class="btn btn-sm btn-ghost" onclick="verMetricasCampanha(' + c.id + ')">📊 Métricas</button>' +
@@ -3016,28 +3053,38 @@ async function salvarCampanha() {
 async function dispararCampanha(id) {
   if (!confirm('Disparar campanha agora? Esta ação enviará mensagens para os leads selecionados.')) return;
   try {
+    var row = document.querySelector('tr[data-camp-id="' + id + '"]');
+    if (row) row.classList.add('camp-row-disparando');
     await api.post('/tenant/comercial/campaigns/' + id + '/disparo', {
       campaign_id: id
     });
-    showToast('Disparo iniciado! Acompanhe nas métricas.');
+    showToast('Disparo iniciado! Acompanhe o progresso.');
     carregarCampanhas();
   } catch (e) {
     showToast('Erro ao disparar: ' + (e.message || 'Falha'), 'error');
+    carregarCampanhas();
   }
 }
 
 async function verMetricasCampanha(id) {
+  _pararMetricasPolling();
   try {
     var camp = campanhasCache.find(function(c) { return c.id === id; });
     document.getElementById('modal-camp-metricas-title').textContent = camp ? camp.nome : 'Métricas';
 
     var metrics = await api.get('/tenant/comercial/campaigns/' + id + '/metrics');
+    var pct = metrics.total_leads ? Math.round((metrics.enviados || 0) / metrics.total_leads * 100) : 0;
+    var activeClass = (camp && camp.status === 'em_andamento') ? ' camp-progress-active' : '';
     var content = document.getElementById('camp-metricas-content');
     content.innerHTML = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">' +
       '<div style="padding:16px;background:var(--bg);border-radius:8px;text-align:center"><div style="font-size:24px;font-weight:700">' + (metrics.total_leads || 0) + '</div><div style="font-size:11px;color:var(--muted)">Total Leads</div></div>' +
       '<div style="padding:16px;background:var(--bg);border-radius:8px;text-align:center"><div style="font-size:24px;font-weight:700;color:var(--green)">' + (metrics.enviados || 0) + '</div><div style="font-size:11px;color:var(--muted)">Enviados</div></div>' +
       '<div style="padding:16px;background:var(--bg);border-radius:8px;text-align:center"><div style="font-size:24px;font-weight:700;color:var(--blue)">' + (metrics.entregues || 0) + '</div><div style="font-size:11px;color:var(--muted)">Entregues</div></div>' +
       '<div style="padding:16px;background:var(--bg);border-radius:8px;text-align:center"><div style="font-size:24px;font-weight:700;color:var(--yellow)">' + (metrics.respondidos || 0) + '</div><div style="font-size:11px;color:var(--muted)">Respondidos</div></div>' +
+    '</div>' +
+    '<div class="camp-metricas-progress">' +
+      '<div class="camp-progress-bar"><div class="camp-progress-fill' + activeClass + '" style="width:' + pct + '%"></div></div>' +
+      '<div class="camp-pct">' + pct + '% — ' + (metrics.enviados || 0) + ' de ' + (metrics.total_leads || 0) + ' enviados</div>' +
     '</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">' +
       '<div style="padding:12px;background:var(--bg);border-radius:8px;text-align:center"><div style="font-size:18px;font-weight:700">' + (metrics.taxa_entrega || 0).toFixed(1) + '%</div><div style="font-size:11px;color:var(--muted)">Taxa Entrega</div></div>' +
@@ -3046,11 +3093,11 @@ async function verMetricasCampanha(id) {
 
     var leads = await api.get('/tenant/comercial/campaigns/' + id + '/leads');
     var tbody = document.getElementById('camp-leads-tbody');
-    var statusLabels = { pendente: 'Pendente', enviado: 'Enviado', entregue: 'Entregue', respondido: 'Respondido', erro: 'Erro' };
+    var leadStatusLabels = { pendente: 'Pendente', enviado: 'Enviado', entregue: 'Entregue', respondido: 'Respondido', erro: 'Erro' };
     tbody.innerHTML = (leads || []).map(function(l) {
       return '<tr>' +
         '<td>' + escapeHtml(l.lead_nome_empresa || l.lead_nome_responsavel || 'Lead #' + l.lead_id) + '</td>' +
-        '<td><span class="badge badge-' + l.status + '">' + (statusLabels[l.status] || l.status) + '</span></td>' +
+        '<td><span class="badge badge-' + l.status + '">' + (leadStatusLabels[l.status] || l.status) + '</span></td>' +
         '<td>' + (l.data_envio ? new Date(l.data_envio).toLocaleDateString('pt-BR') : '-') + '</td>' +
         '<td>' + (l.data_entrega ? new Date(l.data_entrega).toLocaleDateString('pt-BR') : '-') + '</td>' +
         '<td>' + (l.data_resposta ? new Date(l.data_resposta).toLocaleDateString('pt-BR') : '-') + '</td>' +
@@ -3058,6 +3105,23 @@ async function verMetricasCampanha(id) {
     }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted)">Nenhum lead</td></tr>';
 
     document.getElementById('modal-campanha-metricas').classList.add('open');
+
+    if (camp && camp.status === 'em_andamento') {
+      _campMetricasTimer = setInterval(function() {
+        api.get('/tenant/comercial/campaigns/' + id + '/metrics').then(function(m) {
+          var p = m.total_leads ? Math.round((m.enviados || 0) / m.total_leads * 100) : 0;
+          var fill = content.querySelector('.camp-progress-fill');
+          var pctEl = content.querySelector('.camp-pct');
+          if (fill) fill.style.width = p + '%';
+          if (pctEl) pctEl.textContent = p + '% — ' + (m.enviados || 0) + ' de ' + (m.total_leads || 0) + ' enviados';
+          var cards = content.querySelectorAll(':scope > div:first-child > div');
+          if (cards[1]) cards[1].querySelector('div:first-child').textContent = m.enviados || 0;
+          if (cards[2]) cards[2].querySelector('div:first-child').textContent = m.entregues || 0;
+          if (cards[3]) cards[3].querySelector('div:first-child').textContent = m.respondidos || 0;
+          if (m.enviados >= m.total_leads) _pararMetricasPolling();
+        }).catch(function() {});
+      }, 5000);
+    }
   } catch (e) {
     showToast('Erro ao carregar métricas: ' + (e.message || 'Falha'), 'error');
   }
@@ -3078,7 +3142,7 @@ async function excluirCampanha(id) {
 document.getElementById('btn-nova-campanha')?.addEventListener('click', function() { abrirModalCampanha(); });
 document.getElementById('btn-salvar-campanha')?.addEventListener('click', function() { salvarCampanha(); });
 document.querySelector('#modal-campanha .modal-close')?.addEventListener('click', function() { fecharModal('modal-campanha'); });
-document.querySelector('#modal-campanha-metricas .modal-close')?.addEventListener('click', function() { fecharModal('modal-campanha-metricas'); });
+document.querySelector('#modal-campanha-metricas .modal-close')?.addEventListener('click', function() { _pararMetricasPolling(); fecharModal('modal-campanha-metricas'); });
 
 // Filtros do modal de campanha
 (function() {
