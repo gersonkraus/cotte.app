@@ -29,6 +29,17 @@ class MercadoLivreRepository:
             .first()
         )
 
+    def get_integracao_by_ml_user_id(self, ml_user_id: str) -> Optional[IntegracaoMercadoLivre]:
+        return (
+            self.db.query(IntegracaoMercadoLivre)
+            .filter(
+                IntegracaoMercadoLivre.ml_user_id == str(ml_user_id),
+                IntegracaoMercadoLivre.conectado == True,
+                IntegracaoMercadoLivre.access_token.isnot(None),
+            )
+            .first()
+        )
+
     def get_or_create_integracao(self, empresa_id: int) -> IntegracaoMercadoLivre:
         existente = self.get_integracao(empresa_id)
         if existente:

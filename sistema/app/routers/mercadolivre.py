@@ -12,6 +12,10 @@ from app.core.database import get_db
 from app.core.tenant_context import set_tenant_context
 from app.services.mercadolivre_service import MercadoLivreService
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/mercadolivre", tags=["Mercado Livre"])
 
 
@@ -245,3 +249,18 @@ def desconectar_integracao(
     service = MercadoLivreService(db)
     data = service.disconnect(usuario.empresa_id)
     return {"success": True, "data": data}
+
+
+@router.post("/notifications")
+async def receber_notificacao(
+    payload: dict | list = Body(...),
+    db: Session = Depends(get_db),
+):
+    notificacoes = payload if isinstance(payload, list) else [payload]
+    service = MercadoLivreService(db)
+    try:
+        resultado = await service.processar_notificacao_webhook(notificacoes)
+    except Exception as exc:
+        logger.error("Erro geral ao processar notificações ML: %s", exc)
+        resultado = {"total": len(notificacoes), "processadas": 0, "ignoradas": 0, "erros": len(notificacoes)}
+    return {"success": True, "data": resultado}

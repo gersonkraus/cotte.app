@@ -1103,3 +1103,106 @@ class MercadoLivreService:
             "errors": errors,
             "details": details,
         }
+
+    async def processar_notificacao_webhook(
+        self, notificacoes: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        processadas = 0
+        ignoradas = 0
+        erros = 0
+
+        for notif in notificacoes:
+            topic = str(notif.get("topic") or "").strip().lower()
+            resource = str(notif.get("resource") or "").strip()
+            user_id = str(notif.get("user_id") or "").strip()
+
+            if topic not in ("orders", "items") or not resource or not user_id:
+                ignoradas += 1
+                continue
+
+            integracao = self.repo.get_integracao_by_ml_user_id(user_id)
+            if not integracao:
+                ignoradas += 1
+                logger.warning("Notificação ML: integracao não encontrada para ml_user_id=%s", user_id)
+                continue
+
+            empresa_id = integracao.empresa_id
+
+            try:
+                registro = await self._ensure_valid_token(empresa_id)
+                access_token = self._decrypt_token(registro.access_token)
+                if not access_token:
+                    erros += 1
+                    continue
+
+                if topic == "orders":
+                    await self._processar_notificacao_pedido(
+                        empresa_id=empresa_id,
+                        resource=resource,
+                        access_token=access_token,
+                    )
+                elif topic == "items":
+                    await self._processar_notificacao_anuncio(
+                        empresa_id=empresa_id,
+                        resource=resource,
+                        access_token=access_token,
+                    )
+
+                processadas += 1
+            except Exception as exc:
+                erros += 1
+                logger.error(
+                    "Erro ao processar notificação ML topic=%s resource=%s: %s",
+                    topic,
+                    resource,
+                    exc,
+                )
+                try:
+                    self.db.rollback()
+                except Exception:
+                    pass
+
+        return {
+            "total": len(notificacoes),
+            "processadas": processadas,
+            "ignoradas": ignoradas,
+            "erros": erros,
+        }
+
+    async def _processar_notificacao_pedido(
+        self, *, empresa_id: int, resource: str, access_token: str
+    ) -> None:
+        order_id = resource.rsplit("/", 1)[-1] if "/" in resource else resource
+        if not order_id:
+            return
+
+        dados = await self._ml_get(
+            endpoint=f"/orders/{order_id}",
+            access_token=access_token,
+        )
+        if not dados or not dados.get("id"):
+            return
+
+        self.repo.upsert_pedidos(empresa_id, [dados])
+        self._importar_pedidos_snapshot_para_orcamentos(empresa_id, limit=10)
+        self.repo.marcar_sync_pedidos(empresa_id)
+        self.db.commit()
+
+    async def _processar_notificacao_anuncio(
+        self, *, empresa_id: int, resource: str, access_token: str
+    ) -> None:
+        item_id = resource.rsplit("/", 1)[-1] if "/" in resource else resource
+        if not item_id:
+            return
+
+        dados = await self._ml_get(
+            endpoint=f"/items/{item_id}",
+            access_token=access_token,
+        )
+        if not dados or not dados.get("id"):
+            return
+
+        self.repo.upsert_anuncios(empresa_id, [dados])
+        self._sync_catalogo_from_snapshots(empresa_id, limit=10)
+        self.repo.marcar_sync_anuncios(empresa_id)
+        self.db.commit()
