@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="css/style.css?v=3">
   <link rel="stylesheet" href="css/precision-atelier.css?v=2">
-  <link rel="stylesheet" href="css/tenant-comercial.css?v=13">
+  <link rel="stylesheet" href="css/tenant-comercial.css?v=14">
   <link rel="stylesheet" href="css/tenant-comercial-precision.css?v=2">
   <link rel="stylesheet" href="css/tenant-comercial-modal-detail.css?v=1">
 </head>
@@ -711,91 +711,112 @@ Exemplos de formatos aceitos:
     </div>
   </div>
 
-  <!-- Modal Campanha — Redesenhado -->
+  <!-- Modal Campanha — Premium Design -->
   <div class="modal-overlay" id="modal-campanha">
-    <div class="modal camp-modal" style="max-width:720px">
-      <header class="modal-header">
-        <div>
-          <h3 class="modal-title" id="modal-camp-title">Nova Campanha</h3>
-          <p style="font-size:12px;color:var(--muted);margin-top:2px">Configure e selecione os contatos que vão receber</p>
-        </div>
-        <button class="modal-close" aria-label="Fechar">&times;</button>
-      </header>
+    <div class="modal camp-modal">
 
-      <div class="modal-body">
-        <input type="hidden" id="camp-id">
-
-        <!-- Seção 1: Identificação -->
-        <div class="camp-section">
-          <div class="camp-section-label">📋 Identificação</div>
-          <div class="fg"><label class="fl">Nome da campanha *</label><input type="text" class="fi" id="camp-nome" placeholder="Ex: Follow-up Maio 2026" required></div>
-          <div class="fr" style="margin-top:10px">
-            <div class="fg"><label class="fl">Template *</label><select class="fs" id="camp-template"><option value="">Selecione...</option></select></div>
-            <div class="fg" style="max-width:200px">
-              <label class="fl">Canal *</label>
-              <select class="fs" id="camp-canal">
-                <option value="whatsapp">📱 WhatsApp</option>
-                <option value="email">📧 E-mail</option>
-                <option value="ambos">📱📧 Ambos</option>
-              </select>
-            </div>
+      <!-- Hero Header -->
+      <div class="camp-hero">
+        <div class="camp-hero-bg"></div>
+        <div class="camp-hero-content">
+          <div class="camp-hero-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
+          </div>
+          <div class="camp-hero-text">
+            <div class="camp-hero-label" id="modal-camp-title">NOVA CAMPANHA</div>
+            <input type="text" class="camp-nome-input" id="camp-nome" placeholder="Dê um nome para sua campanha..." autocomplete="off" required>
           </div>
         </div>
+        <button class="camp-close-btn" onclick="fecharModal('modal-campanha')" aria-label="Fechar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
 
-        <!-- Seção 2: Filtros de Contatos -->
-        <div class="camp-section">
-          <div class="camp-section-header">
-            <div class="camp-section-label">👥 Quem vai receber?</div>
-            <div class="camp-count-badge" id="camp-leads-count">0 contatos</div>
+      <!-- Config Bar: template + canal -->
+      <div class="camp-config-bar">
+        <div class="camp-config-group" style="flex:1">
+          <label class="camp-config-label">Template *</label>
+          <select class="camp-config-select" id="camp-template"><option value="">Selecione um template...</option></select>
+        </div>
+        <div class="camp-config-group" style="max-width:170px">
+          <label class="camp-config-label">Canal *</label>
+          <select class="camp-config-select" id="camp-canal">
+            <option value="whatsapp">📱 WhatsApp</option>
+            <option value="email">📧 E-mail</option>
+            <option value="ambos">📱📧 Ambos</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Audience Builder -->
+      <div class="camp-audience">
+
+        <div class="camp-audience-header">
+          <div class="camp-audience-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Quem vai receber
           </div>
+          <div class="camp-count-badge" id="camp-leads-count">0 contatos</div>
+        </div>
 
-          <div class="camp-filter-row">
-            <span class="camp-filter-label">Temperatura</span>
+        <!-- Filter Cards -->
+        <div class="camp-filter-grid">
+          <div class="camp-filter-card">
+            <div class="camp-fc-label">🌡 Temperatura</div>
             <div class="camp-temp-chips">
               <button type="button" class="camp-temp-chip" data-score="quente">🔴 Quente</button>
               <button type="button" class="camp-temp-chip" data-score="morno">🟡 Morno</button>
               <button type="button" class="camp-temp-chip" data-score="frio">🔵 Frio</button>
             </div>
           </div>
-
-          <div class="camp-filter-row">
-            <span class="camp-filter-label">Etapa do funil</span>
-            <select class="fs camp-filter-select" id="camp-filter-etapa">
+          <div class="camp-filter-card">
+            <div class="camp-fc-label">📊 Etapa do funil</div>
+            <select class="camp-filter-select" id="camp-filter-etapa">
               <option value="">Todas as etapas</option>
             </select>
           </div>
-
-          <div class="camp-filter-row">
-            <span class="camp-filter-label">Importação</span>
-            <select class="fs camp-filter-select" id="camp-filter-importacao">
+          <div class="camp-filter-card">
+            <div class="camp-fc-label">📦 Lote de importação</div>
+            <select class="camp-filter-select" id="camp-filter-importacao">
               <option value="">Qualquer importação</option>
             </select>
           </div>
+        </div>
 
-          <div class="camp-filter-row">
-            <span class="camp-filter-label">Busca</span>
-            <input type="search" class="fi camp-filter-search" id="camp-filter-search" placeholder="Nome, empresa ou número...">
-          </div>
+        <!-- Search -->
+        <div class="camp-search-wrap">
+          <svg class="camp-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="search" class="camp-search-input" id="camp-filter-search" placeholder="Buscar por nome, empresa ou número...">
+        </div>
 
-          <div class="camp-leads-list" id="camp-leads-list">
-            <div class="loading" style="padding:24px"><div class="spinner"></div></div>
-          </div>
-
-          <div class="camp-selection-actions">
-            <button type="button" class="btn btn-ghost btn-sm" id="btn-camp-select-all">Selecionar todos</button>
-            <button type="button" class="btn btn-ghost btn-sm" id="btn-camp-clear-sel">Limpar seleção</button>
+        <!-- Lead List -->
+        <div class="camp-leads-list" id="camp-leads-list">
+          <div style="display:flex;align-items:center;justify-content:center;padding:32px;gap:10px;color:var(--muted);font-size:13px">
+            <div class="spinner" style="width:18px;height:18px"></div>
           </div>
         </div>
 
-        <!-- hidden para compatibilidade com listeners existentes -->
-        <select id="camp-leads" multiple style="display:none"></select>
-        <div id="camp-leads-info" style="display:none"></div>
+        <!-- List actions -->
+        <div class="camp-list-actions">
+          <button type="button" class="camp-action-link" id="btn-camp-select-all">Selecionar todos</button>
+          <span class="camp-action-sep">·</span>
+          <button type="button" class="camp-action-link" id="btn-camp-clear-sel">Limpar seleção</button>
+        </div>
+
       </div>
 
-      <footer class="modal-footer">
+      <!-- Footer -->
+      <div class="camp-footer">
+        <input type="hidden" id="camp-id">
+        <select id="camp-leads" multiple style="display:none"></select>
+        <div id="camp-leads-info" style="display:none"></div>
         <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-campanha')">Cancelar</button>
-        <button type="button" class="btn btn-primary" id="btn-salvar-campanha">Criar Campanha</button>
-      </footer>
+        <button type="button" class="camp-submit-btn" id="btn-salvar-campanha">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
+          Criar Campanha
+        </button>
+      </div>
+
     </div>
   </div>
 
@@ -1129,7 +1150,7 @@ Exemplos de formatos aceitos:
   <script src="js/layout.js?v=5"></script>
   <!-- Comercial — módulos (ordem importa!) -->
   <script src="js/tenant-comercial-core.js?v=99"></script>
-  <script src="js/tenant-comercial.js?v=4"></script>
+  <script src="js/tenant-comercial.js?v=5"></script>
   <script src="js/tenant-comercial-onboarding.js?v=1"></script>
   <script src="js/tenant-comercial-dashboard.js?v=1"></script>
   <script src="js/tenant-comercial-leads.js?v=99"></script>

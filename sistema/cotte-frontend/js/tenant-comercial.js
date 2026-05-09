@@ -2923,8 +2923,10 @@ function _renderizarListaLeadsCampanha() {
     var score = l.lead_score || '';
     var scoreIcon = scoreLabel[score] || '';
     var checked = _campLeadIds.has(l.id) ? 'checked' : '';
+    var iniciais = nome.split(' ').slice(0, 2).map(function(w) { return w[0] || ''; }).join('').toUpperCase();
     return '<label class="camp-lead-item" data-id="' + l.id + '">' +
       '<input type="checkbox" ' + checked + ' onchange="_campToggleLead(' + l.id + ', this.checked)">' +
+      '<span class="camp-lead-avatar">' + iniciais + '</span>' +
       '<span class="camp-lead-name">' + nome + '</span>' +
       '<span class="camp-lead-contact">' + contato + '</span>' +
       (scoreIcon ? '<span class="camp-lead-score ' + escapeHtml(score) + '">' + scoreIcon + ' ' + escapeHtml(score) + '</span>' : '') +
