@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="css/precision-atelier.css?v=2">
   <link rel="stylesheet" href="css/comercial.css?v=8">
   <link rel="stylesheet" href="css/comercial-precision.css?v=1">
+  <link rel="stylesheet" href="css/comercial-modal-detail.css?v=1">
 </head>
 <body>
   <aside class="sidebar" id="sidebar"></aside>
@@ -41,6 +42,9 @@
 
       <!-- Tabs -->
       <div class="admin-tabs" role="tablist" aria-label="Menu Comercial">
+        <button class="admin-tab" data-tab="hoje" role="tab" aria-selected="false" aria-controls="tab-hoje" id="tab-hoje-btn">
+          <span class="admin-tab-icon">✨</span> Hoje
+        </button>
         <button class="admin-tab active" data-tab="dashboard" role="tab" aria-selected="true" aria-controls="tab-dashboard" id="tab-dashboard-btn">
           <span class="admin-tab-icon">📊</span> Dashboard
         </button>
@@ -71,6 +75,30 @@
         <button class="admin-tab" data-tab="config" role="tab" aria-selected="false" aria-controls="tab-config" id="tab-config-btn">
           <span class="admin-tab-icon">⚙️</span> Config
         </button>
+      </div>
+
+      <!-- TAB: HOJE (Briefing IA) -->
+      <div id="tab-hoje" class="tab-panel" role="tabpanel" style="display:none">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Briefing do Dia</h2>
+            <p class="section-subtitle">Leads que precisam de atenção hoje, priorizados por IA</p>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="BriefingIA.recarregar(true)">
+            ↻ Atualizar
+          </button>
+        </div>
+        <div id="briefing-loading" style="display:none" class="loading-state">
+          <div class="spinner"></div>
+          <p>Analisando seus leads...</p>
+        </div>
+        <div id="briefing-empty" style="display:none" class="empty-state">
+          <p>Nenhuma ação urgente para hoje. 🎉</p>
+        </div>
+        <div id="briefing-error" style="display:none" class="empty-state error-state">
+          <p>Não foi possível carregar o briefing. <a href="#" onclick="BriefingIA.recarregar(true); return false;">Tentar novamente</a></p>
+        </div>
+        <div id="briefing-list" class="briefing-list"></div>
       </div>
 
       <!-- ═══ TAB: Dashboard ═══ -->
@@ -973,6 +1001,7 @@ Exemplos de formatos aceitos:
   <script src="js/comercial-lembretes.js?v=1"></script>
   <script src="js/comercial-cadastros.js?v=1"></script>
   <script src="js/comercial-propostas-publicas.js?v=1"></script>
+  <script src="js/comercial-briefing.js?v=1"></script>
     <script>
     /**
      * Gerenciamento do Seletor de Abas Mobile (Elite UX)
