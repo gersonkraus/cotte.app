@@ -342,6 +342,11 @@
           <label style="display:flex;gap:8px;align-items:center;font-size:12px"><input type="checkbox" id="ml-allow-description"> Enviar descrição</label>
           <label style="display:flex;gap:8px;align-items:center;font-size:12px"><input type="checkbox" id="ml-allow-stock"> Enviar estoque</label>
         </div>
+        <p style="font-size:12px;color:var(--muted);line-height:1.45;margin:0">
+          O botão <strong>Enviar catálogo p/ ML</strong> (em Configurações) só inclui itens com modo <strong>Bidirecional</strong> ou <strong>Somente COTTE → ML</strong>
+          e pelo menos um campo marcado acima. O envio atualiza anúncios já existentes no ML (ML Item ID), não cria publicações novas.
+        </p>
+        <div id="ml-vinculo-last-error" style="display:none;font-size:12px;color:#ef4444;line-height:1.4;margin-top:10px;padding:10px;background:rgba(239,68,68,0.08);border-radius:8px"></div>
       </div>
     </div>
     <div class="modal-footer">
@@ -557,6 +562,17 @@
     document.getElementById('ml-allow-price').checked = !!(vinculo && vinculo.allow_push_price);
     document.getElementById('ml-allow-description').checked = !!(vinculo && vinculo.allow_push_description);
     document.getElementById('ml-allow-stock').checked = !!(vinculo && vinculo.allow_push_stock);
+    const errEl = document.getElementById('ml-vinculo-last-error');
+    if (errEl) {
+      const le = vinculo && (vinculo.last_error || vinculo.ultimo_erro);
+      if (le) {
+        errEl.style.display = 'block';
+        errEl.textContent = 'Último erro no envio ML: ' + String(le).slice(0, 600);
+      } else {
+        errEl.style.display = 'none';
+        errEl.textContent = '';
+      }
+    }
     const btnRemover = document.getElementById('ml-vinculo-remover-btn');
     if (btnRemover) btnRemover.style.display = vinculo ? '' : 'none';
     document.getElementById('modal-ml-vinculo').classList.add('open');

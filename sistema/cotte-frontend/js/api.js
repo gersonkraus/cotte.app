@@ -763,7 +763,8 @@ function showNotif(icon, title, sub, type = 'success') {
   n.querySelector('.notif-sub').textContent = sub;
   n.style.borderColor = type === 'error' ? 'rgba(239,68,68,0.3)' : type === 'warning' ? 'rgba(234,179,8,0.3)' : 'rgba(0,229,160,0.3)';
   n.classList.add('show');
-  setTimeout(() => n.classList.remove('show'), 3500);
+  const durMs = type === 'error' || type === 'warning' ? 6500 : 3500;
+  setTimeout(() => n.classList.remove('show'), durMs);
 }
 
 /**

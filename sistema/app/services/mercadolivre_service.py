@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import secrets
 import hashlib
@@ -34,6 +35,34 @@ logger = logging.getLogger(__name__)
 
 RETRY_MAX_ATTEMPTS = 3
 RETRY_BASE_SECONDS = 0.6
+
+# Limite conservador para plain_text na API de descrição do ML (evita payload gigante).
+ML_DESCRIPTION_MAX_CHARS = 50000
+
+
+def _detalhe_erro_resposta_ml(response: httpx.Response) -> str:
+    """Extrai mensagem legível do JSON de erro do Mercado Livre (se houver)."""
+    texto = (response.text or "").strip()
+    if not texto:
+        return ""
+    try:
+        body = response.json()
+    except Exception:
+        return texto[:800] + ("..." if len(texto) > 800 else "")
+    if isinstance(body, dict):
+        msg = (
+            body.get("message")
+            or body.get("error_description")
+            or body.get("error")
+        )
+        cause = body.get("cause")
+        if isinstance(cause, list) and cause:
+            c0 = cause[0]
+            if isinstance(c0, dict):
+                msg = c0.get("message") or msg
+        if msg:
+            return str(msg)[:900]
+    return texto[:800] + ("..." if len(texto) > 800 else "")
 
 
 def _gerar_pkce_s256() -> Tuple[str, str]:
@@ -831,8 +860,14 @@ class MercadoLivreService:
         return {"catalogo_criados": criados, "catalogo_atualizados": atualizados, "catalogo_ignorados": ignorados}
 
     async def _ml_put(
-        self, *, endpoint: str, access_token: str, payload: Dict[str, Any]
+        self,
+        *,
+        endpoint: str,
+        access_token: str,
+        payload: Dict[str, Any],
+        contexto: str = "anúncio",
     ) -> Dict[str, Any]:
+        """PUT na API do Mercado Livre. Usado para /items/{id} e /items/{id}/description."""
         url = f"{settings.ML_API_BASE_URL.rstrip('/')}/{endpoint.lstrip('/')}"
         headers = {"Authorization": f"Bearer {access_token}", "content-type": "application/json"}
         for attempt in range(1, RETRY_MAX_ATTEMPTS + 1):
@@ -843,20 +878,40 @@ class MercadoLivreService:
                     await asyncio.sleep(RETRY_BASE_SECONDS * attempt)
                     continue
                 if response.status_code >= 400:
-                    raise HTTPException(
-                        status_code=502,
-                        detail=f"Erro Mercado Livre ({response.status_code}) em atualização de anúncio.",
+                    extra = _detalhe_erro_resposta_ml(response)
+                    base = (
+                        f"Erro Mercado Livre ({response.status_code}) ao atualizar {contexto}."
                     )
-                return response.json()
+                    detail = f"{base} {extra}".strip() if extra else base
+                    logger.warning(
+                        "ML PUT falhou (%s): %s",
+                        response.status_code,
+                        detail[:600],
+                    )
+                    raise HTTPException(status_code=502, detail=detail[:1200])
+                if not (response.content or "").strip():
+                    return {}
+                try:
+                    return response.json()
+                except Exception:
+                    return {}
+            except HTTPException:
+                raise
             except (httpx.TimeoutException, httpx.NetworkError) as exc:
                 if attempt >= RETRY_MAX_ATTEMPTS:
-                    raise HTTPException(status_code=502, detail="Falha de rede ao atualizar anúncio no Mercado Livre.") from exc
+                    raise HTTPException(
+                        status_code=502,
+                        detail=f"Falha de rede ao atualizar {contexto} no Mercado Livre.",
+                    ) from exc
                 await asyncio.sleep(RETRY_BASE_SECONDS * attempt)
-        raise HTTPException(status_code=502, detail="Falha inesperada ao atualizar anúncio no Mercado Livre.")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Falha inesperada ao atualizar {contexto} no Mercado Livre.",
+        )
 
     async def _push_catalogo_updates(
         self, empresa_id: int, *, limit: int = 100
-    ) -> Dict[str, int]:
+    ) -> Dict[str, Any]:
         registro = await self._ensure_valid_token(empresa_id)
         access_token = self._decrypt_token(registro.access_token)
         if not access_token:
@@ -876,6 +931,9 @@ class MercadoLivreService:
         enviados = 0
         ignorados = 0
         falhas = 0
+        push_erros: List[Dict[str, Any]] = []
+        max_erros_resposta = 25
+
         for vinculo in vinculos:
             servico = (
                 self.db.query(Servico)
@@ -885,41 +943,77 @@ class MercadoLivreService:
             if not servico:
                 ignorados += 1
                 continue
-            payload: Dict[str, Any] = {}
+
+            item_payload: Dict[str, Any] = {}
             if vinculo.allow_push_title:
-                payload["title"] = servico.nome
+                item_payload["title"] = servico.nome
             if vinculo.allow_push_price:
-                payload["price"] = float(servico.preco_padrao or 0)
-            if vinculo.allow_push_description and servico.descricao:
-                payload["subtitle"] = servico.descricao[:120]
+                item_payload["price"] = float(servico.preco_padrao or 0)
             if vinculo.allow_push_stock:
-                payload["available_quantity"] = 1
-            if not payload:
+                item_payload["available_quantity"] = 1
+
+            desc_plain: Optional[str] = None
+            if vinculo.allow_push_description and servico.descricao:
+                raw = str(servico.descricao).strip()
+                if raw:
+                    desc_plain = raw[:ML_DESCRIPTION_MAX_CHARS]
+
+            faz_item = bool(item_payload)
+            faz_desc = bool(desc_plain)
+
+            if not faz_item and not faz_desc:
                 ignorados += 1
                 continue
-            payload_hash = hashlib.sha256(
-                str(sorted(payload.items())).encode("utf-8")
-            ).hexdigest()
+
+            hash_basis = json.dumps(
+                {"item": item_payload, "desc": desc_plain or ""},
+                sort_keys=True,
+                ensure_ascii=False,
+            )
+            payload_hash = hashlib.sha256(hash_basis.encode("utf-8")).hexdigest()
             if vinculo.last_push_hash == payload_hash:
                 ignorados += 1
                 continue
             try:
-                await self._ml_put(
-                    endpoint=f"/items/{vinculo.ml_item_id}",
-                    access_token=access_token,
-                    payload=payload,
-                )
+                if faz_item:
+                    await self._ml_put(
+                        endpoint=f"/items/{vinculo.ml_item_id}",
+                        access_token=access_token,
+                        payload=item_payload,
+                        contexto="dados do anúncio",
+                    )
+                if faz_desc:
+                    await self._ml_put(
+                        endpoint=f"/items/{vinculo.ml_item_id}/description?api_version=2",
+                        access_token=access_token,
+                        payload={"plain_text": desc_plain},
+                        contexto="descrição do anúncio",
+                    )
                 vinculo.last_push_at = datetime.now(timezone.utc)
                 vinculo.last_push_hash = payload_hash
                 vinculo.ultimo_erro = None
                 self.db.add(vinculo)
                 enviados += 1
             except HTTPException as exc:
-                vinculo.ultimo_erro = str(exc.detail)
+                det = str(exc.detail) if exc.detail else "Erro desconhecido"
+                vinculo.ultimo_erro = det[:2000]
                 self.db.add(vinculo)
                 falhas += 1
+                if len(push_erros) < max_erros_resposta:
+                    push_erros.append(
+                        {
+                            "ml_item_id": vinculo.ml_item_id,
+                            "servico_id": vinculo.servico_id,
+                            "erro": det[:1500],
+                        }
+                    )
         self.db.flush()
-        return {"push_enviados": enviados, "push_ignorados": ignorados, "push_falhas": falhas}
+        return {
+            "push_enviados": enviados,
+            "push_ignorados": ignorados,
+            "push_falhas": falhas,
+            "push_erros": push_erros,
+        }
 
     async def sync_pedidos(self, empresa_id: int, limit: int = 50) -> Dict[str, Any]:
         registro = await self._ensure_valid_token(empresa_id)

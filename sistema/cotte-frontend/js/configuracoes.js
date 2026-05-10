@@ -1256,10 +1256,20 @@ async function _mlExecutarEscopo(escopo, btnId, textos) {
     const resp = await api.post(`/mercadolivre/sync/executar?escopo=${encodeURIComponent(escopo)}`, {});
     const data = _mlExtrairData(resp);
     const counters = data?.counters || {};
-    const resumo = escopo === 'catalogo_push'
+    let resumo = escopo === 'catalogo_push'
       ? `${counters.push_enviados || 0} enviados · ${counters.push_falhas || 0} falhas`
       : `${counters.total_recebido || 0} recebidos`;
-    showNotif('✅', textos?.successTitle || 'Sincronização concluída', resumo, 'success');
+    if (escopo === 'catalogo_push' && (counters.push_falhas || 0) > 0 && Array.isArray(counters.push_erros) && counters.push_erros.length) {
+      const primeira = counters.push_erros[0];
+      const extra = primeira && primeira.erro ? String(primeira.erro).slice(0, 420) : '';
+      resumo += extra ? '\n' + extra : '';
+      if (counters.push_erros.length > 1) {
+        resumo += '\n(+' + (counters.push_erros.length - 1) + ' outro(s) — veja o vínculo no catálogo)';
+      }
+    }
+    const tipoNotif = escopo === 'catalogo_push' && (counters.push_falhas || 0) > 0 ? 'warning' : 'success';
+    const iconOk = escopo === 'catalogo_push' && (counters.push_falhas || 0) > 0 ? '⚠️' : '✅';
+    showNotif(iconOk, textos?.successTitle || 'Sincronização concluída', resumo, tipoNotif);
     await carregarStatusMercadoLivre();
   } catch (err) {
     showNotif('❌', 'Erro', err.message || 'Falha ao executar sincronização', 'error');
