@@ -782,39 +782,111 @@ Exemplos de formatos aceitos:
   <div class="modal-overlay modal-slide-over" id="modal-template">
     <div class="modal">
       <header class="modal-header">
-        <h3 class="modal-title" id="modal-tpl-title">Novo Template</h3>
+        <div>
+          <h3 class="modal-title" id="modal-tpl-title">Novo Template</h3>
+          <p class="tpl-modal-subtitle">Escolha o tipo de mensagem que deseja criar</p>
+        </div>
         <button class="modal-close" aria-label="Fechar">&times;</button>
       </header>
-      <div class="modal-body">
-        <input type="hidden" id="tpl-id">
-        <div class="fg"><label class="fl">Nome *</label><input type="text" class="fi" id="tpl-nome" required></div>
-        <div class="fr">
-          <div class="fg"><label class="fl">Tipo</label>
-            <select class="fs" id="tpl-tipo"><option value="mensagem_inicial">Mensagem Inicial</option><option value="followup">Follow-up</option><option value="proposta_comercial">Proposta Comercial</option><option value="email_comercial">E-mail Comercial</option></select>
+      <!-- Stepper de progresso -->
+      <div class="import-stepper" style="margin:0;padding:10px 20px 0;border-bottom:1px solid var(--border)">
+        <div class="import-step-indicator">
+          <div class="import-step-node">
+            <div class="import-step-circle active" id="tpl-sc-1">1</div>
+            <div class="import-step-label">Tipo</div>
           </div>
-          <div class="fg"><label class="fl">Canal</label>
-            <select class="fs" id="tpl-canal"><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option><option value="ambos">Ambos</option></select>
-          </div>
-        </div>
-        <div class="fg"><label class="fl">Assunto (e-mail)</label><input type="text" class="fi" id="tpl-assunto"></div>
-        <div class="fg"><label class="fl">Conteúdo *</label><textarea class="ft" id="tpl-conteudo" rows="6" required></textarea></div>
-        <div class="tpl-vars-interactive">
-          <span style="font-size:11px;color:var(--muted);display:block;margin-bottom:6px;">Inserir variável no cursor:</span>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;">
-            <button type="button" class="btn-var-badge" data-var="{nome}">nome</button>
-            <button type="button" class="btn-var-badge" data-var="{empresa}">empresa</button>
-            <button type="button" class="btn-var-badge" data-var="{cidade}">cidade</button>
-            <button type="button" class="btn-var-badge" data-var="{segmento}">segmento</button>
-            <button type="button" class="btn-var-badge" data-var="{plano}">plano</button>
-            <button type="button" class="btn-var-badge" data-var="{valor}">valor</button>
-            <button type="button" class="btn-var-badge" data-var="{link_demo}">link_demo</button>
-            <button type="button" class="btn-var-badge" data-var="{link_proposta}">link_proposta</button>
+          <div class="import-step-line" id="tpl-sl-12"></div>
+          <div class="import-step-node">
+            <div class="import-step-circle" id="tpl-sc-2">2</div>
+            <div class="import-step-label">Mensagem</div>
           </div>
         </div>
       </div>
+      <!-- Inputs hidden (compatibilidade com salvarTemplate) -->
+      <input type="hidden" id="tpl-id">
+      <input type="hidden" id="tpl-tipo">
+      <input type="hidden" id="tpl-canal" value="whatsapp">
+      <input type="hidden" id="tpl-anexo-path">
+      <input type="hidden" id="tpl-anexo-nome">
+      <input type="hidden" id="tpl-anexo-mime">
+      <input type="hidden" id="tpl-anexo-tamanho">
+      <input type="hidden" id="tpl-anexo-remover" value="0">
+      <div class="modal-body">
+        <!-- ── Etapa 1: Escolha do Tipo ── -->
+        <div id="tpl-step-1">
+          <p style="font-size:13px;color:var(--muted);margin:0 0 14px">Cada tipo tem um propósito diferente. Escolha o que melhor descreve o que você quer enviar:</p>
+          <div class="tpl-type-cards" id="tpl-type-cards"></div>
+        </div>
+        <!-- ── Etapa 2: Composição ── -->
+        <div id="tpl-step-2" style="display:none">
+            <div class="tpl-v2-container">
+                <!-- Coluna Esquerda: Editor -->
+                <div class="tpl-v2-editor">
+                    <div class="form-group">
+                        <label>Nome do Template</label>
+                        <input type="text" id="tpl-nome" class="form-control" placeholder="Ex: Boas-vindas Soluções">
+                        <small id="tpl-sugestao-nome" class="tpl-sugestao-nome"></small>
+                    </div>
+
+                    <div class="form-group" id="tpl-assunto-group">
+                        <label>Assunto do E-mail</label>
+                        <input type="text" id="tpl-assunto" class="form-control" placeholder="Assunto que o cliente verá">
+                    </div>
+
+                    <div class="form-group">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:8px">
+                            <label style="margin:0">Mensagem</label>
+                            <div id="tpl-char-counter" class="tpl-char-counter">0 caracteres</div>
+                        </div>
+                        <textarea id="tpl-conteudo" class="form-control" rows="8" placeholder="Digite sua mensagem..."></textarea>
+
+                        <div class="tpl-vars-interactive" style="margin-top: 10px;">
+                            <button type="button" class="btn-var-badge" data-var="{nome_responsavel}">Nome</button>
+                            <button type="button" class="btn-var-badge" data-var="{nome_empresa}">Empresa</button>
+                            <button type="button" class="btn-var-badge" data-var="{whatsapp}">WhatsApp</button>
+                            <button type="button" class="btn-var-badge" data-var="{dias_sem_contato}">Dias sem contato</button>
+                            <button type="button" class="btn-var-badge" data-var="{valor}">Valor</button>
+                            <button type="button" class="btn-var-badge" data-var="{etapa}">Etapa</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Imagem / Anexo</label>
+                        <input type="file" id="tpl-anexo" style="display:none" accept="image/*,application/pdf">
+                        <div id="tpl-image-zone" class="tpl-image-zone">
+                            <i class="fas fa-image" style="font-size: 24px; margin-bottom: 8px;"></i>
+                            <span>Arraste uma imagem ou <strong>Cole (Ctrl+V)</strong></span>
+                        </div>
+                        <div id="tpl-image-previews" class="tpl-image-preview-container"></div>
+                        <small class="text-muted">WhatsApp permite apenas 1 imagem.</small>
+                    </div>
+                </div>
+
+                <!-- Coluna Direita: Preview -->
+                <div class="tpl-v2-preview-panel">
+                    <div class="tpl-preview-header">
+                        <span>Visualização Real</span>
+                        <span id="tpl-preview-canal-label">WhatsApp</span>
+                    </div>
+                    <div class="tpl-live-preview-window">
+                        <img id="tpl-preview-img" class="tpl-preview-image" style="display:none">
+                        <div id="tpl-preview-text" style="white-space: pre-wrap;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+      </div>
       <footer class="modal-footer">
-        <button class="btn btn-secondary" onclick="fecharModal('modal-template')">Cancelar</button>
-        <button class="btn btn-primary" onclick="TemplatesManager.salvarTemplate()">Salvar</button>
+        <div id="tpl-footer-step1">
+          <button class="btn btn-secondary" onclick="fecharModal('modal-template')">Cancelar</button>
+        </div>
+        <div id="tpl-footer-step2" style="display:none;width:100%;justify-content:space-between;align-items:center">
+          <button type="button" class="btn btn-ghost" id="btn-tpl-voltar">← Voltar</button>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-secondary" onclick="fecharModal('modal-template')">Cancelar</button>
+            <button class="btn btn-primary" onclick="TemplatesManager.salvarTemplate()">Salvar Template</button>
+          </div>
+        </div>
       </footer>
     </div>
   </div>
