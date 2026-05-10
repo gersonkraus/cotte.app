@@ -17,6 +17,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.tenant_context import set_tenant_context
 from app.models.models import (
     Cliente,
     HistoricoEdicao,
@@ -122,15 +123,22 @@ class MercadoLivreService:
     async def _exchange_authorization_code(
         self, code: str, code_verifier: str
     ) -> TokenExchangeResult:
-        payload = {
-            "grant_type": "authorization_code",
-            "client_id": settings.ML_CLIENT_ID,
-            "client_secret": settings.ML_CLIENT_SECRET,
-            "code": code,
-            "redirect_uri": settings.ML_REDIRECT_URI,
-            "code_verifier": code_verifier,
-        }
-        response = await self._request_token(payload)
+        verifier = (code_verifier or "").strip()
+        if not verifier:
+            raise HTTPException(
+                status_code=400,
+                detail="PKCE: code_verifier vazio antes da troca do código.",
+            )
+        # Ordem estável + urlencode explícito (alguns proxies/CDNs tratam mal dict solto no httpx).
+        pairs = [
+            ("grant_type", "authorization_code"),
+            ("client_id", settings.ML_CLIENT_ID),
+            ("client_secret", settings.ML_CLIENT_SECRET),
+            ("code", code),
+            ("redirect_uri", settings.ML_REDIRECT_URI),
+            ("code_verifier", verifier),
+        ]
+        response = await self._request_token_form(pairs)
         access = str(response.get("access_token") or "").strip()
         refresh = str(response.get("refresh_token") or "").strip()
         exp_raw = response.get("expires_in")
@@ -156,7 +164,27 @@ class MercadoLivreService:
             user_id=str(uid) if uid is not None and uid != "" else None,
         )
 
-    async def _request_token(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def _ml_oauth_error_detail(self, response: httpx.Response, body: Dict[str, Any]) -> str:
+        """Mercado Livre devolve às vezes `message` em vez de `error_description`."""
+        error_code = body.get("error") or "oauth_error"
+        error_desc = (
+            body.get("error_description")
+            or body.get("message")
+            or response.text
+        )
+        return f"Falha OAuth Mercado Livre ({error_code}): {error_desc}"
+
+    async def _request_token_form(self, pairs: List[Tuple[str, str]]) -> Dict[str, Any]:
+        """POST /oauth/token com corpo form-urlencoded explícito."""
+        payload_dict = {k: v for k, v in pairs}
+        return await self._request_token(payload_dict, form_pairs=pairs)
+
+    async def _request_token(
+        self,
+        payload: Dict[str, Any],
+        *,
+        form_pairs: Optional[List[Tuple[str, str]]] = None,
+    ) -> Dict[str, Any]:
         url = f"{settings.ML_API_BASE_URL.rstrip('/')}/oauth/token"
         headers = {
             "accept": "application/json",
@@ -166,17 +194,19 @@ class MercadoLivreService:
         for attempt in range(1, RETRY_MAX_ATTEMPTS + 1):
             try:
                 async with httpx.AsyncClient(timeout=20) as client:
-                    response = await client.post(url, data=payload, headers=headers)
+                    if form_pairs is not None:
+                        body_bytes = urlencode(form_pairs).encode("utf-8")
+                        response = await client.post(url, content=body_bytes, headers=headers)
+                    else:
+                        response = await client.post(url, data=payload, headers=headers)
                 if response.status_code == 429 and attempt < RETRY_MAX_ATTEMPTS:
                     await asyncio.sleep(RETRY_BASE_SECONDS * attempt)
                     continue
                 if response.status_code >= 400:
                     body = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
-                    error_code = body.get("error") or "oauth_error"
-                    error_desc = body.get("error_description") or response.text
                     raise HTTPException(
                         status_code=400,
-                        detail=f"Falha OAuth Mercado Livre ({error_code}): {error_desc}",
+                        detail=self._ml_oauth_error_detail(response, body if isinstance(body, dict) else {}),
                     )
                 try:
                     data = response.json()
@@ -217,6 +247,8 @@ class MercadoLivreService:
     async def process_oauth_callback(self, code: str, state: str) -> Dict[str, Any]:
         self._ensure_credentials_configured()
         empresa_id, _ = self._parse_state(state)
+        # Alinha escopo tenant com /auth/url (onde o PKCE foi gravado).
+        set_tenant_context(self.db, empresa_id=empresa_id, scope_source="oauth_callback")
 
         integracao = self.repo.get_integracao(empresa_id)
         if not integracao or integracao.oauth_state != state:
@@ -226,6 +258,8 @@ class MercadoLivreService:
             and integracao.oauth_state_expira_em < datetime.now(timezone.utc)
         ):
             raise HTTPException(status_code=400, detail="State OAuth expirado.")
+
+        self.db.refresh(integracao)
 
         code_verifier_plain = (integracao.oauth_code_verifier or "").strip()
         if not code_verifier_plain:

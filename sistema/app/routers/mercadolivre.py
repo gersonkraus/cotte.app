@@ -22,7 +22,7 @@ router = APIRouter(prefix="/mercadolivre", tags=["Mercado Livre"])
 def _frontend_integracoes_url(resultado: str, detalhe: str = "") -> str:
     query = {"ml": resultado}
     if detalhe:
-        query["msg"] = detalhe[:180]
+        query["msg"] = detalhe[:400]
     return f"/app/configuracoes.html?{urlencode(query)}#integracoes"
 
 
