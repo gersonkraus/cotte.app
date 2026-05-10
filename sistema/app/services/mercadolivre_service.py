@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import secrets
 import hashlib
 import base64
@@ -38,6 +39,36 @@ RETRY_BASE_SECONDS = 0.6
 
 # Limite conservador para plain_text na API de descrição do ML (evita payload gigante).
 ML_DESCRIPTION_MAX_CHARS = 50000
+
+# ID de anúncio na API ML: prefixo de site (MLA, MLB, MCO, …) + apenas dígitos (sem hífen).
+_RE_ML_ITEM_ID = re.compile(r"\b([A-Za-z]{3})(\d{6,})\b")
+
+
+def normalizar_ml_item_id(valor: Optional[str]) -> str:
+    """Extrai ID canônico (ex.: MLB1234567890123) de texto livre ou URL do Mercado Livre."""
+    if valor is None:
+        return ""
+    s = str(valor).strip().strip("\ufeff")
+    if not s:
+        return ""
+    variantes = [
+        s,
+        re.sub(r"\b([A-Za-z]{3})[\-_/](\d{6,})\b", r"\1\2", s),
+        s.replace("-", ""),
+        re.sub(r"\s+", "", s),
+    ]
+    for cand in variantes:
+        m = _RE_ML_ITEM_ID.search(cand)
+        if m:
+            return f"{m.group(1).upper()}{m.group(2)}"
+    return ""
+
+
+def ml_item_api_id_valido(item_id: str) -> bool:
+    """True se o ID está no formato esperado pela API (/items/{id})."""
+    if not item_id:
+        return False
+    return bool(re.fullmatch(r"[A-Za-z]{3}\d{6,}", item_id.strip()))
 
 
 def _detalhe_erro_resposta_ml(response: httpx.Response) -> str:
@@ -944,6 +975,28 @@ class MercadoLivreService:
                 ignorados += 1
                 continue
 
+            mid = normalizar_ml_item_id(str(vinculo.ml_item_id or ""))
+            if not ml_item_api_id_valido(mid):
+                det = (
+                    "ML Item ID inválido. Informe no vínculo do catálogo o ID do anúncio "
+                    "(ex.: MLB1234567890123) ou cole a URL da publicação ao salvar."
+                )
+                vinculo.ultimo_erro = det
+                self.db.add(vinculo)
+                falhas += 1
+                if len(push_erros) < max_erros_resposta:
+                    push_erros.append(
+                        {
+                            "ml_item_id": str(vinculo.ml_item_id),
+                            "servico_id": vinculo.servico_id,
+                            "erro": det,
+                        }
+                    )
+                continue
+            if mid != str(vinculo.ml_item_id or "").strip():
+                vinculo.ml_item_id = mid
+                self.db.add(vinculo)
+
             item_payload: Dict[str, Any] = {}
             if vinculo.allow_push_title:
                 item_payload["title"] = servico.nome
@@ -977,14 +1030,14 @@ class MercadoLivreService:
             try:
                 if faz_item:
                     await self._ml_put(
-                        endpoint=f"/items/{vinculo.ml_item_id}",
+                        endpoint=f"/items/{mid}",
                         access_token=access_token,
                         payload=item_payload,
                         contexto="dados do anúncio",
                     )
                 if faz_desc:
                     await self._ml_put(
-                        endpoint=f"/items/{vinculo.ml_item_id}/description?api_version=2",
+                        endpoint=f"/items/{mid}/description?api_version=2",
                         access_token=access_token,
                         payload={"plain_text": desc_plain},
                         contexto="descrição do anúncio",
@@ -1002,7 +1055,7 @@ class MercadoLivreService:
                 if len(push_erros) < max_erros_resposta:
                     push_erros.append(
                         {
-                            "ml_item_id": vinculo.ml_item_id,
+                            "ml_item_id": mid,
                             "servico_id": vinculo.servico_id,
                             "erro": det[:1500],
                         }
@@ -1157,9 +1210,20 @@ class MercadoLivreService:
         if not servico:
             raise HTTPException(status_code=404, detail="Serviço não encontrado.")
 
+        ml_norm = normalizar_ml_item_id(str(ml_item_id or "").strip())
+        if not ml_item_api_id_valido(ml_norm):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "ML Item ID inválido. Use o ID do anúncio (três letras do site + números, "
+                    "ex.: MLB1234567890123). Você pode colar a URL da publicação — o sistema extrai o ID. "
+                    "Evite ID de variação ou número que não seja o do anúncio principal."
+                ),
+            )
+
         vinculo = self.repo.upsert_item_vinculo(
             empresa_id=empresa_id,
-            ml_item_id=ml_item_id,
+            ml_item_id=ml_norm,
             servico_id=servico_id,
             sync_mode=sync_mode,
             allow_push_price=allow_push_price,
