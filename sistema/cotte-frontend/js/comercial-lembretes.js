@@ -69,9 +69,13 @@ async function carregarLembretes() {
 function abrirModalLembrete(preLeadId) {
   document.getElementById('lemb-id').value = '';
   document.getElementById('modal-lemb-title').textContent = 'Novo Lembrete';
-  document.getElementById('lemb-titulo').value = '';
+  var titEl = document.getElementById('lemb-titulo');
+  titEl.value = '';
+  delete titEl.dataset.auto;
   document.getElementById('lemb-descricao').value = '';
-  document.getElementById('lemb-data-hora').value = '';
+  var dtEl = document.getElementById('lemb-data-hora');
+  dtEl.value = '';
+  delete dtEl.dataset.auto;
   document.getElementById('lemb-canal').value = '';
   document.getElementById('lemb-lead-id').value = '';
   document.getElementById('lemb-lead-search').value = '';
@@ -85,16 +89,147 @@ function abrirModalLembrete(preLeadId) {
   document.getElementById('modal-lembrete').classList.add('open');
 }
 
+function setLembreteData(dias, hora) {
+  var d = new Date();
+  d.setDate(d.getDate() + dias);
+  // Pula fim de semana se for adicionar dias (opcional, mas comum em vendas)
+  if (dias > 0) {
+    if (d.getDay() === 6) d.setDate(d.getDate() + 2);
+    else if (d.getDay() === 0) d.setDate(d.getDate() + 1);
+  }
+  d.setHours(hora, 0, 0, 0);
+  
+  // Formatar para datetime-local YYYY-MM-DDThh:mm
+  var yyyy = d.getFullYear();
+  var mm = String(d.getMonth() + 1).padStart(2, '0');
+  var dd = String(d.getDate()).padStart(2, '0');
+  var hh = String(d.getHours()).padStart(2, '0');
+  var min = String(d.getMinutes()).padStart(2, '0');
+  
+  document.getElementById('lemb-data-hora').value = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+}
+
 async function salvarLembrete() {
   var leadId = parseInt(document.getElementById('lemb-lead-id').value);
   var titulo = document.getElementById('lemb-titulo').value;
   var dataHora = document.getElementById('lemb-data-hora').value;
-  if (!leadId || !titulo || !dataHora) { showToast('Preencha lead, título e data', 'error'); return; }
+  if (!leadId || isNaN(leadId)) { showToast('Selecione um lead válido', 'error'); return; }
+  if (!titulo) { showToast('Preencha o título', 'error'); return; }
+  if (!dataHora) { showToast('Preencha a data/hora', 'error'); return; }
   var data = { lead_id: leadId, titulo: titulo, descricao: document.getElementById('lemb-descricao').value || null, data_hora: dataHora, canal_sugerido: document.getElementById('lemb-canal').value || null };
   try {
     await api.post('/comercial/lembretes', data);
     showToast('Lembrete criado!', 'success');
     fecharModal('modal-lembrete');
     carregarLembretes();
+    carregarLeadsTabela();
+    carregarPipeline();
+    if (document.getElementById('modal-detail').classList.contains('open')) {
+      abrirDetalhe(leadId);
+    }
   } catch(e) { showToast(e.message || 'Erro', 'error'); }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NLU - Parser de Texto para Lembretes
+// ═══════════════════════════════════════════════════════════════════════════════
+function extrairIntencaoLembrete(texto) {
+  if (!texto) return { intencao: null, canal: null, data: null };
+  var t = texto.toLowerCase();
+  var intencao = null;
+  var canal = null;
+  var dataObj = null;
+
+  // 1. Extrair Intenção/Canal
+  if (t.match(/ligar/i)) { intencao = "Ligar"; canal = "ligacao"; }
+  else if (t.match(/reunião|reuniao/i)) { intencao = "Reunião"; canal = "reuniao"; }
+  else if (t.match(/visita/i)) { intencao = "Visita técnica"; canal = "reuniao"; }
+  else if (t.match(/follow[- ]?up/i)) { intencao = "Follow-up"; canal = "whatsapp"; }
+  else if (t.match(/whatsapp|whats|zap/i)) { intencao = "Enviar WhatsApp"; canal = "whatsapp"; }
+  else if (t.match(/e-?mail/i)) { intencao = "Enviar E-mail"; canal = "email"; }
+
+  // 2. Extrair Data e Hora
+  var matchAmanha = t.match(/amanhã|amanha/i);
+  var matchHoje = t.match(/hoje/i);
+  var matchDias = t.match(/daqui a (\d+) dias?/i);
+  
+  var matchHora = t.match(/(?:às|ás|as) (\d{1,2})(?:h|:(\d{2}))?/i);
+  var horaParse = matchHora ? parseInt(matchHora[1], 10) : null;
+  var minParse = (matchHora && matchHora[2]) ? parseInt(matchHora[2], 10) : 0;
+
+  if (matchAmanha || matchHoje || matchDias) {
+    dataObj = new Date();
+    if (matchAmanha) {
+      dataObj.setDate(dataObj.getDate() + 1);
+      if (dataObj.getDay() === 6) dataObj.setDate(dataObj.getDate() + 2);
+      else if (dataObj.getDay() === 0) dataObj.setDate(dataObj.getDate() + 1);
+    } else if (matchDias) {
+      dataObj.setDate(dataObj.getDate() + parseInt(matchDias[1], 10));
+    }
+    
+    if (horaParse !== null) {
+      dataObj.setHours(horaParse, minParse, 0, 0);
+    } else {
+      // Se for amanhã ou daqui a x dias e não tem hora, bota 9h
+      if (!matchHoje) dataObj.setHours(9, 0, 0, 0);
+    }
+  }
+
+  return { intencao: intencao, canal: canal, data: dataObj };
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  var descEl = document.getElementById('lemb-descricao');
+  var titEl = document.getElementById('lemb-titulo');
+  var dtEl = document.getElementById('lemb-data-hora');
+  var canEl = document.getElementById('lemb-canal');
+  
+  if (descEl && titEl && dtEl) {
+    var timeout = null;
+    
+    // Clear auto flag on manual edit
+    titEl.addEventListener('input', function() { delete titEl.dataset.auto; });
+    dtEl.addEventListener('input', function() { delete dtEl.dataset.auto; });
+    canEl.addEventListener('change', function() { delete canEl.dataset.auto; });
+
+    descEl.addEventListener('input', function() {
+      clearTimeout(timeout);
+      timeout = setTimeout(function() {
+        var ext = extrairIntencaoLembrete(descEl.value);
+        var changed = false;
+        
+        if (ext.intencao && (!titEl.value || titEl.dataset.auto === '1')) {
+          titEl.value = ext.intencao;
+          titEl.dataset.auto = '1';
+          if (ext.canal && (!canEl.value || canEl.dataset.auto === '1')) {
+            canEl.value = ext.canal;
+            canEl.dataset.auto = '1';
+          }
+          
+          titEl.style.transition = 'background 0.3s, border-color 0.3s';
+          titEl.style.backgroundColor = '#ecfdf5';
+          titEl.style.borderColor = '#10b981';
+          setTimeout(function() { titEl.style.backgroundColor = ''; titEl.style.borderColor = ''; }, 1000);
+          changed = true;
+        }
+        
+        if (ext.data && (!dtEl.value || dtEl.dataset.auto === '1')) {
+          var d = ext.data;
+          var yyyy = d.getFullYear();
+          var mm = String(d.getMonth() + 1).padStart(2, '0');
+          var dd = String(d.getDate()).padStart(2, '0');
+          var hh = String(d.getHours()).padStart(2, '0');
+          var min = String(d.getMinutes()).padStart(2, '0');
+          dtEl.value = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+          dtEl.dataset.auto = '1';
+          
+          dtEl.style.transition = 'background 0.3s, border-color 0.3s';
+          dtEl.style.backgroundColor = '#ecfdf5';
+          dtEl.style.borderColor = '#10b981';
+          setTimeout(function() { dtEl.style.backgroundColor = ''; dtEl.style.borderColor = ''; }, 1000);
+          changed = true;
+        }
+      }, 400);
+    });
+  }
+});
