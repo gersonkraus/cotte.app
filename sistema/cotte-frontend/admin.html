@@ -232,8 +232,8 @@
 
   <!-- FILTROS RÁPIDOS -->
   <div class="filter-tabs">
-    <button class="filter-tab active" data-status="todos"         onclick="filtrarStatus('todos')">Todas</button>
-    <button class="filter-tab"        data-status="ativas"        onclick="filtrarStatus('ativas')">Ativas</button>
+    <button class="filter-tab"        data-status="todos"         onclick="filtrarStatus('todos')">Todas</button>
+    <button class="filter-tab active" data-status="ativas"        onclick="filtrarStatus('ativas')">Ativas</button>
     <button class="filter-tab"        data-status="trial"         onclick="filtrarStatus('trial')">Trial</button>
     <button class="filter-tab"        data-status="inadimplentes" onclick="filtrarStatus('inadimplentes')">Inadimplentes</button>
     <button class="filter-tab"        data-status="inativas"      onclick="filtrarStatus('inativas')">Inativas</button>
@@ -712,7 +712,7 @@
   let debounceTimer = null;
   let _sortCampo = null;
   let _sortDir = 'asc';
-  let _filtroStatus = 'todos';
+  let _filtroStatus = 'ativas';
 
   function debounceFiltrar(valor) {
     clearTimeout(debounceTimer);
