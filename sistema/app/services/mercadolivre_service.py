@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
-from urllib.parse import urlencode
+from urllib.parse import unquote, urlencode
 
 import httpx
 from fastapi import HTTPException
@@ -40,8 +40,16 @@ RETRY_BASE_SECONDS = 0.6
 # Limite conservador para plain_text na API de descrição do ML (evita payload gigante).
 ML_DESCRIPTION_MAX_CHARS = 50000
 
-# ID de anúncio na API ML: prefixo de site (MLA, MLB, MCO, …) + apenas dígitos (sem hífen).
-_RE_ML_ITEM_ID = re.compile(r"\b([A-Za-z]{3})(\d{6,})\b")
+# ID de anúncio na API ML: três letras (site) + só dígitos. Peça numérica costuma ter ≥5 dígitos.
+_RE_ML_ITEM_TOKEN = re.compile(r"[A-Za-z]{3}\d{5,}")
+
+def _token_ml_para_id_canonico(token: str) -> Optional[str]:
+    """Converte casamento bruto em ID uppercase MLB123… se válido."""
+    token = token.strip()
+    m = re.fullmatch(r"([A-Za-z]{3})(\d{5,})", token)
+    if not m:
+        return None
+    return f"{m.group(1).upper()}{m.group(2)}"
 
 
 def normalizar_ml_item_id(valor: Optional[str]) -> str:
@@ -51,16 +59,41 @@ def normalizar_ml_item_id(valor: Optional[str]) -> str:
     s = str(valor).strip().strip("\ufeff")
     if not s:
         return ""
-    variantes = [
-        s,
-        re.sub(r"\b([A-Za-z]{3})[\-_/](\d{6,})\b", r"\1\2", s),
-        s.replace("-", ""),
-        re.sub(r"\s+", "", s),
-    ]
-    for cand in variantes:
-        m = _RE_ML_ITEM_ID.search(cand)
-        if m:
-            return f"{m.group(1).upper()}{m.group(2)}"
+    try:
+        s = unquote(s)
+    except Exception:
+        pass
+    # Markdown: [título](url)
+    m_md = re.search(r"\]\(\s*([^)]+)\s*\)", s)
+    if m_md and ("mercadolivre" in s.lower() or "mercadolibre" in s.lower() or "/ML" in s):
+        s = m_md.group(1).strip()
+
+    def _extrair_de_texto(txt: str) -> Optional[str]:
+        if not txt:
+            return None
+        candidatos = [
+            txt,
+            re.sub(r"([A-Za-z]{3})[\-_/](\d{5,})", r"\1\2", txt),
+            txt.replace("-", ""),
+            re.sub(r"\s+", "", txt),
+        ]
+        for cand in candidatos:
+            for m in _RE_ML_ITEM_TOKEN.finditer(cand):
+                tid = _token_ml_para_id_canonico(m.group(0))
+                if tid:
+                    return tid
+        return None
+
+    hit = _extrair_de_texto(s)
+    if hit:
+        return hit
+
+    # Segmentos de caminho/query (#, &, /, ?)
+    for part in re.split(r"[/\?\#&=\s]+", s):
+        hit = _extrair_de_texto(part)
+        if hit:
+            return hit
+
     return ""
 
 
@@ -68,7 +101,7 @@ def ml_item_api_id_valido(item_id: str) -> bool:
     """True se o ID está no formato esperado pela API (/items/{id})."""
     if not item_id:
         return False
-    return bool(re.fullmatch(r"[A-Za-z]{3}\d{6,}", item_id.strip()))
+    return bool(re.fullmatch(r"[A-Za-z]{3}\d{5,}", item_id.strip()))
 
 
 def _detalhe_erro_resposta_ml(response: httpx.Response) -> str:
@@ -978,8 +1011,8 @@ class MercadoLivreService:
             mid = normalizar_ml_item_id(str(vinculo.ml_item_id or ""))
             if not ml_item_api_id_valido(mid):
                 det = (
-                    "ML Item ID inválido. Informe no vínculo do catálogo o ID do anúncio "
-                    "(ex.: MLB1234567890123) ou cole a URL da publicação ao salvar."
+                    "ID do anúncio não reconhecido neste vínculo. Edite o vínculo no catálogo e cole "
+                    "a URL da barra de endereços na página do produto ou o ID MLB… sem espaços."
                 )
                 vinculo.ultimo_erro = det
                 self.db.add(vinculo)
@@ -1210,14 +1243,21 @@ class MercadoLivreService:
         if not servico:
             raise HTTPException(status_code=404, detail="Serviço não encontrado.")
 
-        ml_norm = normalizar_ml_item_id(str(ml_item_id or "").strip())
-        if not ml_item_api_id_valido(ml_norm):
+        raw_informado = str(ml_item_id or "").strip()
+        ml_norm = normalizar_ml_item_id(raw_informado)
+        if not ml_norm:
+            amostra = raw_informado[:200].replace("\r", " ").replace("\n", " ")
+            if len(raw_informado) > 200:
+                amostra += "…"
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    "ML Item ID inválido. Use o ID do anúncio (três letras do site + números, "
-                    "ex.: MLB1234567890123). Você pode colar a URL da publicação — o sistema extrai o ID. "
-                    "Evite ID de variação ou número que não seja o do anúncio principal."
+                    "Não foi possível reconhecer o ID do anúncio. Copie o link completo da "
+                    "barra de endereços na página do produto (mercadolivre.com.br / mercadolibre) "
+                    "ou digite só o ID: três letras do site + números, sem espaços "
+                    "(ex.: MLB503044631). Short links sem o MLB na URL podem falhar — abra o anúncio "
+                    "no navegador e copie de lá. "
+                    f"Trecho recebido: {amostra!r}"
                 ),
             )
 
