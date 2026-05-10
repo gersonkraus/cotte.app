@@ -73,16 +73,22 @@ class MercadoLivreRepository:
         registro.ultimo_erro = None
         registro.oauth_state = None
         registro.oauth_state_expira_em = None
+        registro.oauth_code_verifier = None
         self.db.add(registro)
         self.db.flush()
         return registro
 
     def set_oauth_state(
-        self, empresa_id: int, state: str, expira_em: datetime
+        self,
+        empresa_id: int,
+        state: str,
+        expira_em: datetime,
+        oauth_code_verifier: Optional[str] = None,
     ) -> IntegracaoMercadoLivre:
         registro = self.get_or_create_integracao(empresa_id)
         registro.oauth_state = state
         registro.oauth_state_expira_em = expira_em
+        registro.oauth_code_verifier = oauth_code_verifier
         self.db.add(registro)
         self.db.flush()
         return registro
@@ -117,6 +123,7 @@ class MercadoLivreRepository:
         registro.conectado = False
         registro.oauth_state = None
         registro.oauth_state_expira_em = None
+        registro.oauth_code_verifier = None
         registro.ultimo_erro = None
         self.db.add(registro)
         self.db.flush()

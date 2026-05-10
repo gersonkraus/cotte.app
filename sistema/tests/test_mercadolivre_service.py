@@ -1,4 +1,8 @@
+import base64
+import hashlib
+
 from app.models.models import StatusOrcamento
+from app.services import mercadolivre_service as ml_mod
 from app.services.mercadolivre_service import MercadoLivreService
 from app.core.config import settings
 
@@ -8,6 +12,14 @@ def test_status_ml_para_orcamento_mapping():
     assert MercadoLivreService._status_ml_para_orcamento("payment_required") == StatusOrcamento.AGUARDANDO_PAGAMENTO
     assert MercadoLivreService._status_ml_para_orcamento("cancelled") == StatusOrcamento.RECUSADO
     assert MercadoLivreService._status_ml_para_orcamento("unknown") is None
+
+
+def test_pkce_challenge_matches_verifier():
+    verifier, challenge = ml_mod._gerar_pkce_s256()
+    assert 43 <= len(verifier) <= 128
+    digest = hashlib.sha256(verifier.encode("ascii")).digest()
+    expected = base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
+    assert challenge == expected
 
 
 def test_token_crypto_roundtrip():

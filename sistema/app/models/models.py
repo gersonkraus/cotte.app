@@ -2540,6 +2540,8 @@ class IntegracaoMercadoLivre(TenantScopedMixin, Base):
     conectado = Column(Boolean, default=False, nullable=False)
     oauth_state = Column(String(255), nullable=True)
     oauth_state_expira_em = Column(DateTime(timezone=True), nullable=True)
+    # PKCE (RFC 7636): guardado entre authorize e /oauth/token; limpo após troca do code
+    oauth_code_verifier = Column(String(128), nullable=True)
     ultimo_sync_pedidos_em = Column(DateTime(timezone=True), nullable=True)
     ultimo_sync_anuncios_em = Column(DateTime(timezone=True), nullable=True)
     ultimo_erro = Column(Text, nullable=True)

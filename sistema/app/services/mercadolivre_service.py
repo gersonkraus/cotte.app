@@ -35,6 +35,18 @@ RETRY_MAX_ATTEMPTS = 3
 RETRY_BASE_SECONDS = 0.6
 
 
+def _gerar_pkce_s256() -> Tuple[str, str]:
+    """Gera par (code_verifier, code_challenge) para OAuth PKCE método S256 (RFC 7636)."""
+    verifier = secrets.token_urlsafe(32)
+    if len(verifier) < 43:
+        verifier = (verifier + secrets.token_urlsafe(32))[:128]
+    elif len(verifier) > 128:
+        verifier = verifier[:128]
+    digest = hashlib.sha256(verifier.encode("ascii")).digest()
+    challenge = base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
+    return verifier, challenge
+
+
 @dataclass
 class TokenExchangeResult:
     access_token: str
@@ -68,7 +80,13 @@ class MercadoLivreService:
         nonce = secrets.token_urlsafe(24)
         state = f"{empresa_id}:{nonce}"
         expira_em = datetime.now(timezone.utc) + timedelta(minutes=15)
-        self.repo.set_oauth_state(empresa_id=empresa_id, state=state, expira_em=expira_em)
+        code_verifier, code_challenge = _gerar_pkce_s256()
+        self.repo.set_oauth_state(
+            empresa_id=empresa_id,
+            state=state,
+            expira_em=expira_em,
+            oauth_code_verifier=code_verifier,
+        )
         self.db.commit()
 
         query = urlencode(
@@ -77,6 +95,8 @@ class MercadoLivreService:
                 "client_id": settings.ML_CLIENT_ID,
                 "redirect_uri": settings.ML_REDIRECT_URI,
                 "state": state,
+                "code_challenge": code_challenge,
+                "code_challenge_method": "S256",
             }
         )
         authorization_url = f"{settings.ML_AUTH_URL}?{query}"
@@ -97,13 +117,16 @@ class MercadoLivreService:
             raise HTTPException(status_code=400, detail="State OAuth inválido.") from exc
         return empresa_id, nonce
 
-    async def _exchange_authorization_code(self, code: str) -> TokenExchangeResult:
+    async def _exchange_authorization_code(
+        self, code: str, code_verifier: str
+    ) -> TokenExchangeResult:
         payload = {
             "grant_type": "authorization_code",
             "client_id": settings.ML_CLIENT_ID,
             "client_secret": settings.ML_CLIENT_SECRET,
             "code": code,
             "redirect_uri": settings.ML_REDIRECT_URI,
+            "code_verifier": code_verifier,
         }
         response = await self._request_token(payload)
         return TokenExchangeResult(
@@ -170,7 +193,14 @@ class MercadoLivreService:
         ):
             raise HTTPException(status_code=400, detail="State OAuth expirado.")
 
-        token = await self._exchange_authorization_code(code)
+        code_verifier_plain = (integracao.oauth_code_verifier or "").strip()
+        if not code_verifier_plain:
+            raise HTTPException(
+                status_code=400,
+                detail="PKCE: sessão de autorização incompleta. Clique em Conectar Mercado Livre e tente novamente.",
+            )
+
+        token = await self._exchange_authorization_code(code, code_verifier_plain)
         if not token.access_token or not token.refresh_token:
             raise HTTPException(status_code=400, detail="Resposta OAuth inválida: token ausente.")
 
