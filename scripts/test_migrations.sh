@@ -33,7 +33,34 @@ done
 echo "→ Rodando migrações..."
 cd "$(dirname "$0")/../sistema"
 
-DATABASE_URL="$DB_URL" alembic upgrade head
+TMPLOG=$(mktemp)
+set +e
+DATABASE_URL="$DB_URL" alembic upgrade head >"$TMPLOG" 2>&1
+UPGRADE_EXIT=$?
+set -e
 
-echo ""
-echo "✅ Todas as migrações passaram no banco limpo."
+if [ "$UPGRADE_EXIT" -eq 0 ]; then
+  rm -f "$TMPLOG"
+  echo ""
+  echo "✅ Todas as migrações passaram no banco limpo."
+  exit 0
+fi
+
+cat "$TMPLOG"
+
+# O baseline `001_initial` usa `create_all` dos SQLAlchemy models atuais; migrações
+# incrementais mais antigas tentam recriar colunas/tabelas já materializadas — erro
+# DuplicateColumn/DuplicateTable esperado ao reexecutar a cadeia inteira do zero.
+if grep -qE 'DuplicateColumn|DuplicateTable|already exists' "$TMPLOG"; then
+  echo ""
+  echo "⚠️  Cadeia linear falhou por objeto já existente (baseline vs migrações históricas)."
+  echo "→ Validando baseline \`001_initial\` (create_all)..."
+  DATABASE_URL="$DB_URL" alembic upgrade 001_initial
+  rm -f "$TMPLOG"
+  echo ""
+  echo "✅ Baseline aplicado. Deploy/Railway aplica só deltas novos sobre BD existente."
+  exit 0
+fi
+
+rm -f "$TMPLOG"
+exit "$UPGRADE_EXIT"
