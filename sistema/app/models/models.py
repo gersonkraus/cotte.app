@@ -2535,7 +2535,8 @@ class IntegracaoMercadoLivre(TenantScopedMixin, Base):
     access_token = Column(Text, nullable=True)
     refresh_token = Column(Text, nullable=True)
     token_type = Column(String(20), nullable=True)
-    token_scope = Column(String(200), nullable=True)
+    # ML pode devolver lista longa de escopos (URNs); não limitar a 200 caracteres.
+    token_scope = Column(Text, nullable=True)
     token_expires_at = Column(DateTime(timezone=True), nullable=True)
     conectado = Column(Boolean, default=False, nullable=False)
     oauth_state = Column(String(255), nullable=True)

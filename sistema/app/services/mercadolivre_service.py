@@ -242,7 +242,12 @@ class MercadoLivreService:
             response = await client.get(url, headers=headers)
         if response.status_code >= 400:
             return {}
-        return response.json()
+        try:
+            data = response.json()
+            return data if isinstance(data, dict) else {}
+        except ValueError:
+            logger.warning("OAuth ML users/me: corpo não é JSON válido")
+            return {}
 
     async def process_oauth_callback(self, code: str, state: str) -> Dict[str, Any]:
         self._ensure_credentials_configured()

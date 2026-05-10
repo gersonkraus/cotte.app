@@ -1,0 +1,38 @@
+services:
+  evolution-db:
+    image: postgres:15-alpine
+    container_name: evolution-db-local
+    environment:
+      POSTGRES_PASSWORD: evolution
+      POSTGRES_DB: evolution
+    volumes:
+      - evolution-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  evolution-api:
+    image: evoapicloud/evolution-api:2.4.0-rc1
+    container_name: evolution-local
+    ports:
+      - "8081:8080"
+    environment:
+      AUTHENTICATION_API_KEY: devlocal123
+      AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES: "true"
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: "postgresql://postgres:evolution@evolution-db:5432/evolution?schema=public"
+      DATABASE_CONNECTION_CLIENT_NAME: evolution_local
+      CACHE_REDIS_ENABLED: "false"
+      CACHE_LOCAL_ENABLED: "true"
+      DEL_INSTANCE: "false"
+      LOG_LEVEL: ERROR
+    depends_on:
+      evolution-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  evolution-db-data:

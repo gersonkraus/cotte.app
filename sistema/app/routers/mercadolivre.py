@@ -65,6 +65,7 @@ async def oauth_callback(
             status_code=302,
         )
     except Exception:
+        logger.exception("Mercado Livre oauth_callback: falha não tratada")
         db.rollback()
         return RedirectResponse(
             _frontend_integracoes_url("error", "Falha inesperada no callback OAuth."),
