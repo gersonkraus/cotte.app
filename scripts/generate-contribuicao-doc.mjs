@@ -43,6 +43,7 @@ function main() {
   const doc = parseYaml(raw);
   const hub = doc.hub || {};
   const sections = Array.isArray(doc.sections) ? doc.sections : [];
+  const relatedDocs = Array.isArray(doc.related_docs) ? doc.related_docs : [];
 
   const lines = [];
   lines.push('<!-- Gerado por scripts/generate-contribuicao-doc.mjs — não editar manualmente -->');
@@ -82,9 +83,32 @@ function main() {
     lines.push('');
   }
 
+  for (const rd of relatedDocs) {
+    const title = rd.title || 'Documentação';
+    lines.push(`## ${title}`);
+    lines.push('');
+    if (rd.summary) {
+      lines.push(`**Resumo:** ${rd.summary.trim().replace(/\s+/g, ' ')}`);
+      lines.push('');
+    }
+    const extra = Array.isArray(rd.links) ? rd.links : [];
+    if (extra.length === 0) {
+      lines.push('*Sem ligações definidas no YAML.*');
+    } else {
+      for (const L of extra) {
+        const text = L.text || L.href || 'ligação';
+        const href = L.href || '';
+        lines.push(`- [${text}](${href})`);
+      }
+    }
+    lines.push('');
+  }
+
   const out = `${lines.join('\n').trim()}\n`;
   fs.writeFileSync(OUT_PATH, out, 'utf8');
-  console.log(`generate-contribuicao-doc: escrito ${path.relative(ROOT, OUT_PATH)} (${sections.length} secções).`);
+  console.log(
+    `generate-contribuicao-doc: escrito ${path.relative(ROOT, OUT_PATH)} (${sections.length} secções AGENTS/CONTRIBUTING + ${relatedDocs.length} doc(s) relacionados).`,
+  );
 }
 
 main();

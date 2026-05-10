@@ -1,10 +1,3 @@
----
-title: Contribuicao
-tags:
-  - tecnico
-prioridade: media
-status: documentado
----
 <!-- Gerado por scripts/generate-contribuicao-doc.mjs — não editar manualmente -->
 <!-- Fonte: docs/contribuicao.yaml -->
 
@@ -117,3 +110,9 @@ Os guias completos permanecem em [`AGENTS.md`](../AGENTS.md) (agentes/automaçã
 
 - [AGENTS.md — Princípio final](../AGENTS.md#princípio-final)
 - [CONTRIBUTING.md — Princípio final](../CONTRIBUTING.md#princípio-final)
+
+## Integração Mercado Livre
+
+**Resumo:** OAuth, sincronização de pedidos e catálogo, webhooks, variáveis ML_* e como validar o fluxo sem venda nova.
+
+- [Guia técnico](tecnico/mercado-livre.md)

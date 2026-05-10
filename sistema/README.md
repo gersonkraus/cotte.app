@@ -159,3 +159,7 @@ Cliente "ACEITO" → status aprovado + notificação interna por WhatsApp ao res
 
 Root Directory = `sistema`. Variáveis no painel. Deploy automático em `git push origin main`.  
 Guia completo: [DEPLOY-RAILWAY.md](DEPLOY-RAILWAY.md).
+
+## Mercado Livre
+
+Rotas em `app/routers/mercadolivre.py` (montagem com prefixo `/api/v1`). Guia de fluxo, endpoints, variáveis de ambiente e como testar sem venda nova: [docs/tecnico/mercado-livre.md](../docs/tecnico/mercado-livre.md).

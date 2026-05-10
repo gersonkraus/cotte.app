@@ -210,6 +210,7 @@ Guia detalhado: [sistema/DEPLOY-RAILWAY.md](sistema/DEPLOY-RAILWAY.md).
 | [CLAUDE.md](CLAUDE.md) | Stack, arquivos-chave e convenções para o assistente |
 | [arquitetura_sistema.md](arquitetura_sistema.md) | Visão geral da arquitetura |
 | [fluxo_do_sistema.md](fluxo_do_sistema.md) | Fluxo principal de orçamentos e notificações |
+| [docs/tecnico/mercado-livre.md](docs/tecnico/mercado-livre.md) | Integração Mercado Livre (OAuth, sync, webhooks, testes) |
 | [variaveis_ambiente.md](variaveis_ambiente.md) | Variáveis de ambiente |
 | [stack_tecnologica.md](stack_tecnologica.md) | Stack e integrações |
 | [produto_cotte.md](produto_cotte.md) | Visão de produto |

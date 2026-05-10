@@ -11,6 +11,15 @@ hub:
     Os guias completos permanecem em [`AGENTS.md`](../AGENTS.md) (agentes/automação) e
     [`CONTRIBUTING.md`](../CONTRIBUTING.md) (contribuição humana e detalhes).
 
+# Secções adicionais no índice gerado (guias em docs/ que não são âncoras AGENTS/CONTRIBUTING).
+related_docs:
+  - title: "Integração Mercado Livre"
+    summary: >
+      OAuth, sincronização de pedidos e catálogo, webhooks, variáveis ML_* e como validar o fluxo sem venda nova.
+    links:
+      - text: "Guia técnico"
+        href: "tecnico/mercado-livre.md"
+
 sections:
   - title: "Objetivo"
     summary: >
