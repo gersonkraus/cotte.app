@@ -34,8 +34,9 @@ from app.schemas.schemas import (
     ReminderUpdate,
     ReminderOut,
 )
-from app.services.whatsapp_service import enviar_mensagem_texto
+from app.services.whatsapp_evolution import EvolutionProvider
 from app.services.email_service import send_email_simples
+from app.core.config import settings
 from app.routers.comercial_helpers import _calcular_score, _render_template
 
 router = APIRouter(prefix="/comercial", tags=["Comercial - Interações"])
@@ -118,7 +119,9 @@ async def send_whatsapp(
         )
 
     try:
-        sucesso = await enviar_mensagem_texto(lead.whatsapp, data.mensagem)
+        sucesso = await EvolutionProvider(
+            instance=settings.EVOLUTION_INSTANCE_COMERCIAL
+        ).enviar_mensagem_texto(lead.whatsapp, data.mensagem)
 
         interacao = CommercialInteraction(
             lead_id=lead_id,

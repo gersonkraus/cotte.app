@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request
+from app.services.whatsapp_evolution import EvolutionProvider
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List
@@ -1003,3 +1004,47 @@ def deletar_template_admin(slug: str, _=Depends(get_superadmin)):
         admin_deletar_template(slug)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+# ── WhatsApp Comercial ─────────────────────────────────────────────────────
+
+
+def _get_provider_comercial() -> EvolutionProvider:
+    return EvolutionProvider(instance=settings.EVOLUTION_INSTANCE_COMERCIAL)
+
+
+@router.get("/whatsapp-comercial/status")
+async def wa_comercial_status(_=Depends(get_superadmin)):
+    """Status da instância WhatsApp comercial (superadmins)."""
+    return await _get_provider_comercial().get_status()
+
+
+@router.get("/whatsapp-comercial/qrcode")
+async def wa_comercial_qrcode(_=Depends(get_superadmin)):
+    """QR Code para conectar o WhatsApp comercial."""
+    data = await _get_provider_comercial().get_qrcode()
+    if "error" in data:
+        raise HTTPException(status_code=503, detail=data["error"])
+    return data
+
+
+@router.post("/whatsapp-comercial/conectar")
+async def wa_comercial_conectar(request: Request, _=Depends(get_superadmin)):
+    """Cria a instância comercial na Evolution API e retorna o QR Code inicial."""
+    provider = _get_provider_comercial()
+    webhook_url = str(request.base_url).rstrip("/") + "/whatsapp/webhook"
+    await provider.criar_instancia(
+        instance_name=settings.EVOLUTION_INSTANCE_COMERCIAL,
+        webhook_url=webhook_url,
+    )
+    data = await provider.get_qrcode()
+    return {"criado": True, "qrcode": data}
+
+
+@router.delete("/whatsapp-comercial/desconectar")
+async def wa_comercial_desconectar(_=Depends(get_superadmin)):
+    """Desconecta (logout) o WhatsApp comercial sem deletar a instância."""
+    ok = await _get_provider_comercial().desconectar()
+    if not ok:
+        raise HTTPException(status_code=500, detail="Falha ao desconectar")
+    return {"status": "disconnected"}

@@ -80,6 +80,7 @@ class Settings(BaseSettings):
     EVOLUTION_API_URL: str = "http://localhost:8080"
     EVOLUTION_API_KEY: str = ""
     EVOLUTION_INSTANCE: str = "cotte"
+    EVOLUTION_INSTANCE_COMERCIAL: str = "cotte-comercial"
 
     # Admin
     ADMIN_SETUP_KEY: str

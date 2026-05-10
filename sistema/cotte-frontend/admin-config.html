@@ -614,6 +614,10 @@
       color: var(--color-primary);
     }
 
+    .wa-badge { display:inline-block; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:600; }
+    .wa-badge.on  { background:#d1fae5; color:#065f46; }
+    .wa-badge.off { background:#fee2e2; color:#991b1b; }
+
     /* ── CHIP LIST (MODERNO) ── */
     .chip-lista {
       display: flex;
@@ -903,13 +907,47 @@
 
     <!-- TAB: WHATSAPP -->
     <div class="tab-content" id="tab-whatsapp">
-      <div class="whatsapp-card">
-        <div class="whatsapp-icon">💬</div>
-        <h3 class="whatsapp-title">WhatsApp Bot (Global)</h3>
-        <p class="whatsapp-desc">Configure a conexão global do WhatsApp para envio automático de orçamentos e monitoramento de mensagens.</p>
-        <button type="button" class="btn btn-primary" onclick="window.location.href='whatsapp.html'" style="height: 52px; padding: 0 32px;">
-          Abrir painel do WhatsApp Bot (global) →
-        </button>
+      <div class="config-section">
+        <div class="section-header">
+          <div class="section-icon green">💬</div>
+          <div>
+            <h3 class="section-title">WhatsApp Comercial</h3>
+            <p class="section-desc">Número exclusivo dos superadmins do COTTE para falar com leads no painel comercial. Separado do bot global das empresas clientes.</p>
+          </div>
+        </div>
+
+        <div id="wa-com-status-area" style="margin:20px 0;display:flex;align-items:center;gap:14px;">
+          <div id="wa-com-icon" style="font-size:30px;">⏳</div>
+          <div>
+            <div id="wa-com-text" style="font-weight:600;font-size:15px;">Verificando...</div>
+            <div id="wa-com-numero" style="font-size:13px;color:var(--text-secondary);margin-top:2px;"></div>
+          </div>
+          <span id="wa-com-badge"></span>
+        </div>
+
+        <div id="wa-com-qr-section" style="display:none;margin:16px 0;">
+          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;">
+            Escaneie com o WhatsApp do número comercial do COTTE:
+          </p>
+          <img id="wa-com-qr-img" src="" alt="QR Code"
+               style="width:200px;height:200px;border-radius:10px;border:1px solid var(--border);display:block;"/>
+          <p style="font-size:11px;color:var(--text-muted);margin-top:6px;">Renova automaticamente a cada 10s</p>
+        </div>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
+          <button class="btn btn-ghost" onclick="waComAtualizar()">🔄 Atualizar status</button>
+          <button id="btn-wa-com-conectar" class="btn btn-primary" onclick="waComConectar()" style="display:none;">
+            Conectar WhatsApp Comercial
+          </button>
+          <button id="btn-wa-com-desconectar" class="btn btn-danger" onclick="waComDesconectar()" style="display:none;">
+            Desconectar
+          </button>
+        </div>
+
+        <div style="margin-top:20px;padding:12px 16px;background:var(--surface-secondary,#f8f9fa);border-radius:8px;font-size:12px;color:var(--text-secondary);">
+          💡 <strong>WhatsApp Global</strong> (bot das empresas clientes) →
+          <a href="whatsapp.html" style="color:var(--primary);">Gerenciar aqui</a>
+        </div>
       </div>
     </div>
 
@@ -1021,6 +1059,8 @@
     const tabIndex = ['geral', 'broadcast', 'catalogo', 'whatsapp', 'schema-drift'].indexOf(tabId);
     document.querySelectorAll('.admin-tab')[tabIndex]?.classList.add('active');
     document.getElementById('tab-' + tabId)?.classList.add('active');
+
+    if (tabId === 'whatsapp') waComAtualizar();
   }
 
   // ── CONFIG GERAL ───────────────────────────────────────────────────────────
@@ -1465,6 +1505,83 @@
   document.getElementById('modal-editar-template').addEventListener('click', function(e) {
     if (e.target === this) fecharModalEditarTemplate();
   });
+
+  // ═══════════════ WhatsApp Comercial ═══════════════
+  var _waComTimer = null;
+
+  async function waComAtualizar() {
+    try {
+      var d = await api.get('/admin/whatsapp-comercial/status');
+      var on = d.connected === true || d.status === 'Connected';
+      _waComRender(on, d.number || d.instance || '');
+    } catch(e) {
+      document.getElementById('wa-com-icon').textContent = '⚠️';
+      document.getElementById('wa-com-text').textContent = 'Instância não encontrada';
+      document.getElementById('wa-com-badge').innerHTML = '';
+      document.getElementById('wa-com-numero').textContent = '';
+      document.getElementById('btn-wa-com-conectar').style.display = '';
+      document.getElementById('btn-wa-com-desconectar').style.display = 'none';
+      document.getElementById('wa-com-qr-section').style.display = 'none';
+    }
+  }
+
+  function _waComRender(on, numero) {
+    document.getElementById('wa-com-icon').textContent = on ? '✅' : '📵';
+    document.getElementById('wa-com-text').textContent = on ? 'Conectado' : 'Desconectado';
+    document.getElementById('wa-com-badge').innerHTML =
+      '<span class="wa-badge ' + (on ? 'on' : 'off') + '">' + (on ? 'online' : 'offline') + '</span>';
+    document.getElementById('wa-com-numero').textContent = on && numero ? 'Número: ' + numero : '';
+    document.getElementById('btn-wa-com-conectar').style.display = on ? 'none' : '';
+    document.getElementById('btn-wa-com-desconectar').style.display = on ? '' : 'none';
+    var qrSec = document.getElementById('wa-com-qr-section');
+    if (on) {
+      qrSec.style.display = 'none';
+      if (_waComTimer) { clearInterval(_waComTimer); _waComTimer = null; }
+    } else {
+      qrSec.style.display = '';
+      _waComCarregarQR();
+      if (!_waComTimer) {
+        _waComTimer = setInterval(function() {
+          api.get('/admin/whatsapp-comercial/status').then(function(d) {
+            var on2 = d.connected === true || d.status === 'Connected';
+            if (on2) _waComRender(true, d.number || '');
+            else _waComCarregarQR();
+          }).catch(function() {});
+        }, 10000);
+      }
+    }
+  }
+
+  async function _waComCarregarQR() {
+    try {
+      var d = await api.get('/admin/whatsapp-comercial/qrcode');
+      var qr = d.value || d.qrcode || d.base64 || '';
+      if (qr) {
+        var img = document.getElementById('wa-com-qr-img');
+        img.src = qr.startsWith('data:') ? qr : 'data:image/png;base64,' + qr;
+      }
+    } catch(e) {}
+  }
+
+  async function waComConectar() {
+    var btn = document.getElementById('btn-wa-com-conectar');
+    btn.disabled = true; btn.textContent = 'Criando instância...';
+    try {
+      await api.post('/admin/whatsapp-comercial/conectar', {});
+      showToast('Instância criada! Escaneie o QR Code.', 'success');
+      waComAtualizar();
+    } catch(e) { showToast(e.message || 'Erro ao criar instância', 'error'); }
+    finally { btn.disabled = false; btn.textContent = 'Conectar WhatsApp Comercial'; }
+  }
+
+  async function waComDesconectar() {
+    if (!confirm('Desconectar o WhatsApp comercial?')) return;
+    try {
+      await api.delete('/admin/whatsapp-comercial/desconectar');
+      showToast('Desconectado', 'info');
+      waComAtualizar();
+    } catch(e) { showToast('Erro ao desconectar', 'error'); }
+  }
 </script>
 </body>
 </html>

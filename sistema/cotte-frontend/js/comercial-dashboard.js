@@ -128,6 +128,13 @@ function renderMetrics(m) {
     card.addEventListener('click', handler);
     card.addEventListener('keydown', function(e) { if (e.key === 'Enter') handler(); });
   });
+
+  // Event listener para KPI Empresas em trial
+  grid.querySelectorAll('.dash-kpi-empresas-trial').forEach(function(card) {
+    var handler = function() { irParaLeadsEmpresasTrial(); };
+    card.addEventListener('click', handler);
+    card.addEventListener('keydown', function(e) { if (e.key === 'Enter') handler(); });
+  });
 }
 
 function irParaLeadsComFiltro(status) {
