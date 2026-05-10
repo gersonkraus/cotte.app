@@ -1567,3 +1567,89 @@ async def importar_leads(
         "erros_detalhes": erros_detalhes,
         "importacao_id": importacao.id,
     }
+
+
+@router.get("/leads/briefing")
+async def get_briefing_superadmin(
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exigir_permissao("comercial", "leitura")),
+):
+    """Gera o briefing diário de leads prioritários com sugestões de ação — versão superadmin."""
+    from app.services.ia_service import gerar_briefing_lead, _briefing_fallback
+
+    agora = datetime.now(timezone.utc)
+
+    leads = (
+        db.query(CommercialLead)
+        .filter(
+            CommercialLead.ativo.is_(True),
+            CommercialLead.status_pipeline.notin_(["fechado_ganho", "fechado_perdido"]),
+        )
+        .order_by(CommercialLead.criado_em.desc())
+        .limit(30)
+        .all()
+    )
+
+    contextos = []
+    for lead in leads:
+        interacoes = (
+            db.query(CommercialInteraction)
+            .filter(CommercialInteraction.lead_id == lead.id)
+            .order_by(CommercialInteraction.criado_em.desc())
+            .limit(3)
+            .all()
+        )
+        historico = []
+        for inter in interacoes:
+            ref_dt = inter.criado_em
+            if ref_dt and ref_dt.tzinfo is None:
+                ref_dt = ref_dt.replace(tzinfo=timezone.utc)
+            dias_atras = (agora - ref_dt).days if ref_dt else 0
+            historico.append({
+                "tipo": inter.tipo.value if hasattr(inter.tipo, "value") else str(inter.tipo or "outro"),
+                "dias_atras": dias_atras,
+                "resumo": (inter.conteudo or "")[:80],
+            })
+
+        ref_contato = getattr(lead, "ultimo_contato_em", None) or lead.criado_em
+        if ref_contato and ref_contato.tzinfo is None:
+            ref_contato = ref_contato.replace(tzinfo=timezone.utc)
+        dias_sem_contato = (agora - ref_contato).days if ref_contato else 0
+
+        score_val = getattr(lead, "lead_score", None)
+        contextos.append({
+            "lead_id": lead.id,
+            "nome": getattr(lead, "nome", "") or "",
+            "empresa": getattr(lead, "nome_empresa", "") or "",
+            "etapa": getattr(lead, "status_pipeline", "novo") or "novo",
+            "score": score_val.value if hasattr(score_val, "value") else str(score_val or "frio"),
+            "valor_proposto": float(getattr(lead, "valor_estimado", 0) or 0),
+            "dias_sem_contato": dias_sem_contato,
+            "proximo_contato_em": lead.proximo_contato_em.isoformat() if getattr(lead, "proximo_contato_em", None) else None,
+            "historico": historico,
+        })
+
+    resultados = await asyncio.gather(*[gerar_briefing_lead(ctx) for ctx in contextos], return_exceptions=True)
+
+    PRIORIDADE_ORDEM = {"urgente": 0, "hoje": 1, "esta_semana": 2, "ok": 3}
+    items = []
+    for ctx, resultado in zip(contextos, resultados):
+        if isinstance(resultado, Exception):
+            resultado = _briefing_fallback(ctx)
+        prioridade = resultado.get("prioridade", "ok")
+        confianca = resultado.get("confianca", 1.0)
+        if prioridade == "ok" or confianca < 0.5:
+            continue
+        items.append({**ctx, **resultado})
+
+    items.sort(key=lambda x: PRIORIDADE_ORDEM.get(x.get("prioridade", "ok"), 3))
+
+    return {
+        "success": True,
+        "data": {
+            "items": items,
+            "total_leads": len(leads),
+            "total_acoes": len(items),
+            "gerado_em": agora.isoformat(),
+        },
+    }
