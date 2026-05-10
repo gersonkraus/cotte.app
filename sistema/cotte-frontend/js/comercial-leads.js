@@ -453,13 +453,6 @@ function renderLeadDetail(l) {
 
     // LEFT COLUMN
     html += '<div class="lead-detail-col">';
-    html += '<div class="lead-panel-section">' +
-      '<div class="lead-panel-section-title">\uD83D\uDC64 Contato</div>' +
-      '<div class="lead-field"><span class="lead-field-label">Responsável</span><span class="lead-field-value">' + fmt(l.nome_responsavel) + '</span></div>' +
-      '<div class="lead-field"><span class="lead-field-label">WhatsApp</span><span class="lead-field-value">' + (l.whatsapp ? esc(l.whatsapp) + ' <button class=\"lead-field-action btn-detail-wa\" data-id=\"' + l.id + '\" title=\"Enviar WhatsApp\">\uD83D\uDCF1</button>' : '<span class="lead-field-value empty">\u2014</span>') + '</span></div>' +
-      '<div class="lead-field"><span class="lead-field-label">E-mail</span><span class="lead-field-value">' + (l.email ? esc(l.email) + ' <button class=\"lead-field-action btn-detail-em\" data-id=\"' + l.id + '\" title=\"Enviar E-mail\">\uD83D\uDCE7</button>' : '<span class="lead-field-value empty">\u2014</span>') + '</span></div>' +
-      '<div class="lead-field"><span class="lead-field-label">Cidade</span><span class="lead-field-value">' + fmt(l.cidade) + '</span></div>' +
-    '</div>';
 
     html += '<div class="lead-panel-section">' +
       '<div class="lead-panel-section-title">\uD83D\uDC64 Contato</div>' +
