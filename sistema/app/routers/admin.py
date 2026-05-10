@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request
 from app.services.whatsapp_evolution import EvolutionProvider
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, text
 from typing import List
 import os, logging
 
@@ -528,9 +528,7 @@ def deletar_empresa(
     db: Session = Depends(get_db),
     _=Depends(get_superadmin),
 ):
-    """Remove uma empresa que não possui orçamentos."""
-    from app.models.models import Cliente, ItemOrcamento, Orcamento
-
+    """Remove uma empresa que não possui orçamentos, limpando todas as tabelas dependentes."""
     empresa = db.query(Empresa).filter(Empresa.id == empresa_id).first()
     if not empresa:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
@@ -547,9 +545,54 @@ def deletar_empresa(
         if os.path.exists(caminho):
             os.remove(caminho)
 
-    # Remove usuários e clientes antes de deletar a empresa
-    db.query(Usuario).filter(Usuario.empresa_id == empresa_id).delete()
-    db.query(Cliente).filter(Cliente.empresa_id == empresa_id).delete()
+    # Descobre dinamicamente todas as tabelas com FK para empresas.id
+    # e remove os registros em passadas múltiplas para respeitar FKs entre tabelas filhas
+    tables_result = db.execute(text("""
+        SELECT DISTINCT kcu.table_name
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu
+            ON tc.constraint_name = kcu.constraint_name
+            AND kcu.table_schema = tc.table_schema
+        JOIN information_schema.constraint_column_usage ccu
+            ON tc.constraint_name = ccu.constraint_name
+            AND ccu.table_schema = tc.table_schema
+        WHERE tc.constraint_type = 'FOREIGN KEY'
+          AND ccu.table_name = 'empresas'
+          AND ccu.column_name = 'id'
+          AND kcu.column_name = 'empresa_id'
+          AND kcu.table_schema = 'public'
+    """))
+    tables = [row[0] for row in tables_result]
+
+    remaining = list(tables)
+    for _ in range(len(remaining) + 1):
+        if not remaining:
+            break
+        still_remaining = []
+        for tbl in remaining:
+            sp = db.begin_nested()
+            try:
+                db.execute(
+                    text(f"DELETE FROM {tbl} WHERE empresa_id = :eid"),
+                    {"eid": empresa_id},
+                )
+                sp.commit()
+            except Exception:
+                sp.rollback()
+                still_remaining.append(tbl)
+        if set(still_remaining) == set(remaining):
+            logger.error(
+                "Falha ao excluir empresa %d — tabelas bloqueadas: %s",
+                empresa_id,
+                ", ".join(still_remaining),
+            )
+            raise HTTPException(
+                status_code=500,
+                detail="Não foi possível excluir registros dependentes. "
+                       "Tente desativar a empresa ao invés de excluir.",
+            )
+        remaining = still_remaining
+
     db.delete(empresa)
     db.commit()
 
