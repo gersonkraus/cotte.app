@@ -73,7 +73,7 @@ def _build_error_result(
 
 
 def can_use_internal_copilot(*, is_superadmin: bool, is_gestor: bool) -> bool:
-    return bool(is_superadmin or is_gestor)
+    return bool(is_superadmin)
 
 
 async def run_internal_technical_flow(

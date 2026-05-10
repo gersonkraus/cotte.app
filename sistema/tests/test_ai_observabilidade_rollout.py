@@ -9,6 +9,34 @@ from app.models.models import Empresa, ToolCallLog, Usuario
 from tests.conftest import TestingSessionLocal
 
 
+async def _create_non_superadmin_token() -> str:
+    with TestingSessionLocal() as db:
+        empresa = Empresa(
+            nome=f"Empresa NSA {uuid.uuid4().hex[:8]}",
+            telefone_operador=f"5511{uuid.uuid4().int % 10**8:08d}",
+            ativo=True,
+            plano="pro",
+        )
+        db.add(empresa)
+        db.commit()
+        db.refresh(empresa)
+
+        usuario = Usuario(
+            empresa_id=empresa.id,
+            nome="Gestor Nao Superadmin",
+            email=f"gestor_{uuid.uuid4().hex[:10]}@teste.com",
+            senha_hash="$2b$12$fakehashfakehashfakehashfakehashfakehashfakehash12",
+            ativo=True,
+            is_gestor=True,
+            is_superadmin=False,
+            token_versao=1,
+        )
+        db.add(usuario)
+        db.commit()
+        db.refresh(usuario)
+        return criar_token(data={"sub": str(usuario.id), "v": 1})
+
+
 async def _create_superadmin_token() -> str:
     with TestingSessionLocal() as db:
         empresa = Empresa(
@@ -84,17 +112,18 @@ async def test_rollout_status_contract(client, admin_token):
 
 
 @pytest.mark.asyncio
-async def test_rollout_plan_requires_superadmin(client, admin_token):
+async def test_rollout_plan_requires_superadmin(client):
+    non_sa_token = await _create_non_superadmin_token()
     resp_get = await client.get(
         "/api/v1/ai/rollout/plan",
-        headers={"Authorization": f"Bearer {admin_token}"},
+        headers={"Authorization": f"Bearer {non_sa_token}"},
     )
     assert resp_get.status_code == 403
 
     resp_put = await client.put(
         "/api/v1/ai/rollout/plan",
         json={"default_phase": "pilot", "companies": []},
-        headers={"Authorization": f"Bearer {admin_token}"},
+        headers={"Authorization": f"Bearer {non_sa_token}"},
     )
     assert resp_put.status_code == 403
 

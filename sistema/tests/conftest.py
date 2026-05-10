@@ -191,6 +191,7 @@ async def admin_token(db_session: AsyncSession, empresa_id: int) -> str:
         senha_hash="$2b$12$fakehashfakehashfakehashfakehashfakehashfakehash12",
         ativo=True,
         is_gestor=True,
+        is_superadmin=True,
         token_versao=1,
     )
     db_session.add(user)
@@ -289,6 +290,7 @@ def make_usuario(
     nome="Gestor Teste",
     email=None,
     is_gestor=True,
+    is_superadmin=False,
     permissoes=None,
 ):
     """Cria um usuário de teste com empresa e permissões."""
@@ -311,6 +313,7 @@ def make_usuario(
         senha_hash="$2b$12$fakehashfakehashfakehashfakehashfakehashfakehash12",
         ativo=True,
         is_gestor=is_gestor,
+        is_superadmin=is_superadmin,
         permissoes=perm_data or {},
     )
     db.add(u)

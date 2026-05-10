@@ -23,7 +23,7 @@ def test_copiloto_interno_uses_autonomy_runtime_when_enabled(http_client, db, mo
     monkeypatch.setenv("V2_INTERNAL_COPILOT_AUTONOMY_SHADOW", "false")
 
     empresa = make_empresa(db)
-    usuario = make_usuario(db, empresa, permissoes={"ia": "admin"})
+    usuario = make_usuario(db, empresa, permissoes={"ia": "admin"}, is_superadmin=True)
     db.commit()
 
     async def fake_runtime(**kwargs):
@@ -77,7 +77,7 @@ def test_copiloto_interno_shadow_mode_keeps_legacy_response(http_client, db, mon
     monkeypatch.setenv("V2_INTERNAL_COPILOT_AUTONOMY_SHADOW", "true")
 
     empresa = make_empresa(db)
-    usuario = make_usuario(db, empresa, permissoes={"ia": "admin"})
+    usuario = make_usuario(db, empresa, permissoes={"ia": "admin"}, is_superadmin=True)
     db.commit()
 
     shadow_calls: list[str] = []

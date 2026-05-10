@@ -304,5 +304,5 @@ def is_engine_available_for_user(
     if resolved == ENGINE_DOCUMENTAL:
         return bool(caps.get("engine_documental"))
     if resolved == ENGINE_INTERNAL_COPILOT:
-        return bool(caps.get("copiloto_interno")) and bool(is_superadmin or is_gestor)
+        return bool(caps.get("copiloto_interno")) and bool(is_superadmin)
     return False
