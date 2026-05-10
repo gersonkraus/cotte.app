@@ -1572,7 +1572,7 @@ async def importar_leads(
 @router.get("/leads/briefing")
 async def get_briefing_superadmin(
     db: Session = Depends(get_db),
-    usuario: Usuario = Depends(exigir_permissao("comercial", "leitura")),
+    _=Depends(get_superadmin),
 ):
     """Gera o briefing diário de leads prioritários com sugestões de ação — versão superadmin."""
     from app.services.ia_service import gerar_briefing_lead, _briefing_fallback
