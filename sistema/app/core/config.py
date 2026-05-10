@@ -130,6 +130,8 @@ class Settings(BaseSettings):
     ML_SYNC_PERIODIC_ENABLED: bool = False
     ML_SYNC_PERIODIC_INTERVAL_MINUTES: int = 15
     ML_TOKEN_CRYPTO_SECRET: str = ""
+    # OAuth: offline_access é necessário para o Mercado Livre devolver refresh_token na troca do code.
+    ML_OAUTH_SCOPE: str = "offline_access read write"
 
     # Prefixo da API (alguns módulos usam /api/v1, outros usam /)
     API_V1_STR: str = ""

@@ -89,6 +89,7 @@ class MercadoLivreService:
         )
         self.db.commit()
 
+        escopo = (settings.ML_OAUTH_SCOPE or "").strip() or "offline_access read write"
         query = urlencode(
             {
                 "response_type": "code",
@@ -97,6 +98,7 @@ class MercadoLivreService:
                 "state": state,
                 "code_challenge": code_challenge,
                 "code_challenge_method": "S256",
+                "scope": escopo,
             }
         )
         authorization_url = f"{settings.ML_AUTH_URL}?{query}"
@@ -129,13 +131,29 @@ class MercadoLivreService:
             "code_verifier": code_verifier,
         }
         response = await self._request_token(payload)
+        access = str(response.get("access_token") or "").strip()
+        refresh = str(response.get("refresh_token") or "").strip()
+        exp_raw = response.get("expires_in")
+        if exp_raw is None and response.get("expires") is not None:
+            try:
+                exp_raw = int(float(response.get("expires")))
+            except (TypeError, ValueError):
+                exp_raw = 0
+        expires_in = int(exp_raw or 0)
+        uid = response.get("user_id")
+        if not access or not refresh:
+            logger.warning(
+                "OAuth ML: token incompleto após POST /oauth/token; keys=%s scope_retornado=%s",
+                sorted(response.keys()),
+                response.get("scope"),
+            )
         return TokenExchangeResult(
-            access_token=response.get("access_token", ""),
-            refresh_token=response.get("refresh_token", ""),
-            token_type=response.get("token_type", "bearer"),
-            scope=response.get("scope", ""),
-            expires_in=int(response.get("expires_in", 0) or 0),
-            user_id=str(response.get("user_id")) if response.get("user_id") else None,
+            access_token=access,
+            refresh_token=refresh,
+            token_type=str(response.get("token_type") or "bearer"),
+            scope=str(response.get("scope") or ""),
+            expires_in=expires_in,
+            user_id=str(uid) if uid is not None and uid != "" else None,
         )
 
     async def _request_token(self, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -160,7 +178,23 @@ class MercadoLivreService:
                         status_code=400,
                         detail=f"Falha OAuth Mercado Livre ({error_code}): {error_desc}",
                     )
-                return response.json()
+                try:
+                    data = response.json()
+                except ValueError:
+                    logger.warning(
+                        "OAuth ML: resposta 200 não é JSON (primeiros 120 chars): %s",
+                        (response.text or "")[:120],
+                    )
+                    raise HTTPException(
+                        status_code=502,
+                        detail="Resposta inválida do Mercado Livre ao trocar o código (JSON esperado).",
+                    )
+                if not isinstance(data, dict):
+                    raise HTTPException(
+                        status_code=502,
+                        detail="Resposta OAuth Mercado Livre em formato inesperado.",
+                    )
+                return data
             except (httpx.TimeoutException, httpx.NetworkError) as exc:
                 if attempt >= RETRY_MAX_ATTEMPTS:
                     raise HTTPException(
@@ -201,8 +235,21 @@ class MercadoLivreService:
             )
 
         token = await self._exchange_authorization_code(code, code_verifier_plain)
-        if not token.access_token or not token.refresh_token:
-            raise HTTPException(status_code=400, detail="Resposta OAuth inválida: token ausente.")
+        if not token.access_token:
+            raise HTTPException(
+                status_code=400,
+                detail="Resposta OAuth: access_token ausente. Verifique Client ID/Secret e se o código não foi reutilizado.",
+            )
+        if not token.refresh_token:
+            logger.warning("OAuth ML: refresh_token ausente após troca (confirme escopo offline_access).")
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Resposta OAuth: refresh_token ausente. "
+                    "No painel do Mercado Livre, garanta permissões de renovação e defina "
+                    "ML_OAUTH_SCOPE (ex.: offline_access read write) se necessário; depois reconecte."
+                ),
+            )
 
         perfil = await self._fetch_ml_user(token.access_token)
         ml_user_id = token.user_id or (str(perfil.get("id")) if perfil.get("id") else None)
