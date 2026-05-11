@@ -755,14 +755,13 @@ Exemplos de formatos aceitos:
         </div>
       </div>
 
-      <!-- Agendamento Automático -->
-      <div class="camp-schedule-section" style="margin-top:20px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:16px;">
+      <div class="camp-schedule-section" style="margin-top:20px;">
         <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;margin:0;">
           <div style="display:flex;align-items:center;gap:12px;">
-            <div style="width:40px;height:40px;border-radius:10px;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;font-size:18px;border:1px solid rgba(255,255,255,0.05);">📅</div>
+            <div class="camp-schedule-icon">📅</div>
             <div>
-              <div style="font-weight:600;font-size:14px;color:#fff;">Programar envio automático</div>
-              <div style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:2px;">Agende a data e hora do envio ou crie uma recorrência</div>
+              <div class="camp-schedule-title">Programar envio automático</div>
+              <div class="camp-schedule-desc">Agende a data e hora do envio ou crie uma recorrência</div>
             </div>
           </div>
           <div style="display:flex;align-items:center;justify-content:center;">
@@ -776,11 +775,11 @@ Exemplos de formatos aceitos:
         <div id="camp-agendamento-opts" class="camp-agendamento-opts-anim">
           <div class="camp-config-group" style="flex:1;min-width:180px">
             <label class="camp-config-label" for="camp-data-agendamento">Data e hora *</label>
-            <input type="datetime-local" class="camp-config-select" id="camp-data-agendamento" style="padding:9px 12px;background:rgba(0,0,0,0.2);">
+            <input type="datetime-local" class="camp-config-select" id="camp-data-agendamento">
           </div>
           <div class="camp-config-group" style="min-width:160px">
             <label class="camp-config-label" for="camp-recorrencia">🔁 Repetir</label>
-            <select class="camp-config-select" id="camp-recorrencia" style="padding:9px 12px;background:rgba(0,0,0,0.2);">
+            <select class="camp-config-select" id="camp-recorrencia">
               <option value="nenhuma">Não repetir</option>
               <option value="diario">Todo dia (mesmo horário)</option>
               <option value="semanal">Toda semana</option>
