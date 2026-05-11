@@ -51,16 +51,25 @@ def get_provider_para_empresa(empresa: "Empresa | None") -> WhatsAppProvider:
       usa a instância Evolution da empresa.
     - Caso contrário, usa o provider global da plataforma (fallback transparente).
     """
+    _logger = logging.getLogger(__name__)
     if empresa is not None:
         from app.services.plano_service import whatsapp_proprio_habilitado
-        if (
-            whatsapp_proprio_habilitado(empresa)
-            and getattr(empresa, "whatsapp_proprio_ativo", False)
-            and getattr(empresa, "evolution_instance", None)
-            and getattr(empresa, "whatsapp_conectado", False)
-        ):
+        habilitado = whatsapp_proprio_habilitado(empresa)
+        ativo = getattr(empresa, "whatsapp_proprio_ativo", False)
+        instance = getattr(empresa, "evolution_instance", None)
+        conectado = getattr(empresa, "whatsapp_conectado", False)
+        _logger.info(
+            "[WA provider] empresa=%s habilitado=%s ativo=%s instance=%s conectado=%s",
+            getattr(empresa, "id", "?"), habilitado, ativo, instance, conectado
+        )
+        if habilitado and ativo and instance and conectado:
             from app.services.whatsapp_evolution import EvolutionProvider
-            return EvolutionProvider(instance=empresa.evolution_instance)
+            _logger.info("[WA provider] usando instância própria: %s", instance)
+            return EvolutionProvider(instance=instance)
+        _logger.warning(
+            "[WA provider] fallback global — empresa=%s (habilitado=%s ativo=%s instance=%s conectado=%s)",
+            getattr(empresa, "id", "?"), habilitado, ativo, instance, conectado
+        )
     return get_provider()
 
 

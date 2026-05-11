@@ -1,11 +1,14 @@
 """Leads comerciais tenant — CRUD, listagem filtrada, dashboard aux, interações (sem criar usuário/senha)."""
 
 import asyncio
+import logging
 import re
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Optional
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from pydantic import BaseModel, EmailStr
@@ -897,7 +900,15 @@ async def enviar_whatsapp(
 
     sucesso = False
     erro_msg = None
-    
+
+    _inst = getattr(empresa, "evolution_instance", None)
+    _ativo = getattr(empresa, "whatsapp_proprio_ativo", False)
+    _conectado = getattr(empresa, "whatsapp_conectado", False)
+    logger.info(
+        "[WA] empresa=%s instance=%s ativo=%s conectado=%s telefone=%s",
+        usuario.empresa_id, _inst, _ativo, _conectado, lead.telefone
+    )
+
     try:
         if template and template.anexo_arquivo_path:
             # Tenta enviar com anexo real

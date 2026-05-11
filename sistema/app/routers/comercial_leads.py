@@ -33,6 +33,7 @@ from app.models.models import (
     LeadImportacaoItem,
     CampaignLead,
     PropostaEnviada,
+    PropostaVisualizacao,
     StatusPipeline,
     TipoInteracao,
     CanalInteracao,
@@ -646,6 +647,14 @@ def delete_lead(
     db.query(CommercialReminder).filter(CommercialReminder.lead_id == lead_id).delete(
         synchronize_session=False
     )
+    
+    # Excluir visualizações das propostas enviadas para este lead antes de excluir as propostas
+    db.query(PropostaVisualizacao).filter(
+        PropostaVisualizacao.proposta_enviada_id.in_(
+            db.query(PropostaEnviada.id).filter(PropostaEnviada.lead_id == lead_id)
+        )
+    ).delete(synchronize_session=False)
+
     db.query(PropostaEnviada).filter(PropostaEnviada.lead_id == lead_id).delete(
         synchronize_session=False
     )

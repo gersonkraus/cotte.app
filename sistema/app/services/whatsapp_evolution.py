@@ -13,10 +13,13 @@ Para uso multi-tenant, instancie passando o nome da instância da empresa:
     EvolutionProvider(instance="empresa-42")
 """
 import base64
+import logging
 import httpx
 
 from app.core.config import settings
 from app.services.whatsapp_base import WhatsAppProvider, _retry_async
+
+logger = logging.getLogger(__name__)
 
 
 class EvolutionProvider(WhatsAppProvider):
@@ -155,7 +158,13 @@ class EvolutionProvider(WhatsAppProvider):
                         "text": mensagem,
                     },
                 )
-                return resp.status_code in (200, 201)
+                if resp.status_code not in (200, 201):
+                    logger.error(
+                        "[Evolution] sendText FALHOU: instance=%s phone=%s status=%d body=%s",
+                        self._instance, phone, resp.status_code, resp.text[:500]
+                    )
+                    return False
+                return True
 
         return await _retry_async(_do_send)
 
