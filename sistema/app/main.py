@@ -408,6 +408,7 @@ async def startup_event():
     await _sweep_agendamentos_followup()
     await _seed_modulos_padrao()
     await _start_ml_periodic_sync_loop()
+    await _start_scheduled_campaigns_loop()
 
 
 async def _sweep_assinaturas_expiradas():
@@ -522,6 +523,57 @@ async def _start_ml_periodic_sync_loop():
         "Loop periódico de sync Mercado Livre iniciado (intervalo=%s min).",
         intervalo,
     )
+
+
+async def _start_scheduled_campaigns_loop():
+    """Verifica a cada 60s se há campanhas agendadas para disparar automaticamente."""
+
+    async def _runner():
+        import asyncio as _asyncio
+        from app.core.database import SessionLocal
+        from app.models.models import TenantCommercialCampaign
+        from app.routers.tenant.comercial_campaigns import (
+            _executar_disparo_background,
+            _running_campaigns,
+        )
+
+        while True:
+            await _asyncio.sleep(60)
+            db = SessionLocal()
+            try:
+                import datetime as _dt_mod
+                now = _dt_mod.datetime.utcnow()
+                campanhas_devidas = (
+                    db.query(TenantCommercialCampaign)
+                    .filter(
+                        TenantCommercialCampaign.status == "agendada",
+                        TenantCommercialCampaign.data_agendamento.isnot(None),
+                        TenantCommercialCampaign.data_agendamento <= now,
+                    )
+                    .all()
+                )
+                for campaign in campanhas_devidas:
+                    if campaign.id not in _running_campaigns:
+                        _asyncio.create_task(
+                            _executar_disparo_background(
+                                campaign.id,
+                                [],
+                                None,
+                                campaign.empresa_id,
+                            )
+                        )
+                        logging.info(
+                            "Disparo automático iniciado para campanha %s (%s)",
+                            campaign.id,
+                            campaign.nome,
+                        )
+            except Exception as exc:
+                logging.error("Loop de campanhas agendadas falhou: %s", exc)
+            finally:
+                db.close()
+
+    asyncio.create_task(_runner())
+    logging.info("Loop de campanhas agendadas iniciado (intervalo=60s).")
 
 
 @app.get("/", tags=["Health"])
