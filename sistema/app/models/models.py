@@ -1545,6 +1545,11 @@ class TenantCommercialCampaign(TenantScopedMixin, Base):
     criado_em = Column(DateTime(timezone=True), server_default=func.now())
     atualizado_em = Column(DateTime(timezone=True), onupdate=func.now())
 
+    # Scheduling
+    data_agendamento = Column(DateTime(timezone=True), nullable=True)
+    recorrencia = Column(String(20), nullable=False, default="nenhuma")  # nenhuma/diario/semanal
+    ultima_execucao = Column(DateTime(timezone=True), nullable=True)
+
     empresa = relationship("Empresa")
     template = relationship("TenantCommercialTemplate")
 
