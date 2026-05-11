@@ -755,6 +755,28 @@ Exemplos de formatos aceitos:
         </div>
       </div>
 
+      <!-- Agendamento Automático -->
+      <div class="camp-config-bar camp-schedule-section" style="border-top:1px solid rgba(255,255,255,.1);padding-top:12px;gap:10px;flex-wrap:wrap;align-items:flex-start">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:rgba(255,255,255,.85);white-space:nowrap;padding-top:4px">
+          <input type="checkbox" id="camp-agendar" style="width:16px;height:16px;cursor:pointer">
+          📅 Programar envio automático
+        </label>
+        <div id="camp-agendamento-opts" style="display:none;gap:12px;flex:1;flex-wrap:wrap">
+          <div class="camp-config-group" style="flex:1;min-width:180px">
+            <label class="camp-config-label">Data e hora *</label>
+            <input type="datetime-local" class="camp-config-select" id="camp-data-agendamento" style="padding:7px 10px">
+          </div>
+          <div class="camp-config-group" style="min-width:160px">
+            <label class="camp-config-label">🔁 Repetir</label>
+            <select class="camp-config-select" id="camp-recorrencia">
+              <option value="nenhuma">Não repetir</option>
+              <option value="diario">Todo dia (mesmo horário)</option>
+              <option value="semanal">Toda semana</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       <!-- Audience Builder -->
       <div class="camp-audience">
 
