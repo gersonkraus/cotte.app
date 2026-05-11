@@ -2859,6 +2859,39 @@ function abrirModalCampanha() {
   document.getElementById('modal-campanha').classList.add('open');
 }
 
+async function abrirModalCampanhaRapida(leadId, templateId, canal, nomeLead) {
+  _clearCampError();
+  document.getElementById('camp-id').value = '';
+  document.getElementById('camp-nome').value = 'Follow-up ' + (nomeLead || 'Lead') + ' — ' + new Date().toLocaleDateString('pt-BR');
+  document.getElementById('camp-canal').value = canal;
+  document.getElementById('modal-camp-title').textContent = 'CAMPANHA RÁPIDA';
+
+  _campLeadIds = new Set();
+  _campLeadsCache = [];
+  _campTemperaturas = new Set();
+  document.querySelectorAll('.camp-temp-chip').forEach(function(c) { c.classList.remove('active'); });
+  
+  var etapaEl = document.getElementById('camp-filter-etapa');
+  var importEl = document.getElementById('camp-filter-importacao');
+  var searchEl = document.getElementById('camp-filter-search');
+  if (etapaEl) etapaEl.value = '';
+  if (importEl) importEl.value = '';
+  if (searchEl) searchEl.value = '';
+
+  await carregarTemplatesCampanha();
+  document.getElementById('camp-template').value = templateId;
+
+  _carregarEtapasPipelineCampanha();
+  _carregarImportacoesCampanha();
+  await _aplicarFiltrosCampanha();
+
+  // Selecionar apenas o lead do card
+  _campLeadIds = new Set([leadId]);
+  _renderizarListaLeadsCampanha();
+
+  document.getElementById('modal-campanha').classList.add('open');
+}
+
 async function carregarTemplatesCampanha() {
   try {
     var res = await api.get('/tenant/comercial/templates');

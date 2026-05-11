@@ -143,6 +143,7 @@
       } else {
         var canalFiltro = item.tipo_acao === 'mensagem_email' ? 'email' : 'whatsapp';
         botoesHtml =
+          '<button class="briefing-btn-campanha" onclick="BriefingIA.campanhaRapida(' + item.lead_id + ',\'' + item.tipo_acao + '\')">🚀 Campanha</button>' +
           '<button class="briefing-btn-enviar" onclick="BriefingIA.enviar(' + item.lead_id + ',\'' + item.tipo_acao + '\')">✓ Enviar agora</button>' +
           '<button class="briefing-btn-template" onclick="BriefingIA.selecionarTemplate(' + item.lead_id + ',\'' + canalFiltro + '\')">📋 Template</button>' +
           '<button class="briefing-btn-editar" onclick="BriefingIA.editar(' + item.lead_id + ')">✎ Editar</button>' +
@@ -257,6 +258,8 @@
       '.briefing-sem-rascunho{font-style:normal;color:#94a3b8}',
       '.briefing-motivo{border-radius:6px;padding:10px;font-size:0.82rem;color:#374151;margin-bottom:10px}',
       '.briefing-actions{display:flex;gap:8px;flex-wrap:wrap}',
+      '.briefing-btn-campanha{background:linear-gradient(135deg, #f59e0b, #ef4444);color:#fff;border:none;border-radius:6px;padding:7px 12px;font-size:0.8rem;font-weight:600;cursor:pointer}',
+      '.briefing-btn-campanha:hover{opacity:0.9}',
       '.briefing-btn-enviar{background:#10b981;color:#fff;border:none;border-radius:6px;padding:7px 16px;font-size:0.8rem;font-weight:600;cursor:pointer}',
       '.briefing-btn-enviar:hover{background:#059669}',
       '.briefing-btn-enviar:disabled{background:#94a3b8;cursor:not-allowed}',
@@ -455,6 +458,29 @@
         console.error('[BriefingIA.usarTemplate]', e);
       }
     },
+
+    campanhaRapida: async function(leadId, tipoAcao) {
+      var canal = tipoAcao === 'mensagem_email' ? 'email' : 'whatsapp';
+      _templates = null; // Invalida cache para garantir canal certo
+      var templates = await _carregarTemplates('followup', canal);
+      if (!templates.length) {
+        alert('Nenhum template de follow-up cadastrado para ' + canal + '. Cadastre na aba Templates.');
+        return;
+      }
+      
+      var card = document.getElementById('briefing-card-' + leadId);
+      var nomeLead = '';
+      if (card) {
+        var elNome = card.querySelector('.briefing-lead-nome');
+        if (elNome) nomeLead = elNome.textContent;
+      }
+      
+      if (typeof window.abrirModalCampanhaRapida === 'function') {
+        window.abrirModalCampanhaRapida(leadId, templates[0].id, canal, nomeLead);
+      } else {
+        console.error('[BriefingIA] abrirModalCampanhaRapida não encontrado no escopo global.');
+      }
+    }
   };
 
   if (document.readyState === 'loading') {

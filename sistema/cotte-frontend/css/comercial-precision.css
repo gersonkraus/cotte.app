@@ -1417,7 +1417,7 @@ body {
   .fs,
   .ft,
   .search-input,
-  button:not(.admin-tab):not(.sidebar-toggle):not(.tab) {
+  button:not(.admin-tab):not(.sidebar-toggle):not(.tab):not(.tpl-canal-pill):not(.tpl-type-card *):not(.btn-var-badge):not(.btn-remove-anexo) {
     width: 100% !important;
     max-width: 100% !important;
     display: block !important;

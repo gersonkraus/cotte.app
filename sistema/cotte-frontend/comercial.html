@@ -909,6 +909,13 @@ Exemplos de formatos aceitos:
         </div>
         <!-- ── Etapa 2: Composição ── -->
         <div id="tpl-step-2" style="display:none">
+            <!-- Contexto do tipo selecionado -->
+            <div id="tpl-context-banner" class="tpl-context-banner"></div>
+            <!-- Seletor de canal -->
+            <div class="form-group" id="tpl-canal-group">
+              <label>Canal</label>
+              <div id="tpl-canal-pills" class="tpl-canal-pills"></div>
+            </div>
             <div class="tpl-v2-container">
                 <!-- Coluna Esquerda: Editor -->
                 <div class="tpl-v2-editor">
@@ -948,6 +955,12 @@ Exemplos de formatos aceitos:
                             <span>Arraste uma imagem ou <strong>Cole (Ctrl+V)</strong></span>
                         </div>
                         <div id="tpl-image-previews" class="tpl-image-preview-container"></div>
+                        <!-- Anexo atual (editando template existente) -->
+                        <div id="tpl-anexo-atual" class="tpl-anexo-atual" style="display:none">
+                          <i class="fas fa-paperclip"></i>
+                          <span id="tpl-anexo-atual-nome"></span>
+                          <button type="button" id="btn-tpl-remover-anexo" class="btn-remove-anexo" title="Remover anexo"><i class="fas fa-times"></i></button>
+                        </div>
                         <small class="text-muted">WhatsApp permite apenas 1 imagem.</small>
                     </div>
                 </div>
