@@ -1,7 +1,7 @@
 import asyncio
 import random
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -9,6 +9,14 @@ from sqlalchemy.orm import Session
 
 _running_campaigns: dict[int, bool] = {}
 _campaign_start_times: dict[int, float] = {}
+
+
+def _proximo_agendamento(data_atual: datetime, recorrencia: str) -> datetime | None:
+    if recorrencia == "diario":
+        return data_atual + timedelta(days=1)
+    if recorrencia == "semanal":
+        return data_atual + timedelta(weeks=1)
+    return None
 
 from app.core.auth import exigir_modulo, exigir_permissao
 from app.core.database import get_db
@@ -90,6 +98,8 @@ async def create_campaign(
         canal=request.canal,
         status="agendada",
         total_leads=len(request.lead_ids),
+        data_agendamento=request.data_agendamento,
+        recorrencia=request.recorrencia or "nenhuma",
     )
     db.add(campaign)
     db.flush()
@@ -354,10 +364,32 @@ async def _executar_disparo_background(
 
         if _running_campaigns.get(campaign_id) is False:
             campaign.status = "cancelada"
+            campaign.atualizado_em = datetime.now()
+            db.commit()
         else:
-            campaign.status = "concluida"
-        campaign.atualizado_em = datetime.now()
-        db.commit()
+            # Recorrência: reiniciar campanha se configurada
+            proxima = None
+            if campaign.recorrencia and campaign.recorrencia != "nenhuma" and campaign.data_agendamento:
+                proxima = _proximo_agendamento(campaign.data_agendamento, campaign.recorrencia)
+
+            if proxima:
+                # Resetar leads para próxima execução
+                db.query(TenantCampaignLead).filter(
+                    TenantCampaignLead.campaign_id == campaign.id
+                ).update({"status": "pendente", "data_envio": None, "data_entrega": None, "data_resposta": None})
+                campaign.ultima_execucao = datetime.now()
+                campaign.data_agendamento = proxima
+                campaign.enviados = 0
+                campaign.entregues = 0
+                campaign.respondidos = 0
+                campaign.status = "agendada"
+                campaign.atualizado_em = datetime.now()
+                db.commit()
+                logger.info(f"Campanha recorrente {campaign_id} reagendada para {proxima}")
+            else:
+                campaign.status = "concluida"
+                campaign.atualizado_em = datetime.now()
+                db.commit()
 
     except Exception as e:
         logger.exception(f"Erro fatal no processamento da campanha {campaign_id}: {e}")
