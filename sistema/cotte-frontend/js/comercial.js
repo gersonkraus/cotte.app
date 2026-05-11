@@ -2615,8 +2615,6 @@ document.querySelector('#modal-email .btn-primary')?.addEventListener('click', e
 document.querySelector('#modal-email .btn-secondary')?.addEventListener('click', function() { fecharModal('modal-email'); });
 document.querySelector('#modal-email .modal-close')?.addEventListener('click', function() { fecharModal('modal-email'); });
 
-document.querySelector('#modal-template .btn-primary')?.addEventListener('click', salvarTemplate);
-document.querySelector('#modal-template .btn-secondary')?.addEventListener('click', function() { fecharModal('modal-template'); });
 document.querySelector('#modal-template .modal-close')?.addEventListener('click', function() { fecharModal('modal-template'); });
 
 document.querySelector('#modal-lembrete .btn-primary')?.addEventListener('click', salvarLembrete);
