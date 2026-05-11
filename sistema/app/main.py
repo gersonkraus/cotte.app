@@ -554,6 +554,7 @@ async def _start_scheduled_campaigns_loop():
                 )
                 for campaign in campanhas_devidas:
                     if campaign.id not in _running_campaigns:
+                        _running_campaigns[campaign.id] = True
                         _asyncio.create_task(
                             _executar_disparo_background(
                                 campaign.id,
