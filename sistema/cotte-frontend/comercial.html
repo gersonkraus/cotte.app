@@ -85,7 +85,7 @@
             <h2 class="section-title">Briefing do Dia</h2>
             <p class="section-subtitle">Leads que precisam de atenção hoje, priorizados por IA</p>
           </div>
-          <button class="btn btn-ghost btn-sm" onclick="BriefingIA.recarregar(true)">
+          <button class="btn btn-ghost btn-sm" onclick="BriefingIA.atualizar()">
             ↻ Atualizar
           </button>
         </div>
@@ -97,7 +97,7 @@
           <p>Nenhuma ação urgente para hoje. 🎉</p>
         </div>
         <div id="briefing-error" style="display:none" class="empty-state error-state">
-          <p>Não foi possível carregar o briefing. <a href="#" onclick="BriefingIA.recarregar(true); return false;">Tentar novamente</a></p>
+          <p>Não foi possível carregar o briefing. <a href="#" onclick="BriefingIA.atualizar(); return false;">Tentar novamente</a></p>
         </div>
         <div id="briefing-list" class="briefing-list"></div>
       </div>
