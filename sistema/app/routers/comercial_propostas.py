@@ -154,16 +154,20 @@ async def list_propostas_do_lead(
     current_user: Usuario = Depends(exigir_permissao("comercial", "leitura"))
 ):
     """Lista propostas enviadas para um lead."""
-    empresa = db.query(Empresa).filter(Empresa.id == current_user.empresa_id).first()
-    if not empresa:
-        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+    is_superadmin = getattr(current_user, 'cargo', None) in ('superadmin', 'gestor')
 
-    # Verificar se o lead pertence à empresa
-    lead = db.query(CommercialLead).filter(
-        CommercialLead.id == lead_id,
-        (CommercialLead.empresa_id == empresa.id)
-        | (CommercialLead.empresa_id.is_(None))
-    ).first()
+    if is_superadmin:
+        lead = db.query(CommercialLead).filter(CommercialLead.id == lead_id).first()
+    else:
+        empresa = db.query(Empresa).filter(Empresa.id == current_user.empresa_id).first()
+        if not empresa:
+            raise HTTPException(status_code=404, detail="Empresa não encontrada")
+        lead = db.query(CommercialLead).filter(
+            CommercialLead.id == lead_id,
+            (CommercialLead.empresa_id == empresa.id)
+            | (CommercialLead.empresa_id.is_(None))
+        ).first()
+
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
 
