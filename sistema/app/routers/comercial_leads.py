@@ -32,6 +32,7 @@ from app.models.models import (
     LeadImportacao,
     LeadImportacaoItem,
     CampaignLead,
+    PropostaEnviada,
     StatusPipeline,
     TipoInteracao,
     CanalInteracao,
@@ -628,6 +629,9 @@ def delete_lead(
         "lembretes_removidos": db.query(CommercialReminder).filter(
             CommercialReminder.lead_id == lead_id
         ).count(),
+        "propostas_removidas": db.query(PropostaEnviada).filter(
+            PropostaEnviada.lead_id == lead_id
+        ).count(),
     }
 
     db.query(CampaignLead).filter(CampaignLead.lead_id == lead_id).delete(
@@ -640,6 +644,9 @@ def delete_lead(
         CommercialInteraction.lead_id == lead_id
     ).delete(synchronize_session=False)
     db.query(CommercialReminder).filter(CommercialReminder.lead_id == lead_id).delete(
+        synchronize_session=False
+    )
+    db.query(PropostaEnviada).filter(PropostaEnviada.lead_id == lead_id).delete(
         synchronize_session=False
     )
 
