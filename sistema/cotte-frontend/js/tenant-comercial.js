@@ -2850,11 +2850,12 @@ function abrirModalCampanha() {
   var agendarEl = document.getElementById('camp-agendar');
   if (agendarEl) { agendarEl.checked = false; }
   var agOpts = document.getElementById('camp-agendamento-opts');
-  if (agOpts) { agOpts.style.display = 'none'; }
+  if (agOpts) { agOpts.classList.remove('active'); }
   var dtAgend = document.getElementById('camp-data-agendamento');
-  if (dtAgend) { dtAgend.value = ''; }
+  if (dtAgend) { dtAgend.value = ''; dtAgend.classList.remove('camp-input-error'); }
   var recEl = document.getElementById('camp-recorrencia');
   if (recEl) { recEl.value = 'nenhuma'; }
+  _updateAgendamentoResumo();
 
   // Ocultar seção de agendamento no modo de edição
   var campScheduleSection = document.querySelector('.camp-schedule-section');
@@ -2893,11 +2894,12 @@ async function abrirModalCampanhaRapida(leadId, templateId, canal, nomeLead) {
   var agendarEl = document.getElementById('camp-agendar');
   if (agendarEl) { agendarEl.checked = false; }
   var agOpts = document.getElementById('camp-agendamento-opts');
-  if (agOpts) { agOpts.style.display = 'none'; }
+  if (agOpts) { agOpts.classList.remove('active'); }
   var dtAgend = document.getElementById('camp-data-agendamento');
-  if (dtAgend) { dtAgend.value = ''; }
+  if (dtAgend) { dtAgend.value = ''; dtAgend.classList.remove('camp-input-error'); }
   var recEl = document.getElementById('camp-recorrencia');
   if (recEl) { recEl.value = 'nenhuma'; }
+  _updateAgendamentoResumo();
   var campScheduleSection2 = document.querySelector('.camp-schedule-section');
   if (campScheduleSection2) { campScheduleSection2.style.display = 'none'; }
 
@@ -3108,14 +3110,32 @@ async function salvarCampanha() {
 
     var agendarChecked = document.getElementById('camp-agendar')?.checked;
     if (agendarChecked) {
-      var dtVal = document.getElementById('camp-data-agendamento')?.value;
+      var dtInput = document.getElementById('camp-data-agendamento');
+      var dtVal = dtInput?.value;
+      
       if (!dtVal) {
+        if (dtInput) {
+          dtInput.classList.add('camp-input-error');
+          setTimeout(function() { dtInput.classList.remove('camp-input-error'); }, 2000);
+        }
         _showCampError('Informe a data e hora do envio agendado.');
         if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.innerHTML = btnOrigHtml; }
         return;
       }
+
+      var dataSelecionada = new Date(dtVal);
+      if (dataSelecionada < new Date()) {
+        if (dtInput) {
+          dtInput.classList.add('camp-input-error');
+          setTimeout(function() { dtInput.classList.remove('camp-input-error'); }, 2000);
+        }
+        _showCampError('A data de agendamento não pode ser no passado.');
+        if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.innerHTML = btnOrigHtml; }
+        return;
+      }
+
       // Converter datetime-local (hora local) para ISO UTC
-      body.data_agendamento = new Date(dtVal).toISOString();
+      body.data_agendamento = dataSelecionada.toISOString();
       body.recorrencia = document.getElementById('camp-recorrencia')?.value || 'nenhuma';
     }
     if (id) {
@@ -3233,12 +3253,39 @@ async function excluirCampanha(id) {
   }
 }
 
+function _updateAgendamentoResumo() {
+  var agendarEl = document.getElementById('camp-agendar');
+  var resumoEl = document.getElementById('camp-agendamento-resumo');
+  var dtInput = document.getElementById('camp-data-agendamento');
+  var recInput = document.getElementById('camp-recorrencia');
+
+  if (!agendarEl || !resumoEl || !dtInput || !recInput) return;
+
+  if (!agendarEl.checked || !dtInput.value) {
+    resumoEl.style.display = 'none';
+    return;
+  }
+
+  var d = new Date(dtInput.value);
+  var rec = recInput.value;
+  var repTexto = '';
+  
+  if (rec === 'diario') repTexto = ' e repetida todo dia';
+  else if (rec === 'semanal') repTexto = ' e repetida toda semana';
+
+  resumoEl.textContent = 'A campanha será enviada primeiro em ' + d.toLocaleString('pt-BR') + repTexto + '.';
+  resumoEl.style.display = 'block';
+}
+
 // Event listeners para campanhas
 document.getElementById('btn-nova-campanha')?.addEventListener('click', function() { abrirModalCampanha(); });
 document.getElementById('btn-salvar-campanha')?.addEventListener('click', function() { salvarCampanha(); });
 document.getElementById('camp-agendar')?.addEventListener('change', function() {
   var opts = document.getElementById('camp-agendamento-opts');
-  if (opts) opts.style.display = this.checked ? 'flex' : 'none';
+  if (opts) {
+    if (this.checked) opts.classList.add('active');
+    else opts.classList.remove('active');
+  }
   if (this.checked) {
     var dtInputMin = document.getElementById('camp-data-agendamento');
     if (dtInputMin) {
@@ -3252,7 +3299,10 @@ document.getElementById('camp-agendar')?.addEventListener('change', function() {
     var recInput = document.getElementById('camp-recorrencia');
     if (recInput) recInput.value = 'nenhuma';
   }
+  _updateAgendamentoResumo();
 });
+document.getElementById('camp-data-agendamento')?.addEventListener('change', _updateAgendamentoResumo);
+document.getElementById('camp-recorrencia')?.addEventListener('change', _updateAgendamentoResumo);
 document.querySelector('#modal-campanha .modal-close')?.addEventListener('click', function() { fecharModal('modal-campanha'); });
 document.querySelector('#modal-campanha-metricas .modal-close')?.addEventListener('click', function() { _pararMetricasPolling(); fecharModal('modal-campanha-metricas'); });
 
