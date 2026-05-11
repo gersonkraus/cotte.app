@@ -1762,6 +1762,8 @@ class CampaignCreate(BaseModel):
     template_id: int
     canal: str = Field(..., description="Canal: whatsapp, email ou ambos")
     lead_ids: List[int] = Field(..., description="IDs dos leads para disparo")
+    data_agendamento: Optional[datetime] = Field(None, description="Data/hora UTC do envio agendado")
+    recorrencia: str = Field("nenhuma", description="nenhuma | diario | semanal")
 
 
 class CampaignUpdate(BaseModel):
@@ -1788,6 +1790,9 @@ class CampaignOut(BaseModel):
     criado_em: datetime
     atualizado_em: Optional[datetime] = None
     tempo_estimado_restante: Optional[str] = None
+    data_agendamento: Optional[datetime] = None
+    recorrencia: str = "nenhuma"
+    ultima_execucao: Optional[datetime] = None
 
     class Config:
         from_attributes = True
