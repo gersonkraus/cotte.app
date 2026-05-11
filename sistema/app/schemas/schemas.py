@@ -1355,6 +1355,10 @@ class TemplateCreate(BaseModel):
     canal: CanalTemplate
     assunto: Optional[str] = None
     conteudo: str
+    anexo_arquivo_path: Optional[str] = None
+    anexo_nome_original: Optional[str] = None
+    anexo_mime_type: Optional[str] = None
+    anexo_tamanho_bytes: Optional[int] = None
 
 
 class TemplateUpdate(BaseModel):
@@ -1364,6 +1368,11 @@ class TemplateUpdate(BaseModel):
     assunto: Optional[str] = None
     conteudo: Optional[str] = None
     ativo: Optional[bool] = None
+    anexo_arquivo_path: Optional[str] = None
+    anexo_nome_original: Optional[str] = None
+    anexo_mime_type: Optional[str] = None
+    anexo_tamanho_bytes: Optional[int] = None
+    remover_anexo: Optional[bool] = None
 
 
 class TemplateOut(BaseModel):
@@ -1376,6 +1385,10 @@ class TemplateOut(BaseModel):
     ativo: bool
     criado_em: datetime
     atualizado_em: Optional[datetime] = None
+    anexo_arquivo_path: Optional[str] = None
+    anexo_nome_original: Optional[str] = None
+    anexo_mime_type: Optional[str] = None
+    anexo_tamanho_bytes: Optional[int] = None
 
     @field_serializer("canal", "tipo")
     def serialize_enum(self, v) -> str:

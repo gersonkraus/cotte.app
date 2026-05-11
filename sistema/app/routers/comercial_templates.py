@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import logging
@@ -10,10 +10,21 @@ from app.models.models import (
 from app.schemas.schemas import (
     TemplateCreate, TemplateUpdate, TemplateOut, TemplatePreview
 )
+from app.services.template_anexos_service import salvar_upload_template_anexo
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/comercial/templates", tags=["Comercial - Templates"])
+
+
+@router.post("/upload-anexo")
+async def upload_template_anexo(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("comercial", "escrita")),
+):
+    """Faz upload de imagem ou PDF para uso em template comercial."""
+    return salvar_upload_template_anexo(current_user.empresa_id, file)
 
 
 @router.post("/", response_model=TemplateOut)
@@ -33,7 +44,11 @@ async def create_template(
         canal=request.canal,
         assunto=request.assunto,
         conteudo=request.conteudo,
-        ativo=True
+        ativo=True,
+        anexo_arquivo_path=request.anexo_arquivo_path,
+        anexo_nome_original=request.anexo_nome_original,
+        anexo_mime_type=request.anexo_mime_type,
+        anexo_tamanho_bytes=request.anexo_tamanho_bytes,
     )
     db.add(template)
     db.commit()
@@ -120,6 +135,17 @@ async def update_template(
         template.conteudo = request.conteudo
     if request.ativo is not None:
         template.ativo = request.ativo
+
+    if request.remover_anexo:
+        template.anexo_arquivo_path = None
+        template.anexo_nome_original = None
+        template.anexo_mime_type = None
+        template.anexo_tamanho_bytes = None
+    elif request.anexo_arquivo_path is not None:
+        template.anexo_arquivo_path = request.anexo_arquivo_path
+        template.anexo_nome_original = request.anexo_nome_original
+        template.anexo_mime_type = request.anexo_mime_type
+        template.anexo_tamanho_bytes = request.anexo_tamanho_bytes
 
     db.commit()
     db.refresh(template)
