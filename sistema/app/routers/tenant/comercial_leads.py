@@ -473,6 +473,7 @@ async def get_briefing(
                 "resumo": (inter.conteudo or "")[:80],
             })
 
+        contato_realizado = lead.ultimo_contato_em is not None
         ref_contato = lead.ultimo_contato_em or lead.criado_em
         if ref_contato and ref_contato.tzinfo is None:
             ref_contato = ref_contato.replace(tzinfo=timezone.utc)
@@ -486,6 +487,7 @@ async def get_briefing(
             "score": lead.lead_score.value if lead.lead_score else "frio",
             "valor_proposto": float(lead.valor_estimado) if lead.valor_estimado else 0.0,
             "dias_sem_contato": dias_sem_contato,
+            "contato_realizado": contato_realizado,
             "proximo_contato_em": lead.proximo_contato_em.isoformat() if lead.proximo_contato_em else None,
             "historico": historico,
         })

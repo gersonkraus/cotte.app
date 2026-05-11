@@ -595,10 +595,12 @@ Retorne APENAS JSON válido com esta estrutura:
 }
 
 Regras de prioridade:
-- urgente: +5 dias sem contato em proposta_enviada; OU +3 dias com score quente; OU proximo_contato vencido
-- hoje: proximo_contato = hoje; OU +7 dias sem contato com score morno; OU cliente respondeu recentemente
+- urgente: +5 dias sem contato em proposta_enviada; OU +3 dias com score quente; OU proximo_contato vencido (passado)
+- hoje: proximo_contato = hoje (futuro ou passado no mesmo dia); OU +7 dias sem contato com score morno; OU cliente respondeu recentemente
 - esta_semana: outros leads que precisam de atenção em breve
-- ok: contato recente (<2 dias) OU lead frio em etapa inicial
+- ok: contato_realizado=true E contato recente (<2 dias) E sem lembrete hoje; OU lead frio em etapa inicial sem lembrete
+
+ATENÇÃO: contato_realizado=false significa que o lead NUNCA foi contatado (apenas cadastrado). Nesse caso, dias_sem_contato conta desde o cadastro — NÃO use a regra "ok por contato recente". Se houver proximo_contato hoje ou vencido, use urgente/hoje mesmo que dias_sem_contato seja 0.
 
 Regras de tipo_acao:
 - mensagem_whatsapp: maioria dos follow-ups
@@ -635,7 +637,7 @@ def _briefing_fallback(ctx: dict) -> dict:
         prioridade = "urgente"
     elif proximo_hoje or (score == "morno" and dias >= 7):
         prioridade = "hoje"
-    elif dias < 2:
+    elif dias < 2 and not proximo_hoje and not proximo_vencido:
         prioridade = "ok"
     else:
         prioridade = "esta_semana"
