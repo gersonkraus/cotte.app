@@ -27,6 +27,21 @@ let kanbanShowClosed = false;
 let pipelineStages = [];
 let STATUS_LABELS = {novo:'Novo',contato_iniciado:'Contato',proposta_enviada:'Proposta',negociacao:'Negociação',fechado_ganho:'Ganho',fechado_perdido:'Perdido'};
 let STATUS_COLORS = {novo:'#94a3b8',contato_iniciado:'#3b82f6',proposta_enviada:'#f59e0b',negociacao:'#06b6d4',fechado_ganho:'#10b981',fechado_perdido:'#ef4444'};
+const UX_MODE_KEY = 'cotte_comercial_modo_avancado';
+const UX_ACTION_PRIORITY_BY_TAB = {
+  hoje: { principal: 'Abrir recomendações do dia', secundarias: ['Mudar aba', 'Abrir contato'] },
+  leads: { principal: 'Cadastrar contato', secundarias: ['Enviar mensagem', 'Criar lembrete', 'Editar'] },
+  pipeline: { principal: 'Mover etapa no funil', secundarias: ['Editar', 'WhatsApp', 'E-mail'] },
+  campanhas: { principal: 'Criar campanha', secundarias: ['Ver métricas', 'Excluir'] },
+  lembretes: { principal: 'Novo lembrete', secundarias: ['Filtrar status'] },
+  importacao: { principal: 'Importar contatos', secundarias: ['Ver histórico'] },
+  config: { principal: 'Salvar configurações', secundarias: ['Gerenciar modelos', 'Cadastros'] },
+};
+const UX_USABILITY_SCENARIOS = [
+  { id: 'cenario-1', tarefa: 'Cadastrar contato e abrir detalhe', sucesso: 'Conclui em até 90s sem ajuda' },
+  { id: 'cenario-2', tarefa: 'Mover contato no funil e marcar próximo contato', sucesso: 'Sem erro e sem ação duplicada' },
+  { id: 'cenario-3', tarefa: 'Usar menu Mais para abrir importação/config', sucesso: 'Encontra a função em até 2 cliques' },
+];
 
 const TIPO_TPL_LABELS = {mensagem_inicial:'Msg Inicial',followup:'Follow-up',proposta_comercial:'Proposta',email_comercial:'E-mail'};
 const CANAL_TPL_LABELS = {whatsapp:'WhatsApp',email:'E-mail',ambos:'Ambos'};
@@ -129,6 +144,79 @@ function bindTabEvents() {
   });
 }
 
+function isAdvancedModeEnabled() {
+  return localStorage.getItem(UX_MODE_KEY) === '1';
+}
+
+function applyUxMode() {
+  document.body.classList.toggle('comercial-simple-mode', !isAdvancedModeEnabled());
+  var toggleBtn = document.getElementById('btn-toggle-modo-ux');
+  if (toggleBtn) {
+    toggleBtn.textContent = isAdvancedModeEnabled()
+      ? '🧠 Voltar para modo simplificado'
+      : '🧩 Ativar modo avançado';
+  }
+}
+
+function bindSimplifiedNavigationMenus() {
+  var topbarMenuBtn = document.getElementById('btn-topbar-mais-acoes');
+  var topbarMenu = document.getElementById('topbar-acoes-dropdown');
+  var tabsMoreBtn = document.getElementById('tab-mais-btn');
+  var tabsMoreMenu = document.getElementById('admin-tabs-more-menu');
+
+  function closeAllMenus() {
+    if (topbarMenuBtn) topbarMenuBtn.setAttribute('aria-expanded', 'false');
+    if (tabsMoreBtn) tabsMoreBtn.setAttribute('aria-expanded', 'false');
+    if (topbarMenu) topbarMenu.classList.remove('open');
+    if (tabsMoreMenu) tabsMoreMenu.classList.remove('open');
+  }
+
+  if (topbarMenuBtn && topbarMenu && !topbarMenuBtn.dataset.boundFallback) {
+    topbarMenuBtn.dataset.boundFallback = '1';
+    topbarMenuBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var willOpen = !topbarMenu.classList.contains('open');
+      closeAllMenus();
+      if (willOpen) {
+        topbarMenu.classList.add('open');
+        topbarMenuBtn.setAttribute('aria-expanded', 'true');
+      }
+    });
+  }
+
+  if (tabsMoreBtn && tabsMoreMenu && !tabsMoreBtn.dataset.boundFallback) {
+    tabsMoreBtn.dataset.boundFallback = '1';
+    tabsMoreBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var willOpen = !tabsMoreMenu.classList.contains('open');
+      closeAllMenus();
+      if (willOpen) {
+        tabsMoreMenu.classList.add('open');
+        tabsMoreBtn.setAttribute('aria-expanded', 'true');
+      }
+    });
+  }
+
+  document.querySelectorAll('[data-open-tab]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      closeAllMenus();
+      switchTab(this.dataset.openTab);
+    });
+  });
+
+  var toggleBtn = document.getElementById('btn-toggle-modo-ux');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', function() {
+      localStorage.setItem(UX_MODE_KEY, isAdvancedModeEnabled() ? '0' : '1');
+      applyUxMode();
+      closeAllMenus();
+      showToast(isAdvancedModeEnabled() ? 'Modo avançado ativado' : 'Modo simplificado ativado', 'success');
+    });
+  }
+
+  document.addEventListener('click', function() { closeAllMenus(); });
+}
+
 function initBottomSheets() {
   document.querySelectorAll('.modal').forEach(function(modal) {
     if (!modal.querySelector('.modal-drag-handle')) {
@@ -210,3 +298,6 @@ function switchTab(tab, skipLoad) {
   else if (tab === 'config') carregarConfig();
   else if (tab === 'importacao') carregarImportacao();
 }
+
+window.UX_ACTION_PRIORITY_BY_TAB = UX_ACTION_PRIORITY_BY_TAB;
+window.UX_USABILITY_SCENARIOS = UX_USABILITY_SCENARIOS;
