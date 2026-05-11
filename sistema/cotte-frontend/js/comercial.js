@@ -755,8 +755,8 @@ async function abrirImportacaoLeads(importacaoId, nome) {
 
     document.getElementById('btn-fechar-modal-contatos').addEventListener('click', fecharModalContatos);
     document.getElementById('btn-fechar-modal-contatos-2').addEventListener('click', fecharModalContatos);
-    document.getElementById('btn-enviar-whatsapp-lote').addEventListener('click', function() { enviarWhatsAppLoteHistorico(leads); });
-    document.getElementById('btn-enviar-email-lote').addEventListener('click', function() { enviarEmailLoteHistorico(leads); });
+    document.getElementById('btn-enviar-whatsapp-lote').addEventListener('click', enviarWhatsAppLoteHistorico);
+    document.getElementById('btn-enviar-email-lote').addEventListener('click', enviarEmailLoteHistorico);
     document.getElementById('btn-excluir-importacao-lote').addEventListener('click', function() {
       excluirImportacao(parseInt(this.dataset.id), this.dataset.nome);
       fecharModalContatos();
@@ -777,7 +777,7 @@ async function abrirImportacaoLeads(importacaoId, nome) {
   }
 }
 
-async function enviarWhatsAppLoteHistorico(leads) {
+async function enviarWhatsAppLoteHistorico() {
   var templateId = document.getElementById('lote-template-select').value;
   if (!templateId) { showToast('Selecione um template', 'error'); return; }
   var checkedBoxes = document.querySelectorAll('.lote-lead-checkbox:checked');
@@ -796,7 +796,7 @@ async function enviarWhatsAppLoteHistorico(leads) {
   } catch(e) { showToast('Erro: ' + (e.message || 'Desconhecido'), 'error'); }
 }
 
-async function enviarEmailLoteHistorico(leads) {
+async function enviarEmailLoteHistorico() {
   var templateId = document.getElementById('lote-template-select').value;
   if (!templateId) { showToast('Selecione um template', 'error'); return; }
   var checkedBoxes = document.querySelectorAll('.lote-lead-checkbox:checked');
