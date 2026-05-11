@@ -1763,7 +1763,7 @@ class CampaignCreate(BaseModel):
     canal: str = Field(..., description="Canal: whatsapp, email ou ambos")
     lead_ids: List[int] = Field(..., description="IDs dos leads para disparo")
     data_agendamento: Optional[datetime] = Field(None, description="Data/hora UTC do envio agendado")
-    recorrencia: str = Field("nenhuma", description="nenhuma | diario | semanal")
+    recorrencia: Literal["nenhuma", "diario", "semanal"] = Field("nenhuma", description="nenhuma | diario | semanal")
 
 
 class CampaignUpdate(BaseModel):

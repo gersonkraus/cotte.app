@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import random
 import time
 from datetime import datetime, timedelta
@@ -6,17 +7,6 @@ from typing import List
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
-
-_running_campaigns: dict[int, bool] = {}
-_campaign_start_times: dict[int, float] = {}
-
-
-def _proximo_agendamento(data_atual: datetime, recorrencia: str) -> datetime | None:
-    if recorrencia == "diario":
-        return data_atual + timedelta(days=1)
-    if recorrencia == "semanal":
-        return data_atual + timedelta(weeks=1)
-    return None
 
 from app.core.auth import exigir_modulo, exigir_permissao
 from app.core.database import get_db
@@ -28,12 +18,6 @@ from app.models.models import (
     TenantCommercialTemplate,
     Usuario,
 )
-from app.services.template_anexos_service import obter_bytes_anexo
-from app.services.whatsapp_service import enviar_imagem, enviar_mensagem_texto, enviar_pdf
-from app.services.email_service import send_email_simples
-import logging
-
-logger = logging.getLogger(__name__)
 from app.schemas.schemas import (
     CampaignCreate,
     CampaignDisparoRequest,
@@ -42,6 +26,22 @@ from app.schemas.schemas import (
     CampaignOut,
     CampaignUpdate,
 )
+from app.services.email_service import send_email_simples
+from app.services.template_anexos_service import obter_bytes_anexo
+from app.services.whatsapp_service import enviar_imagem, enviar_mensagem_texto, enviar_pdf
+
+logger = logging.getLogger(__name__)
+
+_running_campaigns: dict[int, bool] = {}
+_campaign_start_times: dict[int, float] = {}
+
+
+def _proximo_agendamento(data_atual: datetime, recorrencia: str) -> datetime | None:
+    if recorrencia == "diario":
+        return data_atual + timedelta(days=1)
+    if recorrencia == "semanal":
+        return data_atual + timedelta(weeks=1)
+    return None
 
 
 def _calcular_eta(campaign, started_at: float | None = None) -> str | None:
@@ -369,14 +369,15 @@ async def _executar_disparo_background(
         else:
             # Recorrência: reiniciar campanha se configurada
             proxima = None
-            if campaign.recorrencia and campaign.recorrencia != "nenhuma" and campaign.data_agendamento:
-                proxima = _proximo_agendamento(campaign.data_agendamento, campaign.recorrencia)
+            if campaign.recorrencia and campaign.recorrencia != "nenhuma":
+                base_dt = campaign.data_agendamento or datetime.now()
+                proxima = _proximo_agendamento(base_dt, campaign.recorrencia)
 
             if proxima:
                 # Resetar leads para próxima execução
                 db.query(TenantCampaignLead).filter(
                     TenantCampaignLead.campaign_id == campaign.id
-                ).update({"status": "pendente", "data_envio": None, "data_entrega": None, "data_resposta": None})
+                ).update({"status": "pendente", "data_envio": None, "data_entrega": None, "data_resposta": None}, synchronize_session=False)
                 campaign.ultima_execucao = datetime.now()
                 campaign.data_agendamento = proxima
                 campaign.enviados = 0
