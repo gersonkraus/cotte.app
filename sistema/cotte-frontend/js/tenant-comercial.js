@@ -2781,7 +2781,10 @@ function renderCampanhasTable(campanhas) {
     var activeClass = c.status === 'em_andamento' ? ' camp-progress-active' : '';
     var rowClass = c.status === 'em_andamento' ? ' class="camp-row-disparando"' : '';
     return '<tr' + rowClass + ' data-camp-id="' + c.id + '">' +
-      '<td>' + escapeHtml(c.nome) + '</td>' +
+      '<td>' + escapeHtml(c.nome) +
+        (c.recorrencia && c.recorrencia !== 'nenhuma' ? ' <span style="font-size:11px;color:var(--muted)">🔁 ' + (c.recorrencia === 'diario' ? 'Diária' : 'Semanal') + '</span>' : '') +
+        (c.data_agendamento && c.status === 'agendada' ? '<br><small style="color:var(--muted)">📅 ' + new Date(c.data_agendamento).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) + '</small>' : '') +
+      '</td>' +
       '<td>' + (canalLabels[c.canal] || c.canal) + '</td>' +
       '<td><span class="badge badge-' + c.status + '">' + (statusLabels[c.status] || c.status) + (c.status === 'em_andamento' ? ' ⏳' : '') + '</span></td>' +
       '<td>' + (c.total_leads || 0) + '</td>' +
@@ -2813,7 +2816,10 @@ function renderCampanhasMobile(campanhas) {
     var pct = c.total_leads ? Math.round((c.enviados || 0) / c.total_leads * 100) : 0;
     return '<div class="crud-mobile-card">' +
       '<div class="crud-mobile-card-header">' +
-        '<div class="crud-mobile-card-title">' + escapeHtml(c.nome) + '</div>' +
+        '<div class="crud-mobile-card-title">' + escapeHtml(c.nome) +
+          (c.recorrencia && c.recorrencia !== 'nenhuma' ? ' <span style="font-size:11px">🔁</span>' : '') +
+        '</div>' +
+        (c.data_agendamento && c.status === 'agendada' ? '<div style="font-size:12px;color:var(--muted)">📅 ' + new Date(c.data_agendamento).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) + '</div>' : '') +
         '<span class="badge badge-' + c.status + '">' + (statusLabels[c.status] || c.status) + '</span>' +
       '</div>' +
       '<div class="crud-mobile-card-body">' +
@@ -2839,6 +2845,16 @@ function abrirModalCampanha() {
   document.getElementById('camp-canal').value = 'whatsapp';
   document.getElementById('camp-leads').innerHTML = '';
   document.getElementById('modal-camp-title').textContent = 'Nova Campanha';
+
+  // Resetar agendamento
+  var agendarEl = document.getElementById('camp-agendar');
+  if (agendarEl) { agendarEl.checked = false; }
+  var agOpts = document.getElementById('camp-agendamento-opts');
+  if (agOpts) { agOpts.style.display = 'none'; }
+  var dtAgend = document.getElementById('camp-data-agendamento');
+  if (dtAgend) { dtAgend.value = ''; }
+  var recEl = document.getElementById('camp-recorrencia');
+  if (recEl) { recEl.value = 'nenhuma'; }
 
   // Resetar estado de filtros
   _campLeadIds = new Set();
@@ -3069,7 +3085,20 @@ async function salvarCampanha() {
   if (btnSalvar) { btnSalvar.disabled = true; btnSalvar.innerHTML = '<span style="opacity:.7">Salvando...</span>'; }
 
   try {
-    var body = { nome: nome, template_id: parseInt(templateId), canal: canal, lead_ids: leadIds };
+    var body = { nome: nome, template_id: parseInt(templateId), canal: canal, lead_ids: leadIds, recorrencia: 'nenhuma', data_agendamento: null };
+
+    var agendarChecked = document.getElementById('camp-agendar')?.checked;
+    if (agendarChecked) {
+      var dtVal = document.getElementById('camp-data-agendamento')?.value;
+      if (!dtVal) {
+        _showCampError('Informe a data e hora do envio agendado.');
+        if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.innerHTML = btnOrigHtml; }
+        return;
+      }
+      // Converter datetime-local (hora local) para ISO UTC
+      body.data_agendamento = new Date(dtVal).toISOString();
+      body.recorrencia = document.getElementById('camp-recorrencia')?.value || 'nenhuma';
+    }
     if (id) {
       await api.put('/tenant/comercial/campaigns/' + id, body);
       showToast('Campanha atualizada!');
@@ -3188,6 +3217,16 @@ async function excluirCampanha(id) {
 // Event listeners para campanhas
 document.getElementById('btn-nova-campanha')?.addEventListener('click', function() { abrirModalCampanha(); });
 document.getElementById('btn-salvar-campanha')?.addEventListener('click', function() { salvarCampanha(); });
+document.getElementById('camp-agendar')?.addEventListener('change', function() {
+  var opts = document.getElementById('camp-agendamento-opts');
+  if (opts) opts.style.display = this.checked ? 'flex' : 'none';
+  if (!this.checked) {
+    var dtInput = document.getElementById('camp-data-agendamento');
+    if (dtInput) dtInput.value = '';
+    var recInput = document.getElementById('camp-recorrencia');
+    if (recInput) recInput.value = 'nenhuma';
+  }
+});
 document.querySelector('#modal-campanha .modal-close')?.addEventListener('click', function() { fecharModal('modal-campanha'); });
 document.querySelector('#modal-campanha-metricas .modal-close')?.addEventListener('click', function() { _pararMetricasPolling(); fecharModal('modal-campanha-metricas'); });
 
