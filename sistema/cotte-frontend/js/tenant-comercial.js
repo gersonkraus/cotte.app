@@ -2782,7 +2782,7 @@ function renderCampanhasTable(campanhas) {
     var rowClass = c.status === 'em_andamento' ? ' class="camp-row-disparando"' : '';
     return '<tr' + rowClass + ' data-camp-id="' + c.id + '">' +
       '<td>' + escapeHtml(c.nome) +
-        (c.recorrencia && c.recorrencia !== 'nenhuma' ? ' <span style="font-size:11px;color:var(--muted)">🔁 ' + (c.recorrencia === 'diario' ? 'Diária' : 'Semanal') + '</span>' : '') +
+        (c.recorrencia && c.recorrencia !== 'nenhuma' ? ' <span style="font-size:11px;color:var(--muted)">🔁 ' + (c.recorrencia === 'diario' ? 'Diária' : c.recorrencia === 'semanal' ? 'Semanal' : escapeHtml(c.recorrencia)) + '</span>' : '') +
         (c.data_agendamento && c.status === 'agendada' ? '<br><small style="color:var(--muted)">📅 ' + new Date(c.data_agendamento).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) + '</small>' : '') +
       '</td>' +
       '<td>' + (canalLabels[c.canal] || c.canal) + '</td>' +
@@ -2856,6 +2856,13 @@ function abrirModalCampanha() {
   var recEl = document.getElementById('camp-recorrencia');
   if (recEl) { recEl.value = 'nenhuma'; }
 
+  // Ocultar seção de agendamento no modo de edição
+  var campScheduleSection = document.querySelector('.camp-schedule-section');
+  var campId = document.getElementById('camp-id')?.value;
+  if (campScheduleSection) {
+    campScheduleSection.style.display = campId ? 'none' : '';
+  }
+
   // Resetar estado de filtros
   _campLeadIds = new Set();
   _campLeadsCache = [];
@@ -2882,11 +2889,23 @@ async function abrirModalCampanhaRapida(leadId, templateId, canal, nomeLead) {
   document.getElementById('camp-canal').value = canal;
   document.getElementById('modal-camp-title').textContent = 'CAMPANHA RÁPIDA';
 
+  // Resetar agendamento
+  var agendarEl = document.getElementById('camp-agendar');
+  if (agendarEl) { agendarEl.checked = false; }
+  var agOpts = document.getElementById('camp-agendamento-opts');
+  if (agOpts) { agOpts.style.display = 'none'; }
+  var dtAgend = document.getElementById('camp-data-agendamento');
+  if (dtAgend) { dtAgend.value = ''; }
+  var recEl = document.getElementById('camp-recorrencia');
+  if (recEl) { recEl.value = 'nenhuma'; }
+  var campScheduleSection2 = document.querySelector('.camp-schedule-section');
+  if (campScheduleSection2) { campScheduleSection2.style.display = 'none'; }
+
   _campLeadIds = new Set();
   _campLeadsCache = [];
   _campTemperaturas = new Set();
   document.querySelectorAll('.camp-temp-chip').forEach(function(c) { c.classList.remove('active'); });
-  
+
   var etapaEl = document.getElementById('camp-filter-etapa');
   var importEl = document.getElementById('camp-filter-importacao');
   var searchEl = document.getElementById('camp-filter-search');
@@ -3220,7 +3239,14 @@ document.getElementById('btn-salvar-campanha')?.addEventListener('click', functi
 document.getElementById('camp-agendar')?.addEventListener('change', function() {
   var opts = document.getElementById('camp-agendamento-opts');
   if (opts) opts.style.display = this.checked ? 'flex' : 'none';
-  if (!this.checked) {
+  if (this.checked) {
+    var dtInputMin = document.getElementById('camp-data-agendamento');
+    if (dtInputMin) {
+      var nowLocal = new Date();
+      nowLocal.setMinutes(nowLocal.getMinutes() - nowLocal.getTimezoneOffset());
+      dtInputMin.min = nowLocal.toISOString().slice(0, 16);
+    }
+  } else {
     var dtInput = document.getElementById('camp-data-agendamento');
     if (dtInput) dtInput.value = '';
     var recInput = document.getElementById('camp-recorrencia');
