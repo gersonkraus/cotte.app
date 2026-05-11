@@ -81,7 +81,8 @@ def _validar_rate_limit_reset(request: Request, email: str) -> None:
 @auth_router.post("/registrar", response_model=UsuarioOut, status_code=201)
 def registrar(dados: UsuarioCreate, db: Session = Depends(get_db)):
     """Registra uma nova empresa e o usuário gestor fundador."""
-    if db.query(Usuario).filter(func.lower(Usuario.email) == dados.email).first():
+    existing = db.query(Usuario).filter(func.lower(Usuario.email) == dados.email).with_for_update().first()
+    if existing:
         raise HTTPException(status_code=400, detail="E-mail já cadastrado")
 
     from app.services.admin_config import get_admin_config
@@ -135,8 +136,16 @@ def registrar(dados: UsuarioCreate, db: Session = Depends(get_db)):
 @auth_router.post("/registro-publico", status_code=201)
 async def registro_publico(dados: RegistroPublico, db: Session = Depends(get_db)):
     """Cadastro self-service: cria empresa em trial (14 dias) e envia credenciais por WhatsApp e e-mail."""
-    if db.query(Usuario).filter(func.lower(Usuario.email) == dados.email).first():
+    existing = db.query(Usuario).filter(func.lower(Usuario.email) == dados.email).with_for_update().first()
+    if existing:
         raise HTTPException(status_code=400, detail="E-mail já cadastrado")
+
+    empresa_existente = db.query(Empresa).filter(
+        func.lower(Empresa.nome) == func.lower(dados.empresa_nome),
+        Empresa.telefone == dados.telefone,
+    ).first()
+    if empresa_existente:
+        raise HTTPException(status_code=400, detail="Empresa já cadastrada com este telefone.")
 
     # Senha legível: 4 letras maiúsculas + 4 dígitos (ex: BXKP4821)
     senha = "".join(random.choices(string.ascii_uppercase, k=4)) + "".join(

@@ -95,7 +95,9 @@
   // Se já estiver logado, redireciona
   if (getToken()) window.location.href = './';
 
+  let _cadastroEmProgresso = false;
   async function cadastrar() {
+    if (_cadastroEmProgresso) return;
     const btn   = document.getElementById('btn-cadastrar');
     const erro  = document.getElementById('reg-erro');
     const nome     = document.getElementById('reg-nome').value.trim();
@@ -121,6 +123,7 @@
       return;
     }
 
+    _cadastroEmProgresso = true;
     setLoading(btn, true);
     try {
       await api.post('/auth/registro-publico', {
@@ -135,6 +138,7 @@
       erro.textContent = e.message || 'Erro ao criar conta. Tente novamente.';
       erro.style.display = 'block';
     } finally {
+      _cadastroEmProgresso = false;
       setLoading(btn, false);
     }
   }

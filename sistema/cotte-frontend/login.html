@@ -1252,7 +1252,9 @@
   }
 
   // ── Cadastro ───────────────────────────────────────────────────
+  let _cadastroEmProgresso = false;
   async function fazerCadastro() {
+    if (_cadastroEmProgresso) return;
     const nome     = document.getElementById('cad-nome').value.trim();
     const empresa  = document.getElementById('cad-empresa').value.trim();
     const telefone = document.getElementById('cad-telefone').value.replace(/\D/g, '');
@@ -1279,6 +1281,7 @@
       return mostrarErro('Informe um WhatsApp válido com DDD.');
     }
 
+    _cadastroEmProgresso = true;
     setLoading(btn, true);
     document.getElementById('alert').style.display = 'none';
 
@@ -1305,6 +1308,7 @@
     } catch (err) {
       mostrarErro(err.message);
     } finally {
+      _cadastroEmProgresso = false;
       setLoading(btn, false, 'Criar conta grátis →');
     }
   }
