@@ -1738,12 +1738,17 @@ async function arquivarLead(id) {
 async function excluirLead(id) {
   if (!confirm('Excluir este lead permanentemente? Esta ação não pode ser desfeita.')) return;
   try {
+    console.log('[comercial] Excluindo lead', id);
     await api.delete('/comercial/leads/' + id);
+    console.log('[comercial] Lead excluído com sucesso', id);
     showToast('Lead excluído!', 'success');
     fecharModal('modal-detail');
     carregarPipeline();
     carregarLeadsTabela();
-  } catch(e) { showToast('Erro ao excluir lead', 'error'); }
+  } catch(e) {
+    console.error('[comercial] Erro ao excluir lead', id, e);
+    showToast('Erro ao excluir lead: ' + (e.message || e), 'error');
+  }
 }
 
 async function concluirLembrete(id) {
