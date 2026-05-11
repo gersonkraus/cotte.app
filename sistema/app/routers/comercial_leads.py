@@ -46,7 +46,7 @@ from app.schemas.schemas import (
     ReenviarSenhaResponse,
 )
 from app.services.template_anexos_service import obter_bytes_anexo
-from app.services.whatsapp_service import enviar_imagem, enviar_mensagem_texto, enviar_pdf
+from app.services.whatsapp_service import enviar_imagem, enviar_mensagem_texto, enviar_pdf, enviar_imagem_comercial, enviar_mensagem_texto_comercial, enviar_pdf_comercial
 from app.services.email_service import send_email_simples, enviar_email_boas_vindas
 from app.services.ia_service import analisar_leads
 from app.services.audit_service import registrar_auditoria
@@ -748,16 +748,16 @@ async def enviar_template_para_lead(
                 anexo_bytes = await obter_bytes_anexo(template.anexo_arquivo_path)
                 mime = getattr(template, "anexo_mime_type", "image/png")
                 if mime.startswith("image/"):
-                    enviado = await enviar_imagem(lead.whatsapp, anexo_bytes, caption=conteudo, mime_type=mime)
+                    enviado = await enviar_imagem_comercial(lead.whatsapp, anexo_bytes, caption=conteudo, mime_type=mime)
                 elif mime == "application/pdf":
-                    enviado = await enviar_pdf(lead.whatsapp, anexo_bytes, numero=getattr(template, "anexo_nome_original", "documento"), caption=conteudo)
+                    enviado = await enviar_pdf_comercial(lead.whatsapp, anexo_bytes, numero=getattr(template, "anexo_nome_original", "documento"), caption=conteudo)
                 else:
-                    enviado = await enviar_mensagem_texto(lead.whatsapp, conteudo)
+                    enviado = await enviar_mensagem_texto_comercial(lead.whatsapp, conteudo)
             except Exception as e:
                 logger.warning(f"Falha ao processar anexo do template: {e}")
-                enviado = await enviar_mensagem_texto(lead.whatsapp, conteudo)
+                enviado = await enviar_mensagem_texto_comercial(lead.whatsapp, conteudo)
         else:
-            enviado = await enviar_mensagem_texto(lead.whatsapp, conteudo)
+            enviado = await enviar_mensagem_texto_comercial(lead.whatsapp, conteudo)
             
     if canal in ("email", "ambos") and lead.email:
         try:
@@ -892,7 +892,7 @@ async def criar_empresa_from_lead(
                     f"⏰ Seu trial gratuito é válido por *{dias_trial} dias*.\n\n"
                     f"Qualquer dúvida é só chamar! — Equipe COTTE"
                 )
-                await enviar_mensagem_texto(lead.whatsapp, msg)
+                await enviar_mensagem_texto_comercial(lead.whatsapp, msg)
                 whatsapp_enviado = True
             except Exception as e:
                 logging.warning(f"Falha ao enviar WhatsApp para lead {lead_id}: {e}")
@@ -993,7 +993,7 @@ async def reenviar_senha(
                 f"🔗 *Acesse agora:*\n{link}\n\n"
                 f"Qualquer dúvida é só chamar! — Equipe COTTE"
             )
-            await enviar_mensagem_texto(lead.whatsapp, msg)
+            await enviar_mensagem_texto_comercial(lead.whatsapp, msg)
             whatsapp_enviado = True
         except Exception as e:
             logging.warning(f"Falha ao enviar WhatsApp para lead {lead_id}: {e}")
@@ -1171,13 +1171,13 @@ async def enviar_lote(
                 if anexo_bytes:
                     mime = getattr(template, "anexo_mime_type", "image/png")
                     if mime.startswith("image/"):
-                        sucesso = await enviar_imagem(lead.whatsapp, anexo_bytes, caption=mensagem_personalizada, mime_type=mime)
+                        sucesso = await enviar_imagem_comercial(lead.whatsapp, anexo_bytes, caption=mensagem_personalizada, mime_type=mime)
                     elif mime == "application/pdf":
-                        sucesso = await enviar_pdf(lead.whatsapp, anexo_bytes, numero=getattr(template, "anexo_nome_original", "documento"), caption=mensagem_personalizada)
+                        sucesso = await enviar_pdf_comercial(lead.whatsapp, anexo_bytes, numero=getattr(template, "anexo_nome_original", "documento"), caption=mensagem_personalizada)
                     else:
-                        sucesso = await enviar_mensagem_texto(lead.whatsapp, mensagem_personalizada)
+                        sucesso = await enviar_mensagem_texto_comercial(lead.whatsapp, mensagem_personalizada)
                 else:
-                    sucesso = await enviar_mensagem_texto(
+                    sucesso = await enviar_mensagem_texto_comercial(
                         lead.whatsapp, mensagem_personalizada
                     )
                 

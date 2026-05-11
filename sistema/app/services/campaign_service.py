@@ -12,7 +12,7 @@ from app.models.models import (
     CanalInteracao,
 )
 from app.schemas.schemas import CampaignMetrics
-from app.services.whatsapp_service import enviar_imagem, enviar_mensagem_texto, enviar_pdf
+from app.services.whatsapp_service import enviar_imagem_comercial, enviar_mensagem_texto_comercial, enviar_pdf_comercial
 from app.services.email_service import send_email_simples
 from app.services.template_anexos_service import obter_bytes_anexo
 import logging
@@ -144,14 +144,14 @@ class CampaignService:
                             if anexo_bytes:
                                 mime = getattr(template, "anexo_mime_type", "image/png")
                                 if mime.startswith("image/"):
-                                    sucesso = await enviar_imagem(lead.whatsapp, anexo_bytes, caption=mensagem_final, mime_type=mime, empresa=self.empresa)
+                                    sucesso = await enviar_imagem_comercial(lead.whatsapp, anexo_bytes, caption=mensagem_final, mime_type=mime)
                                 elif mime == "application/pdf":
-                                    sucesso = await enviar_pdf(lead.whatsapp, anexo_bytes, numero=getattr(template, "anexo_nome_original", "documento"), caption=mensagem_final, empresa=self.empresa)
+                                    sucesso = await enviar_pdf_comercial(lead.whatsapp, anexo_bytes, numero=getattr(template, "anexo_nome_original", "documento"), caption=mensagem_final)
                                 else:
-                                    sucesso = await enviar_mensagem_texto(lead.whatsapp, mensagem_final, empresa=self.empresa)
+                                    sucesso = await enviar_mensagem_texto_comercial(lead.whatsapp, mensagem_final)
                             else:
-                                sucesso = await enviar_mensagem_texto(
-                                    lead.whatsapp, mensagem_final, empresa=self.empresa
+                                sucesso = await enviar_mensagem_texto_comercial(
+                                    lead.whatsapp, mensagem_final
                                 )
                             
                             if sucesso:

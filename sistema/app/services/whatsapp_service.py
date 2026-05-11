@@ -218,3 +218,27 @@ async def enviar_lembrete_cliente(
     return await get_provider_para_empresa(empresa).enviar_lembrete_cliente(
         telefone_cliente, cliente_nome, numero_orc, link_publico, empresa_nome, base_url, lembrete_texto
     )
+
+
+# ── Helpers para o módulo Comercial (CRM interno do COTTE) ─────────────────
+# Sempre usam EVOLUTION_INSTANCE_COMERCIAL, nunca o provider global.
+
+def get_provider_comercial():
+    from app.services.whatsapp_evolution import EvolutionProvider
+    return EvolutionProvider(instance=settings.EVOLUTION_INSTANCE_COMERCIAL)
+
+
+async def enviar_mensagem_texto_comercial(telefone: str, mensagem: str) -> bool:
+    return await get_provider_comercial().enviar_mensagem_texto(telefone, mensagem)
+
+
+async def enviar_imagem_comercial(
+    telefone: str, imagem_bytes: bytes, caption: str = "", mime_type: str = "image/png"
+) -> bool:
+    return await get_provider_comercial().enviar_imagem(telefone, imagem_bytes, caption, mime_type)
+
+
+async def enviar_pdf_comercial(
+    telefone: str, pdf_bytes: bytes, numero: str = "documento", caption: str = ""
+) -> bool:
+    return await get_provider_comercial().enviar_pdf(telefone, pdf_bytes, numero, caption)
