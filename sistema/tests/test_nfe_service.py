@@ -503,3 +503,14 @@ async def test_cancelar_nota_focus_sem_ref_levanta_erro(db):
 
     with pytest.raises(ValueError, match="focus_ref"):
         await nfe_service.cancelar_nota(db, nota, emp, "motivo qualquer")
+
+
+# ---------------------------------------------------------------------------
+# Task 9 — _path_focus tipos de nota
+# ---------------------------------------------------------------------------
+
+def test_path_focus_tipos():
+    from app.services.nfe_service import _path_focus
+    assert _path_focus("nfe", "12345678000195-1") == "/v2/nfe/12345678000195-1"
+    assert _path_focus("nfce", "12345678000195-2") == "/v2/nfce/12345678000195-2"
+    assert _path_focus("nfse", "12345678000195-3") == "/v2/nfse/12345678000195-3"

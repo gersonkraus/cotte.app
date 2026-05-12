@@ -9,8 +9,7 @@ def empresa_com_fiscal(db):
     emp.inscricao_municipal = "789012"
     emp.regime_tributario = "simples_nacional"
     emp.crt = "1"
-    emp.notaas_api_key = "ntaas_test_key"
-    emp.notaas_ambiente = "homologacao"
+    emp.nfe_ambiente = "homologacao"
     db.commit()
     db.refresh(emp)
     return emp
