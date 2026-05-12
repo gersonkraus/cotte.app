@@ -2072,6 +2072,7 @@ class NotaFiscalOut(BaseModel):
     protocolo: Optional[str] = None
     xml_url: Optional[str] = None
     danfe_url: Optional[str] = None
+    qr_code: Optional[str] = None
     erro_codigo: Optional[str] = None
     erro_mensagem: Optional[str] = None
     criado_em: datetime
@@ -2084,7 +2085,42 @@ class NotaFiscalOut(BaseModel):
         from_attributes = True
 
 
+class NotaFiscalListOut(BaseModel):
+    notas: list[NotaFiscalOut]
+    total: int
+    pagina: int = 1
+    por_pagina: int = 20
+
+
+from pydantic import model_validator
+
 class ConfiguracaoFiscalEmpresa(BaseModel):
+    @model_validator(mode="before")
+    @classmethod
+    def mask_api_key(cls, values):
+        # Em modo from_attributes, 'values' pode ser o objeto ORM (Empresa) ou um dict
+        if isinstance(values, dict):
+            raw = values.get("notaas_api_key")
+            if raw:
+                if raw.startswith("encv1:"):
+                    values["notaas_api_key"] = "***criptografada***"
+                elif len(raw) > 8:
+                    values["notaas_api_key"] = raw[:4] + "..." + raw[-4:]
+        else:
+            # Objeto ORM, vamos extrair os dados para um dict para não mutar o objeto ORM
+            data = {}
+            for col in cls.model_fields.keys():
+                data[col] = getattr(values, col, None)
+            
+            raw = data.get("notaas_api_key")
+            if raw:
+                if raw.startswith("encv1:"):
+                    data["notaas_api_key"] = "***criptografada***"
+                elif len(raw) > 8:
+                    data["notaas_api_key"] = raw[:4] + "..." + raw[-4:]
+            return data
+        return values
+
     cnpj: Optional[str] = None
     inscricao_estadual: Optional[str] = None
     inscricao_municipal: Optional[str] = None

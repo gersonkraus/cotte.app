@@ -156,7 +156,9 @@ async def criar_api_key(db: Session, empresa: Empresa, project_id: str) -> str:
     if not api_key:
         raise ValueError("Notaas não retornou api key")
 
-    empresa.notaas_api_key = api_key
+    from app.core.crypto import encrypt_secret
+    from app.core.config import settings
+    empresa.notaas_api_key = encrypt_secret(api_key, crypto_secret=settings.NOTAAS_CRYPTO_SECRET) or api_key
     db.flush()
     logger.info("API key Notaas criada para empresa_id=%s (prefix=%s)", empresa.id, data.get("keyPrefix"))
     return api_key

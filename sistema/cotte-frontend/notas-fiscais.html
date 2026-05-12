@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notas Fiscais — COTTE</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header class="app-header">
+        <div class="logo">
+            <a href="dashboard.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                </svg>
+                <span>COTTE</span>
+            </a>
+        </div>
+        <div class="user-menu">
+            <span id="user-name">Carregando...</span>
+            <button onclick="auth.logout()" class="btn btn-sm btn-ghost">Sair</button>
+        </div>
+    </header>
+
+    <div class="app-layout">
+        <aside class="app-sidebar">
+            <nav>
+                <ul>
+                    <li><a href="dashboard.html">Dashboard</a></li>
+                    <li><a href="clientes.html">Clientes</a></li>
+                    <li><a href="orcamentos.html">Orçamentos</a></li>
+                    <li><a href="catalogo.html">Catálogo</a></li>
+                    <li><a href="notas-fiscais.html" class="active">Notas Fiscais</a></li>
+                    <li><a href="configuracoes.html">Configurações</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <div class="page-header">
+                <h1>Notas Fiscais</h1>
+                <div class="filters">
+                    <select id="filtro-tipo">
+                        <option value="">Todos os tipos</option>
+                        <option value="nfse">NFS-e</option>
+                        <option value="nfe">NF-e</option>
+                        <option value="nfce">NFC-e</option>
+                    </select>
+                    <select id="filtro-status">
+                        <option value="">Todos os status</option>
+                        <option value="pendente">Pendente</option>
+                        <option value="processando">Processando</option>
+                        <option value="emitida">Emitida</option>
+                        <option value="cancelada">Cancelada</option>
+                        <option value="erro">Erro</option>
+                    </select>
+                    <input type="text" id="filtro-busca" placeholder="Buscar número, chave...">
+                </div>
+            </div>
+
+            <div id="notas-list" class="cards-grid"></div>
+            <div id="notas-pagination" class="pagination"></div>
+            <div id="notas-empty" class="empty-state" style="display:none;">
+                <p>Nenhuma nota fiscal encontrada.</p>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/notas-fiscais.js"></script>
+</body>
+</html>

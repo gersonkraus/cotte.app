@@ -4,22 +4,24 @@ notas_fiscais.py — Endpoints para emissão e gestão de NF-e/NFC-e/NFS-e.
 
 import logging
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, Request, UploadFile
 from fastapi import Form
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 
 from app.core.database import get_db
 from app.core.auth import get_usuario_atual, exigir_permissao
 from app.core.tenant_context import set_tenant_context
 
-from app.models.models import Empresa, NotaFiscal, Orcamento
+from app.models.models import Empresa, NotaFiscal, Orcamento, Usuario, HistoricoEdicao
 from app.schemas.schemas import (
     ConfiguracaoFiscalEmpresa,
     NotaFiscalCancelarRequest,
     NotaFiscalEmitirRequest,
     NotaFiscalOut,
+    NotaFiscalListOut,
 )
 from app.services import nfe_service
 from app.services import nfe_org_service
@@ -268,9 +270,17 @@ async def receber_webhook_notaas(
 
     # Valida assinatura HMAC-SHA256 se o secret estiver configurado
     empresa = db.query(Empresa).filter(Empresa.id == nota.empresa_id).first()
-    if empresa and empresa.notaas_webhook_secret and x_notaas_signature:
+    if empresa and empresa.notaas_webhook_secret:
+        if not x_notaas_signature:
+            raise HTTPException(401, "Assinatura de webhook ausente")
         if not nfe_service.verificar_assinatura_webhook(body, x_notaas_signature, empresa.notaas_webhook_secret):
             raise HTTPException(401, "Assinatura de webhook inválida")
+    else:
+        import logging
+        logging.getLogger(__name__).warning(
+            "Webhook Notaas recebido sem secret configurado (empresa_id=%s)",
+            nota.empresa_id,
+        )
 
     # Idempotência: ignora reentregas já processadas
     if delivery_id and nota.notaas_delivery_id == delivery_id:
@@ -279,8 +289,6 @@ async def receber_webhook_notaas(
 
     if "issued" in event:
         nota.status = "emitida"
-        # NF-e/NFC-e: chaveAcesso e nProt ficam em data{}
-        # NFS-e: chNFSe e numeroNfe ficam no root
         nota.chave_acesso = (
             data.get("chaveAcesso")
             or payload.get("chNFSe")
@@ -292,11 +300,19 @@ async def receber_webhook_notaas(
             nota.numero = str(numero)
         nota.xml_url = data.get("xmlUrl") or payload.get("xmlUrl")
         nota.danfe_url = data.get("pdfUrl") or payload.get("pdfUrl")
+        nota.qr_code = data.get("qrCode") or payload.get("qrCode")
         nota.emitida_em = nota.emitida_em or datetime.utcnow()
+
+    elif "documents_ready" in event:
+        if data.get("xmlUrl") and not nota.xml_url:
+            nota.xml_url = data["xmlUrl"]
+        if data.get("pdfUrl") and not nota.danfe_url:
+            nota.danfe_url = data["pdfUrl"]
+        if data.get("cancelXmlUrl"):
+            nota.xml_url = data["cancelXmlUrl"]
 
     elif "error" in event:
         nota.status = "erro"
-        # NF-e/NFC-e: cStat + xMotivo em data{}; NFS-e: errorCode + errorMessage no root
         nota.erro_codigo = (
             str(data.get("cStat") or "")
             or payload.get("errorCode", "WEBHOOK_ERROR")
@@ -310,13 +326,69 @@ async def receber_webhook_notaas(
         nota.status = "cancelada"
         nota.cancelada_em = datetime.utcnow()
 
+    elif event == "batch.completed":
+        import logging
+        logging.getLogger(__name__).info("batch.completed recebido para empresa_id=%s — processamento em lote concluído", nota.empresa_id)
+        db.commit()
+        return {"ok": True}
+        
+    if nota.orcamento_id and nota.status in ("emitida", "cancelada", "erro"):
+        descricao = {
+            "emitida": f"Nota Fiscal {nota.tipo.upper()} {nota.numero or ''} emitida (via webhook)",
+            "cancelada": f"Nota Fiscal {nota.tipo.upper()} {nota.numero or ''} cancelada",
+            "erro": f"Erro na emissão da Nota Fiscal: {nota.erro_mensagem or 'desconhecido'}",
+        }.get(nota.status, "")
+        if descricao:
+            historico = HistoricoEdicao(
+                orcamento_id=nota.orcamento_id,
+                editado_por_id=None,
+                descricao=descricao,
+                tipo="nota_fiscal",
+            )
+            db.add(historico)
+
     db.commit()
     return {"ok": True}
 
 
 # ── Listagem e consulta por ID — APÓS rotas estáticas ─────────────────────────
 
+
+@router.get("", response_model=NotaFiscalListOut)
+async def listar_notas_fiscais(
+    pagina: int = 1,
+    por_pagina: int = 20,
+    status: Optional[str] = None,
+    tipo: Optional[str] = None,
+    busca: Optional[str] = None,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(get_usuario_atual),
+):
+    query = db.query(NotaFiscal).filter(NotaFiscal.empresa_id == usuario.empresa_id)
+    if status:
+        query = query.filter(NotaFiscal.status == status)
+    if tipo:
+        query = query.filter(NotaFiscal.tipo == tipo)
+    if busca:
+        query = query.filter(
+            or_(
+                NotaFiscal.numero.ilike(f"%{busca}%"),
+                NotaFiscal.chave_acesso.ilike(f"%{busca}%"),
+                NotaFiscal.natureza_operacao.ilike(f"%{busca}%"),
+            )
+        )
+    total = query.count()
+    notas = (
+        query.order_by(NotaFiscal.criado_em.desc())
+        .offset((pagina - 1) * por_pagina)
+        .limit(por_pagina)
+        .all()
+    )
+    return NotaFiscalListOut(notas=notas, total=total, pagina=pagina, por_pagina=por_pagina)
+
+
 @router.get("/orcamento/{orcamento_id}", response_model=List[NotaFiscalOut])
+
 def listar_notas_por_orcamento(
     orcamento_id: int,
     db: Session = Depends(get_db),

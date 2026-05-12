@@ -1,3 +1,10 @@
+from app.models.models import HistoricoEdicao
+from app.core.config import settings
+from app.core.crypto import decrypt_secret
+
+def _get_api_key(empresa) -> str:
+    return decrypt_secret(empresa.notaas_api_key, crypto_secret=settings.NOTAAS_CRYPTO_SECRET) or empresa.notaas_api_key or ""
+
 """
 nfe_service.py — Integração com API Notaas para emissão de NF-e/NFC-e/NFS-e.
 URL base: https://platform.notaas.com.br/api/v1
@@ -225,7 +232,7 @@ async def emitir_nota(
 
     endpoint = "/emitir" if nota_fiscal.tipo == "nfse" else "/nfe/emitir"
 
-    async with _get_client(empresa.notaas_api_key) as client:
+    async with _get_client(_get_api_key(empresa)) as client:
         try:
             resp = await client.post(endpoint, json=payload)
             resp.raise_for_status()
@@ -328,7 +335,7 @@ async def cancelar_nota(
     endpoint = "/cancelar" if nota_fiscal.tipo == "nfse" else "/nfe/cancelar"
     payload = {"invoiceId": invoice_id, "motivo": motivo}
 
-    async with _get_client(empresa.notaas_api_key) as client:
+    async with _get_client(_get_api_key(empresa)) as client:
         try:
             resp = await client.post(endpoint, json=payload)
             if resp.status_code not in (200, 202):
