@@ -11,7 +11,7 @@ from app.services import nfe_service
 from app.services.nfe_service import (
     _limpar_doc,
     _limpar_cep,
-    verificar_assinatura_webhook,
+    verificar_token_webhook_focus,
     _normalizar_cfop_para_string,
     _cfop_formato_notaas_valido,
     _cfop_padrao_por_uf_empresa_cliente,
@@ -33,22 +33,22 @@ def test_limpar_cep():
     assert _limpar_cep(None) == ""
 
 
-def test_verificar_assinatura_webhook_valid():
-    body = b'{"event":"test"}'
-    secret = "my_secret"
-    sig = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
-    assert verificar_assinatura_webhook(body, sig, secret) is True
+def test_verificar_token_webhook_focus_valido():
+    import base64
+    token = "meu_token_focus"
+    encoded = base64.b64encode(f"{token}:".encode()).decode()
+    assert verificar_token_webhook_focus(f"Basic {encoded}", token) is True
 
 
-def test_verificar_assinatura_webhook_invalid():
-    assert verificar_assinatura_webhook(b'{"event":"test"}', "bad_sig", "my_secret") is False
+def test_verificar_token_webhook_focus_invalido():
+    import base64
+    encoded = base64.b64encode(b"token_errado:").decode()
+    assert verificar_token_webhook_focus(f"Basic {encoded}", "token_correto") is False
 
 
-def test_verificar_assinatura_webhook_with_prefix():
-    body = b'{"event":"test"}'
-    secret = "my_secret"
-    sig = "sha256=" + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
-    assert verificar_assinatura_webhook(body, sig, secret) is True
+def test_verificar_token_webhook_focus_header_ausente():
+    assert verificar_token_webhook_focus("", "qualquer") is False
+    assert verificar_token_webhook_focus(None, "qualquer") is False
 
 
 
@@ -457,3 +457,49 @@ async def test_emitir_nota_focus_denegado(db):
 
     assert resultado.status == "erro"
     assert resultado.denegada is True
+
+
+@pytest.mark.asyncio
+async def test_cancelar_nota_focus_sucesso(db):
+    from app.models.models import NotaFiscal
+    from tests.conftest import make_empresa
+
+    emp = make_empresa(db, nome="Emp Cancel", cnpj="12345678000195")
+    nota = NotaFiscal(
+        empresa_id=emp.id, tipo="nfe", status="emitida",
+        focus_ref="12345678000195-99",
+    )
+    db.add(nota)
+    db.flush()
+
+    resp_cancel = httpx.Response(
+        200,
+        json={"status": "cancelado"},
+        request=httpx.Request("DELETE", "https://homologacao.focusnfe.com.br/v2/nfe/12345678000195-99"),
+    )
+
+    with patch("app.services.nfe_service._get_client") as mock_ctx:
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.delete = AsyncMock(return_value=resp_cancel)
+        mock_ctx.return_value = mock_client
+
+        resultado = await nfe_service.cancelar_nota(db, nota, emp, "Erro no preço informado")
+
+    assert resultado.status == "cancelada"
+    assert resultado.cancelamento_motivo == "Erro no preço informado"
+
+
+@pytest.mark.asyncio
+async def test_cancelar_nota_focus_sem_ref_levanta_erro(db):
+    from app.models.models import NotaFiscal
+    from tests.conftest import make_empresa
+
+    emp = make_empresa(db, nome="Emp SemRef", cnpj="12345678000195")
+    nota = NotaFiscal(empresa_id=emp.id, tipo="nfe", status="emitida", focus_ref=None)
+    db.add(nota)
+    db.flush()
+
+    with pytest.raises(ValueError, match="focus_ref"):
+        await nfe_service.cancelar_nota(db, nota, emp, "motivo qualquer")

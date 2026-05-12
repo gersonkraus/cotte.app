@@ -738,19 +738,17 @@ async def cancelar_nota(
     empresa: Empresa,
     motivo: str,
 ) -> NotaFiscal:
-    """Cancela uma NF emitida."""
-    invoice_id = nota_fiscal.notaas_invoice_id
-    if not invoice_id:
-        raise ValueError("Nota sem invoiceId para cancelar")
+    """Cancela NF emitida via Focus: DELETE /v2/{tipo}/{ref}."""
+    ref = nota_fiscal.focus_ref
+    if not ref:
+        raise ValueError("Nota sem focus_ref para cancelar")
 
-    # Notaas usa /cancelar para NFS-e; NF-e usa /nfe/cancelar (confirmar quando docs disponíveis)
-    endpoint = "/cancelar" if nota_fiscal.tipo == "nfse" else "/nfe/cancelar"
-    payload = {"invoiceId": invoice_id, "motivo": motivo}
+    path = _path_focus(nota_fiscal.tipo, ref)
 
     async with _get_client() as client:
         try:
-            resp = await client.post(endpoint, json=payload)
-            if resp.status_code not in (200, 202):
+            resp = await client.delete(path, json={"justificativa": motivo})
+            if resp.status_code not in (200, 201, 204):
                 raise httpx.HTTPStatusError(
                     f"Cancelamento falhou: {resp.status_code}",
                     request=resp.request,
@@ -766,15 +764,16 @@ async def cancelar_nota(
     return nota_fiscal
 
 
-def verificar_assinatura_webhook(body: bytes, signature: str, secret: str) -> bool:
-    """Valida HMAC-SHA256 do webhook Notaas.
-
-    A Notaas envia o hex do HMAC diretamente no X-Notaas-Signature (sem prefixo sha256=).
-    """
-    expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
-    # Aceita com ou sem prefixo "sha256=" para compatibilidade
-    sig = signature.removeprefix("sha256=")
-    return hmac.compare_digest(expected, sig)
+def verificar_token_webhook_focus(authorization_header: str, expected_token: str) -> bool:
+    """Valida header Authorization: Basic {base64(token:)} enviado pela Focus."""
+    if not authorization_header or not authorization_header.startswith("Basic "):
+        return False
+    try:
+        decoded = base64.b64decode(authorization_header[6:]).decode()
+        token = decoded.split(":")[0]
+        return hmac.compare_digest(token, expected_token)
+    except Exception:
+        return False
 
 
 def _limpar_doc(doc: str) -> str:
