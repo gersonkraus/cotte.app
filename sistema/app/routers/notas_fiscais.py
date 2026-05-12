@@ -3,6 +3,7 @@ notas_fiscais.py — Endpoints para emissão e gestão de NF-e/NFC-e/NFS-e.
 """
 
 import logging
+import httpx
 from datetime import datetime
 from typing import List, Optional
 
@@ -185,9 +186,12 @@ async def configurar_notaas(
         )
     except ValueError as e:
         raise HTTPException(422, str(e))
+    except httpx.HTTPStatusError as e:
+        logger.error("Erro HTTP Notaas empresa_id=%s: %s - %s", usuario.empresa_id, e, e.response.text)
+        raise HTTPException(400, f"Erro na API da Notaas: {e.response.text}")
     except Exception as e:
         logger.error("Erro no onboarding Notaas empresa_id=%s: %s", usuario.empresa_id, e)
-        raise HTTPException(400, f"Erro na comunicação com a Notaas: {e}")
+        raise HTTPException(400, f"Erro interno na integração: {e}")
 
     return {
         "success": True,
