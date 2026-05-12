@@ -101,8 +101,7 @@
         };
     }
 
-    // Wait for DOM to be ready before attaching events
-    document.addEventListener("DOMContentLoaded", function() {
+    function init() {
         var t = document.getElementById("filtro-tipo");
         if(t) t.addEventListener("change", function() { carregarNotas(1); });
         
@@ -113,7 +112,13 @@
         if(b) b.addEventListener("input", debounce(function() { carregarNotas(1); }, 300));
 
         carregarNotas(1);
-    });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+    } else {
+        init();
+    }
 
     window.NotasFiscaisPage = { carregar: carregarNotas, cancelar: cancelar };
 })();

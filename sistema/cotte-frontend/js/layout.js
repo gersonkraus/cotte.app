@@ -104,6 +104,18 @@ const _SIDEBAR_HTML = `
       </span>
       Financeiro
     </a>
+    <a class="nav-item" data-page="notas-fiscais" href="notas-fiscais.html" id="nav-notas-fiscais">
+      <span class="nav-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+      </span>
+      Notas Fiscais
+    </a>
     <a class="nav-item" data-page="agendamentos" href="agendamentos.html" id="nav-agendamentos">
       <span class="nav-icon">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -320,6 +332,7 @@ function inicializarLayout(pageKey, opts = {}) {
       if (!p.pode('documentos')) document.getElementById('nav-documentos')?.remove();
       if (!p.pode('relatorios')) document.getElementById('nav-relatorios')?.remove();
       if (!p.pode('financeiro')) document.getElementById('nav-financeiro')?.remove();
+      if (!p.pode('financeiro')) document.getElementById('nav-notas-fiscais')?.remove(); // Atrelando Notas Fiscais a Financeiro por enquanto
       if (!p.pode('agendamentos')) document.getElementById('nav-agendamentos')?.remove();
       // O item "Comercial" tenant é controlado em `carregarSidebar()` (api.js),
       // pois depende de dados assíncronos de plano/módulo. Aqui não removemos.

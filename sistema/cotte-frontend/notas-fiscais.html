@@ -1,72 +1,108 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Notas Fiscais — COTTE</title>
-    <link rel="stylesheet" href="css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem("cotte_tema");if(t){document.documentElement.setAttribute("data-theme",t);}else{document.documentElement.setAttribute("data-theme","light");}})()</script>
+  <title>COTTE — Notas Fiscais</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/style.css?v=12">
+  <style>
+    /* Estilos específicos da tela de Notas Fiscais */
+    .filtros-bar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .filtros-bar input, .filtros-bar select {
+      font-family: inherit;
+    }
+    .nf-card .card-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .nf-card .card-footer {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 1px dashed var(--border);
+    }
+    .nf-numero { font-weight: 600; font-family: 'Space Grotesk', sans-serif; }
+    .nf-tipo { font-size: 13px; color: var(--muted); font-weight: 500; text-transform: uppercase; }
+    @media (max-width: 600px) {
+      .filtros-bar { gap: 10px; }
+      .filtros-bar select, .filtros-bar input { flex: 1; min-width: 0; }
+    }
+  </style>
 </head>
 <body>
-    <header class="app-header">
-        <div class="logo">
-            <a href="dashboard.html">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
-                </svg>
-                <span>COTTE</span>
-            </a>
-        </div>
-        <div class="user-menu">
-            <span id="user-name">Carregando...</span>
-            <button onclick="auth.logout()" class="btn btn-sm btn-ghost">Sair</button>
-        </div>
-    </header>
 
-    <div class="app-layout">
-        <aside class="app-sidebar">
-            <nav>
-                <ul>
-                    <li><a href="dashboard.html">Dashboard</a></li>
-                    <li><a href="clientes.html">Clientes</a></li>
-                    <li><a href="orcamentos.html">Orçamentos</a></li>
-                    <li><a href="catalogo.html">Catálogo</a></li>
-                    <li><a href="notas-fiscais.html" class="active">Notas Fiscais</a></li>
-                    <li><a href="configuracoes.html">Configurações</a></li>
-                </ul>
-            </nav>
-        </aside>
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar"></aside>
 
-        <main class="main-content">
-            <div class="page-header">
-                <h1>Notas Fiscais</h1>
-                <div class="filters">
-                    <select id="filtro-tipo">
-                        <option value="">Todos os tipos</option>
-                        <option value="nfse">NFS-e</option>
-                        <option value="nfe">NF-e</option>
-                        <option value="nfce">NFC-e</option>
-                    </select>
-                    <select id="filtro-status">
-                        <option value="">Todos os status</option>
-                        <option value="pendente">Pendente</option>
-                        <option value="processando">Processando</option>
-                        <option value="emitida">Emitida</option>
-                        <option value="cancelada">Cancelada</option>
-                        <option value="erro">Erro</option>
-                    </select>
-                    <input type="text" id="filtro-busca" placeholder="Buscar número, chave...">
-                </div>
-            </div>
-
-            <div id="notas-list" class="cards-grid"></div>
-            <div id="notas-pagination" class="pagination"></div>
-            <div id="notas-empty" class="empty-state" style="display:none;">
-                <p>Nenhuma nota fiscal encontrada.</p>
-            </div>
-        </main>
+<!-- MAIN -->
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-title-wrap">
+      <div class="page-title">Notas Fiscais</div>
+      <div class="page-sub" id="page-sub">Histórico de emissões</div>
     </div>
+    <div class="topbar-actions">
+      <span id="topbar-notificacoes"></span>
+      <a class="btn btn-ghost" href="configuracoes.html#sec-fiscal" title="Configurar Emissão Fiscal">⚙️ Configurações Fiscais</a>
+    </div>
+  </div>
 
-    <script src="js/api.js"></script>
-    <script src="js/notas-fiscais.js"></script>
+  <!-- BUSCA + FILTROS -->
+  <div class="card" style="margin-bottom:20px;padding:16px 20px">
+    <div class="filtros-bar">
+      <div style="flex:1; min-width:200px">
+        <input type="text" id="filtro-busca" placeholder="🔎 Buscar por número, chave ou natureza..." style="width:100%">
+      </div>
+      <div>
+        <select id="filtro-tipo">
+          <option value="">Todos os tipos</option>
+          <option value="nfse">NFS-e (Serviços)</option>
+          <option value="nfe">NF-e (Produtos)</option>
+          <option value="nfce">NFC-e (Consumidor)</option>
+        </select>
+      </div>
+      <div>
+        <select id="filtro-status">
+          <option value="">Todos os status</option>
+          <option value="pendente">Pendente</option>
+          <option value="processando">Processando</option>
+          <option value="emitida">Emitida</option>
+          <option value="cancelada">Cancelada</option>
+          <option value="erro">Com Erro</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div id="notas-list" class="cards-grid" style="gap:20px"></div>
+  
+  <div id="notas-pagination" class="pagination" style="margin-top:24px"></div>
+  
+  <div id="notas-empty" class="empty-state" style="display:none; padding:40px; text-align:center;">
+    <div style="font-size:32px;margin-bottom:12px;opacity:0.5">🧾</div>
+    <h3 style="margin:0 0 8px">Nenhuma nota fiscal</h3>
+    <p style="color:var(--muted);margin:0;font-size:14px">Não encontramos registros correspondentes à busca.</p>
+  </div>
+
+</main>
+
+<script src="js/utils.js?v=1"></script>
+<script src="js/api.js?v=17"></script>
+<script src="js/layout.js?v=6"></script>
+<script src="js/ux-improvements.js?v=1"></script>
+<script>
+  inicializarLayout('notas-fiscais');
+</script>
+<script src="js/notas-fiscais.js"></script>
+
 </body>
 </html>
