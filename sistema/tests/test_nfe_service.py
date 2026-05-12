@@ -191,12 +191,24 @@ async def test_montar_payload_nfe_codigo_municipio_cliente():
         total=Decimal("50"),
         servico=serv,
     )
-    emp = SimpleNamespace(endereco_uf="PR")
+    emp = SimpleNamespace(
+        cnpj="98765432000188",
+        nome="Emitente Teste",
+        endereco_uf="PR",
+        endereco_logradouro="Rua Emit",
+        endereco_numero="1",
+        endereco_bairro="Centro",
+        endereco_cidade="Curitiba",
+        endereco_cep="80010000",
+        inscricao_estadual="123",
+        regime_tributario="simples_nacional",
+        crt=1,
+    )
     orc = SimpleNamespace(cliente=cliente, itens=[item], total=Decimal("50"), forma_pagamento="pix")
 
     payload = await nfe_service._montar_payload_nfe(emp, orc, "nfe", "Venda", "1", db=None)
-    assert payload["dest"]["endereco"]["codigoMunicipio"] == 4106902
-    assert payload["items"][0]["cfop"] == "5102"
+    assert payload["codigo_municipio_destinatario"] == "4106902"
+    assert payload["items"][0]["cfop"] == 5102
     assert payload["items"][0]["descricao"] == "Camiseta"
 
 
@@ -205,7 +217,17 @@ async def test_montar_payload_nfe_ibge_via_viacep_persiste_no_cliente(db):
     from tests.conftest import make_empresa, make_usuario
     from app.models.models import Cliente, Orcamento, ItemOrcamento, Servico
 
-    emp = make_empresa(db, nome="Emp NFe ViaCEP")
+    emp = make_empresa(db, nome="Emp NFe ViaCEP", cnpj="11222333000181")
+    emp.endereco_logradouro = "Rua Emp"
+    emp.endereco_numero = "1"
+    emp.endereco_bairro = "Centro"
+    emp.endereco_cidade = "Curitiba"
+    emp.endereco_uf = "PR"
+    emp.endereco_cep = "80010000"
+    emp.inscricao_estadual = "1234567890"
+    emp.regime_tributario = "simples_nacional"
+    emp.crt = 1
+    db.flush()
     u = make_usuario(db, emp)
     cli = Cliente(
         empresa_id=emp.id,
@@ -258,7 +280,7 @@ async def test_montar_payload_nfe_ibge_via_viacep_persiste_no_cliente(db):
         )
         payload = await nfe_service._montar_payload_nfe(emp, orc, "nfe", "Venda", "1", db=db)
 
-    assert payload["dest"]["endereco"]["codigoMunicipio"] == 3550308
+    assert payload["codigo_municipio_destinatario"] == "3550308"
     db.flush()
     db.refresh(cli)
     assert cli.codigo_municipio_ibge == "3550308"
@@ -348,6 +370,84 @@ def test_gerar_ref_cnpj_none_levanta_value_error():
     emp = SimpleNamespace(cnpj=None)
     with pytest.raises(ValueError, match="CNPJ"):
         _gerar_ref(emp, 1)
+
+
+@pytest.mark.asyncio
+async def test_montar_payload_focus_nfe_estrutura(db):
+    from tests.conftest import make_empresa, make_usuario, make_cliente, make_orcamento
+
+    emp = make_empresa(db, cnpj="12.345.678/0001-90")
+    emp.endereco_logradouro = "Av Paulista"
+    emp.endereco_numero = "1000"
+    emp.endereco_bairro = "Bela Vista"
+    emp.endereco_cidade = "São Paulo"
+    emp.endereco_uf = "SP"
+    emp.endereco_cep = "01310100"
+    emp.inscricao_estadual = "123456789012"
+    emp.regime_tributario = "simples_nacional"
+    emp.crt = 1
+    db.flush()
+    u = make_usuario(db, emp)
+    cli = make_cliente(db, emp, nome="Cliente Consumidor")
+    cli.cpf = "12345678909"
+    cli.logradouro = "Rua das Flores"
+    cli.numero = "10"
+    cli.bairro = "Centro"
+    cli.cidade = "São Paulo"
+    cli.estado = "SP"
+    cli.cep = "01310100"
+    cli.codigo_municipio_ibge = "3550308"
+    db.commit()
+    orc = make_orcamento(db, emp, cli, u, total=150.0)
+    with patch("app.services.nfe_service.sugerir_dados_fiscais", new_callable=AsyncMock) as mock_ia:
+        mock_ia.return_value = {"ncm": "85171231", "cfop": "5102"}
+        payload = await nfe_service.montar_payload_focus_nfe(
+            emp, orc, "nfe", "Venda de teste", "1", None, db=db
+        )
+    assert payload["cnpj_emitente"] == "12345678000190"
+    assert payload["tipo_documento"] == 1
+    assert payload["finalidade_emissao"] == 1
+    assert "items" in payload and len(payload["items"]) >= 1
+    assert payload["formas_pagamento"]
+    assert payload["valor_total"] == 150.0
+    assert payload["codigo_municipio_destinatario"] == "3550308"
+
+
+@pytest.mark.asyncio
+async def test_emitir_nota_focus_201_sincrono_sem_polling(db):
+    from app.models.models import NotaFiscal
+    from tests.conftest import make_empresa
+
+    emp = make_empresa(db, nome="Empresa Sync", cnpj="12345678000195")
+    nota = NotaFiscal(empresa_id=emp.id, tipo="nfe", status="pendente")
+    db.add(nota)
+    db.flush()
+
+    _req = httpx.Request("POST", "http://focus-test")
+    resp_emissao = httpx.Response(
+        201,
+        json={
+            "status": "autorizado",
+            "chave_nfe": "35240512345678000195550010000000011000000011",
+            "numero": "9",
+            "protocolo": "135240000000099",
+            "caminho_xml_nota_fiscal": "/arquivos/nfe/xml/sync.xml",
+            "caminho_danfe": "/arquivos/nfe/danfe/sync.pdf",
+        },
+        request=_req,
+    )
+
+    with patch("app.services.nfe_service._get_client") as mock_client_ctx:
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.post = AsyncMock(return_value=resp_emissao)
+        mock_client_ctx.return_value = mock_client
+
+        resultado = await nfe_service.emitir_nota(db, nota, emp, {"natureza_operacao": "Venda"})
+
+    assert resultado.status == "emitida"
+    mock_client.get.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

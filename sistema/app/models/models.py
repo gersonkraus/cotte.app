@@ -978,6 +978,7 @@ class NotaFiscal(TenantScopedMixin, Base):
     xml_url = Column(String(500), nullable=True)
     danfe_url = Column(String(500), nullable=True)
     qr_code = Column(String(500), nullable=True)
+    focus_extras = Column(JSON, nullable=True)
     payload_enviado = Column(JSON, nullable=True)
     erro_codigo = Column(String(50), nullable=True)
     erro_mensagem = Column(Text, nullable=True)

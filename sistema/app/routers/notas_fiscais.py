@@ -8,7 +8,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Header, HTTPException, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Header, HTTPException, Request, UploadFile, Response
 from sqlalchemy.orm import Session, selectinload, joinedload
 from sqlalchemy import or_
 
@@ -21,6 +21,7 @@ from app.models.models import Empresa, NotaFiscal, Orcamento, Usuario, Historico
 from app.schemas.schemas import (
     ConfiguracaoFiscalEmpresa,
     NotaFiscalCancelarRequest,
+    NotaFiscalCartaCorrecaoRequest,
     NotaFiscalEmitirRequest,
     NotaFiscalOut,
     NotaFiscalListOut,
@@ -426,6 +427,44 @@ async def receber_webhook_focus(
     return {"ok": True}
 
 
+@router.post("/previsualizar-danfe")
+async def previsualizar_danfe_focus(
+    dados: NotaFiscalPrepararRequest,
+    db: Session = Depends(get_db),
+    usuario=Depends(get_usuario_atual),
+):
+    """Gera PDF de pré-visualização DANFE via POST /v2/nfe/danfe (Focus)."""
+    set_tenant_context(db, empresa_id=usuario.empresa_id, usuario_id=usuario.id)
+    empresa = _get_empresa_com_nfe(db, usuario)
+    orcamento = (
+        db.query(Orcamento)
+        .options(
+            selectinload(Orcamento.itens).joinedload(ItemOrcamento.servico).joinedload(Servico.categoria),
+            joinedload(Orcamento.cliente),
+        )
+        .filter(Orcamento.id == dados.orcamento_id, Orcamento.empresa_id == usuario.empresa_id)
+        .first()
+    )
+    if not orcamento:
+        raise HTTPException(404, "Orçamento não encontrado")
+    natureza = (dados.natureza_operacao or "Venda de Mercadorias").strip() or "Venda de Mercadorias"
+    serie_val = (dados.serie or "1").strip() or "1"
+    if dados.tipo == "nfse":
+        raise HTTPException(422, "Pré-visualização DANFE via Focus aplica-se a NF-e/NFC-e.")
+    payload = await nfe_service.montar_payload_focus_nfe(
+        empresa, orcamento, dados.tipo, natureza, serie_val, None, db=db
+    )
+    try:
+        pdf = await nfe_service.previsualizar_danfe_pdf(payload)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'inline; filename="previa-danfe.pdf"'},
+    )
+
+
 # ── Listagem e consulta por ID — APÓS rotas estáticas ─────────────────────────
 
 
@@ -476,6 +515,73 @@ def listar_notas_por_orcamento(
         .order_by(NotaFiscal.criado_em.desc())
         .all()
     )
+
+
+@router.post("/{nota_id}/sincronizar-focus", response_model=NotaFiscalOut)
+async def sincronizar_nota_com_focus(
+    nota_id: int,
+    db: Session = Depends(get_db),
+    usuario=Depends(get_usuario_atual),
+):
+    """Consulta status na Focus (GET completa=1) e atualiza a nota local."""
+    set_tenant_context(db, empresa_id=usuario.empresa_id, usuario_id=usuario.id)
+    _get_empresa_com_nfe(db, usuario)
+    nota = db.query(NotaFiscal).filter(
+        NotaFiscal.id == nota_id, NotaFiscal.empresa_id == usuario.empresa_id
+    ).first()
+    if not nota:
+        raise HTTPException(404, "Nota fiscal não encontrada")
+    try:
+        await nfe_service.consultar_nota_focus_e_persistir(db, nota)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    db.refresh(nota)
+    return nota
+
+
+@router.post("/{nota_id}/carta-correcao")
+async def carta_correcao_nota_focus(
+    nota_id: int,
+    dados: NotaFiscalCartaCorrecaoRequest,
+    db: Session = Depends(get_db),
+    usuario=Depends(get_usuario_atual),
+):
+    """Emite carta de correção na Focus (NF-e apenas)."""
+    set_tenant_context(db, empresa_id=usuario.empresa_id, usuario_id=usuario.id)
+    _get_empresa_com_nfe(db, usuario)
+    nota = db.query(NotaFiscal).filter(
+        NotaFiscal.id == nota_id, NotaFiscal.empresa_id == usuario.empresa_id
+    ).first()
+    if not nota:
+        raise HTTPException(404, "Nota fiscal não encontrada")
+    if nota.status != "emitida":
+        raise HTTPException(400, "Somente notas emitidas podem receber carta de correção")
+    try:
+        resultado = await nfe_service.emitir_carta_correcao_focus(db, nota, dados.correcao)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"success": True, "data": resultado}
+
+
+@router.post("/{nota_id}/reenviar-hook-focus")
+async def reenviar_hook_focus_nota(
+    nota_id: int,
+    db: Session = Depends(get_db),
+    usuario=Depends(get_usuario_atual),
+):
+    """Reenvia o webhook de notificação da Focus para esta referência."""
+    set_tenant_context(db, empresa_id=usuario.empresa_id, usuario_id=usuario.id)
+    _get_empresa_com_nfe(db, usuario)
+    nota = db.query(NotaFiscal).filter(
+        NotaFiscal.id == nota_id, NotaFiscal.empresa_id == usuario.empresa_id
+    ).first()
+    if not nota:
+        raise HTTPException(404, "Nota fiscal não encontrada")
+    try:
+        out = await nfe_service.reenviar_webhook_focus(nota)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"success": True, "data": out}
 
 
 @router.get("/{nota_id}", response_model=NotaFiscalOut)
@@ -681,4 +787,7 @@ async def cancelar_nota_fiscal(
     if nota.status != "emitida":
         raise HTTPException(400, f"Nota em status '{nota.status}' não pode ser cancelada")
 
-    return await nfe_service.cancelar_nota(db, nota, empresa, dados.motivo)
+    try:
+        return await nfe_service.cancelar_nota(db, nota, empresa, dados.motivo)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e

@@ -98,7 +98,7 @@
         }
         return "<p><strong>Registrada em:</strong> " + _escHtml(_fmtDataHora(n.criado_em)) + "</p>"
             + (st === "processando"
-                ? "<p style=\"font-size:0.82rem;color:var(--muted,#666);margin:4px 0\">Em processamento na Notaas/SEFAZ.</p>"
+                ? "<p style=\"font-size:0.82rem;color:var(--muted,#666);margin:4px 0\">Em processamento na Focus/SEFAZ.</p>"
                 : "");
     }
 
@@ -129,7 +129,18 @@
             }
             var botoesAcao = "";
             if (n.status === "emitida") {
-                botoesAcao += '<button onclick="NotasFiscaisPage.cancelar(' + n.id + ')" class="btn btn-sm btn-danger">Cancelar</button>';
+                botoesAcao += '<button type="button" onclick="NotasFiscaisPage.cancelar(' + n.id + ')" class="btn btn-sm btn-danger">Cancelar</button>';
+                botoesAcao += ' <button type="button" onclick="NotasFiscaisPage.sincronizarFocus(' + n.id + ')" class="btn btn-sm btn-secondary" title="Atualiza status consultando a API Focus">Sincronizar</button>';
+                botoesAcao += ' <button type="button" onclick="NotasFiscaisPage.reenviarHook(' + n.id + ')" class="btn btn-sm btn-secondary" title="Reenvia notificação (webhook) da Focus">Webhook</button>';
+                if (n.tipo === "nfe") {
+                    botoesAcao += ' <button type="button" onclick="NotasFiscaisPage.cartaCorrecao(' + n.id + ')" class="btn btn-sm btn-secondary">CC-e</button>';
+                }
+                if (n.orcamento_id && (n.tipo === "nfe" || n.tipo === "nfce")) {
+                    botoesAcao += ' <button type="button" onclick="NotasFiscaisPage.previaDanfe(' + n.orcamento_id + ',\'' + String(n.tipo || "nfe").replace(/'/g, "") + '\')" class="btn btn-sm btn-secondary">Prévia DANFE</button>';
+                }
+            }
+            if (n.status === "processando") {
+                botoesAcao += '<button type="button" onclick="NotasFiscaisPage.sincronizarFocus(' + n.id + ')" class="btn btn-sm btn-secondary">Sincronizar</button>';
             }
             if (n.status === "erro") {
                 botoesAcao += '<button onclick="NotasFiscaisPage.analisarErro(' + n.id + ')" class="btn btn-sm btn-warning">Analisar e Corrigir</button>';
@@ -171,10 +182,75 @@
         container.innerHTML = html;
     }
 
+    async function sincronizarFocus(notaId) {
+        try {
+            await api.post("/notas-fiscais/" + notaId + "/sincronizar-focus", {});
+            showNotif && showNotif("✓", "Sincronizado", "Status atualizado com a Focus.");
+            carregarNotas(paginaAtual);
+        } catch (e) {
+            alert("Erro ao sincronizar: " + (e.message || ""));
+        }
+    }
+
+    async function reenviarHook(notaId) {
+        if (!confirm("Reenviar o webhook desta nota para a URL configurada na Focus?")) return;
+        try {
+            var r = await api.post("/notas-fiscais/" + notaId + "/reenviar-hook-focus", {});
+            alert("Webhook reenviado. Resposta: " + JSON.stringify(r && (r.data != null ? r.data : r)).substring(0, 400));
+            carregarNotas(paginaAtual);
+        } catch (e) {
+            alert("Erro: " + (e.message || ""));
+        }
+    }
+
+    async function cartaCorrecao(notaId) {
+        var t = prompt("Texto da carta de correção (15 a 1000 caracteres):");
+        if (!t || t.length < 15) {
+            alert("Mínimo 15 caracteres.");
+            return;
+        }
+        if (t.length > 1000) {
+            alert("Máximo 1000 caracteres.");
+            return;
+        }
+        try {
+            await api.post("/notas-fiscais/" + notaId + "/carta-correcao", { correcao: t });
+            showNotif && showNotif("✓", "CC-e", "Carta de correção registrada na Focus.");
+            carregarNotas(paginaAtual);
+        } catch (e) {
+            alert("Erro na carta de correção: " + (e.message || ""));
+        }
+    }
+
+    async function previaDanfe(orcamentoId, tipo) {
+        tipo = tipo || "nfe";
+        try {
+            var blob = await api.post(
+                "/notas-fiscais/previsualizar-danfe",
+                {
+                    orcamento_id: orcamentoId,
+                    tipo: tipo,
+                    natureza_operacao: "Venda de Mercadorias",
+                    serie: "1",
+                },
+                { expectBinary: true }
+            );
+            var u = URL.createObjectURL(blob);
+            window.open(u, "_blank", "noopener,noreferrer");
+            setTimeout(function() { URL.revokeObjectURL(u); }, 120000);
+        } catch (e) {
+            alert("Erro na prévia DANFE: " + (e.message || ""));
+        }
+    }
+
     async function cancelar(notaId) {
-        var motivo = prompt("Motivo do cancelamento (mínimo 15 caracteres):");
+        var motivo = prompt("Motivo do cancelamento (15 a 255 caracteres, exigência Focus):");
         if (!motivo || motivo.length < 15) {
             alert("Motivo deve ter pelo menos 15 caracteres.");
+            return;
+        }
+        if (motivo.length > 255) {
+            alert("Motivo deve ter no máximo 255 caracteres.");
             return;
         }
         try {
@@ -285,5 +361,13 @@
         init();
     }
 
-    window.NotasFiscaisPage = { carregar: carregarNotas, cancelar: cancelar, analisarErro: analisarErro };
+    window.NotasFiscaisPage = {
+        carregar: carregarNotas,
+        cancelar: cancelar,
+        analisarErro: analisarErro,
+        sincronizarFocus: sincronizarFocus,
+        reenviarHook: reenviarHook,
+        cartaCorrecao: cartaCorrecao,
+        previaDanfe: previaDanfe,
+    };
 })();

@@ -12,9 +12,10 @@ import hmac
 import logging
 import re
 import unicodedata
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+from zoneinfo import ZoneInfo
 
 import httpx
 from sqlalchemy.orm import Session
@@ -80,6 +81,22 @@ _MAPA_PAGAMENTO = {
     "dinheiro": "01",
     "cheque": "02",
 }
+
+
+def _regime_tributario_para_focus(regime: Optional[str]) -> int:
+    """Converte regime tributário do COTTE para código numérico da Focus NFe.
+
+    Focus NFe aceita:
+      1 = Simples Nacional
+      2 = Simples Nacional — excesso de receita
+      3 = Regime Normal
+    """
+    if not regime:
+        return 1
+    r = regime.lower()
+    if "simples" in r or "mei" in r:
+        return 1
+    return 3
 
 
 def _normalizar_texto_ibge(s: str) -> str:
@@ -233,6 +250,306 @@ def _normalizar_ncm_para_string(ncm: object) -> str:
     return "00000000"
 
 
+def _tz_brasilia() -> ZoneInfo:
+    return ZoneInfo("America/Sao_Paulo")
+
+
+def _data_emissao_focus_iso() -> str:
+    """Data/hora de emissão no formato ISO com offset de Brasília (exigência Focus)."""
+    return datetime.now(_tz_brasilia()).isoformat(timespec="seconds")
+
+
+def _empresa_optante_simples(empresa: Empresa) -> bool:
+    try:
+        c = int(empresa.crt) if empresa.crt is not None else None
+    except (TypeError, ValueError):
+        c = None
+    if c is not None:
+        return c in (1, 2)
+    r = (empresa.regime_tributario or "").lower()
+    return "simples" in r or "mei" in r
+
+
+def _icms_situacao_tributaria_item(empresa: Empresa, servico) -> int:
+    """CST/CSOSN numérico conforme documentação Focus (ItemNotaFiscal)."""
+    if _empresa_optante_simples(empresa):
+        raw = (getattr(servico, "csosn", None) or "102") if servico else "102"
+        digits = "".join(c for c in str(raw) if c.isdigit())
+        if len(digits) >= 3:
+            return int(digits[:3])
+        if digits:
+            return int(digits)
+        return 102
+    # Regime normal: serviços comuns sem ICMS destacado → 41 (não tributada)
+    return 41
+
+
+def _icms_origem_item(servico) -> int:
+    if not servico:
+        return 0
+    try:
+        return int(getattr(servico, "origem", None) or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _local_destino_focus(empresa: Empresa, cliente: Cliente) -> int:
+    uf_e = (getattr(empresa, "endereco_uf", None) or "").strip().upper()
+    uf_c = (getattr(cliente, "estado", None) or "").strip().upper()
+    if len(uf_e) == 2 and len(uf_c) == 2 and uf_e != uf_c:
+        return 2
+    return 1
+
+
+def _consumidor_final_focus(cliente: Cliente) -> int:
+    limpo_cnpj = _limpar_doc(cliente.cnpj or "")
+    if limpo_cnpj and len(limpo_cnpj) == 14:
+        return 0
+    return 1
+
+
+def _indicador_ie_destinatario_focus(cliente: Cliente) -> int:
+    ie = (cliente.inscricao_estadual or "").strip()
+    if ie and ie.upper() not in ("ISENTO", "NAO", "N/A"):
+        return 1
+    return 9
+
+
+def _cfop_int(cfop_str: str) -> int:
+    d = "".join(c for c in str(cfop_str) if c.isdigit())
+    if len(d) >= 4:
+        return int(d[:4])
+    return int(d) if d else 5102
+
+
+def focus_media_absolute_url(caminho: Optional[str]) -> Optional[str]:
+    """Converte caminho relativo retornado pela Focus (/arquivos/...) em URL absoluta."""
+    if not caminho:
+        return None
+    s = str(caminho).strip()
+    if s.startswith("http://") or s.startswith("https://"):
+        return s
+    if s.startswith("/"):
+        return f"{_focus_base_url().rstrip('/')}{s}"
+    return s
+
+
+async def montar_payload_focus_nfe(
+    empresa: Empresa,
+    orcamento: Orcamento,
+    tipo: str,
+    natureza_operacao: str,
+    serie: str,
+    itens_override=None,
+    db: Optional[Session] = None,
+) -> dict:
+    """Monta o corpo JSON para POST /v2/nfe ou /v2/nfce (API Focus NFe v2).
+
+    A referência `ref` vai na query string (?ref=), conforme manual Focus.
+    """
+    cliente: Cliente = orcamento.cliente
+    if not cliente:
+        raise ValueError("Orçamento sem cliente — impossível emitir NF-e")
+
+    limpo_cnpj = _limpar_doc(cliente.cnpj or "")
+    limpo_cpf = _limpar_doc(cliente.cpf or "")
+    if limpo_cnpj:
+        dest_nome = (cliente.razao_social or cliente.nome or "").strip() or "Destinatário"
+    else:
+        dest_nome = (cliente.nome or cliente.razao_social or "").strip() or "Destinatário"
+
+    cod_ibge, _fonte_ibge = await resolver_codigo_municipio_ibge(
+        cliente, db=db, persistir_se_viacep=True
+    )
+
+    cnpj_emit = _limpar_doc(empresa.cnpj or "")
+    if not cnpj_emit:
+        raise ValueError("Empresa sem CNPJ emitente")
+
+    data_emissao = _data_emissao_focus_iso()
+    cfop_padrao_uf = _cfop_padrao_por_uf_empresa_cliente(empresa, cliente)
+
+    lista_itens = list(itens_override) if itens_override is not None else list(orcamento.itens)
+    items_focus: List[Dict[str, Any]] = []
+    soma_produtos = 0.0
+
+    for idx, row in enumerate(lista_itens, start=1):
+        servico = None
+        if isinstance(row, dict):
+            ncm_raw = row.get("ncm")
+            cfop_catalogo = row.get("cfop")
+            unidade = str(row.get("unidade") or "UN")
+            qtd = float(row.get("quantidade") or 1)
+            v_unit = float(row.get("valor_unit") or 0)
+            v_total = float(row.get("total") or 0)
+            if v_total <= 0 and qtd > 0 and v_unit > 0:
+                v_total = round(qtd * v_unit, 2)
+            if v_unit <= 0 and qtd > 0 and v_total > 0:
+                v_unit = round(v_total / qtd, 2)
+            cod_prod = str(row.get("codigo_produto") or idx)
+            descricao_item = str(row.get("descricao") or "").strip()
+        elif hasattr(row, "orcamento_id"):
+            servico = getattr(row, "servico", None)
+            ncm_raw = (getattr(servico, "ncm", None) or None) if servico else None
+            cfop_catalogo = (getattr(servico, "cfop", None) or None) if servico else None
+            unidade = (
+                (getattr(servico, "unidade_fiscal", None) or getattr(servico, "unidade", None) or "UN")
+                if servico
+                else "UN"
+            )
+            qtd, v_unit, v_total = _quantidade_valores_item_nfe(row)
+            cod_prod = str(getattr(servico, "id", None) or getattr(row, "id", None) or idx)
+            descricao_item = (getattr(row, "descricao", None) or "").strip()
+        else:
+            ncm_raw = getattr(row, "ncm", None)
+            cfop_catalogo = getattr(row, "cfop", None)
+            unidade = str(getattr(row, "unidade", None) or "UN")
+            qtd = float(getattr(row, "quantidade", None) or 1)
+            v_unit = float(getattr(row, "valor_unit", None) or 0)
+            v_total = float(getattr(row, "total", None) or 0)
+            if v_total <= 0 and qtd > 0 and v_unit > 0:
+                v_total = round(qtd * v_unit, 2)
+            if v_unit <= 0 and qtd > 0 and v_total > 0:
+                v_unit = round(v_total / qtd, 2)
+            cod_prod = str(idx)
+            descricao_item = (getattr(row, "descricao", None) or "").strip()
+
+        if not descricao_item and servico and getattr(servico, "nome", None):
+            descricao_item = (servico.nome or "").strip()
+        if not descricao_item:
+            descricao_item = "Item conforme orçamento"
+
+        ncm = _normalizar_ncm_para_string(ncm_raw) if ncm_raw else None
+        cfop = _normalizar_cfop_para_string(
+            cfop_catalogo if cfop_catalogo is not None else cfop_padrao_uf, cfop_padrao_uf
+        )
+
+        precisa_ia_ncm_cfop = not ncm_raw or ncm == "00000000" or not _cfop_formato_notaas_valido(cfop)
+        if precisa_ia_ncm_cfop:
+            try:
+                categoria = getattr(getattr(servico, "categoria", None), "nome", None) if servico else None
+                sugestao = await sugerir_dados_fiscais(descricao_item, categoria)
+                if not ncm_raw or ncm == "00000000":
+                    ncm = (
+                        _normalizar_ncm_para_string(sugestao.get("ncm"))
+                        if sugestao.get("ncm")
+                        else "00000000"
+                    )
+                if not cfop_catalogo or not _cfop_formato_notaas_valido(cfop):
+                    sug_cfop = sugestao.get("cfop")
+                    cfop = _normalizar_cfop_para_string(
+                        sug_cfop if sug_cfop else cfop_padrao_uf, cfop_padrao_uf
+                    )
+            except Exception:
+                ncm = ncm or "00000000"
+                cfop = _normalizar_cfop_para_string(cfop_padrao_uf, cfop_padrao_uf)
+
+        if not _cfop_formato_notaas_valido(cfop):
+            cfop = _normalizar_cfop_para_string(cfop_padrao_uf, "5102")
+        ncm = _normalizar_ncm_para_string(ncm)
+        cfop_i = _cfop_int(cfop)
+        icms_st = _icms_situacao_tributaria_item(empresa, servico)
+        icms_or = _icms_origem_item(servico)
+        valor_bruto = round(float(v_total), 2)
+        soma_produtos += valor_bruto
+
+        unidade_c = (unidade or "UN")[:6]
+        item_payload: Dict[str, Any] = {
+            "numero_item": idx,
+            "codigo_produto": cod_prod,
+            "descricao": descricao_item[:120],
+            "cfop": cfop_i,
+            "unidade_comercial": unidade_c.lower() if unidade_c else "un",
+            "quantidade_comercial": float(qtd),
+            "valor_unitario_comercial": round(float(v_unit), 10),
+            "valor_unitario_tributavel": round(float(v_unit), 10),
+            "unidade_tributavel": unidade_c.lower() if unidade_c else "un",
+            "codigo_ncm": int(ncm)
+            if ncm.isdigit()
+            else int("".join(c for c in ncm if c.isdigit()).ljust(8, "0")[:8] or "61000000"),
+            "quantidade_tributavel": float(qtd),
+            "valor_bruto": valor_bruto,
+            "icms_situacao_tributaria": icms_st,
+            "icms_origem": icms_or,
+            "pis_situacao_tributaria": "07",
+            "cofins_situacao_tributaria": "07",
+        }
+        items_focus.append(item_payload)
+
+    valor_total = round(float(orcamento.total), 2)
+    if abs(valor_total - round(soma_produtos, 2)) > 0.05:
+        valor_total = round(soma_produtos, 2)
+
+    forma_pag = getattr(orcamento, "forma_pagamento", None) or ""
+    tpag = _MAPA_PAGAMENTO.get(forma_pag.lower() if forma_pag else "", "99")
+    formas_pagamento = [{"forma_pagamento": str(tpag), "valor_pagamento": f"{valor_total:.2f}"}]
+
+    cep_emit = _limpar_cep(empresa.endereco_cep or "") or "00000000"
+    cep_dest = _limpar_cep(cliente.cep or "") or ""
+
+    payload: Dict[str, Any] = {
+        "natureza_operacao": (natureza_operacao or "Venda de mercadorias").strip()[:120],
+        "data_emissao": data_emissao,
+        "data_entrada_saida": data_emissao,
+        "tipo_documento": 1,
+        "local_destino": _local_destino_focus(empresa, cliente),
+        "finalidade_emissao": 1,
+        "consumidor_final": _consumidor_final_focus(cliente),
+        "presenca_comprador": 2 if (tipo or "").lower() == "nfe" else 1,
+        "cnpj_emitente": cnpj_emit,
+        "nome_emitente": (empresa.nome or "").strip()[:120],
+        "logradouro_emitente": (empresa.endereco_logradouro or "").strip()[:60],
+        "numero_emitente": str(empresa.endereco_numero or "S/N")[:10],
+        "bairro_emitente": (empresa.endereco_bairro or "").strip()[:60],
+        "municipio_emitente": (empresa.endereco_cidade or "").strip()[:60],
+        "uf_emitente": (empresa.endereco_uf or "SP").strip().upper()[:2],
+        "cep_emitente": cep_emit,
+        "inscricao_estadual_emitente": (empresa.inscricao_estadual or "").strip()[:20],
+        "regime_tributario_emitente": _regime_tributario_para_focus(empresa.regime_tributario),
+        "nome_destinatario": dest_nome[:120],
+        "logradouro_destinatario": (cliente.logradouro or "").strip()[:60],
+        "numero_destinatario": str(cliente.numero or "S/N")[:10],
+        "bairro_destinatario": (cliente.bairro or "").strip()[:60],
+        "municipio_destinatario": (cliente.cidade or "").strip()[:60],
+        "uf_destinatario": (cliente.estado or "").strip().upper()[:2],
+        "cep_destinatario": cep_dest if cep_dest else "00000000",
+        "pais_destinatario": "Brasil",
+        "indicador_inscricao_estadual_destinatario": _indicador_ie_destinatario_focus(cliente),
+        "valor_frete": 0.0,
+        "valor_seguro": 0.0,
+        "valor_desconto": 0.0,
+        "valor_outras_despesas": 0.0,
+        "valor_total": valor_total,
+        "valor_produtos": round(soma_produtos, 2),
+        "modalidade_frete": 9,
+        "items": items_focus,
+        "formas_pagamento": formas_pagamento,
+        "serie": str(serie or "1").strip()[:3] or "1",
+    }
+
+    if limpo_cnpj:
+        payload["cnpj_destinatario"] = limpo_cnpj
+        if (cliente.inscricao_estadual or "").strip():
+            payload["inscricao_estadual_destinatario"] = (cliente.inscricao_estadual or "").strip()[:20]
+    elif limpo_cpf:
+        payload["cpf_destinatario"] = limpo_cpf
+
+    tel_cli = _limpar_doc(getattr(cliente, "telefone", None) or "")
+    if tel_cli:
+        if len(tel_cli) <= 11 and tel_cli.isdigit():
+            payload["telefone_destinatario"] = int(tel_cli)
+        else:
+            payload["telefone_destinatario"] = tel_cli[:15]
+
+    if cliente.email:
+        payload["email_destinatario"] = (cliente.email or "").strip()[:60]
+
+    if cod_ibge is not None:
+        payload["codigo_municipio_destinatario"] = f"{cod_ibge:07d}"
+
+    return payload
+
+
 async def _montar_payload_nfe(
     empresa: Empresa,
     orcamento: Orcamento,
@@ -242,116 +559,10 @@ async def _montar_payload_nfe(
     itens_override=None,
     db: Optional[Session] = None,
 ) -> dict:
-    """Monta o payload JSON para API Notaas baseado nos dados do orçamento.
-
-    Notaas NF-e usa JSON próprio (não tags XML SEFAZ):
-    - naturezaOperacao na raiz (não ide.natOp)
-    - dest.cpf / dest.cnpj em minúsculas
-    - dest.endereco (não enderDest)
-    - items (não det)
-    """
-    cliente: Cliente = orcamento.cliente
-
-    # Usa documento por presença real, não por tipo_pessoa
-    limpo_cnpj = _limpar_doc(cliente.cnpj or "")
-    limpo_cpf = _limpar_doc(cliente.cpf or "")
-    if limpo_cnpj:
-        dest_doc = {"cnpj": limpo_cnpj}
-        dest_nome = cliente.razao_social or cliente.nome
-    elif limpo_cpf:
-        dest_doc = {"cpf": limpo_cpf}
-        dest_nome = cliente.nome
-    else:
-        dest_doc = {}
-        dest_nome = cliente.razao_social or cliente.nome
-
-    # Notaas NF-e: campos em lowercase, sem nomes XML SEFAZ
-    endereco_dest: dict = {
-        "logradouro": cliente.logradouro or "",
-        "numero": cliente.numero or "SN",
-        "bairro": cliente.bairro or "",
-        "cidade": cliente.cidade or "",
-        "uf": cliente.estado or "",
-        "cep": _limpar_cep(cliente.cep or ""),
-    }
-    if cliente.complemento:
-        endereco_dest["complemento"] = cliente.complemento
-
-    cod_ibge, _fonte_ibge = await resolver_codigo_municipio_ibge(cliente, db=db, persistir_se_viacep=True)
-    if cod_ibge is not None:
-        endereco_dest["codigoMunicipio"] = cod_ibge
-
-    destinatario = {
-        **dest_doc,
-        "nome": dest_nome,
-        "ie": cliente.inscricao_estadual or "",
-        "email": cliente.email or "",
-        "endereco": endereco_dest,
-    }
-
-    itens = itens_override or orcamento.itens
-    items = []
-    cfop_padrao_uf = _cfop_padrao_por_uf_empresa_cliente(empresa, cliente)
-
-    for item in itens:
-        servico = getattr(item, "servico", None)
-        ncm_raw = (getattr(servico, "ncm", None) or None) if servico else None
-        cfop_catalogo = (getattr(servico, "cfop", None) or None) if servico else None
-        csosn = (getattr(servico, "csosn", None) or "400") if servico else "400"
-        unidade = (getattr(servico, "unidade_fiscal", None) or getattr(servico, "unidade", None) or "UN") if servico else "UN"
-
-        descricao_item = (item.descricao or "").strip()
-        if not descricao_item and servico and getattr(servico, "nome", None):
-            descricao_item = (servico.nome or "").strip()
-        if not descricao_item:
-            descricao_item = "Item conforme orçamento"
-
-        qtd, v_unit, v_total = _quantidade_valores_item_nfe(item)
-
-        ncm = _normalizar_ncm_para_string(ncm_raw) if ncm_raw else None
-        cfop = _normalizar_cfop_para_string(cfop_catalogo if cfop_catalogo is not None else cfop_padrao_uf, cfop_padrao_uf)
-
-        precisa_ia_ncm_cfop = not ncm_raw or ncm == "00000000" or not _cfop_formato_notaas_valido(cfop)
-        if precisa_ia_ncm_cfop:
-            try:
-                categoria = getattr(getattr(servico, "categoria", None), "nome", None) if servico else None
-                sugestao = await sugerir_dados_fiscais(descricao_item, categoria)
-                if not ncm_raw or ncm == "00000000":
-                    ncm = _normalizar_ncm_para_string(sugestao.get("ncm")) if sugestao.get("ncm") else "00000000"
-                if not cfop_catalogo or not _cfop_formato_notaas_valido(cfop):
-                    sug_cfop = sugestao.get("cfop")
-                    cfop = _normalizar_cfop_para_string(sug_cfop if sug_cfop else cfop_padrao_uf, cfop_padrao_uf)
-            except Exception:
-                ncm = ncm or "00000000"
-                cfop = _normalizar_cfop_para_string(cfop_padrao_uf, cfop_padrao_uf)
-
-        if not _cfop_formato_notaas_valido(cfop):
-            cfop = _normalizar_cfop_para_string(cfop_padrao_uf, "5102")
-
-        ncm = _normalizar_ncm_para_string(ncm)
-
-        items.append({
-            "descricao": descricao_item,
-            "ncm": ncm,
-            "cfop": cfop,
-            "valorTotal": round(v_total, 2),
-            "quantidade": qtd,
-            "valorUnitario": round(v_unit, 2),
-            "unidade": unidade,
-            "csosn": csosn,
-        })
-
-    forma_pag = getattr(orcamento, "forma_pagamento", None) or ""
-    tpag = _MAPA_PAGAMENTO.get(forma_pag.lower() if forma_pag else "", "99")
-
-    return {
-        "naturezaOperacao": natureza_operacao,
-        "modelo": 55 if tipo == "nfe" else 65,
-        "dest": destinatario,
-        "items": items,
-        # Notaas NF-e: "pagamentos" com tipoPagamento/valor (não pag.detPag.tPag)
-        "pagamentos": [{"tipoPagamento": tpag, "valor": round(float(orcamento.total), 2)}],
-    }
+    """Alias: monta JSON Focus v2 para NF-e / NFC-e (compatível com rotas existentes)."""
+    return await montar_payload_focus_nfe(
+        empresa, orcamento, tipo, natureza_operacao, serie, itens_override, db=db
+    )
 
 
 async def coletar_bloqueios_avisos_preparacao_nfe(
@@ -470,7 +681,7 @@ def _crt_descricao(crt: Optional[int]) -> str:
 
 
 def emitente_preview_para_previa(empresa: Empresa, orcamento: Orcamento) -> dict:
-    """Emitente + referência do orçamento para prévia visual (DANFE/NFS-e simulada), sem Notaas."""
+    """Emitente + referência do orçamento para prévia visual local (sem chamar a Focus)."""
     ref = str(orcamento.id)
     if getattr(orcamento, "numero", None):
         num = str(orcamento.numero).strip()
@@ -678,24 +889,51 @@ async def emitir_nota(
     async with _get_client() as client:
         try:
             resp = await client.post(f"{endpoint}?ref={ref}", json=payload)
-            resp.raise_for_status()
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 401:
-                nota_fiscal.status = "erro"
-                nota_fiscal.erro_codigo = "AUTH_ERROR"
-                nota_fiscal.erro_mensagem = "Token Focus inválido — verifique FOCUS_TOKEN no ambiente"
-                logger.critical("FOCUS_TOKEN inválido — revisar configuração (empresa_id=%s)", empresa.id)
-                db.commit()
-                return nota_fiscal
-            nota_fiscal.status = "erro"
-            nota_fiscal.erro_codigo = str(e.response.status_code)
-            nota_fiscal.erro_mensagem = e.response.text[:500]
-            db.commit()
-            return nota_fiscal
         except httpx.RequestError as e:
             nota_fiscal.status = "erro"
             nota_fiscal.erro_codigo = "REQUEST_ERROR"
             nota_fiscal.erro_mensagem = str(e)[:500]
+            db.commit()
+            return nota_fiscal
+
+        if resp.status_code == 401:
+            nota_fiscal.status = "erro"
+            nota_fiscal.erro_codigo = "AUTH_ERROR"
+            nota_fiscal.erro_mensagem = "Token Focus inválido — verifique FOCUS_TOKEN no ambiente"
+            logger.critical("FOCUS_TOKEN inválido — revisar configuração (empresa_id=%s)", empresa.id)
+            db.commit()
+            return nota_fiscal
+
+        if resp.status_code >= 400:
+            nota_fiscal.status = "erro"
+            nota_fiscal.erro_codigo = str(resp.status_code)
+            try:
+                err_body = resp.json()
+                nota_fiscal.erro_mensagem = str(err_body.get("mensagem") or err_body)[:800]
+            except Exception:
+                nota_fiscal.erro_mensagem = resp.text[:500]
+            db.commit()
+            return nota_fiscal
+
+        # 201 = emissão síncrona (resultado na mesma resposta)
+        if resp.status_code == 201:
+            try:
+                status_data = resp.json()
+            except Exception as e:
+                nota_fiscal.status = "erro"
+                nota_fiscal.erro_codigo = "JSON_ERROR"
+                nota_fiscal.erro_mensagem = f"Resposta Focus inválida: {e}"[:500]
+                db.commit()
+                return nota_fiscal
+            _atualizar_nota_com_status_focus(nota_fiscal, status_data)
+            db.commit()
+            return nota_fiscal
+
+        # 202 = processamento assíncrono (polling ou webhook)
+        if resp.status_code != 202:
+            nota_fiscal.status = "erro"
+            nota_fiscal.erro_codigo = str(resp.status_code)
+            nota_fiscal.erro_mensagem = f"Resposta HTTP inesperada da Focus: {resp.status_code}"
             db.commit()
             return nota_fiscal
 
@@ -732,22 +970,6 @@ async def emitir_nota(
     return nota_fiscal
 
 
-def _regime_tributario_para_focus(regime: Optional[str]) -> int:
-    """Converte regime tributário do COTTE para código numérico da Focus NFe.
-
-    Focus NFe aceita:
-      1 = Simples Nacional
-      2 = Simples Nacional — excesso de receita
-      3 = Regime Normal
-    """
-    if not regime:
-        return 1
-    r = regime.lower()
-    if "simples" in r or "mei" in r:
-        return 1
-    return 3
-
-
 async def registrar_empresa_focus(
     empresa: Empresa,
     cert_bytes: bytes,
@@ -772,6 +994,7 @@ async def registrar_empresa_focus(
         "email": empresa.email or "",
         "inscricao_estadual": empresa.inscricao_estadual or "",
         "regime_tributario": _regime_tributario_para_focus(empresa.regime_tributario),
+        "arquivo_certificado_base64": cert_b64,
         "certificado_pfx": cert_b64,
         "senha_certificado": senha_certificado,
     }
@@ -784,6 +1007,7 @@ async def registrar_empresa_focus(
                 resp = await client.put(
                     f"/v2/empresas/{cnpj}",
                     json={
+                        "arquivo_certificado_base64": cert_b64,
                         "certificado_pfx": cert_b64,
                         "senha_certificado": senha_certificado,
                     },
@@ -813,6 +1037,93 @@ async def registrar_empresa_focus(
     return {"success": True, "data": data}
 
 
+async def consultar_nota_focus_e_persistir(
+    db: Session,
+    nota_fiscal: NotaFiscal,
+) -> NotaFiscal:
+    """GET /v2/{nfe|nfce|nfse}/{ref}?completa=1 — atualiza status local."""
+    ref = nota_fiscal.focus_ref
+    if not ref:
+        raise ValueError("Nota sem focus_ref — impossível consultar na Focus")
+    path = _path_focus(nota_fiscal.tipo, ref)
+    async with _get_client() as client:
+        resp = await client.get(path, params={"completa": 1})
+        if resp.status_code == 404:
+            raise ValueError("Referência não encontrada na Focus NFe")
+        if resp.status_code >= 400:
+            raise ValueError(resp.text[:500])
+        status_data = resp.json()
+    _atualizar_nota_com_status_focus(nota_fiscal, status_data)
+    db.commit()
+    return nota_fiscal
+
+
+async def emitir_carta_correcao_focus(
+    db: Session,
+    nota_fiscal: NotaFiscal,
+    correcao: str,
+) -> dict:
+    """POST /v2/nfe/{ref}/carta_correcao — apenas NF-e modelo 55."""
+    if (nota_fiscal.tipo or "").lower() != "nfe":
+        raise ValueError("Carta de correção é suportada apenas para NF-e.")
+    ref = nota_fiscal.focus_ref
+    if not ref:
+        raise ValueError("Nota sem focus_ref")
+    txt = (correcao or "").strip()
+    if len(txt) < 15 or len(txt) > 1000:
+        raise ValueError("Texto da carta de correção deve ter entre 15 e 1000 caracteres.")
+    path = f"/v2/nfe/{ref}/carta_correcao"
+    async with _get_client() as client:
+        resp = await client.post(path, json={"correcao": txt})
+        try:
+            data = resp.json()
+        except Exception:
+            data = {"detalhe": resp.text[:500]}
+        if resp.status_code >= 400:
+            raise ValueError(str(data.get("mensagem") or data)[:900])
+    hist = nota_fiscal.focus_extras if isinstance(getattr(nota_fiscal, "focus_extras", None), dict) else {}
+    cartas = list(hist.get("cartas_correcao") or [])
+    cartas.append({"em": datetime.now(timezone.utc).isoformat(), "resposta": data})
+    hist = dict(hist)
+    hist["cartas_correcao"] = cartas
+    nota_fiscal.focus_extras = hist
+    db.commit()
+    return data
+
+
+async def previsualizar_danfe_pdf(payload: dict) -> bytes:
+    """POST /v2/nfe/danfe — retorna PDF (pré-visualização Focus)."""
+    async with httpx.AsyncClient(
+        base_url=_focus_base_url(),
+        auth=(settings.FOCUS_TOKEN, ""),
+        headers={"Content-Type": "application/json", "Accept": "application/pdf"},
+        timeout=90.0,
+    ) as client:
+        resp = await client.post("/v2/nfe/danfe", json=payload)
+        if resp.status_code >= 400:
+            try:
+                err = resp.json()
+            except Exception:
+                err = resp.text[:500]
+            raise ValueError(str(err)[:900])
+        return resp.content
+
+
+async def reenviar_webhook_focus(nota_fiscal: NotaFiscal) -> dict:
+    """POST /v2/{tipo}/{ref}/hook — reenvia notificação (gatilho) Focus."""
+    ref = nota_fiscal.focus_ref
+    if not ref:
+        raise ValueError("Nota sem focus_ref")
+    base = _path_focus(nota_fiscal.tipo, ref).rstrip("/")
+    path = f"{base}/hook"
+    async with _get_client() as client:
+        resp = await client.post(path)
+        try:
+            return resp.json()
+        except Exception:
+            return {"status_code": resp.status_code, "texto": resp.text[:500]}
+
+
 async def cancelar_nota(
     db: Session,
     nota_fiscal: NotaFiscal,
@@ -823,12 +1134,15 @@ async def cancelar_nota(
     ref = nota_fiscal.focus_ref
     if not ref:
         raise ValueError("Nota sem focus_ref para cancelar")
+    motivo_limpo = (motivo or "").strip()
+    if len(motivo_limpo) < 15 or len(motivo_limpo) > 255:
+        raise ValueError("Justificativa de cancelamento deve ter entre 15 e 255 caracteres.")
 
     path = _path_focus(nota_fiscal.tipo, ref)
 
     async with _get_client() as client:
         try:
-            resp = await client.delete(path, json={"justificativa": motivo})
+            resp = await client.delete(path, json={"justificativa": motivo_limpo})
             if resp.status_code not in (200, 201, 204):
                 raise httpx.HTTPStatusError(
                     f"Cancelamento falhou: {resp.status_code}",
@@ -840,7 +1154,7 @@ async def cancelar_nota(
 
     nota_fiscal.status = "cancelada"
     nota_fiscal.cancelada_em = datetime.utcnow()
-    nota_fiscal.cancelamento_motivo = motivo
+    nota_fiscal.cancelamento_motivo = motivo_limpo
     db.commit()
     return nota_fiscal
 

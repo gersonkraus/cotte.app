@@ -79,6 +79,20 @@ var ApiService = (function() {
       for (var attempt = 1; attempt <= retryAttempts; attempt++) {
         try {
           var response = await fetch(url, fetchOptions);
+          var contentTypeHdr = (response.headers.get("content-type") || "").toLowerCase();
+          if (opts.expectBinary || contentTypeHdr.indexOf("application/pdf") !== -1) {
+            if (!response.ok) {
+              var errTxt = await response.text();
+              var errData = null;
+              try {
+                errData = errTxt ? JSON.parse(errTxt) : null;
+              } catch (_) {
+                errData = null;
+              }
+              throw new Error(extractErrorMessage(errData, response));
+            }
+            return await response.blob();
+          }
           var text = await response.text();
           var data = null;
           try {

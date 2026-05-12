@@ -2088,6 +2088,24 @@ class NotaFiscalOut(BaseModel):
     focus_ref: Optional[str] = None
     denegada: Optional[bool] = False
 
+    @field_serializer("danfe_url", "xml_url", when_used="json")
+    def _absolutizar_midia_focus(self, v: Optional[str]) -> Optional[str]:
+        if not v:
+            return None
+        s = str(v).strip()
+        if s.startswith("http://") or s.startswith("https://"):
+            return s
+        if s.startswith("/"):
+            from app.core.config import settings
+
+            base = (
+                "https://api.focusnfe.com.br"
+                if (settings.FOCUS_AMBIENTE or "").lower() == "producao"
+                else "https://homologacao.focusnfe.com.br"
+            )
+            return f"{base.rstrip('/')}{s}"
+        return v
+
     class Config:
         from_attributes = True
 
@@ -2121,6 +2139,10 @@ class ConfiguracaoFiscalEmpresa(BaseModel):
 
 class NotaFiscalCancelarRequest(BaseModel):
     motivo: str = Field(..., min_length=15, max_length=255)
+
+
+class NotaFiscalCartaCorrecaoRequest(BaseModel):
+    correcao: str = Field(..., min_length=15, max_length=1000)
 
 
 # ── FISCAL IA ───────────────────────────────────────────────────────────────
@@ -2163,5 +2185,5 @@ class NotaFiscalPrepararOut(BaseModel):
     avisos: List[str] = []
     bloqueios: List[str] = []
     payload_preview: Optional[dict] = None
-    # Emitente + ref. orçamento para prévia DANFE/NFS-e local (sem Notaas)
+    # Emitente + ref. orçamento para prévia local; PDF oficial via POST /previsualizar-danfe (Focus).
     emitente_preview: Optional[dict] = None

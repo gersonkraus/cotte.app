@@ -165,7 +165,7 @@ const ADMIN_PREFIX = '/admin';
 // ── HELPERS DE REQUISIÇÃO ───────────────────────────────────────────────
 
 async function apiRequest(method, endpoint, body = null, options = {}) {
-  const { bypassAutoLogout = false, useMock = false } = options;
+  const { bypassAutoLogout = false, useMock = false, expectBinary = false } = options;
   const token = localStorage.getItem('cotte_token');
   const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
   const headers = isFormData ? {} : { 'Content-Type': 'application/json' };
@@ -194,6 +194,31 @@ async function apiRequest(method, endpoint, body = null, options = {}) {
     console.error('[API] Erro de rede:', networkError);
     API_DISPONIVEL = false;
     throw new Error('Erro de conexão. Verifique sua internet e se o servidor está rodando.');
+  }
+
+  const contentTypeHdr = (response.headers.get('content-type') || '').toLowerCase();
+  if (expectBinary || contentTypeHdr.indexOf('application/pdf') !== -1) {
+    if (response.status === 401 && !bypassAutoLogout) {
+      logout();
+      throw new Error('Sessão expirada. Faça login novamente.');
+    }
+    if (!response.ok) {
+      const errTxt = await response.text();
+      let errData = null;
+      try {
+        errData = errTxt ? JSON.parse(errTxt) : null;
+      } catch (_) {
+        errData = null;
+      }
+      const errorMsg = (errData && typeof errData.detail === 'string') ? errData.detail
+        : (errData && errData.error && typeof errData.error.message === 'string') ? errData.error.message
+        : (errData && typeof errData.message === 'string') ? errData.message
+        : '';
+      const msg = errorMsg || `Erro ${response.status}: ${response.statusText}`;
+      throw new Error(msg);
+    }
+    API_DISPONIVEL = true;
+    return await response.blob();
   }
 
   let data;
