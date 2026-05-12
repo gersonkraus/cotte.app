@@ -732,6 +732,87 @@ async def emitir_nota(
     return nota_fiscal
 
 
+def _regime_tributario_para_focus(regime: Optional[str]) -> int:
+    """Converte regime tributário do COTTE para código numérico da Focus NFe.
+
+    Focus NFe aceita:
+      1 = Simples Nacional
+      2 = Simples Nacional — excesso de receita
+      3 = Regime Normal
+    """
+    if not regime:
+        return 1
+    r = regime.lower()
+    if "simples" in r or "mei" in r:
+        return 1
+    return 3
+
+
+async def registrar_empresa_focus(
+    empresa: Empresa,
+    cert_bytes: bytes,
+    senha_certificado: str,
+) -> dict:
+    """Cadastra ou atualiza empresa (emissor) na Focus NFe com certificado A1.
+
+    POST /v2/empresas quando for o primeiro cadastro.
+    PUT  /v2/empresas/{cnpj} quando já estiver cadastrada (atualização de certificado).
+    O certificado .pfx é enviado em base64.
+    """
+    cnpj = re.sub(r"\D", "", empresa.cnpj or "")
+    if not cnpj:
+        raise ValueError("Empresa sem CNPJ — impossível registrar na Focus NFe")
+
+    cert_b64 = base64.b64encode(cert_bytes).decode()
+
+    # Nomes de campo conforme documentação Focus NFe /v2/empresas (validar no painel Focus).
+    payload = {
+        "cnpj": cnpj,
+        "nome": empresa.nome or "",
+        "email": empresa.email or "",
+        "inscricao_estadual": empresa.inscricao_estadual or "",
+        "regime_tributario": _regime_tributario_para_focus(empresa.regime_tributario),
+        "certificado_pfx": cert_b64,
+        "senha_certificado": senha_certificado,
+    }
+
+    ja_cadastrada = bool(getattr(empresa, "focus_certificado_configurado", None))
+
+    async with _get_client() as client:
+        try:
+            if ja_cadastrada:
+                resp = await client.put(
+                    f"/v2/empresas/{cnpj}",
+                    json={
+                        "certificado_pfx": cert_b64,
+                        "senha_certificado": senha_certificado,
+                    },
+                )
+            else:
+                resp = await client.post("/v2/empresas", json=payload)
+
+            if resp.status_code not in (200, 201):
+                detalhe = resp.text[:300]
+                return {"success": False, "erro": f"Focus retornou {resp.status_code}: {detalhe}"}
+
+            data = resp.json()
+        except httpx.RequestError as e:
+            return {"success": False, "erro": f"Erro de conexão com a Focus NFe: {e}"}
+
+    empresa.focus_certificado_configurado = True
+
+    validade_raw = data.get("data_expiracao_certificado") or data.get("certificate_expires_at")
+    if validade_raw:
+        try:
+            empresa.focus_certificado_validade = datetime.fromisoformat(
+                str(validade_raw).replace("Z", "+00:00")
+            )
+        except Exception:
+            pass
+
+    return {"success": True, "data": data}
+
+
 async def cancelar_nota(
     db: Session,
     nota_fiscal: NotaFiscal,

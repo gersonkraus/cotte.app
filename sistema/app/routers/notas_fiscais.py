@@ -8,7 +8,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Header, HTTPException, Request, UploadFile
 from sqlalchemy.orm import Session, selectinload, joinedload
 from sqlalchemy import or_
 
@@ -304,6 +304,54 @@ def configurar_focus(
     }
 
 
+@router.post("/configurar-certificado")
+async def configurar_certificado_focus(
+    certificado: UploadFile = File(..., description="Certificado A1 (.pfx ou .p12)"),
+    senha_certificado: str = Form(...),
+    db: Session = Depends(get_db),
+    usuario=Depends(get_usuario_atual),
+    _=Depends(exigir_permissao("configuracoes", "escrita")),
+):
+    """Faz upload do certificado A1 e registra a empresa na Focus NFe."""
+    set_tenant_context(db, empresa_id=usuario.empresa_id, usuario_id=usuario.id)
+    empresa = db.query(Empresa).filter(Empresa.id == usuario.empresa_id).first()
+    if not empresa:
+        raise HTTPException(404, "Empresa não encontrada")
+
+    if not empresa.cnpj:
+        raise HTTPException(422, "CNPJ da empresa é obrigatório. Preencha os dados fiscais primeiro.")
+
+    if not settings.FOCUS_TOKEN:
+        raise HTTPException(503, "FOCUS_TOKEN não configurado no servidor.")
+
+    cert_bytes = await certificado.read()
+    if len(cert_bytes) > 102400:  # 100KB
+        raise HTTPException(413, "Certificado deve ter no máximo 100KB")
+
+    if not cert_bytes:
+        raise HTTPException(422, "Arquivo de certificado vazio")
+
+    try:
+        resultado = await nfe_service.registrar_empresa_focus(empresa, cert_bytes, senha_certificado)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    except Exception as e:
+        logger.error("Erro ao registrar empresa na Focus empresa_id=%s: %s", usuario.empresa_id, e)
+        raise HTTPException(400, f"Erro ao registrar empresa na Focus NFe: {e}")
+
+    if not resultado["success"]:
+        raise HTTPException(400, resultado.get("erro", "Erro desconhecido na Focus NFe"))
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Certificado configurado com sucesso na Focus NFe",
+        "certificado_configurado": empresa.focus_certificado_configurado,
+        "validade": empresa.focus_certificado_validade.isoformat() if empresa.focus_certificado_validade else None,
+    }
+
+
 @router.get("/status-focus")
 async def status_focus(
     db: Session = Depends(get_db),
@@ -331,6 +379,10 @@ async def status_focus(
         "conectado": conectado,
         "ambiente": settings.FOCUS_AMBIENTE,
         "nfe_ambiente_empresa": empresa.nfe_ambiente or "homologacao",
+        "certificado_configurado": bool(empresa.focus_certificado_configurado),
+        "certificado_validade": empresa.focus_certificado_validade.isoformat()
+        if empresa.focus_certificado_validade
+        else None,
     }
 
 

@@ -2983,6 +2983,28 @@ Estamos à disposição! 😊"></textarea>
                   <span id="focus-status-text" style="font-size:0.875rem"></span>
                 </div>
               </div>
+
+              <!-- Seção de certificado A1 para Focus NFe -->
+              <div id="secao-certificado-focus" style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border-color)">
+                <div class="cfg-card-title" style="font-size:0.95rem;margin-bottom:0.5rem">Certificado Digital A1</div>
+                <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem">
+                  Envie o arquivo .pfx ou .p12 do certificado A1 da empresa. O COTTE registrará automaticamente o emissor na Focus NFe.
+                </p>
+                <div id="cert-status-atual" style="display:none;margin-bottom:0.75rem;padding:0.5rem 0.75rem;border-radius:6px;font-size:0.8rem"></div>
+                <div class="cfg-fields-grid">
+                  <div class="cfg-form-group">
+                    <label for="fiscal-certificado">Arquivo do Certificado (.pfx / .p12)</label>
+                    <input type="file" id="fiscal-certificado" class="cfg-input" accept=".pfx,.p12" style="padding:0.4rem">
+                  </div>
+                  <div class="cfg-form-group">
+                    <label for="fiscal-cert-senha">Senha do Certificado</label>
+                    <input type="password" id="fiscal-cert-senha" class="cfg-input" placeholder="Senha do .pfx">
+                  </div>
+                </div>
+                <button class="btn btn-primary" id="btn-configurar-cert" onclick="configurarCertificadoFocus(this)" style="margin-top:0.5rem">
+                  Enviar certificado para a Focus NFe
+                </button>
+              </div>
             </div>
             <div class="cfg-card-footer">
               <button class="btn btn-primary" id="btn-salvar-fiscal" onclick="salvarConfiguracaoFiscal(this)">
@@ -3010,8 +3032,9 @@ Estamos à disposição! 😊"></textarea>
 
 <script src="js/utils.js?v=2"></script>
 <script src="js/api.js?v=17"></script>
+<script src="js/services/ApiService.js?v=2"></script>
 <script src="js/layout.js?v=2"></script>
 <script src="js/api-financeiro.js?v=1"></script>
-<script src="js/configuracoes.js?v=33"></script>
+<script src="js/configuracoes.js?v=34"></script>
 </body>
 </html>

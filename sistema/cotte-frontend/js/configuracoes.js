@@ -2740,12 +2740,14 @@ async function carregarStatusFocus() {
   const bar = document.getElementById('focus-status-bar');
   const icon = document.getElementById('focus-status-icon');
   const text = document.getElementById('focus-status-text');
+  const certStatus = document.getElementById('cert-status-atual');
   if (!bar) return;
   bar.style.display = 'block';
 
   try {
     const s = await api.get('/notas-fiscais/status-focus');
     if (!s) return;
+
     if (s.configurado && s.conectado) {
       bar.style.background = 'rgba(34,197,94,0.1)';
       icon.textContent = '✅';
@@ -2759,10 +2761,71 @@ async function carregarStatusFocus() {
       icon.textContent = '❌';
       text.textContent = 'FOCUS_TOKEN não configurado no servidor. Contate o administrador.';
     }
+
+    if (certStatus) {
+      if (s.certificado_configurado) {
+        const validade = s.certificado_validade
+          ? `Válido até ${new Date(s.certificado_validade).toLocaleDateString('pt-BR')}`
+          : 'Válido';
+        certStatus.style.display = 'block';
+        certStatus.style.background = 'rgba(34,197,94,0.1)';
+        certStatus.style.color = 'var(--text-primary)';
+        certStatus.textContent = `✅ Certificado configurado na Focus NFe — ${validade}`;
+      } else {
+        certStatus.style.display = 'block';
+        certStatus.style.background = 'rgba(234,179,8,0.1)';
+        certStatus.style.color = 'var(--text-primary)';
+        certStatus.textContent = '⚠️ Certificado não configurado — envie o .pfx abaixo para habilitar a emissão.';
+      }
+    }
   } catch (_) {
     bar.style.background = 'rgba(234,179,8,0.1)';
     icon.textContent = '⚠️';
     text.textContent = 'Não foi possível verificar status da Focus NFe.';
+  }
+}
+
+async function configurarCertificadoFocus(btnEl) {
+  const certInput = document.getElementById('fiscal-certificado');
+  const senhaInput = document.getElementById('fiscal-cert-senha');
+
+  if (!certInput || !certInput.files || !certInput.files[0]) {
+    showNotif('⚠️', 'Certificado obrigatório', 'Selecione o arquivo .pfx ou .p12 do certificado A1.', 'warning');
+    return;
+  }
+  if (!senhaInput || !senhaInput.value) {
+    showNotif('⚠️', 'Senha obrigatória', 'Informe a senha do certificado digital.', 'warning');
+    return;
+  }
+
+  const apiSvc = window.ApiService;
+  if (!apiSvc || typeof apiSvc.post !== 'function') {
+    showNotif('❌', 'Erro', 'Serviço de API indisponível. Recarregue a página.', 'error');
+    return;
+  }
+
+  if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Enviando...'; }
+
+  try {
+    const formData = new FormData();
+    formData.append('certificado', certInput.files[0]);
+    formData.append('senha_certificado', senhaInput.value);
+
+    const data = await apiSvc.post('/notas-fiscais/configurar-certificado', formData, { forceNative: true });
+
+    senhaInput.value = '';
+    certInput.value = '';
+
+    const validade = data.validade
+      ? ` (válido até ${new Date(data.validade).toLocaleDateString('pt-BR')})`
+      : '';
+    showNotif('✅', 'Certificado configurado!', `Emissor registrado na Focus NFe com sucesso${validade}.`);
+
+    await carregarStatusFocus();
+  } catch (err) {
+    showNotif('❌', 'Erro ao configurar certificado', err.message || 'Verifique o arquivo e a senha.', 'error');
+  } finally {
+    if (btnEl) { btnEl.disabled = false; btnEl.textContent = 'Enviar certificado para a Focus NFe'; }
   }
 }
 
@@ -2798,5 +2861,6 @@ async function salvarConfiguracaoFiscal(btnEl) {
 window.carregarConfiguracaoFiscal = carregarConfiguracaoFiscal;
 window.salvarConfiguracaoFiscal = salvarConfiguracaoFiscal;
 window.carregarStatusFocus = carregarStatusFocus;
+window.configurarCertificadoFocus = configurarCertificadoFocus;
 
 initTemplatePublicoUI();

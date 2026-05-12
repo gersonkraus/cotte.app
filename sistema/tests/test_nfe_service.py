@@ -514,3 +514,67 @@ def test_path_focus_tipos():
     assert _path_focus("nfe", "12345678000195-1") == "/v2/nfe/12345678000195-1"
     assert _path_focus("nfce", "12345678000195-2") == "/v2/nfce/12345678000195-2"
     assert _path_focus("nfse", "12345678000195-3") == "/v2/nfse/12345678000195-3"
+
+
+@pytest.mark.asyncio
+async def test_registrar_empresa_focus_sucesso(db):
+    from tests.conftest import make_empresa
+
+    emp = make_empresa(db, nome="Emp Cert", cnpj="12345678000195")
+    cert_bytes = b"fake-pfx-content"
+    senha = "senha123"
+
+    resp_focus = httpx.Response(
+        200,
+        json={"id": "12345678000195", "status": "ativo"},
+        request=httpx.Request("POST", "https://homologacao.focusnfe.com.br/v2/empresas"),
+    )
+
+    with patch("app.services.nfe_service._get_client") as mock_ctx:
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.post = AsyncMock(return_value=resp_focus)
+        mock_ctx.return_value = mock_client
+
+        resultado = await nfe_service.registrar_empresa_focus(emp, cert_bytes, senha)
+
+    assert resultado["success"] is True
+    assert emp.focus_certificado_configurado is True
+
+
+@pytest.mark.asyncio
+async def test_registrar_empresa_focus_atualiza_se_ja_existe(db):
+    from tests.conftest import make_empresa
+
+    emp = make_empresa(db, nome="Emp Cert Existe", cnpj="12345678000195")
+    emp.focus_certificado_configurado = True
+    cert_bytes = b"new-pfx-content"
+    senha = "nova_senha"
+
+    resp_focus = httpx.Response(
+        200,
+        json={"id": "12345678000195", "status": "ativo"},
+        request=httpx.Request("PUT", "https://homologacao.focusnfe.com.br/v2/empresas/12345678000195"),
+    )
+
+    with patch("app.services.nfe_service._get_client") as mock_ctx:
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.put = AsyncMock(return_value=resp_focus)
+        mock_ctx.return_value = mock_client
+
+        resultado = await nfe_service.registrar_empresa_focus(emp, cert_bytes, senha)
+
+    assert resultado["success"] is True
+
+
+@pytest.mark.asyncio
+async def test_registrar_empresa_focus_cnpj_vazio_levanta_erro(db):
+    from tests.conftest import make_empresa
+
+    emp = make_empresa(db, nome="Emp SemCNPJ", cnpj=None)
+
+    with pytest.raises(ValueError, match="CNPJ"):
+        await nfe_service.registrar_empresa_focus(emp, b"pfx", "senha")

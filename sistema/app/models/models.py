@@ -364,6 +364,8 @@ class Empresa(Base):
     endereco_codigo_municipio_ibge = Column(String(7), nullable=True)
     # Configuração NF-e por empresa (ambiente preferido; token é global no .env)
     nfe_ambiente = Column(String(20), default="homologacao")  # "homologacao" | "producao"
+    focus_certificado_configurado = Column(Boolean, default=False)
+    focus_certificado_validade = Column(DateTime(timezone=True), nullable=True)
 
     pacote = relationship("Plano", back_populates="empresas")
     papeis = relationship("Papel", back_populates="empresa", order_by="Papel.nome")

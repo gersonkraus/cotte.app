@@ -49,9 +49,12 @@ var ApiService = (function() {
 
     async function fetchNative(method, endpoint, body, options) {
       var opts = options || {};
-      var headers = Object.assign({
-        'Content-Type': 'application/json'
-      }, opts.headers || {});
+      var isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+      var baseHeaders = {};
+      if (!isFormData) {
+        baseHeaders['Content-Type'] = 'application/json';
+      }
+      var headers = Object.assign(baseHeaders, opts.headers || {});
       var token = getToken();
       if (token) headers.Authorization = 'Bearer ' + token;
 
@@ -60,7 +63,11 @@ var ApiService = (function() {
         headers: headers
       };
       if (typeof body !== 'undefined' && body !== null) {
-        fetchOptions.body = typeof body === 'string' ? body : JSON.stringify(body);
+        if (isFormData) {
+          fetchOptions.body = body;
+        } else {
+          fetchOptions.body = typeof body === 'string' ? body : JSON.stringify(body);
+        }
       }
 
       var url = getApiUrl(endpoint);
@@ -109,7 +116,8 @@ var ApiService = (function() {
       var opts = options || {};
 
       // Paridade máxima: quando disponível, delega para cliente legado `api`.
-      if (!opts.forceNative && window.api && typeof window.api[m] === 'function') {
+      var skipLegacyApi = typeof FormData !== 'undefined' && body instanceof FormData;
+      if (!opts.forceNative && !skipLegacyApi && window.api && typeof window.api[m] === 'function') {
         var result;
         if (m === 'get' || m === 'delete') {
           result = await window.api[m](endpoint, opts);
