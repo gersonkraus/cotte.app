@@ -413,6 +413,18 @@ def sugerir_acao_mensagem_erro_notaas(erro_texto: str) -> Optional[str]:
             "contribuinte ou MEI o valor pode ser ‘ISENTO’, conforme regra da sua UF — confirme com o contador). "
             "Depois de corrigir, use Reemitir ou emita uma nova nota."
         )
+    # NF-e: grupo infRespTec obrigatório na UF (responsável técnico do sistema emissor)
+    if re.search(r"cstat\s*=\s*972", erro_texto, re.I) or (
+        "972" in erro_texto and "respons" in t and "tecnic" in t
+    ):
+        return (
+            "A SEFAZ rejeitou a emissão (cStat 972): é obrigatório informar o responsável técnico (dados de quem "
+            "mantém o sistema emissor da NF-e — CNPJ, contato, e-mail e telefone, conforme layout SEFAZ). "
+            "Em geral isso é configurado no painel da Notaas no projeto vinculado à sua API key "
+            "(projeto → configurações de NF-e / dados fiscais ou equivalente — cadastre o RT homologado na sua UF). "
+            "Se já estiver preenchido na Notaas e o erro continuar, abra um chamado no suporte Notaas com o invoiceId. "
+            "Depois de ajustar, use Reemitir ou emita novamente."
+        )
     return None
 
 

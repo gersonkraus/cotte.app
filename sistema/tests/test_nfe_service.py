@@ -64,6 +64,14 @@ def test_sugerir_acao_mensagem_erro_cstat_209_ie_emitente():
     assert "Configurações" in acao or "Fiscal" in acao
 
 
+def test_sugerir_acao_mensagem_erro_cstat_972_responsavel_tecnico():
+    msg = "[NFE_SEFAZ_REJECTION] cStat=972 — Rejeicao: Obrigatoria as informacoes do responsavel tecnico"
+    acao = nfe_service.sugerir_acao_mensagem_erro_notaas(msg)
+    assert acao is not None
+    assert "972" in acao
+    assert "Notaas" in acao
+
+
 @pytest.mark.asyncio
 async def test_emitir_nota_timeout_keeps_processing(db):
     from app.models.models import NotaFiscal
