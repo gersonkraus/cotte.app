@@ -16,6 +16,7 @@ from sqlalchemy import or_
 from app.core.database import get_db
 from app.core.auth import get_usuario_atual, exigir_permissao
 from app.core.tenant_context import set_tenant_context
+from app.core.config import settings
 
 from app.models.models import Empresa, NotaFiscal, Orcamento, Usuario, HistoricoEdicao, ItemOrcamento, Servico, Cliente
 from app.schemas.schemas import (
@@ -368,105 +369,30 @@ async def status_notaas(
     }
 
 
-@router.post("/webhook/notaas")
-async def receber_webhook_notaas(
+@router.post("/webhook/focus")
+async def receber_webhook_focus(
     request: Request,
     db: Session = Depends(get_db),
-    x_notaas_event: str = Header(None),
-    x_notaas_delivery: str = Header(None),
-    x_notaas_signature: str = Header(None),
+    authorization: str = Header(None),
 ):
-    """Recebe eventos NF-e, NFC-e e NFS-e da Notaas.
+    """Recebe notificações de status de NF-e, NFC-e e NFS-e da Focus NFe."""
+    if not nfe_service.verificar_token_webhook_focus(authorization or "", settings.FOCUS_TOKEN):
+        raise HTTPException(401, "Autenticação do webhook Focus inválida")
 
-    NF-e/NFC-e: campos dentro de payload["data"] (chaveAcesso, nProt, cStat, xMotivo).
-    NFS-e: campos no root (invoiceId, numeroNfe, chNFSe, errorCode, errorMessage).
-    """
-    body = await request.body()
     payload = await request.json()
-
-    # Evento: vem no body E no header X-Notaas-Event
-    event = payload.get("event") or x_notaas_event or ""
-
-    # deliveryId: vem no body E no header (idempotência)
-    delivery_id = payload.get("deliveryId") or x_notaas_delivery
-
-    # NF-e/NFC-e: invoiceId fica dentro de data{}; NFS-e: fica no root
-    data = payload.get("data") or {}
-    invoice_id = data.get("invoiceId") or payload.get("invoiceId") or payload.get("id")
-    if not invoice_id:
+    ref = payload.get("ref", "")
+    if not ref:
         return {"ok": True}
 
-    nota = db.query(NotaFiscal).filter(NotaFiscal.notaas_invoice_id == invoice_id).first()
+    nota = db.query(NotaFiscal).filter(NotaFiscal.focus_ref == ref).first()
     if not nota:
         return {"ok": True}
 
-    # Valida assinatura HMAC-SHA256 se o secret estiver configurado
-    empresa = db.query(Empresa).filter(Empresa.id == nota.empresa_id).first()
-    if empresa and empresa.notaas_webhook_secret:
-        if not x_notaas_signature:
-            raise HTTPException(401, "Assinatura de webhook ausente")
-        if not nfe_service.verificar_assinatura_webhook(body, x_notaas_signature, empresa.notaas_webhook_secret):
-            raise HTTPException(401, "Assinatura de webhook inválida")
-    else:
-        import logging
-        logging.getLogger(__name__).warning(
-            "Webhook Notaas recebido sem secret configurado (empresa_id=%s)",
-            nota.empresa_id,
-        )
+    nfe_service._atualizar_nota_com_status_focus(nota, payload)
 
-    # Idempotência: ignora reentregas já processadas
-    if delivery_id and nota.notaas_delivery_id == delivery_id:
-        return {"ok": True}
-    nota.notaas_delivery_id = delivery_id
-
-    if "issued" in event:
-        nota.status = "emitida"
-        nota.chave_acesso = (
-            data.get("chaveAcesso")
-            or payload.get("chNFSe")
-            or payload.get("accessKey")
-        )
-        nota.protocolo = data.get("nProt") or payload.get("protocol")
-        numero = data.get("nfNumber") or payload.get("numeroNfe") or payload.get("nfNumber")
-        if numero:
-            nota.numero = str(numero)
-        nota.xml_url = data.get("xmlUrl") or payload.get("xmlUrl")
-        nota.danfe_url = data.get("pdfUrl") or payload.get("pdfUrl")
-        nota.qr_code = data.get("qrCode") or payload.get("qrCode")
-        nota.emitida_em = nota.emitida_em or datetime.utcnow()
-
-    elif "documents_ready" in event:
-        if data.get("xmlUrl") and not nota.xml_url:
-            nota.xml_url = data["xmlUrl"]
-        if data.get("pdfUrl") and not nota.danfe_url:
-            nota.danfe_url = data["pdfUrl"]
-        if data.get("cancelXmlUrl"):
-            nota.xml_url = data["cancelXmlUrl"]
-
-    elif "error" in event:
-        nota.status = "erro"
-        nota.erro_codigo = (
-            str(data.get("cStat") or "")
-            or payload.get("errorCode", "WEBHOOK_ERROR")
-        )
-        nota.erro_mensagem = (
-            data.get("xMotivo")
-            or payload.get("errorMessage", "Erro via webhook")
-        )
-
-    elif "cancelled" in event:
-        nota.status = "cancelada"
-        nota.cancelada_em = datetime.utcnow()
-
-    elif event == "batch.completed":
-        import logging
-        logging.getLogger(__name__).info("batch.completed recebido para empresa_id=%s — processamento em lote concluído", nota.empresa_id)
-        db.commit()
-        return {"ok": True}
-        
     if nota.orcamento_id and nota.status in ("emitida", "cancelada", "erro"):
         descricao = {
-            "emitida": f"Nota Fiscal {nota.tipo.upper()} {nota.numero or ''} emitida (via webhook)",
+            "emitida": f"Nota Fiscal {nota.tipo.upper()} {nota.numero or ''} emitida (via webhook Focus)",
             "cancelada": f"Nota Fiscal {nota.tipo.upper()} {nota.numero or ''} cancelada",
             "erro": f"Erro na emissão da Nota Fiscal: {nota.erro_mensagem or 'desconhecido'}",
         }.get(nota.status, "")
