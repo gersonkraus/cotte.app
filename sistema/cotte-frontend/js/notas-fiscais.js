@@ -7,6 +7,32 @@
         cancelada: "badge-secondary",
         erro: "badge-danger",
     };
+    var STATUS_LABELS = {
+        pendente: "Pendente",
+        processando: "Processando",
+        emitida: "Emitida",
+        cancelada: "Cancelada",
+        erro: "Falha na emissão",
+    };
+
+    function _escHtml(s) {
+        if (s == null || s === "") return "";
+        return String(s)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
+    function _fmtDataHora(iso) {
+        if (!iso) return "—";
+        try {
+            return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+        } catch (_) {
+            return "—";
+        }
+    }
 
     var paginaAtual = 1;
 
@@ -34,11 +60,53 @@
 
     function _resumirErro(erroMensagem) {
         if (!erroMensagem) return "";
+        var raw = String(erroMensagem).trim();
         try {
-            var obj = JSON.parse(erroMensagem);
-            if (obj.error) return obj.error.substring(0, 120) + (obj.error.length > 120 ? "…" : "");
-        } catch(_) {}
-        return erroMensagem.substring(0, 120) + (erroMensagem.length > 120 ? "…" : "");
+            var obj = JSON.parse(raw);
+            if (obj && typeof obj.error === "string" && obj.error) {
+                return obj.error.length > 200 ? obj.error.substring(0, 200) + "…" : obj.error;
+            }
+            if (obj && typeof obj.message === "string" && obj.message) {
+                return obj.message.length > 200 ? obj.message.substring(0, 200) + "…" : obj.message;
+            }
+        } catch (_) {
+            var m = raw.match(/"error"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+            if (m && m[1]) {
+                var extr = m[1].replace(/\\n/g, "\n").replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+                return extr.length > 200 ? extr.substring(0, 200) + "…" : extr;
+            }
+        }
+        return raw.length > 200 ? raw.substring(0, 200) + "…" : raw;
+    }
+
+    function _linhaTemporalNota(n) {
+        var st = n.status || "";
+        if (st === "emitida") {
+            return "<p><strong>Emitida em:</strong> " + _escHtml(_fmtDataHora(n.emitida_em)) + "</p>";
+        }
+        if (st === "cancelada") {
+            var emi = n.emitida_em ? _fmtDataHora(n.emitida_em) : "—";
+            var canc = n.cancelada_em ? _fmtDataHora(n.cancelada_em) : "—";
+            return "<p><strong>Emitida em:</strong> " + _escHtml(emi) + "</p>"
+                + "<p><strong>Cancelada em:</strong> " + _escHtml(canc) + "</p>";
+        }
+        if (st === "erro") {
+            return "<p><strong>Tentativa registrada em:</strong> " + _escHtml(_fmtDataHora(n.criado_em)) + "</p>"
+                + "<p style=\"font-size:0.82rem;color:var(--muted,#666);margin:4px 0\">"
+                + "Esta nota não foi autorizada pela SEFAZ; o número e a data de emissão só aparecem após sucesso."
+                + "</p>";
+        }
+        return "<p><strong>Registrada em:</strong> " + _escHtml(_fmtDataHora(n.criado_em)) + "</p>"
+            + (st === "processando"
+                ? "<p style=\"font-size:0.82rem;color:var(--muted,#666);margin:4px 0\">Em processamento na Notaas/SEFAZ.</p>"
+                : "");
+    }
+
+    function _linhaOrcamento(n) {
+        if (!n.orcamento_id) return "";
+        return "<p><strong>Orçamento:</strong> "
+            + "<a href=\"orcamento-view.html?id=" + encodeURIComponent(String(n.orcamento_id)) + "\">#"
+            + _escHtml(String(n.orcamento_id)) + "</a></p>";
     }
 
     function renderizarNotas(notas) {
@@ -56,7 +124,8 @@
             var erroHtml = "";
             if (n.erro_mensagem) {
                 var resumo = _resumirErro(n.erro_mensagem);
-                erroHtml = '<p class="text-danger" style="font-size:0.82rem;margin:4px 0"><strong>Erro:</strong> ' + resumo + '</p>';
+                erroHtml = '<p class="text-danger" style="font-size:0.82rem;margin:4px 0"><strong>Erro:</strong> '
+                    + _escHtml(resumo) + "</p>";
             }
             var botoesAcao = "";
             if (n.status === "emitida") {
@@ -65,21 +134,23 @@
             if (n.status === "erro") {
                 botoesAcao += '<button onclick="NotasFiscaisPage.analisarErro(' + n.id + ')" class="btn btn-sm btn-warning">Analisar e Corrigir</button>';
             }
+            var numLabel = n.numero ? _escHtml(n.numero) : (n.status === "erro" ? "— <span style=\"font-weight:400;color:var(--muted,#666)\">(não emitida)</span>" : "—");
             return '<div class="card nf-card" data-id="' + n.id + '">'
                 + '<div class="card-header">'
-                + '<span class="badge ' + (STATUS_CLASSES[n.status] || "") + '">' + n.status + '</span>'
-                + '<span class="nf-tipo">' + (TIPO_LABELS[n.tipo] || n.tipo) + '</span>'
-                + '<span class="nf-numero">' + (n.numero || "—") + '</span>'
+                + '<span class="badge ' + (STATUS_CLASSES[n.status] || "") + '">' + _escHtml(STATUS_LABELS[n.status] || n.status) + '</span>'
+                + '<span class="nf-tipo">' + _escHtml(TIPO_LABELS[n.tipo] || n.tipo) + '</span>'
+                + '<span class="nf-numero">' + numLabel + '</span>'
                 + '</div>'
                 + '<div class="card-body">'
-                + '<p><strong>Natureza:</strong> ' + (n.natureza_operacao || "—") + '</p>'
-                + '<p><strong>Emitida em:</strong> ' + (n.emitida_em ? new Date(n.emitida_em).toLocaleDateString("pt-BR") : "—") + '</p>'
+                + '<p><strong>Natureza:</strong> ' + _escHtml(n.natureza_operacao || "—") + '</p>'
+                + _linhaOrcamento(n)
+                + _linhaTemporalNota(n)
                 + erroHtml
                 + '</div>'
                 + '<div class="card-footer">'
-                + (n.danfe_url ? '<a href="' + n.danfe_url + '" target="_blank" class="btn btn-sm">DANFE</a>' : "")
-                + (n.xml_url ? '<a href="' + n.xml_url + '" target="_blank" class="btn btn-sm">XML</a>' : "")
-                + (n.qr_code ? '<a href="' + n.qr_code + '" target="_blank" class="btn btn-sm">QR Code</a>' : "")
+                + (n.danfe_url ? '<a href="' + _escHtml(n.danfe_url) + '" target="_blank" rel="noopener noreferrer" class="btn btn-sm">DANFE</a>' : "")
+                + (n.xml_url ? '<a href="' + _escHtml(n.xml_url) + '" target="_blank" rel="noopener noreferrer" class="btn btn-sm">XML</a>' : "")
+                + (n.qr_code ? '<a href="' + _escHtml(n.qr_code) + '" target="_blank" rel="noopener noreferrer" class="btn btn-sm">QR Code</a>' : "")
                 + botoesAcao
                 + '</div>'
                 + '</div>';
@@ -148,7 +219,7 @@
 
         var botoesAcao = "";
         if (analise.orcamento_id) {
-            botoesAcao += '<a href="/orcamento-view.html?id=' + analise.orcamento_id + '" class="btn btn-secondary btn-sm" style="margin-right:8px">Ver Orçamento</a>';
+            botoesAcao += '<a href="orcamento-view.html?id=' + encodeURIComponent(String(analise.orcamento_id)) + '" class="btn btn-secondary btn-sm" style="margin-right:8px" target="_blank" rel="noopener noreferrer">Ver Orçamento</a>';
             botoesAcao += '<button id="btn-reemitir-analise" class="btn btn-primary btn-sm">Reemitir Nota</button>';
         }
 

@@ -48,7 +48,7 @@
   <div class="topbar">
     <div class="topbar-title-wrap">
       <div class="page-title">Notas Fiscais</div>
-      <div class="page-sub" id="page-sub">Histórico de emissões</div>
+      <div class="page-sub" id="page-sub">Notas já emitidas (altere o filtro para ver falhas ou outros status)</div>
     </div>
     <div class="topbar-actions">
       <span id="topbar-notificacoes"></span>
@@ -72,12 +72,12 @@
       </div>
       <div>
         <select id="filtro-status">
+          <option value="emitida" selected>Emitidas</option>
           <option value="">Todos os status</option>
           <option value="pendente">Pendente</option>
           <option value="processando">Processando</option>
-          <option value="emitida">Emitida</option>
           <option value="cancelada">Cancelada</option>
-          <option value="erro">Com Erro</option>
+          <option value="erro">Falhas na emissão</option>
         </select>
       </div>
     </div>
@@ -102,7 +102,7 @@
 <script>
   inicializarLayout('notas-fiscais');
 </script>
-<script src="js/notas-fiscais.js"></script>
+<script src="js/notas-fiscais.js?v=2"></script>
 
 </body>
 </html>
