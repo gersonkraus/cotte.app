@@ -122,6 +122,10 @@ async def emitir_nota_fiscal(
 
     orcamento = (
         db.query(Orcamento)
+        .options(
+            selectinload(Orcamento.itens).joinedload(ItemOrcamento.servico).joinedload(Servico.categoria),
+            joinedload(Orcamento.cliente),
+        )
         .filter(Orcamento.id == dados.orcamento_id, Orcamento.empresa_id == usuario.empresa_id)
         .first()
     )
@@ -144,7 +148,7 @@ async def emitir_nota_fiscal(
     if dados.tipo == "nfse":
         payload = nfe_service._montar_payload_nfse(
             empresa, orcamento,
-            dados.codigo_servico_lc116 or "17.06",
+            dados.codigo_servico_lc116 or "170600",
             dados.aliquota_iss or 0,
         )
     else:

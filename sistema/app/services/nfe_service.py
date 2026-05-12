@@ -171,6 +171,26 @@ async def _montar_payload_nfe(
     }
 
 
+def _normalizar_codigo_servico(codigo: str) -> str:
+    """Normaliza código LC116 para 6 dígitos sem pontos (formato Notaas).
+
+    "1.07"  → "010700"   "17.06" → "170600"   "010302" → "010302"
+    """
+    if not codigo:
+        return "170600"
+    s = codigo.strip()
+    if "." in s:
+        partes = s.split(".")
+        padded = [p.zfill(2) for p in partes[:3]]
+        while len(padded) < 3:
+            padded.append("00")
+        return "".join(padded)
+    digits = "".join(c for c in s if c.isdigit())
+    if not digits:
+        return "170600"
+    return digits if len(digits) == 6 else (digits.zfill(6) if len(digits) < 6 else digits[:6])
+
+
 def _montar_payload_nfse(
     empresa: Empresa,
     orcamento: Orcamento,
@@ -217,7 +237,7 @@ def _montar_payload_nfse(
         "tomador": tomador,
         "servico": {
             "descricao": descricao,
-            "codigo": codigo_servico,  # 6 dígitos ex: "010302"
+            "codigo": _normalizar_codigo_servico(codigo_servico),
         },
         "valores": {
             "total": round(float(orcamento.total), 2),       # BUG5: evita float impreciso
