@@ -14,6 +14,7 @@ import asyncio
 import hashlib
 import hmac
 import logging
+import re
 import unicodedata
 from datetime import datetime
 from decimal import Decimal
@@ -392,6 +393,25 @@ def sugerir_acao_campo_erro_notaas(campo_msg: str) -> Optional[str]:
         return (
             "Quantidade do item deve ser maior que zero. "
             "Corrija a quantidade no orçamento."
+        )
+    return None
+
+
+def sugerir_acao_mensagem_erro_notaas(erro_texto: str) -> Optional[str]:
+    """Interpreta mensagens de erro completas (SEFAZ/Notaas) para o operador."""
+    if not erro_texto:
+        return None
+    t = erro_texto.lower()
+    # NF-e: IE do emitente inválida (cadastro da empresa)
+    if re.search(r"cstat\s*=\s*209", erro_texto, re.I) or (
+        "209" in erro_texto and "ie" in t and "emit" in t
+    ):
+        return (
+            "A SEFAZ rejeitou a emissão (cStat 209): a Inscrição Estadual (IE) do emitente está incorreta, "
+            "incompatível com o CNPJ ou com a UF da empresa. Ajuste em Configurações → Fiscal o campo "
+            "Inscrição estadual (use apenas o que consta no cadastro estadual; em alguns casos de não "
+            "contribuinte ou MEI o valor pode ser ‘ISENTO’, conforme regra da sua UF — confirme com o contador). "
+            "Depois de corrigir, use Reemitir ou emita uma nova nota."
         )
     return None
 

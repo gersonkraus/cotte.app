@@ -56,6 +56,14 @@ def test_path_polling_status_notaas_nfe_usa_prefixo_nfe():
     assert nfe_service._path_polling_status_notaas("nfse", "inv-3") == "/invoices/inv-3/status"
 
 
+def test_sugerir_acao_mensagem_erro_cstat_209_ie_emitente():
+    msg = "[NFE_SEFAZ_REJECTION] cStat=209 — Rejeicao: IE do emitente invalida"
+    acao = nfe_service.sugerir_acao_mensagem_erro_notaas(msg)
+    assert acao is not None
+    assert "209" in acao
+    assert "Configurações" in acao or "Fiscal" in acao
+
+
 @pytest.mark.asyncio
 async def test_emitir_nota_timeout_keeps_processing(db):
     from app.models.models import NotaFiscal

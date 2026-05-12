@@ -202,6 +202,14 @@ async def preparar_nota_fiscal(
     if not empresa.endereco_cidade:
         avisos.append("Endereço da empresa incompleto — pode causar rejeição")
 
+    if dados.tipo in ("nfe", "nfce") and empresa:
+        ie_emp = (empresa.inscricao_estadual or "").strip()
+        if not ie_emp:
+            avisos.append(
+                "Inscrição estadual da empresa não preenchida em Configurações → Fiscal. "
+                "Sem IE coerente com o CNPJ e a UF, a SEFAZ pode rejeitar a NF-e (ex.: cStat 209 — IE do emitente inválida)."
+            )
+
     # Valida cliente/destinatário
     cliente = orcamento.cliente
     if cliente:
@@ -592,7 +600,6 @@ async def analisar_erro_nota_fiscal(
 
     if not sugestoes and erro_texto:
         et_lower = erro_texto.lower()
-        acao_geral = f"Erro recebido da SEFAZ/Notaas: {erro_texto[:300]}"
         if (
             "invoice" in et_lower
             and ("não encontrado" in et_lower or "nao encontrado" in et_lower)
@@ -603,6 +610,10 @@ async def analisar_erro_nota_fiscal(
                 "isso foi corrigido. Após atualizar o servidor, use Reemitir nesta nota ou emita novamente. "
                 f"(Resposta original: {erro_texto[:200]})"
             )
+        else:
+            acao_geral = nfe_service.sugerir_acao_mensagem_erro_notaas(erro_texto)
+            if not acao_geral:
+                acao_geral = f"Erro recebido da SEFAZ/Notaas: {erro_texto[:300]}"
         sugestoes.append({
             "campo": "erro_geral",
             "acao": acao_geral,
