@@ -522,6 +522,157 @@ def get_nota_fiscal(
     return nota
 
 
+@router.post("/{nota_id}/analisar-erro")
+async def analisar_erro_nota_fiscal(
+    nota_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    usuario=Depends(get_usuario_atual),
+):
+    """Analisa o erro de uma nota fiscal e retorna sugestões de correção em linguagem simples."""
+    import json as _json
+    set_tenant_context(db, empresa_id=usuario.empresa_id, usuario_id=usuario.id)
+    nota = db.query(NotaFiscal).filter(
+        NotaFiscal.id == nota_id, NotaFiscal.empresa_id == usuario.empresa_id
+    ).first()
+    if not nota:
+        raise HTTPException(404, "Nota fiscal não encontrada")
+    if nota.status != "erro":
+        raise HTTPException(400, "Somente notas com status 'erro' podem ser analisadas")
+
+    # Extrai campos do erro Notaas (quando é JSON estruturado)
+    campos_erro: list[str] = []
+    erro_texto = nota.erro_mensagem or ""
+    try:
+        erro_obj = _json.loads(erro_texto)
+        campos_erro = erro_obj.get("campos", [])
+        if not campos_erro and erro_obj.get("error"):
+            erro_texto = erro_obj["error"]
+    except (_json.JSONDecodeError, TypeError):
+        pass
+
+    # Mapeamento de campos técnicos para linguagem do operador
+    _MAPA_SUGESTOES = {
+        "naturezaOperacao (ou natOp)": (
+            "Natureza da operação ausente — campo técnico já corrigido no sistema. "
+            "Basta reemitir a nota."
+        ),
+        "dest.cpf ou dest.cnpj inválido": (
+            "O cliente não tem CPF ou CNPJ cadastrado, ou o documento está em formato errado. "
+            "Acesse o cadastro do cliente, preencha o CPF (para pessoa física) "
+            "ou CNPJ (para pessoa jurídica) e tente novamente."
+        ),
+        "dest.endereco": (
+            "O endereço do cliente está incompleto ou ausente. "
+            "Acesse o cadastro do cliente, preencha Logradouro, Número, Bairro, "
+            "Cidade e UF, depois reemita a nota."
+        ),
+        "items: deve conter pelo menos 1 item": (
+            "O orçamento não possui itens ou os itens não foram carregados corretamente. "
+            "Verifique se o orçamento tem pelo menos um produto/serviço adicionado."
+        ),
+    }
+
+    sugestoes = []
+    for campo in campos_erro:
+        sugestoes.append({
+            "campo": campo,
+            "acao": _MAPA_SUGESTOES.get(campo, f"Verifique o campo: {campo}"),
+        })
+
+    if not sugestoes and erro_texto:
+        sugestoes.append({
+            "campo": "erro_geral",
+            "acao": f"Erro recebido da SEFAZ/Notaas: {erro_texto[:300]}",
+        })
+
+    # Verifica se pode reemitir (orçamento ainda existe)
+    pode_reemitir = False
+    if nota.orcamento_id:
+        orcamento_existe = db.query(Orcamento.id).filter(
+            Orcamento.id == nota.orcamento_id,
+            Orcamento.empresa_id == usuario.empresa_id,
+        ).first()
+        pode_reemitir = bool(orcamento_existe)
+
+    return {
+        "nota_id": nota_id,
+        "erro_original": nota.erro_mensagem,
+        "campos_com_erro": campos_erro,
+        "sugestoes": sugestoes,
+        "pode_reemitir": pode_reemitir,
+        "orcamento_id": nota.orcamento_id,
+        "tipo": nota.tipo,
+        "serie": nota.serie,
+        "natureza_operacao": nota.natureza_operacao,
+    }
+
+
+@router.post("/{nota_id}/reemitir", response_model=NotaFiscalOut)
+async def reemitir_nota_fiscal(
+    nota_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    usuario=Depends(get_usuario_atual),
+):
+    """Cria uma nova nota a partir de uma nota com erro, reaproveitando os dados originais."""
+    set_tenant_context(db, empresa_id=usuario.empresa_id, usuario_id=usuario.id)
+    empresa = _get_empresa_com_nfe(db, usuario)
+
+    nota_original = db.query(NotaFiscal).filter(
+        NotaFiscal.id == nota_id, NotaFiscal.empresa_id == usuario.empresa_id
+    ).first()
+    if not nota_original:
+        raise HTTPException(404, "Nota fiscal não encontrada")
+    if nota_original.status != "erro":
+        raise HTTPException(400, "Somente notas com erro podem ser reemitidas")
+    if not nota_original.orcamento_id:
+        raise HTTPException(422, "Nota sem orçamento associado — não é possível reemitir")
+
+    orcamento = (
+        db.query(Orcamento)
+        .options(
+            selectinload(Orcamento.itens).joinedload(ItemOrcamento.servico).joinedload(Servico.categoria),
+            joinedload(Orcamento.cliente),
+        )
+        .filter(Orcamento.id == nota_original.orcamento_id, Orcamento.empresa_id == usuario.empresa_id)
+        .first()
+    )
+    if not orcamento:
+        raise HTTPException(404, "Orçamento associado não encontrado")
+
+    nova_nota = NotaFiscal(
+        empresa_id=usuario.empresa_id,
+        orcamento_id=nota_original.orcamento_id,
+        tipo=nota_original.tipo,
+        modelo=nota_original.modelo,
+        serie=nota_original.serie,
+        natureza_operacao=nota_original.natureza_operacao,
+        status="pendente",
+        criado_por_id=usuario.id,
+    )
+    db.add(nova_nota)
+    db.flush()
+
+    if nova_nota.tipo == "nfse":
+        payload = nfe_service._montar_payload_nfse(
+            empresa, orcamento,
+            nota_original.codigo_servico_lc116 if hasattr(nota_original, "codigo_servico_lc116") else "170600",
+            0,
+        )
+    else:
+        payload = await nfe_service._montar_payload_nfe(
+            empresa, orcamento, nova_nota.tipo,
+            nova_nota.natureza_operacao or "Venda de Mercadorias",
+            nova_nota.serie or "1",
+            None,
+        )
+
+    db.commit()
+    background_tasks.add_task(nfe_service.emitir_nota_background, nova_nota.id, empresa.id, payload)
+    return nova_nota
+
+
 @router.post("/{nota_id}/cancelar", response_model=NotaFiscalOut)
 async def cancelar_nota_fiscal(
     nota_id: int,

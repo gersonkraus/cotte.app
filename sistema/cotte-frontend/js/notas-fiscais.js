@@ -32,6 +32,15 @@
         }
     }
 
+    function _resumirErro(erroMensagem) {
+        if (!erroMensagem) return "";
+        try {
+            var obj = JSON.parse(erroMensagem);
+            if (obj.error) return obj.error.substring(0, 120) + (obj.error.length > 120 ? "…" : "");
+        } catch(_) {}
+        return erroMensagem.substring(0, 120) + (erroMensagem.length > 120 ? "…" : "");
+    }
+
     function renderizarNotas(notas) {
         var container = document.getElementById("notas-list");
         var empty = document.getElementById("notas-empty");
@@ -44,6 +53,18 @@
         empty.style.display = "none";
 
         container.innerHTML = notas.map(function(n) {
+            var erroHtml = "";
+            if (n.erro_mensagem) {
+                var resumo = _resumirErro(n.erro_mensagem);
+                erroHtml = '<p class="text-danger" style="font-size:0.82rem;margin:4px 0"><strong>Erro:</strong> ' + resumo + '</p>';
+            }
+            var botoesAcao = "";
+            if (n.status === "emitida") {
+                botoesAcao += '<button onclick="NotasFiscaisPage.cancelar(' + n.id + ')" class="btn btn-sm btn-danger">Cancelar</button>';
+            }
+            if (n.status === "erro") {
+                botoesAcao += '<button onclick="NotasFiscaisPage.analisarErro(' + n.id + ')" class="btn btn-sm btn-warning">Analisar e Corrigir</button>';
+            }
             return '<div class="card nf-card" data-id="' + n.id + '">'
                 + '<div class="card-header">'
                 + '<span class="badge ' + (STATUS_CLASSES[n.status] || "") + '">' + n.status + '</span>'
@@ -53,13 +74,13 @@
                 + '<div class="card-body">'
                 + '<p><strong>Natureza:</strong> ' + (n.natureza_operacao || "—") + '</p>'
                 + '<p><strong>Emitida em:</strong> ' + (n.emitida_em ? new Date(n.emitida_em).toLocaleDateString("pt-BR") : "—") + '</p>'
-                + (n.erro_mensagem ? '<p class="text-danger"><strong>Erro:</strong> ' + n.erro_mensagem + '</p>' : "")
+                + erroHtml
                 + '</div>'
                 + '<div class="card-footer">'
                 + (n.danfe_url ? '<a href="' + n.danfe_url + '" target="_blank" class="btn btn-sm">DANFE</a>' : "")
                 + (n.xml_url ? '<a href="' + n.xml_url + '" target="_blank" class="btn btn-sm">XML</a>' : "")
                 + (n.qr_code ? '<a href="' + n.qr_code + '" target="_blank" class="btn btn-sm">QR Code</a>' : "")
-                + (n.status === "emitida" ? '<button onclick="NotasFiscaisPage.cancelar(' + n.id + ')" class="btn btn-sm btn-danger">Cancelar</button>' : "")
+                + botoesAcao
                 + '</div>'
                 + '</div>';
         }).join("");
@@ -93,6 +114,79 @@
         }
     }
 
+    async function analisarErro(notaId) {
+        var btn = document.querySelector('[data-id="' + notaId + '"] .btn-warning');
+        if (btn) { btn.disabled = true; btn.textContent = "Analisando..."; }
+
+        var analise = null;
+        try {
+            analise = await api.post("/notas-fiscais/" + notaId + "/analisar-erro", {});
+        } catch(e) {
+            alert("Erro ao analisar: " + (e.message || "tente novamente"));
+            if (btn) { btn.disabled = false; btn.textContent = "Analisar e Corrigir"; }
+            return;
+        }
+        if (btn) { btn.disabled = false; btn.textContent = "Analisar e Corrigir"; }
+
+        _mostrarModalAnalise(analise);
+    }
+
+    function _mostrarModalAnalise(analise) {
+        var existente = document.getElementById("modal-analise-erro");
+        if (existente) existente.remove();
+
+        var sugestoesHtml = (analise.sugestoes || []).map(function(s) {
+            return '<div style="margin-bottom:12px;padding:10px 12px;background:rgba(255,200,0,0.08);border-left:3px solid #f59e0b;border-radius:4px">'
+                + '<div style="font-size:0.75rem;color:#f59e0b;font-weight:600;text-transform:uppercase;margin-bottom:4px">' + s.campo + '</div>'
+                + '<div style="font-size:0.9rem">' + s.acao + '</div>'
+                + '</div>';
+        }).join("");
+
+        if (!sugestoesHtml) {
+            sugestoesHtml = '<p style="color:var(--text-muted,#888)">Nenhuma sugestão automática disponível.</p>';
+        }
+
+        var botoesAcao = "";
+        if (analise.orcamento_id) {
+            botoesAcao += '<a href="/orcamento-view.html?id=' + analise.orcamento_id + '" class="btn btn-secondary btn-sm" style="margin-right:8px">Ver Orçamento</a>';
+            botoesAcao += '<button id="btn-reemitir-analise" class="btn btn-primary btn-sm">Reemitir Nota</button>';
+        }
+
+        var modal = document.createElement("div");
+        modal.id = "modal-analise-erro";
+        modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center";
+        modal.innerHTML = '<div style="background:var(--bg-card,#1e1e2e);border:1px solid var(--border,#2d2d3f);border-radius:12px;width:520px;max-width:95vw;max-height:85vh;overflow-y:auto;padding:24px">'
+            + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
+            + '<h3 style="margin:0;font-size:1.1rem">Análise do Erro</h3>'
+            + '<button id="btn-fechar-analise" style="background:none;border:none;cursor:pointer;font-size:1.4rem;color:var(--text-muted,#888)">&times;</button>'
+            + '</div>'
+            + '<div style="margin-bottom:16px">' + sugestoesHtml + '</div>'
+            + (botoesAcao ? '<div style="display:flex;align-items:center;gap:8px;padding-top:12px;border-top:1px solid var(--border,#2d2d3f)">' + botoesAcao + '</div>' : '')
+            + '</div>';
+
+        document.body.appendChild(modal);
+
+        document.getElementById("btn-fechar-analise").onclick = function() { modal.remove(); };
+        modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
+
+        var btnReemitir = document.getElementById("btn-reemitir-analise");
+        if (btnReemitir) {
+            btnReemitir.onclick = async function() {
+                btnReemitir.disabled = true;
+                btnReemitir.textContent = "Reemitindo...";
+                try {
+                    await api.post("/notas-fiscais/" + analise.nota_id + "/reemitir", {});
+                    modal.remove();
+                    carregarNotas(paginaAtual);
+                } catch(e) {
+                    btnReemitir.disabled = false;
+                    btnReemitir.textContent = "Reemitir Nota";
+                    alert("Erro ao reemitir: " + (e.message || "tente novamente"));
+                }
+            };
+        }
+    }
+
     var debounceTimer;
     function debounce(fn, ms) {
         return function() {
@@ -104,10 +198,10 @@
     function init() {
         var t = document.getElementById("filtro-tipo");
         if(t) t.addEventListener("change", function() { carregarNotas(1); });
-        
+
         var s = document.getElementById("filtro-status");
         if(s) s.addEventListener("change", function() { carregarNotas(1); });
-        
+
         var b = document.getElementById("filtro-busca");
         if(b) b.addEventListener("input", debounce(function() { carregarNotas(1); }, 300));
 
@@ -120,5 +214,5 @@
         init();
     }
 
-    window.NotasFiscaisPage = { carregar: carregarNotas, cancelar: cancelar };
+    window.NotasFiscaisPage = { carregar: carregarNotas, cancelar: cancelar, analisarErro: analisarErro };
 })();

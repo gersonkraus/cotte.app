@@ -58,7 +58,14 @@ async def _montar_payload_nfe(
     serie: str,
     itens_override=None,
 ) -> dict:
-    """Monta o payload JSON para API Notaas baseado nos dados do orçamento."""
+    """Monta o payload JSON para API Notaas baseado nos dados do orçamento.
+
+    Notaas NF-e usa JSON próprio (não tags XML SEFAZ):
+    - naturezaOperacao na raiz (não ide.natOp)
+    - dest.cpf / dest.cnpj em minúsculas
+    - dest.endereco (não enderDest)
+    - items (não det)
+    """
     cliente: Cliente = orcamento.cliente
 
     emitente = {
@@ -81,13 +88,14 @@ async def _montar_payload_nfe(
     }
 
     # Usa documento por presença real, não por tipo_pessoa
+    # Notaas NF-e exige chaves minúsculas: "cpf"/"cnpj", não "CPF"/"CNPJ"
     limpo_cnpj = _limpar_doc(cliente.cnpj or "")
     limpo_cpf = _limpar_doc(cliente.cpf or "")
     if limpo_cnpj:
-        dest_doc = {"CNPJ": limpo_cnpj}
+        dest_doc = {"cnpj": limpo_cnpj}
         dest_nome = cliente.razao_social or cliente.nome
     elif limpo_cpf:
-        dest_doc = {"CPF": limpo_cpf}
+        dest_doc = {"cpf": limpo_cpf}
         dest_nome = cliente.nome
     else:
         dest_doc = {}
@@ -98,7 +106,8 @@ async def _montar_payload_nfe(
         "xNome": dest_nome,
         "IE": cliente.inscricao_estadual or "",
         "email": cliente.email or "",
-        "enderDest": {
+        # Notaas espera "endereco", não "enderDest"
+        "endereco": {
             "xLgr": cliente.logradouro or "",
             "nro": cliente.numero or "S/N",
             "xCpl": cliente.complemento or "",
@@ -110,7 +119,7 @@ async def _montar_payload_nfe(
     }
 
     itens = itens_override or orcamento.itens
-    det = []
+    items = []
     for idx, item in enumerate(itens, start=1):
         # Dados fiscais do catálogo (servico)
         servico = getattr(item, "servico", None)
@@ -131,7 +140,7 @@ async def _montar_payload_nfe(
             except Exception:
                 ncm = "00000000"
 
-        det.append({
+        items.append({
             "nItem": idx,
             "prod": {
                 "cProd": str(item.servico_id or idx),
@@ -156,6 +165,8 @@ async def _montar_payload_nfe(
     tpag = _MAPA_PAGAMENTO.get(forma_pag.lower() if forma_pag else "", "99")
 
     return {
+        # naturezaOperacao na raiz — formato Notaas NF-e
+        "naturezaOperacao": natureza_operacao,
         "ide": {
             "tpAmb": 1 if empresa.notaas_ambiente == "producao" else 2,
             "mod": 55 if tipo == "nfe" else 65,
@@ -164,7 +175,7 @@ async def _montar_payload_nfe(
         },
         "emit": emitente,
         "dest": destinatario,
-        "det": det,
+        "items": items,
         "total": {"ICMSTot": {"vNF": total, "vProd": total}},
         "transp": {"modFrete": 9},
         "pag": {"detPag": [{"indPag": 0, "tPag": tpag, "vPag": total}]},

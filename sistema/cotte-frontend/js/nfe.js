@@ -130,10 +130,49 @@ const NFeService = (() => {
     } else if (nota.status === 'erro') {
       if (statusMsg) statusMsg.textContent = `Erro SEFAZ: ${nota.erro_mensagem || nota.erro_codigo || 'desconhecido'}`;
       if (_orcamentoId) carregarNotasExistentes(_orcamentoId);
+      _mostrarBotaoAnalise(notaId);
     } else {
       if (statusMsg) statusMsg.textContent = `Processando... (${tentativas + 1}/20)`;
       _aguardarStatus(notaId, tentativas + 1);
     }
+  }
+
+  function _mostrarBotaoAnalise(notaId) {
+    const areaPrep = document.getElementById('nfe-prep-resultado');
+    if (!areaPrep) return;
+    areaPrep.innerHTML = `
+      <div style="margin-top:8px">
+        <button id="btn-analisar-erro-nfe" class="btn btn-sm btn-warning" style="width:100%">
+          Analisar Erro e Ver O Que Corrigir
+        </button>
+        <div id="nfe-analise-resultado" style="margin-top:8px"></div>
+      </div>`;
+    document.getElementById('btn-analisar-erro-nfe').onclick = async function() {
+      const btn = this;
+      btn.disabled = true;
+      btn.textContent = 'Analisando...';
+      const area = document.getElementById('nfe-analise-resultado');
+      try {
+        const analise = await api.post(`/notas-fiscais/${notaId}/analisar-erro`, {});
+        const sugestoes = analise.sugestoes || [];
+        if (!sugestoes.length) {
+          if (area) area.innerHTML = '<p style="font-size:12px;color:var(--text-muted,#888)">Nenhuma sugestão automática disponível.</p>';
+        } else {
+          if (area) area.innerHTML = sugestoes.map(s =>
+            `<div style="margin-bottom:8px;padding:8px 10px;background:rgba(255,200,0,0.07);border-left:3px solid #f59e0b;border-radius:4px;font-size:12px">
+              <div style="color:#f59e0b;font-weight:600;margin-bottom:2px">${s.campo}</div>
+              <div>${s.acao}</div>
+            </div>`
+          ).join('');
+        }
+        btn.textContent = 'Atualizar Análise';
+        btn.disabled = false;
+      } catch(e) {
+        btn.disabled = false;
+        btn.textContent = 'Analisar Erro e Ver O Que Corrigir';
+        if (area) area.innerHTML = `<p style="font-size:12px;color:#ef4444">Erro ao analisar: ${e.message || 'tente novamente'}</p>`;
+      }
+    };
   }
 
   async function _cancelar(notaId) {
