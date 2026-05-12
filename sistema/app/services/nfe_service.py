@@ -654,6 +654,11 @@ def _atualizar_nota_com_status_focus(nota_fiscal: NotaFiscal, status_data: dict)
         nota_fiscal.status = "cancelada"
         nota_fiscal.cancelada_em = datetime.utcnow()
 
+    else:
+        nota_fiscal.status = "erro"
+        nota_fiscal.erro_codigo = "STATUS_DESCONHECIDO"
+        nota_fiscal.erro_mensagem = f"Status não reconhecido pela Focus: {status}"
+
 
 async def emitir_nota(
     db: Session,
