@@ -187,7 +187,7 @@ async def configurar_notaas(
         raise HTTPException(422, str(e))
     except Exception as e:
         logger.error("Erro no onboarding Notaas empresa_id=%s: %s", usuario.empresa_id, e)
-        raise HTTPException(502, f"Erro na comunicação com a Notaas: {e}")
+        raise HTTPException(400, f"Erro na comunicação com a Notaas: {e}")
 
     return {
         "success": True,
