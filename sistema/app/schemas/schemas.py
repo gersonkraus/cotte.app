@@ -2085,7 +2085,8 @@ class NotaFiscalOut(BaseModel):
     emitida_em: Optional[datetime] = None
     cancelada_em: Optional[datetime] = None
     orcamento_id: Optional[int] = None
-    notaas_invoice_id: Optional[str] = None
+    focus_ref: Optional[str] = None
+    denegada: Optional[bool] = False
 
     class Config:
         from_attributes = True
@@ -2098,35 +2099,7 @@ class NotaFiscalListOut(BaseModel):
     por_pagina: int = 20
 
 
-from pydantic import model_validator
-
 class ConfiguracaoFiscalEmpresa(BaseModel):
-    @model_validator(mode="before")
-    @classmethod
-    def mask_api_key(cls, values):
-        # Em modo from_attributes, 'values' pode ser o objeto ORM (Empresa) ou um dict
-        if isinstance(values, dict):
-            raw = values.get("notaas_api_key")
-            if raw:
-                if raw.startswith("encv1:"):
-                    values["notaas_api_key"] = "***criptografada***"
-                elif len(raw) > 8:
-                    values["notaas_api_key"] = raw[:4] + "..." + raw[-4:]
-        else:
-            # Objeto ORM, vamos extrair os dados para um dict para não mutar o objeto ORM
-            data = {}
-            for col in cls.model_fields.keys():
-                data[col] = getattr(values, col, None)
-            
-            raw = data.get("notaas_api_key")
-            if raw:
-                if raw.startswith("encv1:"):
-                    data["notaas_api_key"] = "***criptografada***"
-                elif len(raw) > 8:
-                    data["notaas_api_key"] = raw[:4] + "..." + raw[-4:]
-            return data
-        return values
-
     cnpj: Optional[str] = None
     inscricao_estadual: Optional[str] = None
     inscricao_municipal: Optional[str] = None
@@ -2140,10 +2113,10 @@ class ConfiguracaoFiscalEmpresa(BaseModel):
     endereco_uf: Optional[str] = None
     endereco_cep: Optional[str] = None
     endereco_codigo_municipio_ibge: Optional[str] = None
-    notaas_project_id: Optional[str] = None
-    notaas_api_key: Optional[str] = None
-    notaas_ambiente: Optional[str] = "homologacao"
-    notaas_webhook_secret: Optional[str] = None
+    nfe_ambiente: Optional[str] = "homologacao"  # "homologacao" | "producao"
+
+    class Config:
+        from_attributes = True
 
 
 class NotaFiscalCancelarRequest(BaseModel):
