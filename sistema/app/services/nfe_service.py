@@ -1,16 +1,12 @@
-from app.core.config import settings
-from app.core.crypto import decrypt_secret
-
-def _get_api_key(empresa) -> str:
-    return decrypt_secret(empresa.notaas_api_key, crypto_secret=settings.NOTAAS_CRYPTO_SECRET) or empresa.notaas_api_key or ""
-
 """
-nfe_service.py — Integração com API Notaas para emissão de NF-e/NFC-e/NFS-e.
-URL base: https://platform.notaas.com.br/api/v1
-Auth: header x-api-key por empresa (multi-tenant)
+nfe_service.py — Integração com API Focus NFe para emissão de NF-e/NFC-e/NFS-e.
+URLs: https://api.focusnfe.com.br (prod) | https://homologacao.focusnfe.com.br (homolog)
+Auth: HTTP Basic Auth — token como username, senha vazia (token único COTTE no .env)
+Multitenancy: ref = "{cnpj_emitente}-{nota_id}" por nota
 """
 
 import asyncio
+import base64
 import hashlib
 import hmac
 import logging
@@ -23,23 +19,56 @@ from typing import Optional, Tuple
 import httpx
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.models import Empresa, NotaFiscal, Orcamento, Cliente
 from app.core.database import SessionLocal
 from app.services.fiscal_ai_service import sugerir_dados_fiscais
 
 logger = logging.getLogger(__name__)
 
-NOTAAS_BASE_URL = "https://platform.notaas.com.br/api/v1"
 POLLING_INTERVAL = 3
 POLLING_MAX_ATTEMPTS = 20
 
 
-def _get_client(api_key: str) -> httpx.AsyncClient:
+def _focus_base_url() -> str:
+    if settings.FOCUS_AMBIENTE == "producao":
+        return "https://api.focusnfe.com.br"
+    return "https://homologacao.focusnfe.com.br"
+
+
+def _get_client() -> httpx.AsyncClient:
     return httpx.AsyncClient(
-        base_url=NOTAAS_BASE_URL,
-        headers={"x-api-key": api_key, "Content-Type": "application/json"},
+        base_url=_focus_base_url(),
+        auth=(settings.FOCUS_TOKEN, ""),
+        headers={"Content-Type": "application/json"},
         timeout=30.0,
     )
+
+
+def _gerar_ref(empresa: Empresa, nota_id: int) -> str:
+    cnpj = re.sub(r"\D", "", empresa.cnpj or "")
+    if not cnpj:
+        raise ValueError("Empresa sem CNPJ — impossível gerar ref Focus")
+    return f"{cnpj}-{nota_id}"
+
+
+def _path_focus(tipo: str, ref: str) -> str:
+    """Caminho relativo para consulta/cancelamento na Focus por tipo de nota."""
+    t = (tipo or "").lower()
+    if t == "nfce":
+        return f"/v2/nfce/{ref}"
+    if t == "nfse":
+        return f"/v2/nfse/{ref}"
+    return f"/v2/nfe/{ref}"
+
+
+def _endpoint_emissao_focus(tipo: str) -> str:
+    t = (tipo or "").lower()
+    if t == "nfce":
+        return "/v2/nfce"
+    if t == "nfse":
+        return "/v2/nfse"
+    return "/v2/nfe"
 
 
 _MAPA_PAGAMENTO = {

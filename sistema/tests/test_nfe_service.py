@@ -324,3 +324,32 @@ async def test_coletar_bloqueios_valor_item_zero():
 
     bloqueios, _ = await nfe_service.coletar_bloqueios_avisos_preparacao_nfe(emp, orc)
     assert any("zero" in b.lower() for b in bloqueios)
+
+
+# ---------------------------------------------------------------------------
+# Task 1 — Focus NFe: _gerar_ref
+# ---------------------------------------------------------------------------
+
+from app.services.nfe_service import _gerar_ref
+
+
+def test_gerar_ref_formata_cnpj_sem_mascara():
+    emp = SimpleNamespace(cnpj="12.345.678/0001-90")
+    assert _gerar_ref(emp, 42) == "12345678000190-42"
+
+
+def test_gerar_ref_cnpj_sem_mascara():
+    emp = SimpleNamespace(cnpj="12345678000190")
+    assert _gerar_ref(emp, 1) == "12345678000190-1"
+
+
+def test_gerar_ref_cnpj_vazio_levanta_value_error():
+    emp = SimpleNamespace(cnpj="")
+    with pytest.raises(ValueError, match="CNPJ"):
+        _gerar_ref(emp, 1)
+
+
+def test_gerar_ref_cnpj_none_levanta_value_error():
+    emp = SimpleNamespace(cnpj=None)
+    with pytest.raises(ValueError, match="CNPJ"):
+        _gerar_ref(emp, 1)
