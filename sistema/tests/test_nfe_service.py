@@ -78,7 +78,6 @@ async def test_emitir_nota_timeout_keeps_processing(db):
     from tests.conftest import make_empresa
 
     emp = make_empresa(db, nome="Emp NF Test")
-    emp.notaas_api_key = "ntaas_test_key"
     emp.cnpj = "11222333000144"
     db.flush()
 
@@ -86,7 +85,7 @@ async def test_emitir_nota_timeout_keeps_processing(db):
         empresa_id=emp.id,
         tipo="nfse",
         status="processando",
-        notaas_invoice_id="inv_timeout_001",
+        focus_ref="NFe_timeout_001",
     )
     db.add(nota)
     db.commit()

@@ -362,11 +362,8 @@ class Empresa(Base):
     endereco_uf = Column(String(2), nullable=True)
     endereco_cep = Column(String(9), nullable=True)
     endereco_codigo_municipio_ibge = Column(String(7), nullable=True)
-    # Configuração Notaas por empresa
-    notaas_project_id = Column(String(100), nullable=True)  # UUID do projeto na Notaas (org API)
-    notaas_api_key = Column(String(200), nullable=True)
-    notaas_ambiente = Column(String(20), default="homologacao")  # "homologacao" | "producao"
-    notaas_webhook_secret = Column(String(200), nullable=True)
+    # Configuração NF-e por empresa (ambiente preferido; token é global no .env)
+    nfe_ambiente = Column(String(20), default="homologacao")  # "homologacao" | "producao"
 
     pacote = relationship("Plano", back_populates="empresas")
     papeis = relationship("Papel", back_populates="empresa", order_by="Papel.nome")
@@ -972,8 +969,8 @@ class NotaFiscal(TenantScopedMixin, Base):
     numero = Column(String(20), nullable=True)
     status = Column(String(30), default="pendente")    # "pendente" | "processando" | "emitida" | "cancelada" | "erro"
     natureza_operacao = Column(String(200), nullable=True)
-    notaas_invoice_id = Column(String(100), nullable=True)
-    notaas_delivery_id = Column(String(100), nullable=True)
+    focus_ref = Column(String(120), nullable=True, index=True)
+    denegada = Column(Boolean, default=False)
     chave_acesso = Column(String(44), nullable=True)
     protocolo = Column(String(20), nullable=True)
     xml_url = Column(String(500), nullable=True)
