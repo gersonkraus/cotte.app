@@ -1,6 +1,7 @@
 """
 nfe_service.py — Integração com API Focus NFe para emissão de NF-e/NFC-e/NFS-e.
-URLs: https://api.focusnfe.com.br (prod) | https://homologacao.focusnfe.com.br (homolog)
+URLs notas: https://api.focusnfe.com.br (prod) | https://homologacao.focusnfe.com.br (homolog)
+URL empresas/certificado: sempre https://api.focusnfe.com.br (API de cadastro só neste host, doc. Focus)
 Auth: HTTP Basic Auth — token como username, senha vazia (token único COTTE no .env)
 Multitenancy: ref = "{cnpj_emitente}-{nota_id}" por nota
 """
@@ -37,12 +38,32 @@ def _focus_base_url() -> str:
     return "https://homologacao.focusnfe.com.br"
 
 
+def _focus_base_url_empresas() -> str:
+    """Host da API de cadastro de empresas/certificado na Focus.
+
+    A documentação oficial indica que a API de Empresas opera somente no host
+    de produção (`api.focusnfe.com.br`), mesmo quando as notas são emitidas em
+    homologação; o token do painel continua sendo o de autenticação Basic.
+    """
+    return "https://api.focusnfe.com.br"
+
+
 def _get_client() -> httpx.AsyncClient:
     return httpx.AsyncClient(
         base_url=_focus_base_url(),
         auth=(settings.FOCUS_TOKEN, ""),
         headers={"Content-Type": "application/json"},
         timeout=30.0,
+    )
+
+
+def _get_client_empresas() -> httpx.AsyncClient:
+    """Cliente HTTP só para rotas /v2/empresas (sempre host de produção da Focus)."""
+    return httpx.AsyncClient(
+        base_url=_focus_base_url_empresas(),
+        auth=(settings.FOCUS_TOKEN, ""),
+        headers={"Content-Type": "application/json"},
+        timeout=60.0,
     )
 
 
@@ -970,6 +991,32 @@ async def emitir_nota(
     return nota_fiscal
 
 
+async def _focus_resolver_id_empresa_por_cnpj(client: httpx.AsyncClient, cnpj: str) -> Optional[int]:
+    """GET /v2/empresas?cnpj= — id numérico usado em PUT (não é o CNPJ)."""
+    resp = await client.get("/v2/empresas", params={"cnpj": cnpj})
+    if resp.status_code != 200:
+        logger.warning(
+            "Focus GET /v2/empresas?cnpj=… retornou %s: %s",
+            resp.status_code,
+            (resp.text or "")[:240],
+        )
+        return None
+    try:
+        data = resp.json()
+    except Exception:
+        return None
+    if isinstance(data, list) and data:
+        raw_id = data[0].get("id")
+    elif isinstance(data, dict) and data.get("id") is not None:
+        raw_id = data.get("id")
+    else:
+        return None
+    try:
+        return int(raw_id)
+    except (TypeError, ValueError):
+        return None
+
+
 async def registrar_empresa_focus(
     empresa: Empresa,
     cert_bytes: bytes,
@@ -977,9 +1024,12 @@ async def registrar_empresa_focus(
 ) -> dict:
     """Cadastra ou atualiza empresa (emissor) na Focus NFe com certificado A1.
 
-    POST /v2/empresas quando for o primeiro cadastro.
-    PUT  /v2/empresas/{cnpj} quando já estiver cadastrada (atualização de certificado).
-    O certificado .pfx é enviado em base64.
+    A API de empresas da Focus responde sempre em ``https://api.focusnfe.com.br``
+    (independente de ``FOCUS_AMBIENTE`` para emissão de notas).
+
+    POST /v2/empresas — primeiro cadastro (ou recuperação se não existir id na Focus).
+    PUT /v2/empresas/{id} — atualização de certificado; ``id`` é o identificador numérico
+    retornado pela Focus (obtido via GET /v2/empresas?cnpj=).
     """
     cnpj = re.sub(r"\D", "", empresa.cnpj or "")
     if not cnpj:
@@ -1001,17 +1051,26 @@ async def registrar_empresa_focus(
 
     ja_cadastrada = bool(getattr(empresa, "focus_certificado_configurado", None))
 
-    async with _get_client() as client:
+    async with _get_client_empresas() as client:
         try:
             if ja_cadastrada:
-                resp = await client.put(
-                    f"/v2/empresas/{cnpj}",
-                    json={
-                        "arquivo_certificado_base64": cert_b64,
-                        "certificado_pfx": cert_b64,
-                        "senha_certificado": senha_certificado,
-                    },
-                )
+                id_focus = await _focus_resolver_id_empresa_por_cnpj(client, cnpj)
+                if id_focus is not None:
+                    resp = await client.put(
+                        f"/v2/empresas/{id_focus}",
+                        json={
+                            "arquivo_certificado_base64": cert_b64,
+                            "certificado_pfx": cert_b64,
+                            "senha_certificado": senha_certificado,
+                        },
+                    )
+                else:
+                    logger.info(
+                        "Certificado já marcado no COTTE, mas empresa não listada na Focus "
+                        "para CNPJ %s — tentando POST /v2/empresas.",
+                        cnpj,
+                    )
+                    resp = await client.post("/v2/empresas", json=payload)
             else:
                 resp = await client.post("/v2/empresas", json=payload)
 

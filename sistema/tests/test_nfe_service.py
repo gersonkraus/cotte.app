@@ -627,10 +627,10 @@ async def test_registrar_empresa_focus_sucesso(db):
     resp_focus = httpx.Response(
         200,
         json={"id": "12345678000195", "status": "ativo"},
-        request=httpx.Request("POST", "https://homologacao.focusnfe.com.br/v2/empresas"),
+        request=httpx.Request("POST", "https://api.focusnfe.com.br/v2/empresas"),
     )
 
-    with patch("app.services.nfe_service._get_client") as mock_ctx:
+    with patch("app.services.nfe_service._get_client_empresas") as mock_ctx:
         mock_client = AsyncMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
@@ -652,16 +652,22 @@ async def test_registrar_empresa_focus_atualiza_se_ja_existe(db):
     cert_bytes = b"new-pfx-content"
     senha = "nova_senha"
 
+    resp_lista = httpx.Response(
+        200,
+        json=[{"id": 987, "cnpj": "12345678000195", "nome": "Emp Cert Existe"}],
+        request=httpx.Request("GET", "https://api.focusnfe.com.br/v2/empresas"),
+    )
     resp_focus = httpx.Response(
         200,
-        json={"id": "12345678000195", "status": "ativo"},
-        request=httpx.Request("PUT", "https://homologacao.focusnfe.com.br/v2/empresas/12345678000195"),
+        json={"id": 987, "status": "ativo"},
+        request=httpx.Request("PUT", "https://api.focusnfe.com.br/v2/empresas/987"),
     )
 
-    with patch("app.services.nfe_service._get_client") as mock_ctx:
+    with patch("app.services.nfe_service._get_client_empresas") as mock_ctx:
         mock_client = AsyncMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.get = AsyncMock(return_value=resp_lista)
         mock_client.put = AsyncMock(return_value=resp_focus)
         mock_ctx.return_value = mock_client
 
