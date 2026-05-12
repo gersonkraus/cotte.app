@@ -428,6 +428,49 @@ def sugerir_acao_mensagem_erro_notaas(erro_texto: str) -> Optional[str]:
     return None
 
 
+def _crt_descricao(crt: Optional[int]) -> str:
+    if crt is None:
+        return ""
+    try:
+        c = int(crt)
+    except (TypeError, ValueError):
+        return ""
+    m = {1: "Simples Nacional", 2: "Simples Nacional (excesso de sublimite)", 3: "Regime Normal"}
+    return m.get(c, f"CRT {c}")
+
+
+def emitente_preview_para_previa(empresa: Empresa, orcamento: Orcamento) -> dict:
+    """Emitente + referência do orçamento para prévia visual (DANFE/NFS-e simulada), sem Notaas."""
+    ref = str(orcamento.id)
+    if getattr(orcamento, "numero", None):
+        num = str(orcamento.numero).strip()
+        if num:
+            ref = num
+    end = {
+        "logradouro": empresa.endereco_logradouro or "",
+        "numero": empresa.endereco_numero or "",
+        "complemento": empresa.endereco_complemento or "",
+        "bairro": empresa.endereco_bairro or "",
+        "cidade": empresa.endereco_cidade or "",
+        "uf": empresa.endereco_uf or "",
+        "cep": empresa.endereco_cep or "",
+        "codigoMunicipio": empresa.endereco_codigo_municipio_ibge or "",
+    }
+    return {
+        "razao_social": empresa.nome or "",
+        "cnpj": empresa.cnpj or "",
+        "inscricao_estadual": (empresa.inscricao_estadual or "").strip(),
+        "inscricao_municipal": (empresa.inscricao_municipal or "").strip(),
+        "regime_tributario": empresa.regime_tributario or "",
+        "crt": empresa.crt,
+        "crt_descricao": _crt_descricao(getattr(empresa, "crt", None)),
+        "endereco": end,
+        "telefone": empresa.telefone or "",
+        "email": empresa.email or "",
+        "referencia_orcamento": ref,
+    }
+
+
 def _normalizar_codigo_servico(codigo: str) -> str:
     """Normaliza código LC116 para 6 dígitos sem pontos (formato Notaas).
 

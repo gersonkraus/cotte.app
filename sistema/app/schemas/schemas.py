@@ -2190,3 +2190,5 @@ class NotaFiscalPrepararOut(BaseModel):
     avisos: List[str] = []
     bloqueios: List[str] = []
     payload_preview: Optional[dict] = None
+    # Emitente + ref. orçamento para prévia DANFE/NFS-e local (sem Notaas)
+    emitente_preview: Optional[dict] = None

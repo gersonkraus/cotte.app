@@ -243,6 +243,7 @@ async def preparar_nota_fiscal(
 
     # Monta payload preview (apenas se não houver bloqueios) — alinhado ao que o emitirá usar
     payload_preview = None
+    emitente_preview = None
     if not bloqueios:
         try:
             if dados.tipo == "nfse":
@@ -260,6 +261,7 @@ async def preparar_nota_fiscal(
                     None,
                     db=db,
                 )
+            emitente_preview = nfe_service.emitente_preview_para_previa(empresa, orcamento)
         except Exception as e:
             avisos.append(f"Aviso ao montar payload: {str(e)[:100]}")
 
@@ -280,6 +282,7 @@ async def preparar_nota_fiscal(
         avisos=avisos,
         bloqueios=bloqueios,
         payload_preview=payload_preview,
+        emitente_preview=emitente_preview,
     )
 
 

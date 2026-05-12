@@ -5,6 +5,8 @@
 const NFeService = (() => {
   let _orcamentoId = null;
   let _preparadoOk = false;
+  /** HTML completo (Document) da última prévia DANFE/NFS-e para impressão. */
+  let _ultimoHtmlPreviaImpressao = '';
 
   function _esc(s) {
     if (s == null || s === '') return '';
@@ -23,6 +25,200 @@ const NFeService = (() => {
     } catch (_) {
       return String(n);
     }
+  }
+
+  function _fmtCNPJExibicao(raw) {
+    const d = String(raw || '').replace(/\D/g, '');
+    if (d.length !== 14) return _esc(raw || '—');
+    return _esc(d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5'));
+  }
+
+  function _linhasEndereco(end) {
+    if (!end || typeof end !== 'object') return '—';
+    const p1 = [end.logradouro, end.numero, end.complemento].filter(Boolean).join(', ');
+    const p2 = [end.bairro, end.cidade, end.uf].filter(Boolean).join(' — ');
+    const p3 = end.cep ? `CEP ${end.cep}` : '';
+    const p4 = end.codigoMunicipio ? `Mun. IBGE: ${end.codigoMunicipio}` : '';
+    return [p1, p2, [p3, p4].filter(Boolean).join(' · ')].filter((x) => x && String(x).trim()).join('\n') || '—';
+  }
+
+  function _somarValorItensNfe(items) {
+    if (!Array.isArray(items)) return 0;
+    return items.reduce((acc, it) => acc + (Number(it.valorTotal) || 0), 0);
+  }
+
+  function _cssPreviaDanfe() {
+    return ''
+      + '.nfe-sim-root{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#111;max-width:210mm;margin:0 auto;background:#fff}'
+      + '.nfe-sim-banner{background:#1a365d;color:#fff;padding:10px 12px;text-align:center;font-weight:700;font-size:11px;letter-spacing:.06em}'
+      + '.nfe-sim-subbanner{background:#e2e8f0;color:#1a202c;padding:6px 10px;text-align:center;font-size:10px;font-weight:600}'
+      + '.nfe-sim-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}'
+      + '.nfe-sim-box{border:1px solid #000;padding:8px;min-height:72px}'
+      + '.nfe-sim-box h4{margin:0 0 4px;font-size:9px;font-weight:700;text-transform:uppercase;border-bottom:1px solid #000;padding-bottom:2px}'
+      + '.nfe-sim-box p{margin:2px 0;font-size:10px;line-height:1.35;white-space:pre-wrap}'
+      + '.nfe-sim-ident{text-align:right;font-size:10px}'
+      + '.nfe-sim-ident .big{font-size:18px;font-weight:800;margin:4px 0}'
+      + '.nfe-sim-chave{font-family:monospace;font-size:9px;letter-spacing:.12em;word-break:break-all;text-align:center;border:1px dashed #64748b;padding:6px;margin-top:6px;color:#334155}'
+      + '.nfe-sim-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:9px}'
+      + '.nfe-sim-table th,.nfe-sim-table td{border:1px solid #000;padding:4px 5px}'
+      + '.nfe-sim-table th{background:#f1f5f9;text-align:left}'
+      + '.nfe-sim-table td.num{text-align:right}'
+      + '.nfe-sim-table td.ctr{text-align:center}'
+      + '.nfe-sim-tot{margin-top:8px;display:flex;justify-content:flex-end}'
+      + '.nfe-sim-tot-inner{border:1px solid #000;padding:8px 12px;min-width:200px;font-size:11px;font-weight:700}'
+      + '.nfe-sim-foot{margin-top:10px;padding-top:6px;border-top:1px solid #94a3b8;font-size:9px;color:#475569;text-align:center}'
+      + '@media print{.nfe-sim-banner{-webkit-print-color-adjust:exact;print-color-adjust:exact}}';
+  }
+
+  function _htmlPreviaDanfeNfe(emit, p, serieForm) {
+    const modelo = Number(p.modelo) === 65 ? '65' : '55';
+    const docTipo = modelo === '65' ? 'NFC-e' : 'NF-e';
+    const dest = p.dest || {};
+    const end = dest.endereco || {};
+    const items = Array.isArray(p.items) ? p.items : [];
+    const pags = Array.isArray(p.pagamentos) ? p.pagamentos : [];
+    const totalItens = _somarValorItensNfe(items);
+    const totalPag = pags.length ? Number(pags[0].valor) || totalItens : totalItens;
+    const hoje = new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+    const chaveSim = '0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000';
+    const em = emit.endereco || {};
+
+    let rows = '';
+    items.forEach((it, idx) => {
+      rows += '<tr>'
+        + `<td class="ctr">${idx + 1}</td>`
+        + `<td>${_esc(it.descricao || '—')}</td>`
+        + `<td class="ctr">${_esc(it.ncm || '')}</td>`
+        + `<td class="ctr">${_esc(it.cfop || '')}</td>`
+        + `<td class="ctr">${_esc(String(it.unidade || 'UN'))}</td>`
+        + `<td class="num">${_esc(String(it.quantidade != null ? it.quantidade : ''))}</td>`
+        + `<td class="num">${_fmtBRL(it.valorUnitario)}</td>`
+        + `<td class="num">${_fmtBRL(it.valorTotal)}</td>`
+        + `<td class="ctr">${_esc(it.csosn || '')}</td>`
+        + '</tr>';
+    });
+
+    return ''
+      + '<div class="nfe-sim-root">'
+      + '<div class="nfe-sim-banner">PRÉVIA LOCAL — SEM VALOR FISCAL — NÃO É DOCUMENTO ELETRÔNICO</div>'
+      + '<div class="nfe-sim-subbanner">DANFE simplificado (simulação COTTE) · Dados do cadastro e do orçamento · sem envio à Notaas/SEFAZ</div>'
+      + '<div class="nfe-sim-grid">'
+      + '<div class="nfe-sim-box"><h4>Emitente</h4>'
+      + `<p><strong>${_esc(emit.razao_social || '—')}</strong></p>`
+      + `<p>CNPJ: ${_fmtCNPJExibicao(emit.cnpj)}</p>`
+      + `<p>IE: ${_esc(emit.inscricao_estadual || '—')}${emit.inscricao_municipal ? ' · IM: ' + _esc(emit.inscricao_municipal) : ''}</p>`
+      + (emit.crt_descricao ? `<p>${_esc(emit.crt_descricao)}</p>` : '')
+      + `<p>${_esc(_linhasEndereco(em))}</p>`
+      + '</div>'
+      + '<div class="nfe-sim-box nfe-sim-ident"><h4 style="text-align:left">Documento (simulado)</h4>'
+      + `<div>${_esc(docTipo)} · MODELO ${_esc(modelo)}</div>`
+      + `<div class="big">SÉRIE ${_esc(serieForm)} · Nº ---</div>`
+      + `<div><strong>Natureza:</strong> ${_esc(p.naturezaOperacao || '—')}</div>`
+      + `<div><strong>Data emissão (simulada):</strong> ${_esc(hoje)}</div>`
+      + `<div><strong>Ref. orçamento:</strong> ${_esc(emit.referencia_orcamento || '—')}</div>`
+      + `<div class="nfe-sim-chave">CHAVE DE ACESSO (SIMULADA — 44 zeros)\n${chaveSim}</div>`
+      + '</div></div>'
+      + '<div class="nfe-sim-box" style="margin-top:8px"><h4>Destinatário / Remetente</h4>'
+      + `<p><strong>${_esc(dest.nome || '—')}</strong></p>`
+      + `<p>${dest.cnpj ? 'CNPJ: ' + _fmtCNPJExibicao(dest.cnpj) : (dest.cpf ? 'CPF: ' + _esc(dest.cpf) : '')}</p>`
+      + `<p>IE: ${_esc(dest.ie || '—')}</p>`
+      + `<p>${_esc(_linhasEndereco(end))}</p>`
+      + (dest.email ? `<p>E-mail: ${_esc(dest.email)}</p>` : '')
+      + '</div>'
+      + '<table class="nfe-sim-table"><thead><tr>'
+      + '<th class="ctr">#</th><th>Descrição</th><th class="ctr">NCM</th><th class="ctr">CFOP</th>'
+      + '<th class="ctr">UN</th><th class="ctr">Qtd</th><th class="num">V.Unit</th><th class="num">V.Total</th><th class="ctr">CSOSN</th>'
+      + '</tr></thead><tbody>' + (rows || '<tr><td colspan="9" style="text-align:center">Sem itens</td></tr>') + '</tbody></table>'
+      + '<div class="nfe-sim-tot"><div class="nfe-sim-tot-inner">'
+      + `Valor total dos produtos: ${_fmtBRL(totalItens)}<br>`
+      + (pags.length ? `Pagamento (tipo ${ _esc(String(pags[0].tipoPagamento)) }): ${_fmtBRL(totalPag)}` : '')
+      + '</div></div>'
+      + '<div class="nfe-sim-foot">Esta página foi gerada apenas para conferência interna. A NF-e válida depende da autorização da SEFAZ após emissão pela Notaas.</div>'
+      + '</div>';
+  }
+
+  function _htmlPreviaNfseSimulada(emit, p) {
+    const tom = p.tomador || {};
+    const srv = p.servico || {};
+    const val = p.valores || {};
+    const em = emit.endereco || {};
+    const docTom = tom.cnpj ? `CNPJ ${_fmtCNPJExibicao(tom.cnpj)}` : (tom.cpf ? `CPF ${_esc(tom.cpf)}` : '');
+    return ''
+      + '<div class="nfe-sim-root">'
+      + '<div class="nfe-sim-banner">PRÉVIA LOCAL — NFS-e (SIMULADA) — SEM VALOR FISCAL</div>'
+      + '<div class="nfe-sim-subbanner">Prestador conforme cadastro COTTE / Notaas · Tomador e serviço conforme orçamento</div>'
+      + '<div class="nfe-sim-grid">'
+      + '<div class="nfe-sim-box"><h4>Prestador (emitente — cadastro)</h4>'
+      + `<p><strong>${_esc(emit.razao_social || '—')}</strong></p>`
+      + `<p>CNPJ: ${_fmtCNPJExibicao(emit.cnpj)}</p>`
+      + `<p>IM: ${_esc(emit.inscricao_municipal || '—')}</p>`
+      + `<p>${_esc(_linhasEndereco(em))}</p>`
+      + '</div>'
+      + '<div class="nfe-sim-box"><h4>Serviço / Valores</h4>'
+      + `<p><strong>LC116:</strong> ${_esc(srv.codigo || '—')}</p>`
+      + `<p><strong>Descrição:</strong> ${_esc(srv.descricao || '—')}</p>`
+      + `<p><strong>Total:</strong> ${_fmtBRL(val.total)} · <strong>Alíquota ISS:</strong> ${_esc(String(val.aliquotaIss != null ? val.aliquotaIss : '—'))}%</p>`
+      + `<p><strong>Competência:</strong> ${_esc(p.competencia || '—')} · <strong>Ref.:</strong> ${_esc(p.referencia || emit.referencia_orcamento || '—')}</p>`
+      + '</div></div>'
+      + '<div class="nfe-sim-box" style="margin-top:8px"><h4>Tomador</h4>'
+      + `<p><strong>${_esc(tom.nome || '—')}</strong> ${docTom ? '· ' + docTom : ''}</p>`
+      + (tom.email ? `<p>E-mail: ${_esc(tom.email)}</p>` : '')
+      + (tom.endereco ? `<p>${_esc(_linhasEndereco(tom.endereco))}</p>` : '')
+      + '</div>'
+      + '<div class="nfe-sim-foot">NFS-e válida somente após transmissão e autorização pela prefeitura via Notaas.</div>'
+      + '</div>';
+  }
+
+  function _documentoImpressaoHtml(innerBody) {
+    const css = _cssPreviaDanfe();
+    return '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Prévia fiscal (simulada)</title>'
+      + `<style>${css}@page{size:A4;margin:12mm}</style></head><body>${innerBody}</body></html>`;
+  }
+
+  function _painelEnvolvendoPrevia(innerBody) {
+    return `<div style="max-height:420px;overflow:auto;border:1px solid #cbd5e1;border-radius:8px;background:#fff;padding:10px"><style>${_cssPreviaDanfe()}</style>${innerBody}</div>`;
+  }
+
+  function _renderDanfeSimulado(emitente, payload, tipo, serieForm) {
+    const host = document.getElementById('nfe-danfe-host');
+    const btnP = document.getElementById('btn-nfe-previa-print');
+    _ultimoHtmlPreviaImpressao = '';
+    if (!host) return;
+    host.innerHTML = '';
+    if (!emitente || !payload) {
+      if (btnP) btnP.disabled = true;
+      return;
+    }
+    let inner = '';
+    if (tipo === 'nfse') {
+      inner = _htmlPreviaNfseSimulada(emitente, payload);
+    } else {
+      inner = _htmlPreviaDanfeNfe(emitente, payload, serieForm);
+    }
+    host.innerHTML = _painelEnvolvendoPrevia(inner);
+    _ultimoHtmlPreviaImpressao = _documentoImpressaoHtml(inner);
+    if (btnP) btnP.disabled = false;
+  }
+
+  function imprimirPreviaDanfe() {
+    if (!_ultimoHtmlPreviaImpressao) {
+      alert('Faça «Verificar e pré-visualizar» antes, sem bloqueios, para gerar a prévia.');
+      return;
+    }
+    const w = window.open('', '_blank');
+    if (!w) {
+      alert('Permita pop-ups para imprimir a prévia.');
+      return;
+    }
+    w.document.open();
+    w.document.write(_ultimoHtmlPreviaImpressao);
+    w.document.close();
+    setTimeout(function () {
+      try {
+        w.focus();
+        w.print();
+      } catch (_) {}
+    }, 300);
   }
 
   function _corpoPreparar() {
@@ -48,10 +244,15 @@ const NFeService = (() => {
     const body = document.getElementById('nfe-preview-body');
     const pre = document.getElementById('nfe-preview-json-pre');
     const det = document.getElementById('nfe-preview-json-details');
+    const host = document.getElementById('nfe-danfe-host');
+    const btnP = document.getElementById('btn-nfe-previa-print');
     if (wrap) wrap.style.display = 'none';
     if (body) body.innerHTML = '';
     if (pre) pre.textContent = '';
     if (det) det.open = false;
+    if (host) host.innerHTML = '';
+    if (btnP) btnP.disabled = true;
+    _ultimoHtmlPreviaImpressao = '';
   }
 
   function _renderPayloadPreview(resultado) {
@@ -70,6 +271,11 @@ const NFeService = (() => {
         '<p style="color:var(--muted,#666);margin:0">Quando não houver bloqueios, aparece aqui o resumo do que será enviado à Notaas. '
         + 'Corrija os alertas em vermelho (se houver) e use <strong>Verificar e pré-visualizar</strong> de novo.</p>';
       pre.textContent = '';
+      const host = document.getElementById('nfe-danfe-host');
+      if (host) host.innerHTML = '';
+      const btnP = document.getElementById('btn-nfe-previa-print');
+      if (btnP) btnP.disabled = true;
+      _ultimoHtmlPreviaImpressao = '';
       return;
     }
 
@@ -136,6 +342,7 @@ const NFeService = (() => {
     }
 
     body.innerHTML = html;
+    _renderDanfeSimulado(resultado.emitente_preview, p, tipo, serieForm);
   }
 
   function abrirModal(orcamentoId) {
@@ -396,7 +603,7 @@ const NFeService = (() => {
     return map[status] || 'secondary';
   }
 
-  return { abrirModal, fecharModal, emitir, _cancelar, verificar: _preparar, _toggleCamposNfse };
+  return { abrirModal, fecharModal, emitir, _cancelar, verificar: _preparar, _toggleCamposNfse, imprimirPreviaDanfe };
 })();
 
 // Expõe no escopo global para uso em onclick= attributes
