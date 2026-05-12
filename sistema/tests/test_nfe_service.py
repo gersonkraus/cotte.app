@@ -50,6 +50,12 @@ def test_verificar_assinatura_webhook_with_prefix():
     assert verificar_assinatura_webhook(body, sig, secret) is True
 
 
+def test_path_polling_status_notaas_nfe_usa_prefixo_nfe():
+    assert nfe_service._path_polling_status_notaas("nfe", "inv-1") == "/nfe/invoices/inv-1/status"
+    assert nfe_service._path_polling_status_notaas("nfce", "inv-2") == "/nfe/invoices/inv-2/status"
+    assert nfe_service._path_polling_status_notaas("nfse", "inv-3") == "/invoices/inv-3/status"
+
+
 @pytest.mark.asyncio
 async def test_emitir_nota_timeout_keeps_processing(db):
     from app.models.models import NotaFiscal

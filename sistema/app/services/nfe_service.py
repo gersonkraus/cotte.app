@@ -511,6 +511,18 @@ async def emitir_nota_background(nota_id: int, empresa_id: int, payload: dict) -
         db.close()
 
 
+def _path_polling_status_notaas(nota_tipo: str, invoice_id: str) -> str:
+    """Caminho relativo (base /api/v1) para consulta de status na Notaas.
+
+    NF-e/NFC-e: GET /nfe/invoices/{id}/status (doc Notaas).
+    NFS-e: GET /invoices/{id}/status.
+    """
+    t = (nota_tipo or "").lower()
+    if t in ("nfe", "nfce"):
+        return f"/nfe/invoices/{invoice_id}/status"
+    return f"/invoices/{invoice_id}/status"
+
+
 async def emitir_nota(
     db: Session,
     nota_fiscal: NotaFiscal,
@@ -555,7 +567,7 @@ async def emitir_nota(
         for _ in range(POLLING_MAX_ATTEMPTS):
             await asyncio.sleep(POLLING_INTERVAL)
             try:
-                status_resp = await client.get(f"/invoices/{invoice_id}/status")
+                status_resp = await client.get(_path_polling_status_notaas(nota_fiscal.tipo, invoice_id))
             except httpx.RequestError:
                 continue
 

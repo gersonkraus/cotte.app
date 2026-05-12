@@ -591,9 +591,21 @@ async def analisar_erro_nota_fiscal(
         })
 
     if not sugestoes and erro_texto:
+        et_lower = erro_texto.lower()
+        acao_geral = f"Erro recebido da SEFAZ/Notaas: {erro_texto[:300]}"
+        if (
+            "invoice" in et_lower
+            and ("não encontrado" in et_lower or "nao encontrado" in et_lower)
+            and nota.tipo in ("nfe", "nfce")
+        ):
+            acao_geral = (
+                "A integração consultava o status no endpoint de NFS-e em vez do de NF-e; "
+                "isso foi corrigido. Após atualizar o servidor, use Reemitir nesta nota ou emita novamente. "
+                f"(Resposta original: {erro_texto[:200]})"
+            )
         sugestoes.append({
             "campo": "erro_geral",
-            "acao": f"Erro recebido da SEFAZ/Notaas: {erro_texto[:300]}",
+            "acao": acao_geral,
         })
 
     # Verifica se pode reemitir (orçamento ainda existe)
