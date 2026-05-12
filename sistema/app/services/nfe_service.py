@@ -1,4 +1,3 @@
-from app.models.models import HistoricoEdicao
 from app.core.config import settings
 from app.core.crypto import decrypt_secret
 
@@ -24,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from app.models.models import Empresa, NotaFiscal, Orcamento, Cliente
 from app.core.database import SessionLocal
+from app.services.fiscal_ai_service import sugerir_dados_fiscais
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,17 @@ def _get_client(api_key: str) -> httpx.AsyncClient:
     )
 
 
-def _montar_payload_nfe(
+_MAPA_PAGAMENTO = {
+    "pix": "17",
+    "cartao_credito": "03",
+    "cartao_debito": "04",
+    "boleto": "15",
+    "dinheiro": "01",
+    "cheque": "02",
+}
+
+
+async def _montar_payload_nfe(
     empresa: Empresa,
     orcamento: Orcamento,
     tipo: str,
@@ -70,12 +80,18 @@ def _montar_payload_nfe(
         },
     }
 
-    if cliente.tipo_pessoa == "PJ":
-        dest_doc = {"CNPJ": _limpar_doc(cliente.cnpj or "")}
+    # Usa documento por presença real, não por tipo_pessoa
+    limpo_cnpj = _limpar_doc(cliente.cnpj or "")
+    limpo_cpf = _limpar_doc(cliente.cpf or "")
+    if limpo_cnpj:
+        dest_doc = {"CNPJ": limpo_cnpj}
         dest_nome = cliente.razao_social or cliente.nome
-    else:
-        dest_doc = {"CPF": _limpar_doc(cliente.cpf or "")} if cliente.cpf else {}
+    elif limpo_cpf:
+        dest_doc = {"CPF": limpo_cpf}
         dest_nome = cliente.nome
+    else:
+        dest_doc = {}
+        dest_nome = cliente.razao_social or cliente.nome
 
     destinatario = {
         **dest_doc,
@@ -96,27 +112,48 @@ def _montar_payload_nfe(
     itens = itens_override or orcamento.itens
     det = []
     for idx, item in enumerate(itens, start=1):
+        # Dados fiscais do catálogo (servico)
+        servico = getattr(item, "servico", None)
+        ncm = (getattr(servico, "ncm", None) or None) if servico else None
+        cfop = (getattr(servico, "cfop", None) or "5102") if servico else "5102"
+        csosn = (getattr(servico, "csosn", None) or "400") if servico else "400"
+        origem = int(getattr(servico, "origem", 0) or 0) if servico else 0
+        unidade = (getattr(servico, "unidade_fiscal", None) or getattr(servico, "unidade", None) or "UN") if servico else "UN"
+
+        # IA fallback: se não tem NCM no catálogo, pede para IA sugerir
+        if not ncm:
+            try:
+                categoria = getattr(getattr(servico, "categoria", None), "nome", None) if servico else None
+                sugestao = await sugerir_dados_fiscais(item.descricao, categoria)
+                ncm = sugestao.get("ncm") or "00000000"
+                if not getattr(servico, "cfop", None):
+                    cfop = sugestao.get("cfop", "5102")
+            except Exception:
+                ncm = "00000000"
+
         det.append({
             "nItem": idx,
             "prod": {
                 "cProd": str(item.servico_id or idx),
                 "xProd": item.descricao,
-                "NCM": getattr(item, "ncm", "00000000") or "00000000",
-                "CFOP": getattr(item, "cfop", "5933") or "5933",
-                "uCom": "UN",
+                "NCM": ncm,
+                "CFOP": cfop,
+                "uCom": unidade,
                 "qCom": str(item.quantidade),
                 "vUnCom": str(item.valor_unit),
                 "vProd": str(item.total),
                 "indTot": 1,
             },
             "imposto": {
-                "ICMS": {"ICMSSN400": {"orig": 0, "CSOSN": "400"}},
+                "ICMS": {"ICMSSN400": {"orig": origem, "CSOSN": csosn}},
                 "PIS": {"PISAliq": {"CST": "07", "vBC": "0.00", "pPIS": "0.00", "vPIS": "0.00"}},
                 "COFINS": {"COFINSAliq": {"CST": "07", "vBC": "0.00", "pCOFINS": "0.00", "vCOFINS": "0.00"}},
             },
         })
 
     total = str(orcamento.total)
+    forma_pag = getattr(orcamento, "forma_pagamento", None) or ""
+    tpag = _MAPA_PAGAMENTO.get(forma_pag.lower() if forma_pag else "", "99")
 
     return {
         "ide": {
@@ -130,7 +167,7 @@ def _montar_payload_nfe(
         "det": det,
         "total": {"ICMSTot": {"vNF": total, "vProd": total}},
         "transp": {"modFrete": 9},
-        "pag": {"detPag": [{"indPag": 0, "tPag": "01", "vPag": total}]},
+        "pag": {"detPag": [{"indPag": 0, "tPag": tpag, "vPag": total}]},
     }
 
 

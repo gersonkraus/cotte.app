@@ -1,11 +1,11 @@
 {
   "$schema": "https://stacklit.dev/schema/v1.json",
   "version": "1",
-  "generated_at": "2026-05-09T13:08:10Z",
+  "generated_at": "2026-05-12T03:34:37Z",
   "stacklit_version": "dev",
-  "merkle_hash": "05ea12bf9a3b12f08058012b8d1f37d7749621f112e5dde17ae3cd6dd996f4ba",
+  "merkle_hash": "929e4c816fd3509cd98ed5ccd413eba5e238074f6195bc72428cc2eb938980c5",
   "project": {
-    "name": "Projeto-izi",
+    "name": "cotte.app",
     "root": ".",
     "type": "single"
   },
@@ -13,16 +13,16 @@
     "primary_language": "python",
     "languages": {
       "javascript": {
-        "files": 95,
-        "lines": 42186
+        "files": 97,
+        "lines": 44411
       },
       "python": {
-        "files": 478,
-        "lines": 113823
+        "files": 490,
+        "lines": 116074
       },
       "shell": {
         "files": 7,
-        "lines": 317
+        "lines": 344
       }
     },
     "frameworks": [
@@ -43,8 +43,8 @@
       ".trae/skills/ui-ux-pro-max/scripts/search.py",
       "sistema/scripts/verificar_urls_r2.py"
     ],
-    "total_files": 580,
-    "total_lines": 156326
+    "total_files": 594,
+    "total_lines": 160829
   },
   "modules": {
     ".agent/skills/ui-ux-pro-max/scripts": {
@@ -232,7 +232,7 @@
       "purpose": "Scripts",
       "language": "shell",
       "files": 10,
-      "lines": 991,
+      "lines": 1042,
       "file_list": [
         "auto_tagging_base.py",
         "check_no_gitlinks.sh",
@@ -282,8 +282,8 @@
     "sistema/alembic/versions": {
       "purpose": "Versions",
       "language": "python",
-      "files": 130,
-      "lines": 8780,
+      "files": 136,
+      "lines": 9045,
       "file_list": [
         "001_initial_schema.py",
         "002_add_comercial_tables.py",
@@ -304,7 +304,7 @@
         "4f007c9fa25f_unify_tool_call_logs_schema.py",
         "5f2d3c4b1a9e_merge_commercial_and_empresas_heads.py",
         "60754c29faf4_add_performance_indices_orcamentos_.py",
-        "6f8002896a1d_add_copiloto_user_skill.py"
+        "661b24753e61_add_qr_code_to_notas_fiscais.py"
       ],
       "exports": [
         "column_exists(table_name, column_name)",
@@ -319,7 +319,7 @@
       "purpose": "App",
       "language": "python",
       "files": 2,
-      "lines": 624,
+      "lines": 677,
       "file_list": [
         "__init__.py",
         "main.py"
@@ -359,13 +359,14 @@
     "sistema/app/core": {
       "purpose": "Core",
       "language": "python",
-      "files": 12,
-      "lines": 2509,
+      "files": 13,
+      "lines": 2547,
       "file_list": [
         "__init__.py",
         "auth.py",
         "cache.py",
         "config.py",
+        "crypto.py",
         "database.py",
         "exceptions.py",
         "logging_config.py",
@@ -399,7 +400,7 @@
       "purpose": "Data models and types",
       "language": "python",
       "files": 3,
-      "lines": 2813,
+      "lines": 2833,
       "file_list": [
         "__init__.py",
         "models.py",
@@ -423,7 +424,7 @@
       "purpose": "Repositories",
       "language": "python",
       "files": 9,
-      "lines": 1860,
+      "lines": 1878,
       "file_list": [
         "__init__.py",
         "base.py",
@@ -447,7 +448,7 @@
       ],
       "type_defs": {
         "CategoriaFinanceiraRepository": "criar_categoria, get_by_id, listar_categorias, verificar_duplicidade, atualizar_categoria, soft_delete_categoria",
-        "MercadoLivreRepository": "get_integracao, get_or_create_integracao, save_tokens, set_oauth_state, marcar_erro, marcar_sync_pedidos, marcar_sync_anuncios, desconectar, upsert_pedidos, upsert_anuncios, get_pedido_vinculo, list_pedido_vinculos, upsert_pedido_vinculo, get_item_vinculo_by_ml_item, get_item_vinculo_by_servico, list_item_vinculos, upsert_item_vinculo, delete_item_vinculo, create_sync_job, finish_sync_job, list_sync_jobs, acquire_lock, release_lock"
+        "MercadoLivreRepository": "get_integracao, get_integracao_by_ml_user_id, get_or_create_integracao, save_tokens, set_oauth_state, marcar_erro, marcar_sync_pedidos, marcar_sync_anuncios, desconectar, upsert_pedidos, upsert_anuncios, get_pedido_vinculo, list_pedido_vinculos, upsert_pedido_vinculo, get_item_vinculo_by_ml_item, get_item_vinculo_by_servico, list_item_vinculos, upsert_item_vinculo, delete_item_vinculo, create_sync_job, finish_sync_job, list_sync_jobs, acquire_lock, release_lock"
       },
       "activity": "low"
     },
@@ -455,7 +456,7 @@
       "purpose": "Routers",
       "language": "python",
       "files": 34,
-      "lines": 17676,
+      "lines": 18166,
       "file_list": [
         "__init__.py",
         "admin.py",
@@ -496,7 +497,7 @@
       "purpose": "Tenant",
       "language": "python",
       "files": 12,
-      "lines": 3296,
+      "lines": 3426,
       "file_list": [
         "__init__.py",
         "comercial_campaigns.py",
@@ -529,7 +530,7 @@
       "purpose": "Schemas",
       "language": "python",
       "files": 7,
-      "lines": 3207,
+      "lines": 3311,
       "file_list": [
         "__init__.py",
         "agendamento.py",
@@ -556,8 +557,8 @@
     "sistema/app/services": {
       "purpose": "Business logic services",
       "language": "python",
-      "files": 79,
-      "lines": 35452,
+      "files": 80,
+      "lines": 36104,
       "file_list": [
         "__init__.py",
         "admin_config.py",
@@ -738,6 +739,9 @@
         "generate_icon.py",
         "sw.js"
       ],
+      "depended_by": [
+        "sistema/cotte-frontend/js/dashboard"
+      ],
       "activity": "high"
     },
     "sistema/cotte-frontend/css": {
@@ -753,8 +757,8 @@
     "sistema/cotte-frontend/js": {
       "purpose": "Js",
       "language": "javascript",
-      "files": 60,
-      "lines": 36411,
+      "files": 62,
+      "lines": 38612,
       "file_list": [
         "TemplatesManager.js",
         "agendamentos.js",
@@ -776,9 +780,6 @@
         "chat-tooltips.js",
         "chat-virtualization.js",
         "clientes.js"
-      ],
-      "depended_by": [
-        "sistema/cotte-frontend/js/dashboard"
       ],
       "activity": "high"
     },
@@ -817,7 +818,7 @@
         "StatsRow": "constructor, load, calcularStats, render, renderLoading, renderStats, setupEventListeners, handleCardHover, handleCardLeave, handleCardClick, setupDynamicTooltips, update, updateStat, updateCard, destroy"
       },
       "depends_on": [
-        "sistema/cotte-frontend/js"
+        "sistema/cotte-frontend"
       ],
       "activity": "low"
     },
@@ -882,7 +883,7 @@
     "edges": [
       [
         "sistema/cotte-frontend/js/dashboard",
-        "sistema/cotte-frontend/js"
+        "sistema/cotte-frontend"
       ]
     ],
     "entrypoints": [
@@ -896,7 +897,7 @@
       "sistema/scripts/verificar_urls_r2.py"
     ],
     "most_depended": [
-      "sistema/cotte-frontend/js",
+      "sistema/cotte-frontend",
       ".agent/skills/ui-ux-pro-max/scripts",
       ".codebuddy/skills/ui-ux-pro-max/scripts",
       ".github/prompts/ui-ux-pro-max/scripts",
@@ -934,8 +935,8 @@
       "sistema/app/services/assistant_autonomy",
       "sistema/app/services/rag",
       "sistema/app/utils",
-      "sistema/cotte-frontend",
       "sistema/cotte-frontend/css",
+      "sistema/cotte-frontend/js",
       "sistema/cotte-frontend/js/components",
       "sistema/cotte-frontend/js/services",
       "sistema/cotte-frontend/js/utils",
@@ -946,7 +947,7 @@
     "hot_files": [
       {
         "path": "sistema/app/models/models.py",
-        "commits_90d": 125
+        "commits_90d": 131
       },
       {
         "path": "sistema/app/services/cotte_ai_hub.py",
@@ -957,12 +958,12 @@
         "commits_90d": 109
       },
       {
-        "path": "sistema/cotte-frontend/orcamentos.html",
-        "commits_90d": 100
+        "path": "sistema/app/schemas/schemas.py",
+        "commits_90d": 107
       },
       {
-        "path": "sistema/app/schemas/schemas.py",
-        "commits_90d": 98
+        "path": "sistema/cotte-frontend/orcamentos.html",
+        "commits_90d": 102
       },
       {
         "path": "sistema/app/routers/orcamentos.py",
@@ -970,15 +971,15 @@
       },
       {
         "path": "sistema/cotte-frontend/index.html",
-        "commits_90d": 90
+        "commits_90d": 91
+      },
+      {
+        "path": "sistema/cotte-frontend/comercial.html",
+        "commits_90d": 88
       },
       {
         "path": "sistema/cotte-frontend/configuracoes.html",
         "commits_90d": 80
-      },
-      {
-        "path": "sistema/cotte-frontend/comercial.html",
-        "commits_90d": 78
       },
       {
         "path": "sistema/cotte-frontend/js/assistente-ia.js",
@@ -986,7 +987,7 @@
       },
       {
         "path": "sistema/cotte-frontend/admin.html",
-        "commits_90d": 59
+        "commits_90d": 60
       },
       {
         "path": "sistema/cotte-frontend/orcamento-publico.html",
@@ -998,7 +999,7 @@
       },
       {
         "path": "sistema/cotte-frontend/js/api.js",
-        "commits_90d": 49
+        "commits_90d": 50
       },
       {
         "path": "sistema/cotte-frontend/css/assistente-ia.css",
@@ -1013,29 +1014,29 @@
         "commits_90d": 46
       },
       {
-        "path": "memory/.last-session",
-        "commits_90d": 41
-      },
-      {
-        "path": "memory/.session-log",
-        "commits_90d": 41
+        "path": "sistema/cotte-frontend/catalogo.html",
+        "commits_90d": 45
       },
       {
         "path": "sistema/app/main.py",
-        "commits_90d": 41
+        "commits_90d": 43
+      },
+      {
+        "path": "sistema/cotte-frontend/js/configuracoes.js",
+        "commits_90d": 42
       }
     ],
     "recent": [
-      "sistema/cotte-frontend/css/tenant-comercial.css",
-      "sistema/cotte-frontend/js/tenant-comercial.js",
-      "sistema/cotte-frontend/tenant-comercial.html",
-      "sistema/.env.example",
-      "sistema/alembic/versions/ml002_add_mercadolivre_domain_tables.py",
-      "sistema/app/core/config.py",
-      "sistema/app/main.py",
-      "sistema/app/models/models.py",
-      "sistema/app/repositories/mercadolivre_repository.py",
-      "sistema/app/routers/mercadolivre.py"
+      "DEPENDENCIES.md",
+      "sistema/cotte-frontend/orcamentos.html",
+      "stacklit.json",
+      "sistema/cotte-frontend/js/nfe.js",
+      "sistema/cotte-frontend/catalogo.html",
+      "sistema/app/routers/catalogo.py",
+      "sistema/app/routers/notas_fiscais.py",
+      "sistema/app/services/nfe_service.py",
+      "sistema/app/services/fiscal_ai_service.py",
+      "sistema/app/schemas/schemas.py"
     ],
     "stable": [
       "\"Sem t\\303\\255tulo 1.canvas\"",

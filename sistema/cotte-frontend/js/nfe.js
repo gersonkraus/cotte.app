@@ -4,6 +4,7 @@
  */
 const NFeService = (() => {
   let _orcamentoId = null;
+  let _preparadoOk = false;
 
   function abrirModal(orcamentoId) {
     _orcamentoId = orcamentoId;
@@ -23,6 +24,11 @@ const NFeService = (() => {
     const statusMsg = document.getElementById('nfe-status-msg');
     if (statusMsg) statusMsg.textContent = '';
     _orcamentoId = null;
+    _preparadoOk = false;
+    const btnEmitir = document.getElementById('btn-emitir-nfe');
+    if (btnEmitir) btnEmitir.disabled = true;
+    const areaPrep = document.getElementById('nfe-prep-resultado');
+    if (areaPrep) areaPrep.innerHTML = '';
   }
 
   async function carregarNotasExistentes(orcamentoId) {
@@ -64,6 +70,11 @@ const NFeService = (() => {
     const btn = document.getElementById('btn-emitir-nfe');
     const statusMsg = document.getElementById('nfe-status-msg');
 
+    if (!_preparadoOk) {
+      if (statusMsg) statusMsg.textContent = 'Clique em Verificar primeiro.';
+      return;
+    }
+
     if (btn) { btn.disabled = true; btn.textContent = 'Emitindo...'; }
     if (statusMsg) statusMsg.textContent = 'Enviando para a SEFAZ, aguarde...';
 
@@ -80,12 +91,12 @@ const NFeService = (() => {
     try {
       resp = await api.post('/notas-fiscais/emitir', payload);
     } catch (e) {
-      if (btn) { btn.disabled = false; btn.textContent = 'Emitir NF'; }
+      if (btn) { btn.disabled = false; btn.textContent = '✅ Confirmar e Emitir'; }
       if (statusMsg) statusMsg.textContent = `Erro: ${e.message || 'Falha na emissão'}`;
       return;
     }
 
-    if (btn) { btn.disabled = false; btn.textContent = 'Emitir NF'; }
+    if (btn) { btn.disabled = false; btn.textContent = '✅ Confirmar e Emitir'; }
 
     if (resp && resp.id) {
       if (statusMsg) statusMsg.textContent = 'Processando... aguardando SEFAZ.';
@@ -139,12 +150,81 @@ const NFeService = (() => {
     }
   }
 
+  async function _preparar() {
+    const tipo = document.getElementById('nfe-tipo')?.value || 'nfe';
+    const btnVerificar = document.getElementById('btn-verificar-nfe');
+    const btnEmitir = document.getElementById('btn-emitir-nfe');
+    const areaPrep = document.getElementById('nfe-prep-resultado');
+    if (!_orcamentoId) return;
+
+    if (btnVerificar) { btnVerificar.disabled = true; btnVerificar.textContent = 'Verificando...'; }
+    _preparadoOk = false;
+    if (btnEmitir) btnEmitir.disabled = true;
+    if (areaPrep) areaPrep.innerHTML = '';
+
+    try {
+      const resultado = await api.post('/notas-fiscais/preparar', {
+        orcamento_id: _orcamentoId,
+        tipo,
+      });
+
+      _preparadoOk = resultado.pronto === true;
+      if (btnEmitir) btnEmitir.disabled = !_preparadoOk;
+
+      let html = '';
+
+      if (resultado.bloqueios && resultado.bloqueios.length) {
+        html += resultado.bloqueios.map(b =>
+          `<div style="color:#ef4444;font-size:12px;padding:4px 0">❌ ${b}</div>`
+        ).join('');
+      }
+      if (resultado.avisos && resultado.avisos.length) {
+        html += resultado.avisos.map(a =>
+          `<div style="color:#f59e0b;font-size:12px;padding:4px 0">⚠️ ${a}</div>`
+        ).join('');
+      }
+      if (_preparadoOk && !html) {
+        html = `<div style="color:#00e5a0;font-size:12px;font-weight:600">✅ ${resultado.resumo || 'Pronto para emitir'}</div>`;
+      } else if (_preparadoOk) {
+        html = `<div style="color:#00e5a0;font-size:12px;font-weight:600;margin-bottom:4px">✅ ${resultado.resumo}</div>` + html;
+      }
+
+      if (areaPrep) areaPrep.innerHTML = html;
+    } catch (e) {
+      _preparadoOk = false;
+      if (btnEmitir) btnEmitir.disabled = true;
+      if (areaPrep) areaPrep.innerHTML = `<div style="color:#ef4444;font-size:12px">❌ Erro ao verificar: ${e.message || 'Tente novamente'}</div>`;
+    } finally {
+      if (btnVerificar) { btnVerificar.disabled = false; btnVerificar.textContent = '🔍 Verificar'; }
+    }
+  }
+
+  function _toggleCamposNfse() {
+    const tipo = document.getElementById('nfe-tipo')?.value;
+    const campos = document.getElementById('campos-nfse');
+    const natureza = document.getElementById('nfe-natureza');
+    if (!campos) return;
+    if (tipo === 'nfse') {
+      campos.style.display = 'flex';
+      if (natureza && natureza.value === 'Venda de Mercadorias') natureza.value = 'Prestação de Serviços';
+    } else {
+      campos.style.display = 'none';
+      if (natureza && natureza.value === 'Prestação de Serviços') natureza.value = 'Venda de Mercadorias';
+    }
+    // Resetar verificação ao mudar tipo
+    _preparadoOk = false;
+    const btnEmitir = document.getElementById('btn-emitir-nfe');
+    if (btnEmitir) btnEmitir.disabled = true;
+    const areaPrep = document.getElementById('nfe-prep-resultado');
+    if (areaPrep) areaPrep.innerHTML = '';
+  }
+
   function _badgeClass(status) {
     const map = { emitida: 'success', erro: 'danger', cancelada: 'warning', processando: 'info', pendente: 'secondary' };
     return map[status] || 'secondary';
   }
 
-  return { abrirModal, fecharModal, emitir, _cancelar };
+  return { abrirModal, fecharModal, emitir, _cancelar, verificar: _preparar, _toggleCamposNfse };
 })();
 
 // Expõe no escopo global para uso em onclick= attributes

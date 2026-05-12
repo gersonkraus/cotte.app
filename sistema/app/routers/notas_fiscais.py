@@ -9,23 +9,26 @@ from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, Request, UploadFile
 from fastapi import Form
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload, joinedload
 from sqlalchemy import or_
 
 from app.core.database import get_db
 from app.core.auth import get_usuario_atual, exigir_permissao
 from app.core.tenant_context import set_tenant_context
 
-from app.models.models import Empresa, NotaFiscal, Orcamento, Usuario, HistoricoEdicao
+from app.models.models import Empresa, NotaFiscal, Orcamento, Usuario, HistoricoEdicao, ItemOrcamento, Servico, Cliente
 from app.schemas.schemas import (
     ConfiguracaoFiscalEmpresa,
     NotaFiscalCancelarRequest,
     NotaFiscalEmitirRequest,
     NotaFiscalOut,
     NotaFiscalListOut,
+    NotaFiscalPrepararRequest,
+    NotaFiscalPrepararOut,
 )
 from app.services import nfe_service
 from app.services import nfe_org_service
+from app.services.fiscal_ai_service import sugerir_dados_fiscais
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/notas-fiscais", tags=["Notas Fiscais"])
@@ -145,7 +148,7 @@ async def emitir_nota_fiscal(
             dados.aliquota_iss or 0,
         )
     else:
-        payload = nfe_service._montar_payload_nfe(
+        payload = await nfe_service._montar_payload_nfe(
             empresa, orcamento, dados.tipo,
             dados.natureza_operacao, dados.serie,
             dados.itens_override,
@@ -156,6 +159,99 @@ async def emitir_nota_fiscal(
     # da background task executar; emitir_nota_background cria session própria.
     background_tasks.add_task(nfe_service.emitir_nota_background, nota.id, empresa.id, payload)
     return nota
+
+
+@router.post("/preparar", response_model=NotaFiscalPrepararOut)
+async def preparar_nota_fiscal(
+    dados: NotaFiscalPrepararRequest,
+    db: Session = Depends(get_db),
+    usuario=Depends(get_usuario_atual),
+):
+    """Pré-valida o orçamento para emissão de NF-e. Não cria nota, não acessa Notaas."""
+    set_tenant_context(db, empresa_id=usuario.empresa_id, usuario_id=usuario.id)
+
+    empresa = db.query(Empresa).filter(Empresa.id == usuario.empresa_id).first()
+    if not empresa:
+        raise HTTPException(404, "Empresa não encontrada")
+
+    orcamento = (
+        db.query(Orcamento)
+        .options(
+            selectinload(Orcamento.itens).joinedload(ItemOrcamento.servico).joinedload(Servico.categoria),
+            joinedload(Orcamento.cliente),
+        )
+        .filter(Orcamento.id == dados.orcamento_id, Orcamento.empresa_id == usuario.empresa_id)
+        .first()
+    )
+    if not orcamento:
+        raise HTTPException(404, "Orçamento não encontrado")
+
+    bloqueios: list[str] = []
+    avisos: list[str] = []
+
+    # Valida empresa
+    if not empresa.cnpj:
+        bloqueios.append("CNPJ da empresa não configurado (Configurações → Fiscal)")
+    if not empresa.notaas_api_key:
+        bloqueios.append("API key da Notaas não configurada (Configurações → Fiscal)")
+    if not empresa.endereco_cidade:
+        avisos.append("Endereço da empresa incompleto — pode causar rejeição")
+
+    # Valida cliente/destinatário
+    cliente = orcamento.cliente
+    if cliente:
+        from app.services.nfe_service import _limpar_doc
+        limpo_cnpj = _limpar_doc(cliente.cnpj or "")
+        limpo_cpf = _limpar_doc(cliente.cpf or "")
+        if not limpo_cnpj and not limpo_cpf:
+            bloqueios.append(f"Cliente '{cliente.nome or cliente.razao_social}' sem CPF ou CNPJ cadastrado")
+    else:
+        bloqueios.append("Orçamento sem cliente associado")
+
+    # Verifica itens e dados fiscais
+    itens_sem_ncm = []
+    for item in orcamento.itens:
+        servico = getattr(item, "servico", None)
+        ncm = getattr(servico, "ncm", None) if servico else None
+        if not ncm:
+            itens_sem_ncm.append(item.descricao or f"Item #{item.id}")
+
+    if itens_sem_ncm:
+        avisos.append(
+            f"NCM de {len(itens_sem_ncm)} item(ns) será sugerido por IA: {', '.join(itens_sem_ncm[:3])}"
+            + (" e outros" if len(itens_sem_ncm) > 3 else "")
+        )
+
+    # Monta payload preview (apenas se não houver bloqueios)
+    payload_preview = None
+    if not bloqueios:
+        try:
+            payload_preview = await nfe_service._montar_payload_nfe(
+                empresa, orcamento, dados.tipo,
+                "Venda de Mercadorias", "1",
+                None,
+            )
+        except Exception as e:
+            avisos.append(f"Aviso ao montar payload: {str(e)[:100]}")
+
+    # Resumo legível
+    total_itens = len(orcamento.itens)
+    itens_com_ia = len(itens_sem_ncm)
+    itens_ok = total_itens - itens_com_ia
+    if bloqueios:
+        resumo = f"{len(bloqueios)} problema(s) impedem a emissão"
+    elif itens_com_ia:
+        resumo = f"{itens_ok} item(ns) prontos, {itens_com_ia} NCM sugerido(s) por IA"
+    else:
+        resumo = f"{total_itens} item(ns) prontos para emissão"
+
+    return NotaFiscalPrepararOut(
+        pronto=len(bloqueios) == 0,
+        resumo=resumo,
+        avisos=avisos,
+        bloqueios=bloqueios,
+        payload_preview=payload_preview,
+    )
 
 
 # ── Onboarding Notaas (Org API) — rotas estáticas ANTES de /{nota_id} ────────

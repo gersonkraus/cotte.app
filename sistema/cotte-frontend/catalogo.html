@@ -238,6 +238,43 @@
           <input type="file" id="input-imagem" accept=".png,.jpg,.jpeg,.webp" style="display:none" onchange="onSelecionarImagem(this)">
         </div>
 
+        <!-- Dados Fiscais (NF-e) -->
+        <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden">
+          <div onclick="toggleSecaoFiscal()" style="padding:10px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;background:var(--surface2)">
+            <span style="font-size:12px;font-weight:700;color:var(--accent)">🧾 Dados Fiscais (NF-e)</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span id="fiscal-status-badge" style="font-size:10px;padding:2px 8px;border-radius:20px;background:var(--surface3);color:var(--muted)">⚪ Não configurado</span>
+              <span id="fiscal-toggle-icon" style="color:var(--muted);font-size:12px;transition:transform .2s">▶</span>
+            </div>
+          </div>
+          <div id="fiscal-body" style="display:none;flex-direction:column;gap:10px;padding:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+              <p style="font-size:11px;color:var(--muted);margin:0">NCM obrigatório para emissão de NF-e. Simples Nacional: CFOP 5102, CSOSN 400.</p>
+              <button type="button" id="btn-sugerir-ia" onclick="sugerirFiscalIA()" class="btn btn-ghost" style="font-size:11px;padding:3px 10px;white-space:nowrap">✨ Sugerir com IA</button>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label style="font-size:12px">NCM <span style="color:var(--muted);font-size:10px">(8 dígitos)</span></label>
+                <input type="text" id="item-ncm" placeholder="Ex: 84714900" maxlength="8" oninput="_atualizarBadgeFiscal()">
+              </div>
+              <div class="form-group">
+                <label style="font-size:12px">CFOP</label>
+                <input type="text" id="item-cfop" placeholder="5102" maxlength="4" value="5102">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label style="font-size:12px">CSOSN</label>
+                <input type="text" id="item-csosn" placeholder="400" maxlength="4" value="400">
+              </div>
+              <div class="form-group">
+                <label style="font-size:12px">Unidade Fiscal</label>
+                <input type="text" id="item-unidade-fiscal" placeholder="UN" maxlength="6" value="UN">
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
     <div class="modal-footer" style="justify-content:space-between">
@@ -643,6 +680,16 @@
     document.getElementById('item-categoria').value    = '';
     document.getElementById('item-custo').value        = '';
     document.getElementById('item-margem').value       = '';
+    document.getElementById('item-ncm').value = '';
+    document.getElementById('item-cfop').value = '5102';
+    document.getElementById('item-csosn').value = '400';
+    document.getElementById('item-unidade-fiscal').value = 'UN';
+    // Fechar seção fiscal ao resetar
+    const fiscalBody = document.getElementById('fiscal-body');
+    if (fiscalBody) fiscalBody.style.display = 'none';
+    const fiscalIcon = document.getElementById('fiscal-toggle-icon');
+    if (fiscalIcon) fiscalIcon.style.transform = '';
+    _atualizarBadgeFiscal();
     document.getElementById('input-imagem').value      = '';
     _atualizarPreviewImagem(null);
     document.getElementById('btn-area-admin').style.display = 'none';
@@ -671,6 +718,19 @@
       document.getElementById('item-margem').value = ((item.preco_padrao - item.preco_custo) / item.preco_padrao * 100).toFixed(1);
     }
     _atualizarPreviewImagem(item.imagem_url);
+
+    // Dados fiscais
+    document.getElementById('item-ncm').value = item.ncm || '';
+    document.getElementById('item-cfop').value = item.cfop || '5102';
+    document.getElementById('item-csosn').value = item.csosn || '400';
+    document.getElementById('item-unidade-fiscal').value = item.unidade_fiscal || 'UN';
+    _atualizarBadgeFiscal();
+    // Abre a seção fiscal automaticamente se já tem NCM
+    if (item.ncm) {
+      document.getElementById('fiscal-body').style.display = 'flex';
+      document.getElementById('fiscal-body').style.flexDirection = 'column';
+      document.getElementById('fiscal-toggle-icon').style.transform = 'rotate(90deg)';
+    }
 
     // Botões admin (inativar/ativar) — apenas para catalogo:admin
     if (temPermAdminCatalogo()) {
@@ -799,6 +859,53 @@
 
   function fecharModal() {
     document.getElementById('modal-item').classList.remove('open');
+  }
+
+  function toggleSecaoFiscal() {
+    const body = document.getElementById('fiscal-body');
+    const icon = document.getElementById('fiscal-toggle-icon');
+    const aberto = body.style.display === 'flex';
+    body.style.display = aberto ? 'none' : 'flex';
+    body.style.flexDirection = 'column';
+    icon.style.transform = aberto ? '' : 'rotate(90deg)';
+  }
+
+  async function sugerirFiscalIA() {
+    if (!editandoId) {
+      showNotif('ℹ️', 'Salve o produto primeiro', 'Salve o produto antes de usar a sugestão de IA', 'info');
+      return;
+    }
+    const btn = document.getElementById('btn-sugerir-ia');
+    setLoading(btn, true);
+    try {
+      const dados = await api.get(`/catalogo/${editandoId}/sugerir-fiscal`);
+      if (dados.ncm) document.getElementById('item-ncm').value = dados.ncm;
+      if (dados.cfop) document.getElementById('item-cfop').value = dados.cfop;
+      if (dados.csosn) document.getElementById('item-csosn').value = dados.csosn;
+      if (dados.unidade) document.getElementById('item-unidade-fiscal').value = dados.unidade;
+      _atualizarBadgeFiscal();
+      showNotif('✅', 'IA sugeriu dados fiscais', `Confiança: ${dados.confianca || 'média'}. Verifique e salve.`);
+    } catch(e) {
+      showNotif('❌', 'Erro', e.message || 'Não foi possível sugerir dados fiscais', 'error');
+    } finally {
+      setLoading(btn, false, '✨ Sugerir com IA');
+    }
+  }
+
+  function _atualizarBadgeFiscal() {
+    const ncm = document.getElementById('item-ncm').value.trim();
+    const badge = document.getElementById('fiscal-status-badge');
+    if (!badge) return;
+    if (ncm && ncm.length === 8) {
+      badge.textContent = '🟢 NCM configurado';
+      badge.style.color = '#00e5a0';
+    } else if (ncm) {
+      badge.textContent = '🟡 NCM incompleto';
+      badge.style.color = '#f59e0b';
+    } else {
+      badge.textContent = '⚪ Não configurado';
+      badge.style.color = 'var(--muted)';
+    }
   }
 
   document.getElementById('modal-item').addEventListener('click', function(e) {
@@ -930,6 +1037,21 @@
     try {
       if (editandoId) {
         await api.put(`/catalogo/${editandoId}`, payload);
+        // Salvar dados fiscais se preenchidos
+        const ncm = document.getElementById('item-ncm').value.trim();
+        const cfop = document.getElementById('item-cfop').value.trim();
+        const csosn = document.getElementById('item-csosn').value.trim();
+        const unidadeFiscal = document.getElementById('item-unidade-fiscal').value.trim();
+        if (ncm || cfop !== '5102' || csosn !== '400' || unidadeFiscal !== 'UN') {
+          try {
+            await api.patch(`/catalogo/${editandoId}/fiscal`, {
+              ncm: ncm || null,
+              cfop: cfop || null,
+              csosn: csosn || null,
+              unidade_fiscal: unidadeFiscal || null,
+            });
+          } catch(e) { /* silencioso — dados fiscais são opcionais */ }
+        }
         showNotif('✅', 'Item atualizado!', '');
       } else {
         const novo = await api.post('/catalogo/', payload);

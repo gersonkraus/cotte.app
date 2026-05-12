@@ -758,6 +758,12 @@ class ServicoOut(ServicoBase):
     ativo: bool
     imagem_url: Optional[str] = None
     categoria: Optional[CategoriaCatalogoOut] = None
+    ncm: Optional[str] = None
+    cfop: Optional[str] = None
+    csosn: Optional[str] = None
+    origem: Optional[int] = None
+    unidade_fiscal: Optional[str] = None
+    dados_fiscais_ok: bool = False
 
     class Config:
         from_attributes = True
@@ -2142,3 +2148,41 @@ class ConfiguracaoFiscalEmpresa(BaseModel):
 
 class NotaFiscalCancelarRequest(BaseModel):
     motivo: str = Field(..., min_length=15, max_length=255)
+
+
+# ── FISCAL IA ───────────────────────────────────────────────────────────────
+
+
+class FiscalSugestaoOut(BaseModel):
+    """Resposta da IA com sugestão de dados fiscais para um produto."""
+    ncm: Optional[str] = None
+    cfop: str = "5102"
+    csosn: str = "400"
+    origem: int = 0
+    unidade: str = "UN"
+    confianca: str = "media"  # "alta" | "media" | "baixa"
+
+
+class FiscalUpdateRequest(BaseModel):
+    """Body do PATCH /catalogo/{id}/fiscal — salva dados fiscais no produto."""
+    ncm: Optional[str] = None
+    cfop: Optional[str] = None
+    csosn: Optional[str] = None
+    origem: Optional[int] = None
+    unidade_fiscal: Optional[str] = None
+    dados_fiscais_ok: Optional[bool] = None
+
+
+class NotaFiscalPrepararRequest(BaseModel):
+    """Body do POST /notas-fiscais/preparar."""
+    orcamento_id: int
+    tipo: str = "nfe"  # "nfe" | "nfce"
+
+
+class NotaFiscalPrepararOut(BaseModel):
+    """Resposta do POST /notas-fiscais/preparar."""
+    pronto: bool
+    resumo: str
+    avisos: List[str] = []
+    bloqueios: List[str] = []
+    payload_preview: Optional[dict] = None

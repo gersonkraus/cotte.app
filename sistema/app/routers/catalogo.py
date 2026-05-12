@@ -14,8 +14,11 @@ from app.schemas.schemas import (
     ServicoOut,
     CategoriaCatalogoOut,
     CategoriaCatalogoCreate,
+    FiscalSugestaoOut,
+    FiscalUpdateRequest,
 )
 from app.services.ia_service import interpretar_tabela_catalogo
+from app.services.fiscal_ai_service import sugerir_dados_fiscais
 from app.services.r2_service import r2_service
 from app.services.template_segmento_service import (
     listar_segmentos,
@@ -533,3 +536,66 @@ def importar_template(
         raise HTTPException(status_code=404, detail=resultado["erro"])
     db.commit()
     return resultado
+
+
+# ── DADOS FISCAIS ────────────────────────────────────────────────────────────
+
+
+@router.get("/{servico_id}/sugerir-fiscal", response_model=FiscalSugestaoOut)
+async def sugerir_fiscal_servico(
+    servico_id: int,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exigir_permissao("catalogo", "leitura")),
+):
+    """Usa IA para sugerir NCM, CFOP, CSOSN e unidade para um produto do catálogo."""
+    _checar_rate_limit_ia(usuario.empresa_id)
+
+    servico = (
+        db.query(Servico)
+        .options(joinedload(Servico.categoria))
+        .filter(Servico.id == servico_id, Servico.empresa_id == usuario.empresa_id)
+        .first()
+    )
+    if not servico:
+        raise HTTPException(404, "Produto não encontrado")
+
+    categoria = servico.categoria.nome if servico.categoria else None
+    preco = float(servico.preco_padrao) if servico.preco_padrao else None
+    descricao = servico.descricao or servico.nome
+
+    dados = await sugerir_dados_fiscais(descricao, categoria, preco)
+    return FiscalSugestaoOut(**dados)
+
+
+@router.patch("/{servico_id}/fiscal", response_model=ServicoOut)
+def salvar_fiscal_servico(
+    servico_id: int,
+    dados: FiscalUpdateRequest,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exigir_permissao("catalogo", "escrita")),
+):
+    """Salva dados fiscais (NCM, CFOP, CSOSN, origem, unidade_fiscal) em um produto."""
+    servico = (
+        db.query(Servico)
+        .filter(Servico.id == servico_id, Servico.empresa_id == usuario.empresa_id)
+        .first()
+    )
+    if not servico:
+        raise HTTPException(404, "Produto não encontrado")
+
+    if dados.ncm is not None:
+        servico.ncm = dados.ncm
+    if dados.cfop is not None:
+        servico.cfop = dados.cfop
+    if dados.csosn is not None:
+        servico.csosn = dados.csosn
+    if dados.origem is not None:
+        servico.origem = dados.origem
+    if dados.unidade_fiscal is not None:
+        servico.unidade_fiscal = dados.unidade_fiscal
+    if dados.dados_fiscais_ok is not None:
+        servico.dados_fiscais_ok = dados.dados_fiscais_ok
+
+    db.commit()
+    db.refresh(servico)
+    return servico

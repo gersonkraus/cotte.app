@@ -606,6 +606,13 @@ class Servico(TenantScopedMixin, Base):
     ativo = Column(Boolean, default=True)
     imagem_url = Column(String(300))
     categoria_id = Column(Integer, ForeignKey("categorias_catalogo.id"), nullable=True)
+    # Dados fiscais (NF-e)
+    ncm = Column(String(8), nullable=True)
+    cfop = Column(String(4), nullable=True)
+    csosn = Column(String(4), nullable=True)
+    origem = Column(Integer, nullable=True, default=0)
+    unidade_fiscal = Column(String(6), nullable=True)
+    dados_fiscais_ok = Column(Boolean, default=False)
 
     empresa = relationship("Empresa", back_populates="servicos")
     categoria = relationship("CategoriaCatalogo", back_populates="servicos")
