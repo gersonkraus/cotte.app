@@ -71,6 +71,10 @@ def _endpoint_emissao_focus(tipo: str) -> str:
     return "/v2/nfe"
 
 
+# Stub temporário — removido quando emitir_nota() for reescrita na Task 3
+_get_api_key = lambda empresa: ""
+
+
 _MAPA_PAGAMENTO = {
     "pix": "17",
     "cartao_credito": "03",
