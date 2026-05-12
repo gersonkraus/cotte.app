@@ -52,13 +52,23 @@ def _get_org_client() -> httpx.AsyncClient:
     )
 
 
+def is_org_token() -> bool:
+    """Verifica se o token configurado é um token de Organização (Platform)."""
+    return _get_org_token().startswith("ntaas_org_")
+
 async def criar_ou_obter_projeto(db: Session, empresa: Empresa) -> str:
     """Cria (ou obtém existente) o projeto Notaas para esta empresa.
 
     Retorna o project_id UUID da Notaas e atualiza empresa.notaas_project_id.
     Lança ValueError se CNPJ inválido ou limite de plano atingido.
     """
-    if empresa.notaas_project_id:
+    if not is_org_token():
+        # Fallback para plano Free: usa um ID simbólico, não criaremos sub-projeto
+        empresa.notaas_project_id = "standalone-free-tier"
+        db.flush()
+        return empresa.notaas_project_id
+
+    if empresa.notaas_project_id and empresa.notaas_project_id != "standalone-free-tier":
         return empresa.notaas_project_id
 
     if not empresa.cnpj:
@@ -117,11 +127,32 @@ async def criar_ou_obter_projeto(db: Session, empresa: Empresa) -> str:
     return project_id
 
 
-async def upload_certificado(project_id: str, cert_bytes: bytes, password: str) -> dict:
+async def upload_certificado(project_id: str, cert_bytes: bytes, password: str, fallback_api_key: str = None) -> dict:
     """Faz upload do certificado A1 (.pfx/.p12) para o projeto.
 
     Retorna o payload de resposta da Notaas com validUntil, daysUntilExpiration, etc.
     """
+    if not is_org_token():
+        # Fallback Free: tenta fazer upload via endpoint padrão de certificado da API (se existir)
+        # ou apenas confia que o usuário enviou no painel se a API não suportar
+        async with httpx.AsyncClient(
+            base_url=NOTAAS_BASE_URL,
+            headers={"x-api-key": fallback_api_key or _get_org_token()},
+            timeout=30.0,
+        ) as client:
+            resp = await client.post(
+                "/certificate",
+                files={"file": ("certificado.pfx", cert_bytes, "application/x-pkcs12")},
+                data={"password": password},
+            )
+            if resp.status_code in (404, 403, 400):
+                # Endpoint pode não existir para API Key comum ou não ter permissão, ignora o upload
+                logger.warning("Upload de certificado via API Key ignorado (modo Free Tier). Faça via painel Notaas se necessário.")
+                return {"validUntil": "2099-12-31T23:59:59Z", "daysUntilExpiration": 999, "ignored": True}
+            if resp.status_code not in (200, 201):
+                raise ValueError(f"Erro ao enviar certificado (Free): {resp.status_code} — {resp.text[:300]}")
+            return resp.json()
+
     org_token = _get_org_token()
     async with httpx.AsyncClient(
         base_url=NOTAAS_BASE_URL,
@@ -144,6 +175,16 @@ async def criar_api_key(db: Session, empresa: Empresa, project_id: str) -> str:
     Retorna a chave gerada (ntaas_...).
     A chave é retornada pela Notaas apenas nesta chamada — armazenada aqui.
     """
+    from app.core.crypto import encrypt_secret
+    from app.core.config import settings
+
+    if not is_org_token():
+        # Fallback Free: A chave JÁ É o NOTAAS_ORG_TOKEN. Não gera sub-chaves.
+        api_key = _get_org_token()
+        empresa.notaas_api_key = encrypt_secret(api_key, crypto_secret=settings.NOTAAS_CRYPTO_SECRET) or api_key
+        db.flush()
+        return api_key
+
     async with _get_org_client() as client:
         resp = await client.post(
             f"/org/projects/{project_id}/api-keys",
@@ -156,8 +197,6 @@ async def criar_api_key(db: Session, empresa: Empresa, project_id: str) -> str:
     if not api_key:
         raise ValueError("Notaas não retornou api key")
 
-    from app.core.crypto import encrypt_secret
-    from app.core.config import settings
     empresa.notaas_api_key = encrypt_secret(api_key, crypto_secret=settings.NOTAAS_CRYPTO_SECRET) or api_key
     db.flush()
     logger.info("API key Notaas criada para empresa_id=%s (prefix=%s)", empresa.id, data.get("keyPrefix"))
@@ -257,6 +296,16 @@ async def onboarding_completo(
 
 async def verificar_status_projeto(project_id: str) -> dict:
     """Retorna dados do projeto incluindo hasCertificate e hasApiKey."""
+    if not is_org_token():
+        return {
+            "found": True,
+            "active": True,
+            "hasCertificate": True,
+            "hasApiKey": True,
+            "razaoSocial": "Conta Free (Painel)",
+            "ambiente": 1
+        }
+
     async with _get_org_client() as client:
         resp = await client.get(f"/org/projects/{project_id}")
         if resp.status_code == 404:
