@@ -68,27 +68,7 @@ async def _montar_payload_nfe(
     """
     cliente: Cliente = orcamento.cliente
 
-    emitente = {
-        "cnpj": _limpar_doc(empresa.cnpj),
-        "xNome": empresa.nome,
-        "xFant": empresa.nome,
-        "IE": empresa.inscricao_estadual or "",
-        "IM": empresa.inscricao_municipal or "",
-        "CRT": empresa.crt or 1,
-        "enderEmit": {
-            "xLgr": empresa.endereco_logradouro or "",
-            "nro": empresa.endereco_numero or "S/N",
-            "xCpl": empresa.endereco_complemento or "",
-            "xBairro": empresa.endereco_bairro or "",
-            "xMun": empresa.endereco_cidade or "",
-            "UF": empresa.endereco_uf or "",
-            "CEP": _limpar_cep(empresa.endereco_cep or ""),
-            "cMun": empresa.endereco_codigo_municipio_ibge or "",
-        },
-    }
-
     # Usa documento por presença real, não por tipo_pessoa
-    # Notaas NF-e exige chaves minúsculas: "cpf"/"cnpj", não "CPF"/"CNPJ"
     limpo_cnpj = _limpar_doc(cliente.cnpj or "")
     limpo_cpf = _limpar_doc(cliente.cpf or "")
     if limpo_cnpj:
@@ -101,32 +81,37 @@ async def _montar_payload_nfe(
         dest_doc = {}
         dest_nome = cliente.razao_social or cliente.nome
 
+    # Notaas NF-e: campos em lowercase, sem nomes XML SEFAZ
+    endereco_dest: dict = {
+        "logradouro": cliente.logradouro or "",
+        "numero": cliente.numero or "SN",
+        "bairro": cliente.bairro or "",
+        "cidade": cliente.cidade or "",
+        "uf": cliente.estado or "",
+        "cep": _limpar_cep(cliente.cep or ""),
+    }
+    if cliente.complemento:
+        endereco_dest["complemento"] = cliente.complemento
+    cod_mun = getattr(cliente, "codigo_municipio_ibge", None)
+    if cod_mun:
+        endereco_dest["codigoMunicipio"] = int(cod_mun)
+
     destinatario = {
         **dest_doc,
-        "xNome": dest_nome,
-        "IE": cliente.inscricao_estadual or "",
+        "nome": dest_nome,
+        "ie": cliente.inscricao_estadual or "",
         "email": cliente.email or "",
-        # Notaas espera "endereco", não "enderDest"
-        "endereco": {
-            "xLgr": cliente.logradouro or "",
-            "nro": cliente.numero or "S/N",
-            "xCpl": cliente.complemento or "",
-            "xBairro": cliente.bairro or "",
-            "xMun": cliente.cidade or "",
-            "UF": cliente.estado or "",
-            "CEP": _limpar_cep(cliente.cep or ""),
-        },
+        "endereco": endereco_dest,
     }
 
     itens = itens_override or orcamento.itens
     items = []
-    for idx, item in enumerate(itens, start=1):
+    for item in itens:
         # Dados fiscais do catálogo (servico)
         servico = getattr(item, "servico", None)
         ncm = (getattr(servico, "ncm", None) or None) if servico else None
         cfop = (getattr(servico, "cfop", None) or "5102") if servico else "5102"
         csosn = (getattr(servico, "csosn", None) or "400") if servico else "400"
-        origem = int(getattr(servico, "origem", 0) or 0) if servico else 0
         unidade = (getattr(servico, "unidade_fiscal", None) or getattr(servico, "unidade", None) or "UN") if servico else "UN"
 
         # IA fallback: se não tem NCM no catálogo, pede para IA sugerir
@@ -140,45 +125,28 @@ async def _montar_payload_nfe(
             except Exception:
                 ncm = "00000000"
 
+        # Notaas NF-e: estrutura flat (não aninhada em prod/imposto como SEFAZ XML)
         items.append({
-            "nItem": idx,
-            "prod": {
-                "cProd": str(item.servico_id or idx),
-                "xProd": item.descricao,
-                "NCM": ncm,
-                "CFOP": cfop,
-                "uCom": unidade,
-                "qCom": str(item.quantidade),
-                "vUnCom": str(item.valor_unit),
-                "vProd": str(item.total),
-                "indTot": 1,
-            },
-            "imposto": {
-                "ICMS": {"ICMSSN400": {"orig": origem, "CSOSN": csosn}},
-                "PIS": {"PISAliq": {"CST": "07", "vBC": "0.00", "pPIS": "0.00", "vPIS": "0.00"}},
-                "COFINS": {"COFINSAliq": {"CST": "07", "vBC": "0.00", "pCOFINS": "0.00", "vCOFINS": "0.00"}},
-            },
+            "descricao": item.descricao,
+            "ncm": ncm,
+            "cfop": cfop,
+            "valorTotal": round(float(item.total), 2),
+            "quantidade": float(item.quantidade),
+            "valorUnitario": round(float(item.valor_unit), 2),
+            "unidade": unidade,
+            "csosn": csosn,
         })
 
-    total = str(orcamento.total)
     forma_pag = getattr(orcamento, "forma_pagamento", None) or ""
     tpag = _MAPA_PAGAMENTO.get(forma_pag.lower() if forma_pag else "", "99")
 
     return {
-        # naturezaOperacao na raiz — formato Notaas NF-e
         "naturezaOperacao": natureza_operacao,
-        "ide": {
-            "tpAmb": 1 if empresa.notaas_ambiente == "producao" else 2,
-            "mod": 55 if tipo == "nfe" else 65,
-            "serie": int(serie),
-            "natOp": natureza_operacao,
-        },
-        "emit": emitente,
+        "modelo": 55 if tipo == "nfe" else 65,
         "dest": destinatario,
         "items": items,
-        "total": {"ICMSTot": {"vNF": total, "vProd": total}},
-        "transp": {"modFrete": 9},
-        "pag": {"detPag": [{"indPag": 0, "tPag": tpag, "vPag": total}]},
+        # Notaas NF-e: "pagamentos" com tipoPagamento/valor (não pag.detPag.tPag)
+        "pagamentos": [{"tipoPagamento": tpag, "valor": round(float(orcamento.total), 2)}],
     }
 
 
@@ -199,7 +167,15 @@ def _normalizar_codigo_servico(codigo: str) -> str:
     digits = "".join(c for c in s if c.isdigit())
     if not digits:
         return "170600"
-    return digits if len(digits) == 6 else (digits.zfill(6) if len(digits) < 6 else digits[:6])
+    if len(digits) == 6:
+        return digits
+    if len(digits) == 5:
+        return digits + "0"     # "01070" → "010700" (pad direito, não esquerdo)
+    if len(digits) == 4:
+        return digits + "00"    # "1706" → "170600"
+    if len(digits) < 4:
+        return digits.zfill(6)  # códigos muito curtos: zfill esquerdo
+    return digits[:6]           # trunca se > 6
 
 
 def _montar_payload_nfse(
@@ -218,11 +194,13 @@ def _montar_payload_nfse(
     cliente: Cliente = orcamento.cliente
     nome_cliente = cliente.razao_social or cliente.nome
 
-    # tomador: cnpj ou cpf como chaves separadas (não cpfCnpj)
-    if cliente.tipo_pessoa == "PJ" and cliente.cnpj:
-        doc_tomador = {"cnpj": _limpar_doc(cliente.cnpj)}
-    elif cliente.cpf:
-        doc_tomador = {"cpf": _limpar_doc(cliente.cpf)}
+    # tomador: usa presença real do documento, não tipo_pessoa (pode ser inconsistente)
+    limpo_cnpj = _limpar_doc(cliente.cnpj or "")
+    limpo_cpf = _limpar_doc(cliente.cpf or "")
+    if limpo_cnpj:
+        doc_tomador = {"cnpj": limpo_cnpj}
+    elif limpo_cpf:
+        doc_tomador = {"cpf": limpo_cpf}
     else:
         doc_tomador = {}
 

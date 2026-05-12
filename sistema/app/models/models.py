@@ -558,6 +558,7 @@ class Cliente(TenantScopedMixin, Base):
     nome_fantasia = Column(String(200), nullable=True)
     inscricao_estadual = Column(String(20), nullable=True)
     inscricao_municipal = Column(String(20), nullable=True)
+    codigo_municipio_ibge = Column(String(7), nullable=True)
 
     empresa = relationship("Empresa", back_populates="clientes")
     criado_por = relationship("Usuario", foreign_keys=[criado_por_id])
