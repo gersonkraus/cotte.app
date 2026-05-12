@@ -8,8 +8,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, Request, UploadFile
-from fastapi import Form
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request
 from sqlalchemy.orm import Session, selectinload, joinedload
 from sqlalchemy import or_
 
@@ -29,7 +28,6 @@ from app.schemas.schemas import (
     NotaFiscalPrepararOut,
 )
 from app.services import nfe_service
-from app.services import nfe_org_service
 from app.services.fiscal_ai_service import sugerir_dados_fiscais
 
 logger = logging.getLogger(__name__)
@@ -40,8 +38,8 @@ def _get_empresa_com_nfe(db: Session, usuario) -> Empresa:
     empresa = db.query(Empresa).filter(Empresa.id == usuario.empresa_id).first()
     if not empresa:
         raise HTTPException(404, "Empresa não encontrada")
-    if not empresa.notaas_api_key:
-        raise HTTPException(422, "Configure a API key da Notaas em Configurações → Fiscal antes de emitir notas")
+    if not settings.FOCUS_TOKEN:
+        raise HTTPException(422, "Token Focus NFe não configurado. Contate o suporte.")
     if not empresa.cnpj:
         raise HTTPException(422, "Preencha o CNPJ da empresa em Configurações → Fiscal antes de emitir notas")
     return empresa
@@ -70,9 +68,7 @@ def get_configuracao_fiscal(
         endereco_uf=empresa.endereco_uf,
         endereco_cep=empresa.endereco_cep,
         endereco_codigo_municipio_ibge=empresa.endereco_codigo_municipio_ibge,
-        notaas_project_id=empresa.notaas_project_id,
-        notaas_api_key="***" if empresa.notaas_api_key else None,
-        notaas_ambiente=empresa.notaas_ambiente,
+        nfe_ambiente=empresa.nfe_ambiente or "homologacao",
     )
 
 
@@ -101,12 +97,7 @@ def salvar_configuracao_fiscal(
     empresa.endereco_uf = dados.endereco_uf
     empresa.endereco_cep = dados.endereco_cep
     empresa.endereco_codigo_municipio_ibge = dados.endereco_codigo_municipio_ibge
-    empresa.notaas_ambiente = dados.notaas_ambiente or "homologacao"
-
-    if dados.notaas_api_key and dados.notaas_api_key != "***":
-        empresa.notaas_api_key = dados.notaas_api_key
-    if dados.notaas_webhook_secret:
-        empresa.notaas_webhook_secret = dados.notaas_webhook_secret
+    empresa.nfe_ambiente = dados.nfe_ambiente or "homologacao"
 
     db.commit()
     return {"success": True, "message": "Configuração fiscal salva"}
@@ -199,8 +190,8 @@ async def preparar_nota_fiscal(
     # Valida empresa
     if not empresa.cnpj:
         bloqueios.append("CNPJ da empresa não configurado (Configurações → Fiscal)")
-    if not empresa.notaas_api_key:
-        bloqueios.append("API key da Notaas não configurada (Configurações → Fiscal)")
+    if not settings.FOCUS_TOKEN:
+        bloqueios.append("Token Focus NFe não configurado — contate o suporte")
     if not empresa.endereco_cidade:
         avisos.append("Endereço da empresa incompleto — pode causar rejeição")
 
@@ -287,85 +278,59 @@ async def preparar_nota_fiscal(
     )
 
 
-# ── Onboarding Notaas (Org API) — rotas estáticas ANTES de /{nota_id} ────────
+# ── Configuração Focus NFe — rotas estáticas ANTES de /{nota_id} ─────────────
 
-@router.post("/configurar-notaas")
-async def configurar_notaas(
-    certificado: UploadFile = File(..., description="Certificado A1 (.pfx ou .p12)"),
-    senha_certificado: str = Form(...),
+@router.post("/configurar-focus")
+def configurar_focus(
+    dados: ConfiguracaoFiscalEmpresa,
     db: Session = Depends(get_db),
     usuario=Depends(get_usuario_atual),
     _=Depends(exigir_permissao("configuracoes", "escrita")),
 ):
-    """Onboarding automático Notaas: cria projeto + upload certificado + gera API key."""
+    """Salva o ambiente NF-e preferido da empresa (homologacao/producao)."""
     set_tenant_context(db, empresa_id=usuario.empresa_id, usuario_id=usuario.id)
     empresa = db.query(Empresa).filter(Empresa.id == usuario.empresa_id).first()
     if not empresa:
         raise HTTPException(404, "Empresa não encontrada")
-    if not empresa.cnpj:
-        raise HTTPException(422, "CNPJ da empresa é obrigatório. Preencha os dados fiscais primeiro.")
 
-    cert_bytes = await certificado.read()
-    if len(cert_bytes) > 51200:  # 50KB
-        raise HTTPException(413, "Certificado deve ter no máximo 50KB")
-
-    try:
-        resultado = await nfe_org_service.onboarding_completo(
-            db, empresa, cert_bytes, senha_certificado
-        )
-    except ValueError as e:
-        raise HTTPException(422, str(e))
-    except httpx.HTTPStatusError as e:
-        logger.error("Erro HTTP Notaas empresa_id=%s: %s - %s", usuario.empresa_id, e, e.response.text)
-        raise HTTPException(400, f"Erro na API da Notaas: {e.response.text}")
-    except Exception as e:
-        logger.error("Erro no onboarding Notaas empresa_id=%s: %s", usuario.empresa_id, e)
-        raise HTTPException(400, f"Erro interno na integração: {e}")
+    empresa.nfe_ambiente = dados.nfe_ambiente or "homologacao"
+    db.commit()
 
     return {
         "success": True,
-        "message": "Empresa configurada com sucesso na Notaas",
-        **resultado,
+        "message": "Configuração fiscal salva",
+        "ambiente": empresa.nfe_ambiente,
+        "token_configurado": bool(settings.FOCUS_TOKEN),
     }
 
 
-@router.get("/status-notaas")
-async def status_notaas(
+@router.get("/status-focus")
+async def status_focus(
     db: Session = Depends(get_db),
     usuario=Depends(get_usuario_atual),
 ):
-    """Retorna o status de configuração Notaas da empresa (projeto, certificado, API key)."""
+    """Verifica conectividade com a API Focus NFe e retorna status de configuração."""
     set_tenant_context(db, empresa_id=usuario.empresa_id, usuario_id=usuario.id)
     empresa = db.query(Empresa).filter(Empresa.id == usuario.empresa_id).first()
     if not empresa:
         raise HTTPException(404, "Empresa não encontrada")
 
-    if not empresa.notaas_project_id:
-        return {
-            "configurado": False,
-            "tem_projeto": False,
-            "tem_certificado": False,
-            "tem_api_key": bool(empresa.notaas_api_key),
-        }
+    token_ok = bool(settings.FOCUS_TOKEN)
+    conectado = False
 
-    try:
-        status = await nfe_org_service.verificar_status_projeto(empresa.notaas_project_id)
-    except Exception as e:
-        logger.warning("Erro ao verificar status Notaas: %s", e)
-        return {
-            "configurado": bool(empresa.notaas_api_key),
-            "tem_projeto": True,
-            "project_id": empresa.notaas_project_id,
-            "erro": "Não foi possível verificar status em tempo real",
-        }
+    if token_ok:
+        try:
+            async with nfe_service._get_client() as client:
+                r = await client.get("/v2/nfe/ref-ping-teste-cotte")
+                conectado = r.status_code in (200, 404, 422)
+        except Exception:
+            conectado = False
 
     return {
-        "configurado": status.get("hasCertificate") and bool(empresa.notaas_api_key),
-        "tem_projeto": status.get("found", False),
-        "tem_certificado": status.get("hasCertificate", False),
-        "tem_api_key": status.get("hasApiKey", False),
-        "project_id": empresa.notaas_project_id,
-        "ambiente": empresa.notaas_ambiente,
+        "configurado": token_ok,
+        "conectado": conectado,
+        "ambiente": settings.FOCUS_AMBIENTE,
+        "nfe_ambiente_empresa": empresa.nfe_ambiente or "homologacao",
     }
 
 
