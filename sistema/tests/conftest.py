@@ -277,8 +277,8 @@ def empresa_com_plano(db: Session, seed_base_data: Plano):
 
 
 # ── Fábricas de objetos de teste ────────────────────────────────────────────
-def make_empresa(db, nome="Empresa Teste", telefone_operador="5511999990001", plano="pro"):
-    emp = Empresa(nome=nome, telefone_operador=telefone_operador, plano=plano)
+def make_empresa(db, nome="Empresa Teste", telefone_operador="5511999990001", plano="pro", cnpj=None):
+    emp = Empresa(nome=nome, telefone_operador=telefone_operador, plano=plano, cnpj=cnpj)
     db.add(emp)
     db.flush()
     return emp

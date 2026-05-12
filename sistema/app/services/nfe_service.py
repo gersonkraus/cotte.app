@@ -71,9 +71,6 @@ def _endpoint_emissao_focus(tipo: str) -> str:
     return "/v2/nfe"
 
 
-# Stub temporário — removido quando emitir_nota() for reescrita na Task 3
-_get_api_key = lambda empresa: ""
-
 
 _MAPA_PAGAMENTO = {
     "pix": "17",
@@ -619,16 +616,43 @@ async def emitir_nota_background(nota_id: int, empresa_id: int, payload: dict) -
         db.close()
 
 
-def _path_polling_status_notaas(nota_tipo: str, invoice_id: str) -> str:
-    """Caminho relativo (base /api/v1) para consulta de status na Notaas.
 
-    NF-e/NFC-e: GET /nfe/invoices/{id}/status (doc Notaas).
-    NFS-e: GET /invoices/{id}/status.
-    """
-    t = (nota_tipo or "").lower()
-    if t in ("nfe", "nfce"):
-        return f"/nfe/invoices/{invoice_id}/status"
-    return f"/invoices/{invoice_id}/status"
+def _atualizar_nota_com_status_focus(nota_fiscal: NotaFiscal, status_data: dict) -> None:
+    """Aplica campos da resposta Focus no objeto NotaFiscal conforme status."""
+    status = status_data.get("status", "")
+
+    if status == "autorizado":
+        nota_fiscal.status = "emitida"
+        nota_fiscal.chave_acesso = (
+            status_data.get("chave_nfe")
+            or status_data.get("chave_nfse")
+            or status_data.get("chave_cte")
+        )
+        nota_fiscal.numero = str(status_data.get("numero") or "")
+        nota_fiscal.protocolo = str(status_data.get("protocolo") or "")
+        nota_fiscal.xml_url = status_data.get("caminho_xml_nota_fiscal")
+        nota_fiscal.danfe_url = status_data.get("caminho_danfe")
+        nota_fiscal.emitida_em = nota_fiscal.emitida_em or datetime.utcnow()
+
+    elif status == "denegado":
+        nota_fiscal.status = "erro"
+        nota_fiscal.denegada = True
+        erros = status_data.get("erros") or []
+        primeiro = erros[0] if erros else {}
+        nota_fiscal.erro_codigo = str(primeiro.get("codigo") or "DENEGADO")
+        nota_fiscal.erro_mensagem = primeiro.get("mensagem") or "Nota denegada pela SEFAZ"
+
+    elif status in ("erro_autorizacao", "erro"):
+        nota_fiscal.status = "erro"
+        nota_fiscal.denegada = False
+        erros = status_data.get("erros") or []
+        primeiro = erros[0] if erros else {}
+        nota_fiscal.erro_codigo = str(primeiro.get("codigo") or "ERRO_AUTORIZACAO")
+        nota_fiscal.erro_mensagem = primeiro.get("mensagem") or "Erro na autorização SEFAZ"
+
+    elif status == "cancelado":
+        nota_fiscal.status = "cancelada"
+        nota_fiscal.cancelada_em = datetime.utcnow()
 
 
 async def emitir_nota(
@@ -637,19 +661,27 @@ async def emitir_nota(
     empresa: Empresa,
     payload: dict,
 ) -> NotaFiscal:
-    """Envia payload para API Notaas e aguarda resultado por polling."""
-    nota_fiscal.status = "processando"
-    nota_fiscal.payload_enviado = payload
-    db.commit()  # commit imediato para visibilidade do status
+    """Envia payload para API Focus NFe e aguarda resultado via polling."""
+    ref = nota_fiscal.focus_ref or _gerar_ref(empresa, nota_fiscal.id)
+    endpoint = _endpoint_emissao_focus(nota_fiscal.tipo)
 
-    endpoint = "/emitir" if nota_fiscal.tipo == "nfse" else "/nfe/emitir"
+    nota_fiscal.status = "processando"
+    nota_fiscal.focus_ref = ref
+    nota_fiscal.payload_enviado = payload
+    db.commit()
 
     async with _get_client() as client:
         try:
-            resp = await client.post(endpoint, json=payload)
+            resp = await client.post(f"{endpoint}?ref={ref}", json=payload)
             resp.raise_for_status()
-            data = resp.json()
         except httpx.HTTPStatusError as e:
+            if e.response.status_code == 401:
+                nota_fiscal.status = "erro"
+                nota_fiscal.erro_codigo = "AUTH_ERROR"
+                nota_fiscal.erro_mensagem = "Token Focus inválido — verifique FOCUS_TOKEN no ambiente"
+                logger.critical("FOCUS_TOKEN inválido — revisar configuração (empresa_id=%s)", empresa.id)
+                db.commit()
+                return nota_fiscal
             nota_fiscal.status = "erro"
             nota_fiscal.erro_codigo = str(e.response.status_code)
             nota_fiscal.erro_mensagem = e.response.text[:500]
@@ -662,69 +694,32 @@ async def emitir_nota(
             db.commit()
             return nota_fiscal
 
-        invoice_id = data.get("invoiceId")
-        if not invoice_id:
-            nota_fiscal.status = "erro"
-            nota_fiscal.erro_mensagem = "invoiceId ausente na resposta"
-            db.commit()
-            return nota_fiscal
-
-        nota_fiscal.notaas_invoice_id = invoice_id
-        db.commit()  # BUG4-FIX: commit para persistir invoice_id antes do polling longo
-
+        path = _path_focus(nota_fiscal.tipo, ref)
         for _ in range(POLLING_MAX_ATTEMPTS):
             await asyncio.sleep(POLLING_INTERVAL)
             try:
-                status_resp = await client.get(_path_polling_status_notaas(nota_fiscal.tipo, invoice_id))
+                status_resp = await client.get(path)
             except httpx.RequestError:
                 continue
 
             if status_resp.status_code == 404:
-                nota_fiscal.status = "erro"
-                nota_fiscal.erro_codigo = "INVOICE_NOT_FOUND"
-                nota_fiscal.erro_mensagem = "Invoice não encontrado na Notaas"
-                db.commit()
-                return nota_fiscal
+                continue
             if status_resp.status_code >= 400:
                 nota_fiscal.status = "erro"
                 nota_fiscal.erro_codigo = str(status_resp.status_code)
                 nota_fiscal.erro_mensagem = status_resp.text[:200]
                 db.commit()
                 return nota_fiscal
-            if status_resp.status_code != 200:
-                continue
 
             status_data = status_resp.json()
-            current_status = status_data.get("status")
+            current = status_data.get("status", "")
 
-            if current_status == "issued":
-                nota_fiscal.status = "emitida"
-                nota_fiscal.numero = str(status_data.get("numeroNfe") or status_data.get("nfNumber") or "")
-                # BUG3-FIX: NF-e usa chaveAcesso; NFS-e usa chNFSe
-                nota_fiscal.chave_acesso = (
-                    status_data.get("chaveAcesso")      # NF-e/NFC-e
-                    or status_data.get("chNFSe")        # NFS-e
-                    or status_data.get("accessKey")     # fallback legado
-                )
-                nota_fiscal.protocolo = status_data.get("nProt") or status_data.get("protocol")
-                nota_fiscal.xml_url = status_data.get("xmlUrl")
-                nota_fiscal.danfe_url = status_data.get("pdfUrl")
-                nota_fiscal.emitida_em = datetime.utcnow()
-                db.commit()
-                return nota_fiscal
+            if current == "processando_autorizacao":
+                continue
 
-            if current_status == "error":
-                nota_fiscal.status = "erro"
-                nota_fiscal.erro_codigo = status_data.get("errorCode", "UNKNOWN")
-                nota_fiscal.erro_mensagem = status_data.get("errorMessage", "Erro desconhecido")
-                db.commit()
-                return nota_fiscal
-
-            if current_status == "cancelled":
-                nota_fiscal.status = "cancelada"
-                nota_fiscal.cancelada_em = datetime.utcnow()
-                db.commit()
-                return nota_fiscal
+            _atualizar_nota_com_status_focus(nota_fiscal, status_data)
+            db.commit()
+            return nota_fiscal
 
     nota_fiscal.status = "erro"
     nota_fiscal.erro_mensagem = "Timeout aguardando processamento da SEFAZ"

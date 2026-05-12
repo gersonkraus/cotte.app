@@ -3,6 +3,7 @@ import hmac
 from decimal import Decimal
 from types import SimpleNamespace
 
+import httpx
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
@@ -49,11 +50,6 @@ def test_verificar_assinatura_webhook_with_prefix():
     sig = "sha256=" + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
     assert verificar_assinatura_webhook(body, sig, secret) is True
 
-
-def test_path_polling_status_notaas_nfe_usa_prefixo_nfe():
-    assert nfe_service._path_polling_status_notaas("nfe", "inv-1") == "/nfe/invoices/inv-1/status"
-    assert nfe_service._path_polling_status_notaas("nfce", "inv-2") == "/nfe/invoices/inv-2/status"
-    assert nfe_service._path_polling_status_notaas("nfse", "inv-3") == "/invoices/inv-3/status"
 
 
 def test_sugerir_acao_mensagem_erro_cstat_209_ie_emitente():
@@ -352,3 +348,112 @@ def test_gerar_ref_cnpj_none_levanta_value_error():
     emp = SimpleNamespace(cnpj=None)
     with pytest.raises(ValueError, match="CNPJ"):
         _gerar_ref(emp, 1)
+
+
+# ---------------------------------------------------------------------------
+# Task 3 — emitir_nota() Focus NFe
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_emitir_nota_focus_sucesso(db):
+    from app.models.models import NotaFiscal
+    from tests.conftest import make_empresa
+
+    emp = make_empresa(db, nome="Empresa Focus", cnpj="12345678000195")
+    nota = NotaFiscal(empresa_id=emp.id, tipo="nfe", status="pendente")
+    db.add(nota)
+    db.flush()
+
+    _req = httpx.Request("POST", "http://focus-test")
+    resp_emissao = httpx.Response(202, json={}, request=_req)
+    resp_status = httpx.Response(200, json={
+        "status": "autorizado",
+        "chave_nfe": "35240512345678000195550010000000011000000011",
+        "numero": "1",
+        "protocolo": "135240000000001",
+        "caminho_xml_nota_fiscal": "/arquivos/nfe/xml/nota.xml",
+        "caminho_danfe": "/arquivos/nfe/danfe/nota.pdf",
+    }, request=_req)
+
+    with patch("app.services.nfe_service._get_client") as mock_client_ctx, \
+         patch("app.services.nfe_service.asyncio.sleep", new_callable=AsyncMock):
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.post = AsyncMock(return_value=resp_emissao)
+        mock_client.get = AsyncMock(return_value=resp_status)
+        mock_client_ctx.return_value = mock_client
+
+        resultado = await nfe_service.emitir_nota(db, nota, emp, {"natureza_operacao": "Venda"})
+
+    assert resultado.status == "emitida"
+    assert resultado.focus_ref == f"12345678000195-{nota.id}"
+    assert resultado.chave_acesso == "35240512345678000195550010000000011000000011"
+    assert resultado.numero == "1"
+    assert resultado.protocolo == "135240000000001"
+    assert resultado.xml_url == "/arquivos/nfe/xml/nota.xml"
+    assert resultado.danfe_url == "/arquivos/nfe/danfe/nota.pdf"
+
+
+@pytest.mark.asyncio
+async def test_emitir_nota_focus_erro_autorizacao(db):
+    from app.models.models import NotaFiscal
+    from tests.conftest import make_empresa
+
+    emp = make_empresa(db, nome="Empresa Erro", cnpj="12345678000195")
+    nota = NotaFiscal(empresa_id=emp.id, tipo="nfe", status="pendente")
+    db.add(nota)
+    db.flush()
+
+    _req = httpx.Request("POST", "http://focus-test")
+    resp_emissao = httpx.Response(202, json={}, request=_req)
+    resp_status = httpx.Response(200, json={
+        "status": "erro_autorizacao",
+        "erros": [{"codigo": "539", "mensagem": "Rejeicao: CNPJ do emitente invalido"}],
+    }, request=_req)
+
+    with patch("app.services.nfe_service._get_client") as mock_client_ctx, \
+         patch("app.services.nfe_service.asyncio.sleep", new_callable=AsyncMock):
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.post = AsyncMock(return_value=resp_emissao)
+        mock_client.get = AsyncMock(return_value=resp_status)
+        mock_client_ctx.return_value = mock_client
+
+        resultado = await nfe_service.emitir_nota(db, nota, emp, {})
+
+    assert resultado.status == "erro"
+    assert resultado.denegada is False
+
+
+@pytest.mark.asyncio
+async def test_emitir_nota_focus_denegado(db):
+    from app.models.models import NotaFiscal
+    from tests.conftest import make_empresa
+
+    emp = make_empresa(db, nome="Empresa Denegada", cnpj="12345678000195")
+    nota = NotaFiscal(empresa_id=emp.id, tipo="nfe", status="pendente")
+    db.add(nota)
+    db.flush()
+
+    _req = httpx.Request("POST", "http://focus-test")
+    resp_emissao = httpx.Response(202, json={}, request=_req)
+    resp_status = httpx.Response(200, json={
+        "status": "denegado",
+        "erros": [{"codigo": "301", "mensagem": "CNPJ emitente irregular na Receita"}],
+    }, request=_req)
+
+    with patch("app.services.nfe_service._get_client") as mock_client_ctx, \
+         patch("app.services.nfe_service.asyncio.sleep", new_callable=AsyncMock):
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.post = AsyncMock(return_value=resp_emissao)
+        mock_client.get = AsyncMock(return_value=resp_status)
+        mock_client_ctx.return_value = mock_client
+
+        resultado = await nfe_service.emitir_nota(db, nota, emp, {})
+
+    assert resultado.status == "erro"
+    assert resultado.denegada is True
