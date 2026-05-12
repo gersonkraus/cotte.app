@@ -5,6 +5,7 @@ notas_fiscais.py — Endpoints para emissão e gestão de NF-e/NFC-e/NFS-e.
 import logging
 import httpx
 from datetime import datetime
+from decimal import Decimal
 from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, Request, UploadFile
@@ -240,16 +241,25 @@ async def preparar_nota_fiscal(
         bloqueios.extend(b_nfe)
         avisos.extend(a_nfe)
 
-    # Monta payload preview (apenas se não houver bloqueios)
+    # Monta payload preview (apenas se não houver bloqueios) — alinhado ao que o emitirá usar
     payload_preview = None
     if not bloqueios:
         try:
-            payload_preview = await nfe_service._montar_payload_nfe(
-                empresa, orcamento, dados.tipo,
-                "Venda de Mercadorias", "1",
-                None,
-                db=db,
-            )
+            if dados.tipo == "nfse":
+                cod_lc = (dados.codigo_servico_lc116 or "170600").strip() or "170600"
+                aliq = dados.aliquota_iss if dados.aliquota_iss is not None else Decimal("0")
+                payload_preview = nfe_service._montar_payload_nfse(
+                    empresa, orcamento, cod_lc, aliq
+                )
+            else:
+                natureza = (dados.natureza_operacao or "Venda de Mercadorias").strip() or "Venda de Mercadorias"
+                serie_val = (dados.serie or "1").strip() or "1"
+                payload_preview = await nfe_service._montar_payload_nfe(
+                    empresa, orcamento, dados.tipo,
+                    natureza, serie_val,
+                    None,
+                    db=db,
+                )
         except Exception as e:
             avisos.append(f"Aviso ao montar payload: {str(e)[:100]}")
 

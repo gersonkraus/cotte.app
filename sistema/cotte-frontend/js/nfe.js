@@ -6,6 +6,138 @@ const NFeService = (() => {
   let _orcamentoId = null;
   let _preparadoOk = false;
 
+  function _esc(s) {
+    if (s == null || s === '') return '';
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function _fmtBRL(n) {
+    const x = Number(n);
+    if (Number.isNaN(x)) return '—';
+    try {
+      return x.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    } catch (_) {
+      return String(n);
+    }
+  }
+
+  function _corpoPreparar() {
+    const tipo = document.getElementById('nfe-tipo')?.value || 'nfe';
+    const natureza = (document.getElementById('nfe-natureza')?.value || '').trim();
+    const serie = (document.getElementById('nfe-serie')?.value || '').trim();
+    const codigoServico = (document.getElementById('nfe-codigo-servico')?.value || '').trim();
+    const aliquotaIss = document.getElementById('nfe-aliquota-iss')?.value;
+    const body = { orcamento_id: _orcamentoId, tipo };
+    if (natureza) body.natureza_operacao = natureza;
+    if (serie) body.serie = serie;
+    if (tipo === 'nfse') {
+      if (codigoServico) body.codigo_servico_lc116 = codigoServico;
+      if (aliquotaIss !== '' && aliquotaIss != null && !Number.isNaN(Number(aliquotaIss))) {
+        body.aliquota_iss = Number(aliquotaIss);
+      }
+    }
+    return body;
+  }
+
+  function _limparPainelPrevia() {
+    const wrap = document.getElementById('nfe-preview-wrap');
+    const body = document.getElementById('nfe-preview-body');
+    const pre = document.getElementById('nfe-preview-json-pre');
+    const det = document.getElementById('nfe-preview-json-details');
+    if (wrap) wrap.style.display = 'none';
+    if (body) body.innerHTML = '';
+    if (pre) pre.textContent = '';
+    if (det) det.open = false;
+  }
+
+  function _renderPayloadPreview(resultado) {
+    const wrap = document.getElementById('nfe-preview-wrap');
+    const body = document.getElementById('nfe-preview-body');
+    const pre = document.getElementById('nfe-preview-json-pre');
+    if (!wrap || !body || !pre) return;
+
+    const tipo = document.getElementById('nfe-tipo')?.value || 'nfe';
+    const serieForm = (document.getElementById('nfe-serie')?.value || '1').trim() || '1';
+    const natForm = (document.getElementById('nfe-natureza')?.value || '').trim();
+
+    if (!resultado || !resultado.payload_preview) {
+      wrap.style.display = 'block';
+      body.innerHTML =
+        '<p style="color:var(--muted,#666);margin:0">Quando não houver bloqueios, aparece aqui o resumo do que será enviado à Notaas. '
+        + 'Corrija os alertas em vermelho (se houver) e use <strong>Verificar e pré-visualizar</strong> de novo.</p>';
+      pre.textContent = '';
+      return;
+    }
+
+    const p = resultado.payload_preview;
+    wrap.style.display = 'block';
+    pre.textContent = JSON.stringify(p, null, 2);
+
+    let html = '';
+
+    if (tipo === 'nfse') {
+      const tom = p.tomador || {};
+      const srv = p.servico || {};
+      const val = p.valores || {};
+      const doc = tom.cnpj ? `CNPJ ${_esc(tom.cnpj)}` : (tom.cpf ? `CPF ${_esc(tom.cpf)}` : 'Documento não informado');
+      html += '<p style="margin:0 0 8px"><strong>Tomador:</strong> ' + _esc(tom.nome || '—') + ' · ' + doc + '</p>';
+      if (tom.email) html += '<p style="margin:0 0 8px"><strong>E-mail:</strong> ' + _esc(tom.email) + '</p>';
+      html += '<p style="margin:0 0 8px"><strong>Serviço (LC116):</strong> ' + _esc(srv.codigo || '—') + '</p>';
+      html += '<p style="margin:0 0 8px"><strong>Descrição:</strong> ' + _esc(srv.descricao || '—') + '</p>';
+      html += '<p style="margin:0 0 8px"><strong>Total:</strong> ' + _fmtBRL(val.total)
+        + ' · <strong>Alíquota ISS:</strong> ' + _esc(String(val.aliquotaIss != null ? val.aliquotaIss : '—'))
+        + '% · <strong>Competência:</strong> ' + _esc(p.competencia || '—')
+        + ' · <strong>Referência:</strong> ' + _esc(p.referencia || '—') + '</p>';
+    } else {
+      html += '<p style="margin:0 0 6px;font-size:0.78rem;color:var(--muted,#666)">Formulário: natureza <strong>'
+        + _esc(natForm || '—') + '</strong> · série <strong>' + _esc(serieForm) + '</strong></p>';
+      html += '<p style="margin:0 0 8px"><strong>Natureza da operação (envio):</strong> ' + _esc(p.naturezaOperacao || '—') + '</p>';
+      html += '<p style="margin:0 0 8px"><strong>Modelo:</strong> ' + _esc(String(p.modelo || '—'))
+        + ' (' + (Number(p.modelo) === 65 ? 'NFC-e' : 'NF-e') + ')</p>';
+
+      const d = p.dest || {};
+      const end = d.endereco || {};
+      const doc = d.cnpj ? `CNPJ ${_esc(d.cnpj)}` : (d.cpf ? `CPF ${_esc(d.cpf)}` : '');
+      html += '<p style="margin:0 0 4px"><strong>Destinatário:</strong> ' + _esc(d.nome || '—') + (doc ? ' · ' + doc : '') + '</p>';
+      html += '<p style="margin:0 0 10px;font-size:0.78rem;color:var(--muted,#666)">'
+        + _esc([end.logradouro, end.numero, end.bairro].filter(Boolean).join(', '))
+        + ' — ' + _esc(end.cidade || '') + '/' + _esc(end.uf || '')
+        + (end.codigoMunicipio != null ? ' · IBGE: ' + _esc(String(end.codigoMunicipio)) : '')
+        + '</p>';
+
+      const items = Array.isArray(p.items) ? p.items : [];
+      if (items.length) {
+        html += '<table style="width:100%;border-collapse:collapse;font-size:0.78rem;margin:8px 0"><thead><tr>'
+          + '<th style="text-align:left;border-bottom:1px solid var(--border,#ddd);padding:4px 6px">Item</th>'
+          + '<th style="text-align:right;border-bottom:1px solid var(--border,#ddd);padding:4px 6px">Qtd</th>'
+          + '<th style="text-align:right;border-bottom:1px solid var(--border,#ddd);padding:4px 6px">Total</th>'
+          + '<th style="text-align:center;border-bottom:1px solid var(--border,#ddd);padding:4px 6px">NCM</th>'
+          + '<th style="text-align:center;border-bottom:1px solid var(--border,#ddd);padding:4px 6px">CFOP</th>'
+          + '</tr></thead><tbody>';
+        items.forEach((it) => {
+          html += '<tr><td style="padding:6px;border-bottom:1px solid var(--border,#eee)">' + _esc(it.descricao || '—') + '</td>'
+            + '<td style="text-align:right;padding:6px;border-bottom:1px solid var(--border,#eee)">' + _esc(String(it.quantidade != null ? it.quantidade : '—')) + '</td>'
+            + '<td style="text-align:right;padding:6px;border-bottom:1px solid var(--border,#eee)">' + _fmtBRL(it.valorTotal) + '</td>'
+            + '<td style="text-align:center;padding:6px;border-bottom:1px solid var(--border,#eee)">' + _esc(it.ncm || '—') + '</td>'
+            + '<td style="text-align:center;padding:6px;border-bottom:1px solid var(--border,#eee)">' + _esc(it.cfop || '—') + '</td></tr>';
+        });
+        html += '</tbody></table>';
+      }
+
+      const pags = Array.isArray(p.pagamentos) ? p.pagamentos : [];
+      if (pags.length) {
+        html += '<p style="margin:6px 0 0"><strong>Pagamento:</strong> tipo ' + _esc(String(pags[0].tipoPagamento || '—'))
+          + ' · ' + _fmtBRL(pags[0].valor) + '</p>';
+      }
+    }
+
+    body.innerHTML = html;
+  }
+
   function abrirModal(orcamentoId) {
     _orcamentoId = orcamentoId;
     const modal = document.getElementById('modal-nfe');
@@ -29,6 +161,7 @@ const NFeService = (() => {
     if (btnEmitir) btnEmitir.disabled = true;
     const areaPrep = document.getElementById('nfe-prep-resultado');
     if (areaPrep) areaPrep.innerHTML = '';
+    _limparPainelPrevia();
   }
 
   async function carregarNotasExistentes(orcamentoId) {
@@ -71,7 +204,7 @@ const NFeService = (() => {
     const statusMsg = document.getElementById('nfe-status-msg');
 
     if (!_preparadoOk) {
-      if (statusMsg) statusMsg.textContent = 'Clique em Verificar primeiro.';
+      if (statusMsg) statusMsg.textContent = 'Use «Verificar e pré-visualizar» primeiro e corrija bloqueios, se houver.';
       return;
     }
 
@@ -190,7 +323,6 @@ const NFeService = (() => {
   }
 
   async function _preparar() {
-    const tipo = document.getElementById('nfe-tipo')?.value || 'nfe';
     const btnVerificar = document.getElementById('btn-verificar-nfe');
     const btnEmitir = document.getElementById('btn-emitir-nfe');
     const areaPrep = document.getElementById('nfe-prep-resultado');
@@ -200,12 +332,10 @@ const NFeService = (() => {
     _preparadoOk = false;
     if (btnEmitir) btnEmitir.disabled = true;
     if (areaPrep) areaPrep.innerHTML = '';
+    _limparPainelPrevia();
 
     try {
-      const resultado = await api.post('/notas-fiscais/preparar', {
-        orcamento_id: _orcamentoId,
-        tipo,
-      });
+      const resultado = await api.post('/notas-fiscais/preparar', _corpoPreparar());
 
       _preparadoOk = resultado.pronto === true;
       if (btnEmitir) btnEmitir.disabled = !_preparadoOk;
@@ -214,12 +344,12 @@ const NFeService = (() => {
 
       if (resultado.bloqueios && resultado.bloqueios.length) {
         html += resultado.bloqueios.map(b =>
-          `<div style="color:#ef4444;font-size:12px;padding:4px 0">❌ ${b}</div>`
+          `<div style="color:#ef4444;font-size:12px;padding:4px 0">❌ ${_esc(b)}</div>`
         ).join('');
       }
       if (resultado.avisos && resultado.avisos.length) {
         html += resultado.avisos.map(a =>
-          `<div style="color:#f59e0b;font-size:12px;padding:4px 0">⚠️ ${a}</div>`
+          `<div style="color:#f59e0b;font-size:12px;padding:4px 0">⚠️ ${_esc(a)}</div>`
         ).join('');
       }
       if (_preparadoOk && !html) {
@@ -229,12 +359,14 @@ const NFeService = (() => {
       }
 
       if (areaPrep) areaPrep.innerHTML = html;
+      _renderPayloadPreview(resultado);
     } catch (e) {
       _preparadoOk = false;
       if (btnEmitir) btnEmitir.disabled = true;
       if (areaPrep) areaPrep.innerHTML = `<div style="color:#ef4444;font-size:12px">❌ Erro ao verificar: ${e.message || 'Tente novamente'}</div>`;
+      _limparPainelPrevia();
     } finally {
-      if (btnVerificar) { btnVerificar.disabled = false; btnVerificar.textContent = '🔍 Verificar'; }
+      if (btnVerificar) { btnVerificar.disabled = false; btnVerificar.textContent = '🔍 Verificar e pré-visualizar'; }
     }
   }
 
@@ -256,6 +388,7 @@ const NFeService = (() => {
     if (btnEmitir) btnEmitir.disabled = true;
     const areaPrep = document.getElementById('nfe-prep-resultado');
     if (areaPrep) areaPrep.innerHTML = '';
+    _limparPainelPrevia();
   }
 
   function _badgeClass(status) {

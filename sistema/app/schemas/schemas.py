@@ -2176,7 +2176,11 @@ class FiscalUpdateRequest(BaseModel):
 class NotaFiscalPrepararRequest(BaseModel):
     """Body do POST /notas-fiscais/preparar."""
     orcamento_id: int
-    tipo: str = "nfe"  # "nfe" | "nfce"
+    tipo: str = "nfe"  # "nfe" | "nfce" | "nfse"
+    natureza_operacao: Optional[str] = None
+    serie: Optional[str] = None
+    codigo_servico_lc116: Optional[str] = None
+    aliquota_iss: Optional[Decimal] = None
 
 
 class NotaFiscalPrepararOut(BaseModel):

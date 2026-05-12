@@ -1940,11 +1940,11 @@
   </script>
 <script src="js/api-financeiro.js?v=1"></script>
 <script src="js/orcamento-detalhes.js?v=6"></script>
-<script src="js/nfe.js"></script>
+<script src="js/nfe.js?v=2"></script>
 
 <!-- Modal: Emitir Nota Fiscal -->
 <div id="modal-nfe" class="modal-overlay" aria-hidden="true" role="dialog" aria-labelledby="modal-nfe-title" aria-modal="true">
-  <div class="modal" style="width:520px">
+  <div class="modal" style="width:min(580px,96vw)">
     <div class="modal-header">
       <span class="modal-title" id="modal-nfe-title">🧾 Emitir Nota Fiscal</span>
       <button class="modal-close" onclick="NFeService.fecharModal()" aria-label="Fechar">&times;</button>
@@ -1987,18 +1987,31 @@
         </div>
       </div>
 
-      <!-- Verificação prévia -->
-      <div style="display:flex;gap:8px;align-items:center">
-        <button id="btn-verificar-nfe" class="btn btn-ghost" onclick="NFeService.verificar()" style="flex:1">
-          🔍 Verificar
+      <!-- Verificação prévia + pré-visualização do payload -->
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button id="btn-verificar-nfe" class="btn btn-ghost" onclick="NFeService.verificar()" style="flex:1;min-width:140px">
+          🔍 Verificar e pré-visualizar
         </button>
-        <button id="btn-emitir-nfe" class="btn btn-primary" onclick="NFeService.emitir()" style="flex:1" disabled>
+        <button id="btn-emitir-nfe" class="btn btn-primary" onclick="NFeService.emitir()" style="flex:1;min-width:140px" disabled>
           ✅ Confirmar e Emitir
         </button>
       </div>
+      <p style="margin:0;font-size:0.75rem;color:var(--muted,#666)">A prévia mostra o JSON que será enviado à Notaas/SEFAZ após a verificação passar (nada é emitido até confirmar).</p>
 
-      <!-- Resultado da verificação -->
+      <!-- Resultado da verificação (bloqueios / avisos) -->
       <div id="nfe-prep-resultado" style="min-height:20px"></div>
+
+      <!-- Pré-visualização legível do envio -->
+      <div id="nfe-preview-wrap" style="display:none;margin-top:4px;border:1px solid var(--border,#e5e5e5);border-radius:10px;padding:12px 14px;background:var(--bg-secondary,rgba(0,0,0,0.02))">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:10px">
+          <strong style="font-size:0.875rem">Pré-visualização do envio</strong>
+        </div>
+        <div id="nfe-preview-body" style="font-size:0.8125rem;line-height:1.45"></div>
+        <details id="nfe-preview-json-details" style="margin-top:10px">
+          <summary style="cursor:pointer;font-size:0.8rem;color:var(--muted,#666)">JSON técnico (Notaas)</summary>
+          <pre id="nfe-preview-json-pre" style="margin:8px 0 0;font-size:11px;overflow:auto;max-height:200px;padding:10px;border-radius:6px;border:1px solid var(--border,#ddd);background:var(--bg-card,#fff)"></pre>
+        </details>
+      </div>
 
       <!-- Status de emissão -->
       <div id="nfe-status-msg" style="min-height:1.25rem;font-size:0.85rem;color:var(--accent)"></div>
