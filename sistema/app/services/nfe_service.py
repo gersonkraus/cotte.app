@@ -14,9 +14,10 @@ import asyncio
 import hashlib
 import hmac
 import logging
+import unicodedata
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, Tuple
 
 import httpx
 from sqlalchemy.orm import Session
@@ -50,6 +51,157 @@ _MAPA_PAGAMENTO = {
 }
 
 
+def _normalizar_texto_ibge(s: str) -> str:
+    if not s:
+        return ""
+    nfd = unicodedata.normalize("NFD", s.strip().lower())
+    return "".join(c for c in nfd if unicodedata.category(c) != "Mn")
+
+
+def _codigo_ibge_7_valido(val: Optional[str]) -> Optional[int]:
+    if not val:
+        return None
+    d = "".join(c for c in str(val) if c.isdigit())
+    if len(d) == 7:
+        return int(d)
+    return None
+
+
+async def _buscar_ibge_via_cep(cep_limpo: str) -> Optional[int]:
+    """Consulta ViaCEP e retorna código IBGE do município (7 dígitos) ou None."""
+    if len(cep_limpo) != 8:
+        return None
+    url = f"https://viacep.com.br/ws/{cep_limpo}/json/"
+    try:
+        async with httpx.AsyncClient(timeout=6.0) as client:
+            r = await client.get(url)
+            if r.status_code != 200:
+                return None
+            data = r.json()
+            if data.get("erro"):
+                return None
+            ibge = data.get("ibge")
+            if not ibge:
+                return None
+            return _codigo_ibge_7_valido(str(ibge))
+    except Exception as e:
+        logger.warning("ViaCEP indisponível ou erro ao consultar CEP %s: %s", cep_limpo, e)
+        return None
+
+
+async def _buscar_ibge_por_cidade_uf(cidade: str, uf: str) -> Optional[int]:
+    """API pública IBGE: match por nome do município (normalizado)."""
+    uf = (uf or "").strip().upper()
+    if len(uf) != 2 or not cidade or not cidade.strip():
+        return None
+    url = f"https://servicodados.ibge.gov.br/api/v1/localidades/estados/{uf}/municipios"
+    alvo = _normalizar_texto_ibge(cidade)
+    if not alvo:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            r = await client.get(url)
+            if r.status_code != 200:
+                return None
+            lista = r.json()
+            if not isinstance(lista, list):
+                return None
+            for mun in lista:
+                nome = mun.get("nome") or ""
+                if _normalizar_texto_ibge(nome) == alvo:
+                    mid = mun.get("id")
+                    if mid is not None:
+                        return _codigo_ibge_7_valido(str(mid))
+            return None
+    except Exception as e:
+        logger.warning("IBGE municípios indisponível UF=%s: %s", uf, e)
+        return None
+
+
+async def resolver_codigo_municipio_ibge(
+    cliente: Cliente,
+    db: Optional[Session] = None,
+    persistir_se_viacep: bool = True,
+) -> Tuple[Optional[int], str]:
+    """Resolve código IBGE (7 dígitos) para dest.endereco.codigoMunicipio (Notaas).
+
+    Ordem: campo do cliente → ViaCEP (CEP) → API IBGE (cidade+UF).
+    Persiste em `cliente.codigo_municipio_ibge` apenas quando a fonte for ViaCEP.
+    """
+    cod = _codigo_ibge_7_valido(getattr(cliente, "codigo_municipio_ibge", None))
+    if cod is not None:
+        return cod, "cliente"
+
+    cep = _limpar_cep(cliente.cep or "")
+    cod = await _buscar_ibge_via_cep(cep)
+    if cod is not None:
+        if persistir_se_viacep and db is not None and hasattr(cliente, "codigo_municipio_ibge"):
+            cliente.codigo_municipio_ibge = f"{cod:07d}"
+            try:
+                db.add(cliente)
+            except Exception:
+                pass
+        return cod, "viacep"
+
+    cod = await _buscar_ibge_por_cidade_uf(cliente.cidade or "", cliente.estado or "")
+    if cod is not None:
+        return cod, "ibge_api"
+
+    return None, "nao_resolvido"
+
+
+def _cfop_padrao_por_uf_empresa_cliente(empresa: Empresa, cliente: Cliente) -> str:
+    """Heurística Simples: mesma UF → 5102; UF diferente (quando ambas conhecidas) → 6102."""
+    uf_e = (getattr(empresa, "endereco_uf", None) or "").strip().upper()
+    uf_c = (getattr(cliente, "estado", None) or "").strip().upper()
+    if len(uf_e) == 2 and len(uf_c) == 2 and uf_e != uf_c:
+        return "6102"
+    return "5102"
+
+
+def _normalizar_cfop_para_string(cfop: object, padrao: str) -> str:
+    """Notaas exige CFOP como string de 4 dígitos."""
+    if cfop is None:
+        return padrao
+    digitos = "".join(c for c in str(cfop) if c.isdigit())
+    if len(digitos) >= 4:
+        return digitos[:4]
+    if len(digitos) > 0:
+        return digitos.zfill(4)
+    return padrao
+
+
+def _cfop_formato_notaas_valido(cfop_str: str) -> bool:
+    """CFOP deve ser exatamente 4 dígitos (string), conforme Notaas."""
+    return bool(cfop_str) and len(cfop_str) == 4 and cfop_str.isdigit()
+
+
+def _quantidade_valores_item_nfe(item) -> tuple[float, float, float]:
+    """Quantidade, valor unitário e total coerentes para linha da NF-e."""
+    qtd = float(item.quantidade or 0)
+    if qtd <= 0:
+        qtd = 1.0
+    v_unit = float(item.valor_unit or 0)
+    v_total = float(item.total or 0)
+    if v_total <= 0 and qtd > 0 and v_unit > 0:
+        v_total = round(qtd * v_unit, 2)
+    if v_unit <= 0 and qtd > 0 and v_total > 0:
+        v_unit = round(v_total / qtd, 2)
+    return qtd, v_unit, v_total
+
+
+def _normalizar_ncm_para_string(ncm: object) -> str:
+    """NCM com 8 dígitos numéricos (string)."""
+    if ncm is None:
+        return "00000000"
+    digitos = "".join(c for c in str(ncm) if c.isdigit())
+    if len(digitos) >= 8:
+        return digitos[:8]
+    if len(digitos) >= 4:
+        return digitos.ljust(8, "0")[:8]
+    return "00000000"
+
+
 async def _montar_payload_nfe(
     empresa: Empresa,
     orcamento: Orcamento,
@@ -57,6 +209,7 @@ async def _montar_payload_nfe(
     natureza_operacao: str,
     serie: str,
     itens_override=None,
+    db: Optional[Session] = None,
 ) -> dict:
     """Monta o payload JSON para API Notaas baseado nos dados do orçamento.
 
@@ -92,9 +245,10 @@ async def _montar_payload_nfe(
     }
     if cliente.complemento:
         endereco_dest["complemento"] = cliente.complemento
-    cod_mun = getattr(cliente, "codigo_municipio_ibge", None)
-    if cod_mun:
-        endereco_dest["codigoMunicipio"] = int(cod_mun)
+
+    cod_ibge, _fonte_ibge = await resolver_codigo_municipio_ibge(cliente, db=db, persistir_se_viacep=True)
+    if cod_ibge is not None:
+        endereco_dest["codigoMunicipio"] = cod_ibge
 
     destinatario = {
         **dest_doc,
@@ -106,33 +260,52 @@ async def _montar_payload_nfe(
 
     itens = itens_override or orcamento.itens
     items = []
+    cfop_padrao_uf = _cfop_padrao_por_uf_empresa_cliente(empresa, cliente)
+
     for item in itens:
-        # Dados fiscais do catálogo (servico)
         servico = getattr(item, "servico", None)
-        ncm = (getattr(servico, "ncm", None) or None) if servico else None
-        cfop = (getattr(servico, "cfop", None) or "5102") if servico else "5102"
+        ncm_raw = (getattr(servico, "ncm", None) or None) if servico else None
+        cfop_catalogo = (getattr(servico, "cfop", None) or None) if servico else None
         csosn = (getattr(servico, "csosn", None) or "400") if servico else "400"
         unidade = (getattr(servico, "unidade_fiscal", None) or getattr(servico, "unidade", None) or "UN") if servico else "UN"
 
-        # IA fallback: se não tem NCM no catálogo, pede para IA sugerir
-        if not ncm:
+        descricao_item = (item.descricao or "").strip()
+        if not descricao_item and servico and getattr(servico, "nome", None):
+            descricao_item = (servico.nome or "").strip()
+        if not descricao_item:
+            descricao_item = "Item conforme orçamento"
+
+        qtd, v_unit, v_total = _quantidade_valores_item_nfe(item)
+
+        ncm = _normalizar_ncm_para_string(ncm_raw) if ncm_raw else None
+        cfop = _normalizar_cfop_para_string(cfop_catalogo if cfop_catalogo is not None else cfop_padrao_uf, cfop_padrao_uf)
+
+        precisa_ia_ncm_cfop = not ncm_raw or ncm == "00000000" or not _cfop_formato_notaas_valido(cfop)
+        if precisa_ia_ncm_cfop:
             try:
                 categoria = getattr(getattr(servico, "categoria", None), "nome", None) if servico else None
-                sugestao = await sugerir_dados_fiscais(item.descricao, categoria)
-                ncm = sugestao.get("ncm") or "00000000"
-                if not getattr(servico, "cfop", None):
-                    cfop = sugestao.get("cfop", "5102")
+                sugestao = await sugerir_dados_fiscais(descricao_item, categoria)
+                if not ncm_raw or ncm == "00000000":
+                    ncm = _normalizar_ncm_para_string(sugestao.get("ncm")) if sugestao.get("ncm") else "00000000"
+                if not cfop_catalogo or not _cfop_formato_notaas_valido(cfop):
+                    sug_cfop = sugestao.get("cfop")
+                    cfop = _normalizar_cfop_para_string(sug_cfop if sug_cfop else cfop_padrao_uf, cfop_padrao_uf)
             except Exception:
-                ncm = "00000000"
+                ncm = ncm or "00000000"
+                cfop = _normalizar_cfop_para_string(cfop_padrao_uf, cfop_padrao_uf)
 
-        # Notaas NF-e: estrutura flat (não aninhada em prod/imposto como SEFAZ XML)
+        if not _cfop_formato_notaas_valido(cfop):
+            cfop = _normalizar_cfop_para_string(cfop_padrao_uf, "5102")
+
+        ncm = _normalizar_ncm_para_string(ncm)
+
         items.append({
-            "descricao": item.descricao,
+            "descricao": descricao_item,
             "ncm": ncm,
             "cfop": cfop,
-            "valorTotal": round(float(item.total), 2),
-            "quantidade": float(item.quantidade),
-            "valorUnitario": round(float(item.valor_unit), 2),
+            "valorTotal": round(v_total, 2),
+            "quantidade": qtd,
+            "valorUnitario": round(v_unit, 2),
             "unidade": unidade,
             "csosn": csosn,
         })
@@ -148,6 +321,79 @@ async def _montar_payload_nfe(
         # Notaas NF-e: "pagamentos" com tipoPagamento/valor (não pag.detPag.tPag)
         "pagamentos": [{"tipoPagamento": tpag, "valor": round(float(orcamento.total), 2)}],
     }
+
+
+async def coletar_bloqueios_avisos_preparacao_nfe(
+    empresa: Empresa,
+    orcamento: Orcamento,
+) -> tuple[list[str], list[str]]:
+    """Regras alinhadas à montagem NF-e: IBGE resolvível, itens com valor > 0.
+
+    Não persiste IBGE (usa db=None no resolver).
+    """
+    bloqueios: list[str] = []
+    avisos: list[str] = []
+    cliente = orcamento.cliente
+    if not cliente:
+        return bloqueios, avisos
+
+    cod_ibge, fonte_ibge = await resolver_codigo_municipio_ibge(
+        cliente, db=None, persistir_se_viacep=False
+    )
+    if cod_ibge is None:
+        bloqueios.append(
+            "Código IBGE do município do cliente ausente ou não resolvido. "
+            "Informe o código IBGE (7 dígitos) no cadastro do cliente, ou CEP válido com cidade e UF corretos."
+        )
+    elif fonte_ibge == "ibge_api":
+        avisos.append(
+            "Código IBGE foi inferido pela cidade e UF (API IBGE). Confira o município; "
+            "prefira cadastrar o código IBGE ou um CEP válido para maior precisão."
+        )
+
+    for item in orcamento.itens:
+        _q, _vu, v_total = _quantidade_valores_item_nfe(item)
+        if v_total <= 0:
+            rotulo = ((item.descricao or "").strip() or f"item #{item.id}")[:120]
+            bloqueios.append(
+                f'O item "{rotulo}" tem valor total zero ou inválido; corrija quantidade e valores no orçamento.'
+            )
+
+    return bloqueios, avisos
+
+
+def sugerir_acao_campo_erro_notaas(campo_msg: str) -> Optional[str]:
+    """Mapeia texto do array `campos` da Notaas para orientação ao operador."""
+    if not campo_msg:
+        return None
+    m = campo_msg.lower()
+    if "codigomunicipio" in m or "codigo ibge" in m or "código ibge" in m:
+        return (
+            "O município do destinatário precisa do código IBGE de 7 dígitos. "
+            "Cadastre o código no cliente, ou informe CEP válido com cidade e UF corretos "
+            "(o sistema tenta resolver automaticamente)."
+        )
+    if "cfop" in m:
+        return (
+            "CFOP inválido ou em formato incorreto (deve ser 4 dígitos, ex.: 5102). "
+            "Revise o CFOP no catálogo do produto/serviço ou deixe em branco para sugestão automática."
+        )
+    if "valortotal" in m or "vprod" in m:
+        return (
+            "Valor total do item deve ser maior que zero. "
+            "Ajuste quantidade e preço unitário no orçamento ou corrija o item no catálogo."
+        )
+    if "descricao" in m or "xprod" in m:
+        return (
+            "Descrição do produto na linha da nota é obrigatória. "
+            "Preencha a descrição do item no orçamento ou o nome do serviço no catálogo."
+        )
+    if "quantidade" in m or "qcom" in m:
+        return (
+            "Quantidade do item deve ser maior que zero. "
+            "Corrija a quantidade no orçamento."
+        )
+    return None
 
 
 def _normalizar_codigo_servico(codigo: str) -> str:

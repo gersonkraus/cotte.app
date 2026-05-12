@@ -156,6 +156,7 @@ async def emitir_nota_fiscal(
             empresa, orcamento, dados.tipo,
             dados.natureza_operacao, dados.serie,
             dados.itens_override,
+            db=db,
         )
 
     db.commit()
@@ -226,6 +227,11 @@ async def preparar_nota_fiscal(
             + (" e outros" if len(itens_sem_ncm) > 3 else "")
         )
 
+    if dados.tipo in ("nfe", "nfce") and cliente:
+        b_nfe, a_nfe = await nfe_service.coletar_bloqueios_avisos_preparacao_nfe(empresa, orcamento)
+        bloqueios.extend(b_nfe)
+        avisos.extend(a_nfe)
+
     # Monta payload preview (apenas se não houver bloqueios)
     payload_preview = None
     if not bloqueios:
@@ -234,6 +240,7 @@ async def preparar_nota_fiscal(
                 empresa, orcamento, dados.tipo,
                 "Venda de Mercadorias", "1",
                 None,
+                db=db,
             )
         except Exception as e:
             avisos.append(f"Aviso ao montar payload: {str(e)[:100]}")
@@ -575,9 +582,12 @@ async def analisar_erro_nota_fiscal(
 
     sugestoes = []
     for campo in campos_erro:
+        acao = nfe_service.sugerir_acao_campo_erro_notaas(campo) or _MAPA_SUGESTOES.get(campo)
+        if not acao:
+            acao = f"Verifique o campo: {campo}"
         sugestoes.append({
             "campo": campo,
-            "acao": _MAPA_SUGESTOES.get(campo, f"Verifique o campo: {campo}"),
+            "acao": acao,
         })
 
     if not sugestoes and erro_texto:
@@ -666,6 +676,7 @@ async def reemitir_nota_fiscal(
             nova_nota.natureza_operacao or "Venda de Mercadorias",
             nova_nota.serie or "1",
             None,
+            db=db,
         )
 
     db.commit()
