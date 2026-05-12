@@ -644,7 +644,7 @@ async def emitir_nota(
 
     endpoint = "/emitir" if nota_fiscal.tipo == "nfse" else "/nfe/emitir"
 
-    async with _get_client(_get_api_key(empresa)) as client:
+    async with _get_client() as client:
         try:
             resp = await client.post(endpoint, json=payload)
             resp.raise_for_status()
@@ -747,7 +747,7 @@ async def cancelar_nota(
     endpoint = "/cancelar" if nota_fiscal.tipo == "nfse" else "/nfe/cancelar"
     payload = {"invoiceId": invoice_id, "motivo": motivo}
 
-    async with _get_client(_get_api_key(empresa)) as client:
+    async with _get_client() as client:
         try:
             resp = await client.post(endpoint, json=payload)
             if resp.status_code not in (200, 202):
