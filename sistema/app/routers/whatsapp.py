@@ -7,7 +7,12 @@ import secrets
 from app.core.config import settings
 from app.core.database import get_db
 from app.models.models import Empresa, Orcamento
-from app.schemas.schemas import WebhookZAPI, WebhookEvolution, IAInterpretacaoRequest
+from app.schemas.schemas import (
+    WebhookZAPI,
+    WebhookEvolution,
+    IAInterpretacaoRequest,
+    desembrulhar_mensagem_baileys,
+)
 from app.services.whatsapp_service import (
     get_status,
     get_qrcode,
@@ -78,6 +83,8 @@ def _resumir_mensagem_para_timeline_evolution(payload: WebhookEvolution, raw_bod
     if not isinstance(data, dict):
         return None
     msg = data.get("message") or {}
+    if isinstance(msg, dict):
+        msg = desembrulhar_mensagem_baileys(msg)
     if not isinstance(msg, dict):
         return None
 
@@ -237,22 +244,31 @@ async def _processar_webhook_comercial(raw_body: dict) -> None:
     # Ignorar mensagens enviadas pelo sistema (fromMe=true) e grupos
     key = data.get("key") or {}
     from_me = key.get("fromMe", False)
-    remote_jid = key.get("remoteJid", "")
+    remote_jid = key.get("remoteJid", "") or ""
+    remote_jid_alt = key.get("remoteJidAlt", "") or ""
     is_group = "@g.us" in remote_jid
     if from_me or is_group:
         return
 
-    # Extrair número e texto
-    phone_raw = remote_jid.split("@")[0].split(":")[0]
+    # Extrair número e texto (PN alternativo quando o JID principal é @lid)
+    jid_numero = remote_jid
+    if "@lid" in remote_jid and remote_jid_alt:
+        jid_numero = remote_jid_alt
+    phone_raw = jid_numero.split("@")[0].split(":")[0]
     telefone = sanitizar_telefone(phone_raw)
     if not telefone:
         return
 
     # Extrair conteúdo de texto
     msg_obj = data.get("message") or {}
+    msg_inner = desembrulhar_mensagem_baileys(msg_obj if isinstance(msg_obj, dict) else {})
     texto = (
-        msg_obj.get("conversation")
-        or (msg_obj.get("extendedTextMessage") or {}).get("text")
+        msg_inner.get("conversation")
+        or (msg_inner.get("extendedTextMessage") or {}).get("text")
+        or (msg_inner.get("imageMessage") or {}).get("caption")
+        or (msg_inner.get("videoMessage") or {}).get("caption")
+        or (msg_inner.get("documentMessage") or {}).get("caption")
+        or (msg_inner.get("documentWithCaptionMessage") or {}).get("caption")
         or ""
     )
     mensagem = sanitizar_mensagem(texto)

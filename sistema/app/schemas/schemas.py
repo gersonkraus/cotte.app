@@ -620,6 +620,45 @@ class WebhookZAPI(BaseModel):
 # --- Evolution API ---
 
 
+def desembrulhar_mensagem_baileys(msg: dict | None) -> dict:
+    """
+    Expõe o conteúdo real quando a Evolution/Baileys encapsula a mensagem
+    (ephemeral, view-once, etc.). Sem isso, respostas comuns podem chegar com
+    `message` aparentemente vazio e o webhook ignora o texto.
+    """
+    if not isinstance(msg, dict):
+        return {}
+    cur: dict = msg
+    seen: set[int] = set()
+    for _ in range(10):
+        i = id(cur)
+        if i in seen:
+            break
+        seen.add(i)
+        nxt: dict | None = None
+        em = cur.get("ephemeralMessage")
+        if isinstance(em, dict):
+            inner = em.get("message")
+            if isinstance(inner, dict):
+                nxt = inner
+        if nxt is None:
+            vom = cur.get("viewOnceMessage")
+            if isinstance(vom, dict):
+                inner = vom.get("message")
+                if isinstance(inner, dict):
+                    nxt = inner
+        if nxt is None:
+            vom2 = cur.get("viewOnceMessageV2")
+            if isinstance(vom2, dict):
+                inner = vom2.get("message")
+                if isinstance(inner, dict):
+                    nxt = inner
+        if nxt is None:
+            break
+        cur = nxt
+    return cur
+
+
 class WebhookEvolutionMessageData(BaseModel):
     """Conteúdo da mensagem no payload da Evolution API."""
 
@@ -633,6 +672,8 @@ class WebhookEvolutionKey(BaseModel):
     model_config = {"extra": "ignore"}
 
     remoteJid: Optional[str] = None  # ex: "5548999887766@s.whatsapp.net"
+    # Quando o WhatsApp usa identificador interno (@lid), o número PN costuma vir aqui
+    remoteJidAlt: Optional[str] = None
     fromMe: bool = False
     id: Optional[str] = None
 
@@ -657,12 +698,22 @@ class WebhookEvolution(BaseModel):
 
     @property
     def phone(self) -> Optional[str]:
-        """Extrai o número de telefone do remoteJid removendo sufixos de device/jid."""
+        """Extrai o número do JID; prioriza remoteJidAlt quando o principal é @lid."""
         k = self.key
-        if k and k.remoteJid:
-            raw = k.remoteJid.split("@")[0]
-            return raw.split(":")[0]
-        return None
+        if not k:
+            return None
+        rj = k.remoteJid or ""
+        alt = k.remoteJidAlt or ""
+        if "@lid" in rj and alt:
+            jid = alt
+        elif rj:
+            jid = rj
+        else:
+            jid = alt
+        if not jid or jid.endswith("@g.us"):
+            return None
+        raw = jid.split("@")[0]
+        return raw.split(":")[0]
 
     @property
     def fromMe(self) -> bool:
@@ -682,7 +733,7 @@ class WebhookEvolution(BaseModel):
         """Retorna o texto da mensagem: texto simples, preview de link ou voto de poll."""
         if not self.data:
             return None
-        msg = self.data.get("message") or {}
+        msg = desembrulhar_mensagem_baileys(self.data.get("message") or {})
         # Texto simples
         if "conversation" in msg:
             return msg["conversation"]
@@ -690,6 +741,14 @@ class WebhookEvolution(BaseModel):
         ext = msg.get("extendedTextMessage") or {}
         if "text" in ext:
             return ext["text"]
+        # Mídias com legenda (resposta com foto/documento e texto)
+        for block in ("imageMessage", "videoMessage", "documentMessage"):
+            sub = msg.get(block) or {}
+            if isinstance(sub, dict) and sub.get("caption"):
+                return sub["caption"]
+        dwc = msg.get("documentWithCaptionMessage") or {}
+        if isinstance(dwc, dict) and dwc.get("caption"):
+            return dwc["caption"]
         # Resposta de poll — Evolution/Baileys encapsula como pollUpdateMessage
         poll_upd = msg.get("pollUpdateMessage") or {}
         if poll_upd:
@@ -704,7 +763,7 @@ class WebhookEvolution(BaseModel):
         Tenta múltiplos caminhos para compatibilidade com versões da Evolution API."""
         if not self.data:
             return None
-        msg = self.data.get("message") or {}
+        msg = desembrulhar_mensagem_baileys(self.data.get("message") or {})
         list_resp = msg.get("listResponseMessage") or {}
         if not list_resp:
             return None
@@ -725,7 +784,7 @@ class WebhookEvolution(BaseModel):
         """Retorna os dados do audioMessage se presente, para transcrição de voz."""
         if not self.data:
             return None
-        msg = self.data.get("message") or {}
+        msg = desembrulhar_mensagem_baileys(self.data.get("message") or {})
         if "audioMessage" in msg or "pttMessage" in msg:
             # Retorna a estrutura completa necessária para download via Evolution API
             return self.data

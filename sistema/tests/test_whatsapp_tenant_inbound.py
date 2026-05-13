@@ -17,6 +17,45 @@ def _executar_tarefas_registro(background_tasks: BackgroundTasks) -> None:
                 asyncio.run(resultado)
 
 
+def test_webhook_evolution_mensagem_texto_desembrulha_ephemeral():
+    """Texto dentro de ephemeralMessage deve ser extraído (caso comum em respostas)."""
+    payload = WebhookEvolution(
+        event="messages.upsert",
+        data={
+            "key": {
+                "remoteJid": "5511888776655@s.whatsapp.net",
+                "fromMe": False,
+            },
+            "messageType": "extendedTextMessage",
+            "message": {
+                "ephemeralMessage": {
+                    "message": {
+                        "extendedTextMessage": {
+                            "text": "Resposta do cliente",
+                        }
+                    }
+                }
+            },
+        },
+    )
+    assert payload.mensagem_texto == "Resposta do cliente"
+
+
+def test_webhook_evolution_phone_usa_remote_jid_alt_quando_lid():
+    payload = WebhookEvolution(
+        event="messages.upsert",
+        data={
+            "key": {
+                "remoteJid": "123456789012345@lid",
+                "remoteJidAlt": "5511888776655@s.whatsapp.net",
+                "fromMe": False,
+            },
+            "message": {"conversation": "oi"},
+        },
+    )
+    assert payload.phone == "5511888776655"
+
+
 def test_webhook_evolution_phone_remove_sufixo_device():
     payload = WebhookEvolution(
         event="messages.upsert",
