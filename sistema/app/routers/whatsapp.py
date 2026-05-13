@@ -288,6 +288,9 @@ async def _webhook_evolution(
     empresa_instancia: Empresa | None = None,
 ):
     event = raw_body.get("event", "")
+    instance_in_payload = raw_body.get("instance", "desconhecida")
+    logger.info("[WA Webhook] Evento: %s | Instancia Payload: %s", event, instance_in_payload)
+
 
     if event in ("connection.update", "CONNECTION_UPDATE") and empresa_instancia:
         await _tratar_connection_update(raw_body, empresa_instancia, db)
