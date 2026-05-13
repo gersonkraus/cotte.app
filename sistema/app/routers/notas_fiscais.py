@@ -4,7 +4,6 @@ notas_fiscais.py — Endpoints para emissão e gestão de NF-e/NFC-e/NFS-e.
 
 import logging
 import httpx
-from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
 
@@ -166,7 +165,7 @@ async def preparar_nota_fiscal(
     db: Session = Depends(get_db),
     usuario=Depends(get_usuario_atual),
 ):
-    """Pré-valida o orçamento para emissão de NF-e. Não cria nota, não acessa Notaas."""
+    """Pré-valida o orçamento para emissão de NF-e. Não cria nota nem envia para a Focus."""
     set_tenant_context(db, empresa_id=usuario.empresa_id, usuario_id=usuario.id)
 
     empresa = db.query(Empresa).filter(Empresa.id == usuario.empresa_id).first()
@@ -620,7 +619,7 @@ async def analisar_erro_nota_fiscal(
     if nota.status != "erro":
         raise HTTPException(400, "Somente notas com status 'erro' podem ser analisadas")
 
-    # Extrai campos do erro Notaas (quando é JSON estruturado)
+    # Extrai campos do erro da Focus/SEFAZ (quando é JSON estruturado)
     campos_erro: list[str] = []
     erro_texto = nota.erro_mensagem or ""
     try:
@@ -655,7 +654,7 @@ async def analisar_erro_nota_fiscal(
 
     sugestoes = []
     for campo in campos_erro:
-        acao = nfe_service.sugerir_acao_campo_erro_notaas(campo) or _MAPA_SUGESTOES.get(campo)
+        acao = nfe_service.sugerir_acao_campo_erro_focus(campo) or _MAPA_SUGESTOES.get(campo)
         if not acao:
             acao = f"Verifique o campo: {campo}"
         sugestoes.append({
@@ -676,9 +675,9 @@ async def analisar_erro_nota_fiscal(
                 f"(Resposta original: {erro_texto[:200]})"
             )
         else:
-            acao_geral = nfe_service.sugerir_acao_mensagem_erro_notaas(erro_texto)
+            acao_geral = nfe_service.sugerir_acao_mensagem_erro_focus(erro_texto)
             if not acao_geral:
-                acao_geral = f"Erro recebido da SEFAZ/Notaas: {erro_texto[:300]}"
+                acao_geral = f"Erro recebido da Focus/SEFAZ: {erro_texto[:300]}"
         sugestoes.append({
             "campo": "erro_geral",
             "acao": acao_geral,

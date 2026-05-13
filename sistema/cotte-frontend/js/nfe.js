@@ -101,7 +101,7 @@ const NFeService = (() => {
     return ''
       + '<div class="nfe-sim-root">'
       + '<div class="nfe-sim-banner">PRÉVIA LOCAL — SEM VALOR FISCAL — NÃO É DOCUMENTO ELETRÔNICO</div>'
-      + '<div class="nfe-sim-subbanner">DANFE simplificado (simulação COTTE) · Dados do cadastro e do orçamento · sem envio à Notaas/SEFAZ</div>'
+      + '<div class="nfe-sim-subbanner">DANFE simplificado (simulação COTTE) · Dados do cadastro e do orçamento · sem envio para a Focus/SEFAZ</div>'
       + '<div class="nfe-sim-grid">'
       + '<div class="nfe-sim-box"><h4>Emitente</h4>'
       + `<p><strong>${_esc(emit.razao_social || '—')}</strong></p>`
@@ -133,7 +133,7 @@ const NFeService = (() => {
       + `Valor total dos produtos: ${_fmtBRL(totalItens)}<br>`
       + (pags.length ? `Pagamento (tipo ${ _esc(String(pags[0].tipoPagamento)) }): ${_fmtBRL(totalPag)}` : '')
       + '</div></div>'
-      + '<div class="nfe-sim-foot">Esta página foi gerada apenas para conferência interna. A NF-e válida depende da autorização da SEFAZ após emissão pela Notaas.</div>'
+      + '<div class="nfe-sim-foot">Esta página foi gerada apenas para conferência interna. A NF-e válida depende da autorização da SEFAZ após emissão pela Focus NFe.</div>'
       + '</div>';
   }
 
@@ -146,7 +146,7 @@ const NFeService = (() => {
     return ''
       + '<div class="nfe-sim-root">'
       + '<div class="nfe-sim-banner">PRÉVIA LOCAL — NFS-e (SIMULADA) — SEM VALOR FISCAL</div>'
-      + '<div class="nfe-sim-subbanner">Prestador conforme cadastro COTTE / Notaas · Tomador e serviço conforme orçamento</div>'
+      + '<div class="nfe-sim-subbanner">Prestador conforme cadastro COTTE / Focus NFe · Tomador e serviço conforme orçamento</div>'
       + '<div class="nfe-sim-grid">'
       + '<div class="nfe-sim-box"><h4>Prestador (emitente — cadastro)</h4>'
       + `<p><strong>${_esc(emit.razao_social || '—')}</strong></p>`
@@ -165,7 +165,7 @@ const NFeService = (() => {
       + (tom.email ? `<p>E-mail: ${_esc(tom.email)}</p>` : '')
       + (tom.endereco ? `<p>${_esc(_linhasEndereco(tom.endereco))}</p>` : '')
       + '</div>'
-      + '<div class="nfe-sim-foot">NFS-e válida somente após transmissão e autorização pela prefeitura via Notaas.</div>'
+      + '<div class="nfe-sim-foot">NFS-e válida somente após transmissão e autorização pela prefeitura via Focus NFe.</div>'
       + '</div>';
   }
 
@@ -268,7 +268,7 @@ const NFeService = (() => {
     if (!resultado || !resultado.payload_preview) {
       wrap.style.display = 'block';
       body.innerHTML =
-        '<p style="color:var(--muted,#666);margin:0">Quando não houver bloqueios, aparece aqui o resumo do que será enviado à Notaas. '
+        '<p style="color:var(--muted,#666);margin:0">Quando não houver bloqueios, aparece aqui o resumo do que será enviado à Focus NFe. '
         + 'Corrija os alertas em vermelho (se houver) e use <strong>Verificar e pré-visualizar</strong> de novo.</p>';
       pre.textContent = '';
       const host = document.getElementById('nfe-danfe-host');

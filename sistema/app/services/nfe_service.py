@@ -299,7 +299,7 @@ async def resolver_codigo_municipio_ibge(
     db: Optional[Session] = None,
     persistir_se_viacep: bool = True,
 ) -> Tuple[Optional[int], str]:
-    """Resolve código IBGE (7 dígitos) para dest.endereco.codigoMunicipio (Notaas).
+    """Resolve código IBGE (7 dígitos) para dest.endereco.codigoMunicipio (Focus).
 
     Ordem: campo do cliente → ViaCEP (CEP) → API IBGE (cidade+UF).
     Persiste em `cliente.codigo_municipio_ibge` apenas quando a fonte for ViaCEP.
@@ -336,7 +336,7 @@ def _cfop_padrao_por_uf_empresa_cliente(empresa: Empresa, cliente: Cliente) -> s
 
 
 def _normalizar_cfop_para_string(cfop: object, padrao: str) -> str:
-    """Notaas exige CFOP como string de 4 dígitos."""
+    """A Focus exige CFOP como string de 4 dígitos."""
     if cfop is None:
         return padrao
     digitos = "".join(c for c in str(cfop) if c.isdigit())
@@ -347,8 +347,8 @@ def _normalizar_cfop_para_string(cfop: object, padrao: str) -> str:
     return padrao
 
 
-def _cfop_formato_notaas_valido(cfop_str: str) -> bool:
-    """CFOP deve ser exatamente 4 dígitos (string), conforme Notaas."""
+def _cfop_formato_focus_valido(cfop_str: str) -> bool:
+    """CFOP deve ser exatamente 4 dígitos (string), conforme Focus."""
     return bool(cfop_str) and len(cfop_str) == 4 and cfop_str.isdigit()
 
 
@@ -552,7 +552,7 @@ async def montar_payload_focus_nfe(
             cfop_catalogo if cfop_catalogo is not None else cfop_padrao_uf, cfop_padrao_uf
         )
 
-        precisa_ia_ncm_cfop = not ncm_raw or ncm == "00000000" or not _cfop_formato_notaas_valido(cfop)
+        precisa_ia_ncm_cfop = not ncm_raw or ncm == "00000000" or not _cfop_formato_focus_valido(cfop)
         if precisa_ia_ncm_cfop:
             try:
                 categoria = getattr(getattr(servico, "categoria", None), "nome", None) if servico else None
@@ -563,7 +563,7 @@ async def montar_payload_focus_nfe(
                         if sugestao.get("ncm")
                         else "00000000"
                     )
-                if not cfop_catalogo or not _cfop_formato_notaas_valido(cfop):
+                if not cfop_catalogo or not _cfop_formato_focus_valido(cfop):
                     sug_cfop = sugestao.get("cfop")
                     cfop = _normalizar_cfop_para_string(
                         sug_cfop if sug_cfop else cfop_padrao_uf, cfop_padrao_uf
@@ -572,7 +572,7 @@ async def montar_payload_focus_nfe(
                 ncm = ncm or "00000000"
                 cfop = _normalizar_cfop_para_string(cfop_padrao_uf, cfop_padrao_uf)
 
-        if not _cfop_formato_notaas_valido(cfop):
+        if not _cfop_formato_focus_valido(cfop):
             cfop = _normalizar_cfop_para_string(cfop_padrao_uf, "5102")
         ncm = _normalizar_ncm_para_string(ncm)
         cfop_i = _cfop_int(cfop)
@@ -732,8 +732,8 @@ async def coletar_bloqueios_avisos_preparacao_nfe(
     return bloqueios, avisos
 
 
-def sugerir_acao_campo_erro_notaas(campo_msg: str) -> Optional[str]:
-    """Mapeia texto do array `campos` da Notaas para orientação ao operador."""
+def sugerir_acao_campo_erro_focus(campo_msg: str) -> Optional[str]:
+    """Mapeia texto do array `campos` retornado pela Focus/SEFAZ para orientação ao operador."""
     if not campo_msg:
         return None
     m = campo_msg.lower()
@@ -766,8 +766,8 @@ def sugerir_acao_campo_erro_notaas(campo_msg: str) -> Optional[str]:
     return None
 
 
-def sugerir_acao_mensagem_erro_notaas(erro_texto: str) -> Optional[str]:
-    """Interpreta mensagens de erro completas (SEFAZ/Notaas) para o operador."""
+def sugerir_acao_mensagem_erro_focus(erro_texto: str) -> Optional[str]:
+    """Interpreta mensagens de erro completas (Focus/SEFAZ) para o operador."""
     if not erro_texto:
         return None
     t = erro_texto.lower()
@@ -789,12 +789,18 @@ def sugerir_acao_mensagem_erro_notaas(erro_texto: str) -> Optional[str]:
         return (
             "A SEFAZ rejeitou a emissão (cStat 972): é obrigatório informar o responsável técnico (dados de quem "
             "mantém o sistema emissor da NF-e — CNPJ, contato, e-mail e telefone, conforme layout SEFAZ). "
-            "Em geral isso é configurado no painel da Notaas no projeto vinculado à sua API key "
+            "Em geral isso é configurado no painel da Focus no projeto vinculado à sua API key "
             "(projeto → configurações de NF-e / dados fiscais ou equivalente — cadastre o RT homologado na sua UF). "
-            "Se já estiver preenchido na Notaas e o erro continuar, abra um chamado no suporte Notaas com o invoiceId. "
+            "Se já estiver preenchido na Focus e o erro continuar, abra um chamado no suporte Focus com o invoiceId. "
             "Depois de ajustar, use Reemitir ou emita novamente."
         )
     return None
+
+
+# Compatibilidade retroativa com imports antigos
+_cfop_formato_notaas_valido = _cfop_formato_focus_valido
+sugerir_acao_campo_erro_notaas = sugerir_acao_campo_erro_focus
+sugerir_acao_mensagem_erro_notaas = sugerir_acao_mensagem_erro_focus
 
 
 def _crt_descricao(crt: Optional[int]) -> str:
@@ -841,7 +847,7 @@ def emitente_preview_para_previa(empresa: Empresa, orcamento: Orcamento) -> dict
 
 
 def _normalizar_codigo_servico(codigo: str) -> str:
-    """Normaliza código LC116 para 6 dígitos sem pontos (formato Notaas).
+    """Normaliza código LC116 para 6 dígitos sem pontos (formato Focus).
 
     "1.07"  → "010700"   "17.06" → "170600"   "010302" → "010302"
     """
@@ -874,9 +880,9 @@ def _montar_payload_nfse(
     codigo_servico: str,
     aliquota_iss: Decimal,
 ) -> dict:
-    """Monta payload NFS-e no formato real da API Notaas.
+    """Monta payload NFS-e no formato real da API Focus NFe.
 
-    Emitente NÃO vai no payload — fica configurado na conta Notaas vinculada à API key.
+    Emitente NÃO vai no payload — fica configurado na conta Focus vinculada à API key.
     Estrutura: tomador + servico + valores + competencia + referencia.
     """
     from datetime import date

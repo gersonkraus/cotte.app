@@ -65,7 +65,7 @@ def test_sugerir_acao_mensagem_erro_cstat_972_responsavel_tecnico():
     acao = nfe_service.sugerir_acao_mensagem_erro_notaas(msg)
     assert acao is not None
     assert "972" in acao
-    assert "Notaas" in acao
+    assert "Focus" in acao
 
 
 @pytest.mark.asyncio
