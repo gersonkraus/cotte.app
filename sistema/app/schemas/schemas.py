@@ -549,6 +549,7 @@ class OrcamentoListItem(BaseModel):
     validade_ate: Optional[datetime] = None
     descricao_resumo: Optional[str] = None
     agendamento_modo: ModoAgendamentoOrcamento = ModoAgendamentoOrcamento.NAO_USA
+    possui_nota_fiscal_emitida: bool = False
 
     class Config:
         from_attributes = True
@@ -1795,6 +1796,7 @@ class CampaignUpdate(BaseModel):
     template_id: Optional[int] = None
     canal: Optional[str] = None
     status: Optional[str] = None
+    lead_ids: Optional[List[int]] = None
 
 
 class CampaignOut(BaseModel):

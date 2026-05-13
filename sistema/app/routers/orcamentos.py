@@ -29,6 +29,7 @@ from app.models.models import (
     OrcamentoDocumento,
     StatusDocumentoEmpresa,
     ModoAgendamentoOrcamento,
+    NotaFiscal,
 )
 from app.schemas.schemas import (
     OrcamentoCreate,
@@ -135,7 +136,7 @@ def _aplicar_regra_pagamento(
         financeiro_service.aplicar_regra_no_orcamento(orcamento, db)
 
 
-def _orcamento_para_list_item(o: Orcamento) -> OrcamentoListItem:
+def _orcamento_para_list_item(o: Orcamento, *, possui_nota_fiscal_emitida: bool = False) -> OrcamentoListItem:
     """Monta DTO leve da listagem (sem PIX copia-e-cola / QR e sem pagamentos financeiros)."""
     validade_ate = None
     if o.criado_em is not None and o.validade_dias is not None:
@@ -175,6 +176,7 @@ def _orcamento_para_list_item(o: Orcamento) -> OrcamentoListItem:
         validade_ate=validade_ate,
         descricao_resumo=primeira_desc,
         agendamento_modo=o.agendamento_modo,
+        possui_nota_fiscal_emitida=possui_nota_fiscal_emitida,
     )
 
 
@@ -571,7 +573,26 @@ def listar_orcamentos(
     if status or status_filtro:
         query = query.filter(Orcamento.status == (status or status_filtro))
     rows = query.order_by(Orcamento.criado_em.desc()).limit(limit).offset(offset).all()
-    return [_orcamento_para_list_item(o) for o in rows]
+    if not rows:
+        return []
+    ids = [o.id for o in rows]
+    orc_com_nf_emitida = {
+        row[0]
+        for row in db.query(NotaFiscal.orcamento_id)
+        .filter(
+            NotaFiscal.empresa_id == usuario.empresa_id,
+            NotaFiscal.orcamento_id.in_(ids),
+            NotaFiscal.orcamento_id.isnot(None),
+            NotaFiscal.status == "emitida",
+        )
+        .distinct()
+        .all()
+        if row[0] is not None
+    }
+    return [
+        _orcamento_para_list_item(o, possui_nota_fiscal_emitida=o.id in orc_com_nf_emitida)
+        for o in rows
+    ]
 
 
 @router.get("/exportar/csv")

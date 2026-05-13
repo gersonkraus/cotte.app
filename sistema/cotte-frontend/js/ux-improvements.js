@@ -94,6 +94,9 @@ var UXImprovements = (function() {
       const stColors = { rascunho: '#94a3b8', enviado: '#3b82f6', aprovado: '#16a34a', recusado: '#ef4444', expirado: '#f59e0b' };
       const stColor = stColors[o.status] || 'var(--muted)';
       const dataFmt = o.criado_em ? new Date(o.criado_em).toLocaleDateString('pt-BR') : '—';
+      const badgeNf = o.possui_nota_fiscal_emitida
+        ? '<span style="display:inline-block;margin-left:6px;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;background:#16a34a26;color:#15803d" title="Nota fiscal emitida">NF</span>'
+        : '';
 
       return '<div class="mobile-card" data-id="' + o.id + '" onclick="abrirDetalhesOrcamento(' + o.id + ')" style="cursor:pointer">'
         + '<div class="mobile-card-header">'
@@ -101,7 +104,7 @@ var UXImprovements = (function() {
         + '<div class="mobile-card-avatar" style="background:' + cor + '">' + iniciais + '</div>'
         + '<div class="mobile-card-info">'
         + '<div class="mobile-card-name">' + (typeof escapeHtml === 'function' ? escapeHtml(nome) : nome) + '</div>'
-        + '<div class="mobile-card-numero">' + (typeof escapeHtml === 'function' ? escapeHtml(o.numero || '') : (o.numero || '')) + '</div>'
+        + '<div class="mobile-card-numero">' + (typeof escapeHtml === 'function' ? escapeHtml(o.numero || '') : (o.numero || '')) + badgeNf + '</div>'
         + '</div></div>'
         + '<button class="mobile-card-actions-btn" onclick="abrirDropdownAcoes(event,' + o.id + ',\'' + numEsc + '\',\'' + o.status + '\')">⋯</button>'
         + '</div>'

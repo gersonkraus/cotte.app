@@ -645,7 +645,7 @@
 <script src="js/utils.js?v=1"></script>
 <script src="js/api.js?v=17"></script>
 <script src="js/layout.js?v=5"></script>
-<script src="js/ux-improvements.js?v=1"></script>
+<script src="js/ux-improvements.js?v=2"></script>
 <script src="js/orcamento-reenvio-modal.js?v=1"></script>
 <script>
   inicializarLayout('orcamentos');
@@ -880,8 +880,11 @@
       const badgeMl = vincMl
         ? `<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;background:${(vincMl.status_sync === 'erro' || vincMl.erro) ? '#ef444420' : '#3b82f620'};color:${(vincMl.status_sync === 'erro' || vincMl.erro) ? '#ef4444' : '#3b82f6'};margin-left:6px">ML ${escapeHtml(vincMl.ml_order_id || '')}</span>`
         : '';
+      const badgeNf = o.possui_nota_fiscal_emitida
+        ? '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;background:#16a34a26;color:#15803d;margin-left:6px" title="Nota fiscal emitida">NF</span>'
+        : '';
       return `<tr style="cursor:pointer" onclick="abrirDetalhesOrcamento(${o.id})">
-        <td class="col-hide-mobile" style="font-size:12px;color:var(--muted)">${escapeHtml(o.numero || '')}${badgeMl}</td>
+        <td class="col-hide-mobile" style="font-size:12px;color:var(--muted)">${escapeHtml(o.numero || '')}${badgeMl}${badgeNf}</td>
         <td>
           <div style="display:flex;align-items:center;gap:10px">
             <div style="width:32px;height:32px;border-radius:8px;background:${corFundo};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--text)">${iniciais}</div>
