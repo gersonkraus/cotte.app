@@ -13,6 +13,7 @@ Valida:
 import asyncio
 import io
 import inspect
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -24,16 +25,19 @@ from app.core.auth import criar_token
 from app.core.auth import exigir_modulo, exigir_permissao
 from app.core.database import get_db
 from app.models.models import (
+    CanalInteracao,
     CanalTemplate,
     Empresa,
     ModuloSistema,
     Papel,
     Plano,
     PlanoModulo,
+    TenantCommercialInteraction,
     TenantCommercialTemplate,
     TenantCommercialLead,
     TenantPipelineEtapa,
     TenantProposta,
+    TipoInteracao,
     TipoTemplate,
     Usuario,
 )
@@ -1129,3 +1133,92 @@ class TestTenantImportacaoLeads:
         assert result["items"][0]["whatsapp"] == "5511998887777"
         assert result["items"][0]["duplicado"] is True
         assert existing.id is not None
+
+
+class TestNovaRespostaWhatsappBadge:
+    def test_listagem_nova_resposta_whatsapp_true(self, db, empresa_com_modulo):
+        user = _tenant_user(empresa_com_modulo)
+        lead = make_tenant_lead(db, empresa_com_modulo.id, telefone="5511887766555")
+        db.flush()
+        lead.whatsapp_conversa_vista_em = datetime.now(timezone.utc) - timedelta(hours=3)
+        db.add(
+            TenantCommercialInteraction(
+                empresa_id=empresa_com_modulo.id,
+                lead_id=lead.id,
+                tipo=TipoInteracao.WHATSAPP,
+                canal=CanalInteracao.WHATSAPP,
+                conteudo="Resposta do cliente",
+                direcao="recebido",
+                criado_em=datetime.now(timezone.utc) - timedelta(minutes=10),
+            )
+        )
+        db.commit()
+
+        data = comercial_leads.list_leads(db=db, usuario=user)
+        row = next((x for x in data["items"] if x["id"] == lead.id), None)
+        assert row is not None
+        assert row.get("nova_resposta_whatsapp") is True
+
+    def test_post_marcar_conversa_lida_zera_badge(self, db, empresa_com_modulo):
+        user = _tenant_user(empresa_com_modulo)
+        read_only = _tenant_readonly_user(empresa_com_modulo)
+        lead = make_tenant_lead(db, empresa_com_modulo.id, telefone="5511998877665")
+        db.flush()
+        lead.whatsapp_conversa_vista_em = datetime.now(timezone.utc) - timedelta(days=1)
+        db.add(
+            TenantCommercialInteraction(
+                empresa_id=empresa_com_modulo.id,
+                lead_id=lead.id,
+                tipo=TipoInteracao.WHATSAPP,
+                canal=CanalInteracao.WHATSAPP,
+                conteudo="Nova msg",
+                direcao="recebido",
+                criado_em=datetime.now(timezone.utc) - timedelta(seconds=30),
+            )
+        )
+        db.commit()
+
+        items = comercial_leads.list_leads(db=db, usuario=user)["items"]
+        row_before = next((x for x in items if x["id"] == lead.id), None)
+        assert row_before is not None
+        assert row_before.get("nova_resposta_whatsapp") is True
+
+        comercial_leads.marcar_whatsapp_conversa_lida(lead.id, db=db, usuario=read_only)
+        db.expire_all()
+
+        row = next(
+            (x for x in comercial_leads.list_leads(db=db, usuario=user)["items"] if x["id"] == lead.id),
+            None,
+        )
+        assert row is not None
+        assert row.get("nova_resposta_whatsapp") is False
+
+    def test_sem_interacao_recebida_flag_false(self, db, empresa_com_modulo):
+        user = _tenant_user(empresa_com_modulo)
+        lead = make_tenant_lead(db, empresa_com_modulo.id, nome="Sem WA recebido")
+        db.commit()
+        data = comercial_leads.list_leads(db=db, usuario=user)
+        row = next((x for x in data["items"] if x["id"] == lead.id), None)
+        assert row is not None
+        assert row.get("nova_resposta_whatsapp") is False
+
+    def test_vista_nula_com_primeira_resposta_true(self, db, empresa_com_modulo):
+        user = _tenant_user(empresa_com_modulo)
+        lead = make_tenant_lead(db, empresa_com_modulo.id, nome="Primeira resposta")
+        assert getattr(lead, "whatsapp_conversa_vista_em", None) is None
+        db.add(
+            TenantCommercialInteraction(
+                empresa_id=empresa_com_modulo.id,
+                lead_id=lead.id,
+                tipo=TipoInteracao.WHATSAPP,
+                canal=CanalInteracao.WHATSAPP,
+                conteudo="Primeiro oi",
+                direcao="recebido",
+                criado_em=datetime.now(timezone.utc),
+            )
+        )
+        db.commit()
+        data = comercial_leads.list_leads(db=db, usuario=user)
+        row = next((x for x in data["items"] if x["id"] == lead.id), None)
+        assert row is not None
+        assert row.get("nova_resposta_whatsapp") is True

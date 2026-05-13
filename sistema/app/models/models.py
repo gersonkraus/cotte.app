@@ -1378,6 +1378,8 @@ class TenantCommercialLead(TenantScopedMixin, Base):
     lead_score = Column(Enum(LeadScore), default=LeadScore.FRIO)
     proximo_contato_em = Column(DateTime(timezone=True), nullable=True)
     ultimo_contato_em = Column(DateTime(timezone=True), nullable=True)
+    # Última vez que um operador "viu" a conversa WhatsApp no detalhe do lead (badge nova resposta)
+    whatsapp_conversa_vista_em = Column(DateTime(timezone=True), nullable=True)
     ativo = Column(Boolean, default=True)
     criado_em = Column(DateTime(timezone=True), server_default=func.now())
     atualizado_em = Column(DateTime(timezone=True), onupdate=func.now())

@@ -283,10 +283,13 @@ async function carregarLeadsTabela() {
       mobileContainer.innerHTML = emptyMobile;
     } else {
       tbody.innerHTML = items.map(function(l) {
+        var waNova = l.nova_resposta_whatsapp
+          ? '<span class="lead-wa-nova-badge" aria-label="Nova resposta no WhatsApp">Nova resposta WhatsApp</span> '
+          : '';
         return '<tr data-lead-id="' + l.id + '">' +
           '<td><div class="lt-company">' + esc(l.nome_empresa) + '</div><div class="lt-person">' + esc(l.nome_responsavel) + '</div></td>' +
           '<td>' + esc(l.nome_responsavel) + '</td>' +
-          '<td class="lt-contact">' + esc(l.whatsapp || l.email || '\u2014') + '</td>' +
+          '<td class="lt-contact">' + waNova + esc(l.whatsapp || l.email || '\u2014') + '</td>' +
           '<td>' + (l.segmento_nome ? '<span class="kc-badge">' + esc(l.segmento_nome) + '</span>' : '\u2014') + '</td>' +
           '<td>' + (l.origem_nome ? '<span class="kc-badge">' + esc(l.origem_nome) + '</span>' : '\u2014') + '</td>' +
           '<td><span class="lead-badge status-' + l.status_pipeline + '">' + esc(STATUS_LABELS[l.status_pipeline] || l.status_pipeline) + '</span></td>' +
@@ -345,6 +348,7 @@ async function carregarLeadsTabela() {
             (l.lead_score ? '<span class="score ' + scoreClass + '">' + esc(l.lead_score) + '</span>' : '') +
           '</div>' +
           '<div class="lmc-meta">' +
+            (l.nova_resposta_whatsapp ? '<span class="lead-wa-nova-badge lead-wa-nova-badge--compact" aria-label="Nova resposta no WhatsApp">WhatsApp</span>' : '') +
             '<span class="lead-badge ' + statusClass + '">' + esc(STATUS_LABELS[l.status_pipeline] || l.status_pipeline) + '</span>' +
             (l.segmento_nome ? '<span class="kc-badge">' + esc(l.segmento_nome) + '</span>' : '') +
             (l.origem_nome ? '<span class="kc-badge">' + esc(l.origem_nome) + '</span>' : '') +
@@ -833,6 +837,14 @@ async function abrirDetalhe(id) {
     var l = await api.get('/tenant/comercial/leads/' + id);
     window.leadsCache[id] = Object.assign(window.leadsCache[id] || {}, l);
     renderLeadDetail(l);
+    try {
+      await api.post('/tenant/comercial/leads/' + id + '/whatsapp/conversa-lida', {});
+      if (window.leadsCache[id]) window.leadsCache[id].nova_resposta_whatsapp = false;
+      setTimeout(function() {
+        if (typeof carregarLeadsTabela === 'function') carregarLeadsTabela();
+        if (typeof carregarPipeline === 'function') carregarPipeline();
+      }, 400);
+    } catch (_e) { /* leitura opcional; falha silenciosa */ }
   } catch(e) {
     if (!window.leadsCache[id]) {
       

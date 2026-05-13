@@ -37,6 +37,8 @@ from app.services.ia_service import analisar_leads
 from app.services.template_anexos_service import obter_bytes_anexo, validar_template_anexo_path
 from app.services.whatsapp_service import enviar_imagem, enviar_mensagem_texto, enviar_pdf
 from app.routers.tenant.tenant_comercial_serialization import (
+    lead_to_out_com_nova_whatsapp,
+    leads_to_out_com_nova_whatsapp,
     sync_lead_status_from_etapa,
     tenant_lead_to_out,
 )
@@ -222,7 +224,11 @@ def check_duplicata_lead(
         .first()
     )
 
-    return tenant_lead_to_out(db, lead) if lead else None
+    if not lead:
+        return None
+    d = tenant_lead_to_out(db, lead)
+    d["nova_resposta_whatsapp"] = False
+    return d
 
 
 @router.post("/", response_model=LeadResponse, status_code=status.HTTP_201_CREATED)
@@ -373,7 +379,7 @@ def list_leads(
     if skip is not None and limit is not None:
         leads = query.offset(skip).limit(limit).all()
         return {
-            "items": [tenant_lead_to_out(db, l) for l in leads],
+            "items": leads_to_out_com_nova_whatsapp(db, eid, leads),
             "total": total,
         }
 
@@ -381,7 +387,7 @@ def list_leads(
     leads = query.offset(offset).limit(per_page).all()
     pages = (total + per_page - 1) // per_page if per_page else 1
     return {
-        "items": [tenant_lead_to_out(db, l) for l in leads],
+        "items": leads_to_out_com_nova_whatsapp(db, eid, leads),
         "total": total,
         "page": page,
         "per_page": per_page,
@@ -408,7 +414,7 @@ def follow_ups_hoje(
         .limit(50)
         .all()
     )
-    return [tenant_lead_to_out(db, l) for l in leads]
+    return leads_to_out_com_nova_whatsapp(db, usuario.empresa_id, leads)
 
 
 @router.get("/recentes", response_model=list[dict[str, Any]])
@@ -427,7 +433,7 @@ def leads_recentes(
         .limit(limit)
         .all()
     )
-    return [tenant_lead_to_out(db, l) for l in leads]
+    return leads_to_out_com_nova_whatsapp(db, usuario.empresa_id, leads)
 
 
 @router.get("/briefing")
@@ -736,6 +742,21 @@ async def importar_leads_tenant(
     }
 
 
+@router.post("/{lead_id}/whatsapp/conversa-lida", response_model=dict[str, Any])
+def marcar_whatsapp_conversa_lida(
+    lead_id: int,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exigir_permissao("comercial", "leitura")),
+):
+    """Marca a conversa WhatsApp como vista (oculta o badge \"Nova resposta\" na lista)."""
+    lead = _buscar_lead(db, usuario.empresa_id, lead_id)
+    lead.whatsapp_conversa_vista_em = datetime.now(timezone.utc)
+    lead.atualizado_em = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(lead)
+    return {"ok": True, "success": True}
+
+
 @router.get("/{lead_id}", response_model=dict[str, Any])
 def get_lead(
     lead_id: int,
@@ -754,7 +775,7 @@ def get_lead(
     )
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
-    d = tenant_lead_to_out(db, lead)
+    d = lead_to_out_com_nova_whatsapp(db, usuario.empresa_id, lead)
     d["interacoes"] = [
         {c.name: getattr(i, c.name) for c in i.__table__.columns}
         for i in sorted(lead.interacoes, key=lambda x: x.criado_em or datetime.now(timezone.utc), reverse=True)

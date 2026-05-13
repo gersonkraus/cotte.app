@@ -96,6 +96,7 @@ function kanbanCard(l) {
     '</div>' +
     '<div class="kc-person">' + esc(l.nome_responsavel) + '</div>' +
     '<div class="kc-meta">' +
+      (l.nova_resposta_whatsapp ? '<span class="lead-wa-nova-badge lead-wa-nova-badge--compact" aria-label="Nova resposta no WhatsApp">WhatsApp</span>' : '') +
       (l.lead_score ? '<span class="kc-badge ' + scoreClass + '">' + esc(l.lead_score) + '</span>' : '') +
       (l.segmento_nome ? '<span class="kc-badge">' + esc(l.segmento_nome) + '</span>' : '') +
       (l.interesse_plano ? '<span class="kc-badge">' + esc(l.interesse_plano.toUpperCase()) + '</span>' : '') +

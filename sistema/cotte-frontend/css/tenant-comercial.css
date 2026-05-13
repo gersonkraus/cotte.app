@@ -2347,3 +2347,36 @@ body.comercial-simple-mode .lmc-actions .btn {
     justify-content: flex-start;
   }
 }
+
+/* Badge: nova resposta WhatsApp (lista / Kanban) */
+.lead-wa-nova-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.25;
+  padding: 3px 7px;
+  border-radius: 6px;
+  margin-right: 6px;
+  margin-bottom: 2px;
+  vertical-align: middle;
+  background: #16a34a;
+  color: #fff;
+  letter-spacing: 0.01em;
+}
+
+.lead-wa-nova-badge--compact {
+  font-size: 9px;
+  padding: 2px 5px;
+  margin-right: 4px;
+}
+
+html[data-theme="dark"] .lead-wa-nova-badge {
+  background: #22c55e;
+  color: #052e16;
+}
+
+.lt-contact .lead-wa-nova-badge {
+  display: inline-block;
+  max-width: 100%;
+  white-space: normal;
+}

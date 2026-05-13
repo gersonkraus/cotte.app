@@ -8,9 +8,16 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Optional
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models.models import LeadScore, TenantCommercialLead, TenantPipelineEtapa
+from app.models.models import (
+    LeadScore,
+    TenantCommercialInteraction,
+    TenantCommercialLead,
+    TenantPipelineEtapa,
+    TipoInteracao,
+)
 
 if TYPE_CHECKING:
     pass
@@ -78,6 +85,72 @@ def tenant_lead_to_out(db: Session, lead: TenantCommercialLead) -> dict[str, Any
         "ultimo_disparo_em": None,
         "etapa_pipeline_id": lead.etapa_pipeline_id,
     }
+
+
+def _dt_utc(dt: datetime | None) -> datetime | None:
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def max_criado_whatsapp_recebido_por_lead(
+    db: Session, empresa_id: int, lead_ids: list[int]
+) -> dict[int, datetime]:
+    """Máximo de criado_em por lead_id para interações WhatsApp recebidas."""
+    if not lead_ids:
+        return {}
+    rows = (
+        db.query(
+            TenantCommercialInteraction.lead_id,
+            func.max(TenantCommercialInteraction.criado_em).label("mx"),
+        )
+        .filter(
+            TenantCommercialInteraction.empresa_id == empresa_id,
+            TenantCommercialInteraction.lead_id.in_(lead_ids),
+            TenantCommercialInteraction.tipo == TipoInteracao.WHATSAPP,
+            TenantCommercialInteraction.direcao == "recebido",
+        )
+        .group_by(TenantCommercialInteraction.lead_id)
+        .all()
+    )
+    return {int(r.lead_id): r.mx for r in rows if r.mx is not None}
+
+
+def nova_resposta_whatsapp_para_lead(
+    lead: TenantCommercialLead, max_recebido_em: datetime | None
+) -> bool:
+    """True se a última resposta WhatsApp do lead é mais recente que a última visualização."""
+    if max_recebido_em is None:
+        return False
+    mx = _dt_utc(max_recebido_em)
+    vista = _dt_utc(getattr(lead, "whatsapp_conversa_vista_em", None))
+    if mx is None:
+        return False
+    if vista is None:
+        return True
+    return mx > vista
+
+
+def leads_to_out_com_nova_whatsapp(
+    db: Session, empresa_id: int, leads: list[TenantCommercialLead]
+) -> list[dict[str, Any]]:
+    """Serializa leads com flag ``nova_resposta_whatsapp`` (uma query agregada por página)."""
+    if not leads:
+        return []
+    mx_map = max_criado_whatsapp_recebido_por_lead(db, empresa_id, [l.id for l in leads])
+    out: list[dict[str, Any]] = []
+    for lead in leads:
+        d = tenant_lead_to_out(db, lead)
+        d["nova_resposta_whatsapp"] = nova_resposta_whatsapp_para_lead(lead, mx_map.get(lead.id))
+        out.append(d)
+    return out
+
+
+def lead_to_out_com_nova_whatsapp(db: Session, empresa_id: int, lead: TenantCommercialLead) -> dict[str, Any]:
+    """Um lead com flag ``nova_resposta_whatsapp``."""
+    return leads_to_out_com_nova_whatsapp(db, empresa_id, [lead])[0]
 
 
 def sync_lead_status_from_etapa(db: Session, lead: TenantCommercialLead) -> None:
