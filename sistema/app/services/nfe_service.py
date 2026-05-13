@@ -468,10 +468,15 @@ def _empresa_optante_simples(empresa: Empresa) -> bool:
     return "simples" in r or "mei" in r
 
 
-def _icms_situacao_tributaria_item(empresa: Empresa, servico) -> int:
+def _icms_situacao_tributaria_item(
+    empresa: Empresa, servico, csosn_override: Optional[str] = None
+) -> int:
     """CST/CSOSN numérico conforme documentação Focus (ItemNotaFiscal)."""
     if _empresa_optante_simples(empresa):
-        raw = (getattr(servico, "csosn", None) or "102") if servico else "102"
+        if csosn_override is not None and str(csosn_override).strip() != "":
+            raw = str(csosn_override).strip()
+        else:
+            raw = (getattr(servico, "csosn", None) or "102") if servico else "102"
         digits = "".join(c for c in str(raw) if c.isdigit())
         if len(digits) >= 3:
             return int(digits[:3])
@@ -482,7 +487,12 @@ def _icms_situacao_tributaria_item(empresa: Empresa, servico) -> int:
     return 41
 
 
-def _icms_origem_item(servico) -> int:
+def _icms_origem_item(servico, origem_override: Optional[int] = None) -> int:
+    if origem_override is not None:
+        try:
+            return int(origem_override)
+        except (TypeError, ValueError):
+            pass
     if not servico:
         return 0
     try:
@@ -573,6 +583,8 @@ async def montar_payload_focus_nfe(
 
     for idx, row in enumerate(lista_itens, start=1):
         servico = None
+        csosn_ov: Optional[str] = None
+        origem_ov: Optional[int] = None
         if isinstance(row, dict):
             ncm_raw = row.get("ncm")
             cfop_catalogo = row.get("cfop")
@@ -586,6 +598,15 @@ async def montar_payload_focus_nfe(
                 v_unit = round(v_total / qtd, 2)
             cod_prod = str(row.get("codigo_produto") or idx)
             descricao_item = str(row.get("descricao") or "").strip()
+            _cs = row.get("csosn")
+            if _cs is not None and str(_cs).strip() != "":
+                csosn_ov = str(_cs).strip()
+            _o = row.get("origem")
+            if _o is not None and str(_o).strip() != "":
+                try:
+                    origem_ov = int(_o)
+                except (TypeError, ValueError):
+                    origem_ov = None
         elif hasattr(row, "orcamento_id"):
             servico = getattr(row, "servico", None)
             ncm_raw = (getattr(servico, "ncm", None) or None) if servico else None
@@ -609,8 +630,17 @@ async def montar_payload_focus_nfe(
                 v_total = round(qtd * v_unit, 2)
             if v_unit <= 0 and qtd > 0 and v_total > 0:
                 v_unit = round(v_total / qtd, 2)
-            cod_prod = str(idx)
+            cod_prod = str(getattr(row, "codigo_produto", None) or idx)
             descricao_item = (getattr(row, "descricao", None) or "").strip()
+            _cs = getattr(row, "csosn", None)
+            if _cs is not None and str(_cs).strip() != "":
+                csosn_ov = str(_cs).strip()
+            _o = getattr(row, "origem", None)
+            if _o is not None:
+                try:
+                    origem_ov = int(_o)
+                except (TypeError, ValueError):
+                    origem_ov = None
 
         if not descricao_item and servico and getattr(servico, "nome", None):
             descricao_item = (servico.nome or "").strip()
@@ -658,8 +688,8 @@ async def montar_payload_focus_nfe(
                 ncm,
             )
         cfop_i = _cfop_int(cfop)
-        icms_st = _icms_situacao_tributaria_item(empresa, servico)
-        icms_or = _icms_origem_item(servico)
+        icms_st = _icms_situacao_tributaria_item(empresa, servico, csosn_ov)
+        icms_or = _icms_origem_item(servico, origem_ov)
         valor_bruto = round(float(v_total), 2)
         soma_produtos += valor_bruto
 

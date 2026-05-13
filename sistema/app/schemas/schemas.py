@@ -87,6 +87,21 @@ class ItemOrcamentoBase(BaseModel):
     valor_unit: Decimal = Field(..., ge=0)
 
 
+class ServicoFiscalSnapshotOut(BaseModel):
+    """Trecho fiscal do catálogo para o modal de NF-e (não expõe o serviço completo)."""
+
+    id: int
+    ncm: Optional[str] = None
+    cfop: Optional[str] = None
+    csosn: Optional[str] = None
+    origem: Optional[int] = None
+    unidade_fiscal: Optional[str] = None
+    unidade: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
 class ItemOrcamentoCreate(ItemOrcamentoBase):
     servico_id: Optional[int] = None  # vínculo opcional com catálogo
 
@@ -95,6 +110,7 @@ class ItemOrcamentoOut(ItemOrcamentoBase):
     id: int
     total: Decimal
     servico_id: Optional[int] = None
+    servico: Optional[ServicoFiscalSnapshotOut] = None
     imagem_url: Optional[str] = (
         None  # do serviço vinculado (catálogo), para exibir no orçamento
     )
@@ -2045,9 +2061,13 @@ class ItemNFe(BaseModel):
     descricao: str
     quantidade: Decimal
     valor_unit: Decimal
+    total: Optional[Decimal] = None
     ncm: Optional[str] = None
     cfop: Optional[str] = None
     unidade: str = "UN"
+    csosn: Optional[str] = None
+    origem: Optional[int] = None
+    codigo_produto: Optional[str] = None
     cst_icms: Optional[str] = None
     cst_pis: Optional[str] = None
     cst_cofins: Optional[str] = None
@@ -2197,6 +2217,8 @@ class NotaFiscalPrepararRequest(BaseModel):
     serie: Optional[str] = None
     codigo_servico_lc116: Optional[str] = None
     aliquota_iss: Optional[Decimal] = None
+    # Mesma ordem e quantidade de itens do orçamento; valores só para esta emissão (não persistem no catálogo).
+    itens_override: Optional[List[ItemNFe]] = None
     # True: resolve IBGE (ViaCEP) antes das validações e grava NCM/CFOP sugeridos por IA no catálogo.
     auto_fill: bool = True
 

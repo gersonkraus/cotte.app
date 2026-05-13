@@ -128,6 +128,13 @@ async def emitir_nota_fiscal(
     if not orcamento:
         raise HTTPException(404, "Orçamento não encontrado")
 
+    if dados.itens_override is not None and (dados.tipo or "").strip().lower() in ("nfe", "nfce"):
+        if len(dados.itens_override) != len(orcamento.itens):
+            raise HTTPException(
+                422,
+                "itens_override deve incluir uma linha por item do orçamento, na mesma ordem.",
+            )
+
     tipo = (dados.tipo or "").strip().lower()
     natureza = (dados.natureza_operacao or ("Prestação de Serviços" if tipo == "nfse" else "Venda de Mercadorias")).strip()
     serie_val = (dados.serie or "1").strip() or "1"
@@ -228,6 +235,13 @@ async def preparar_nota_fiscal(
         raise HTTPException(404, "Orçamento não encontrado")
 
     tipo = (dados.tipo or "").strip().lower()
+    if dados.itens_override is not None and tipo in ("nfe", "nfce"):
+        if len(dados.itens_override) != len(orcamento.itens):
+            raise HTTPException(
+                422,
+                "itens_override deve incluir uma linha por item do orçamento, na mesma ordem.",
+            )
+
     natureza = (dados.natureza_operacao or ("Prestação de Serviços" if tipo == "nfse" else "Venda de Mercadorias")).strip()
     serie_val = (dados.serie or "1").strip() or "1"
     bloqueios: list[str] = []
@@ -273,13 +287,14 @@ async def preparar_nota_fiscal(
     )
     bloqueios.extend(_bloqueios_from_checklist(checklist))
 
-    # Verifica itens e dados fiscais
+    # Verifica itens e dados fiscais (catálogo); com itens_override o operador define NCM/CFOP só na emissão.
     itens_sem_ncm = []
-    for item in orcamento.itens:
-        servico = getattr(item, "servico", None)
-        ncm = getattr(servico, "ncm", None) if servico else None
-        if not ncm:
-            itens_sem_ncm.append(item.descricao or f"Item #{item.id}")
+    if not dados.itens_override:
+        for item in orcamento.itens:
+            servico = getattr(item, "servico", None)
+            ncm = getattr(servico, "ncm", None) if servico else None
+            if not ncm:
+                itens_sem_ncm.append(item.descricao or f"Item #{item.id}")
 
     if itens_sem_ncm:
         avisos.append(
@@ -311,18 +326,23 @@ async def preparar_nota_fiscal(
                 payload_preview = await nfe_service._montar_payload_nfe(
                     empresa, orcamento, tipo,
                     natureza, serie_val,
-                    None,
+                    dados.itens_override,
                     db=db,
                 )
                 checklist_tipo = nfe_service.montar_checklist_validacoes_nfe(payload_preview)
-                campos_autopreenchidos = nfe_service.listar_campos_autopreenchidos_nfe(orcamento, payload_preview)
-                if dados.auto_fill and campos_autopreenchidos:
-                    auto_fill_aplicado = True
-                    avisos.append(f"IA autopreencheu: {', '.join(campos_autopreenchidos)}")
-                    salvos_cat = nfe_service.persistir_sugestoes_ia_catalogo_nfe(db, orcamento, payload_preview)
-                    if salvos_cat:
-                        mutou_autofill_db = True
-                        avisos.extend(salvos_cat)
+                if not dados.itens_override:
+                    campos_autopreenchidos = nfe_service.listar_campos_autopreenchidos_nfe(orcamento, payload_preview)
+                    if dados.auto_fill and campos_autopreenchidos:
+                        auto_fill_aplicado = True
+                        avisos.append(f"IA autopreencheu: {', '.join(campos_autopreenchidos)}")
+                        salvos_cat = nfe_service.persistir_sugestoes_ia_catalogo_nfe(db, orcamento, payload_preview)
+                        if salvos_cat:
+                            mutou_autofill_db = True
+                            avisos.extend(salvos_cat)
+                elif dados.auto_fill:
+                    avisos.append(
+                        "Ajustes fiscais por item neste modal não são gravados no catálogo; só entram na NF desta verificação/emissão."
+                    )
             checklist.extend(checklist_tipo)
             bloqueios.extend(_bloqueios_from_checklist(checklist_tipo))
             emitente_preview = nfe_service.emitente_preview_para_previa(empresa, orcamento)
@@ -548,12 +568,19 @@ async def previsualizar_danfe_focus(
     )
     if not orcamento:
         raise HTTPException(404, "Orçamento não encontrado")
+    tipo_pv = (dados.tipo or "nfe").strip().lower()
+    if dados.itens_override is not None and tipo_pv in ("nfe", "nfce"):
+        if len(dados.itens_override) != len(orcamento.itens):
+            raise HTTPException(
+                422,
+                "itens_override deve incluir uma linha por item do orçamento, na mesma ordem.",
+            )
     natureza = (dados.natureza_operacao or "Venda de Mercadorias").strip() or "Venda de Mercadorias"
     serie_val = (dados.serie or "1").strip() or "1"
     if dados.tipo == "nfse":
         raise HTTPException(422, "Pré-visualização DANFE via Focus aplica-se a NF-e/NFC-e.")
     payload = await nfe_service.montar_payload_focus_nfe(
-        empresa, orcamento, dados.tipo, natureza, serie_val, None, db=db
+        empresa, orcamento, dados.tipo, natureza, serie_val, dados.itens_override, db=db
     )
     try:
         pdf = await nfe_service.previsualizar_danfe_pdf(payload, empresa)
