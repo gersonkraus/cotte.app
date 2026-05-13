@@ -62,9 +62,12 @@ def _extrair_bearer_token(request: Request) -> str:
     return ""
 
 
-def _extrair_token_evolution_webhook(request: Request) -> str:
+def _extrair_token_evolution_webhook(
+    request: Request,
+    raw_body: dict | None = None,
+) -> str:
     """Headers/query aceitos pela Evolution API e proxies comuns."""
-    return (
+    token = (
         (
             request.headers.get("apikey", "")
             or request.headers.get("Apikey", "")
@@ -76,18 +79,35 @@ def _extrair_token_evolution_webhook(request: Request) -> str:
         )
         or ""
     ).strip()
+    if token:
+        return token
+    if isinstance(raw_body, dict):
+        body_token = (
+            raw_body.get("apikey")
+            or raw_body.get("apiKey")
+            or raw_body.get("ApiKey")
+            or ""
+        )
+        if isinstance(body_token, str):
+            return body_token.strip()
+    return ""
 
 
-def _validar_autenticacao_webhook(request: Request, provider: str) -> None:
+def _validar_autenticacao_webhook(
+    request: Request,
+    provider: str,
+    raw_body: dict | None = None,
+) -> None:
     if provider == "evolution":
         secret = (getattr(settings, "EVOLUTION_API_KEY", "") or "").strip()
         if not secret:
             raise HTTPException(status_code=503, detail="Webhook Evolution nao configurado")
-        token = _extrair_token_evolution_webhook(request)
+        token = _extrair_token_evolution_webhook(request, raw_body=raw_body)
         if not token:
             logger.warning(
-                "[WA Webhook] 401: nenhum token recebido (esperado header apikey ou "
-                "x-api-key, query apikey, ou Authorization Bearer igual a EVOLUTION_API_KEY)"
+                "[WA Webhook] 401: nenhum token recebido "
+                "(esperado header apikey/x-api-key, query apikey, "
+                "Authorization Bearer ou apikey no body)"
             )
             raise HTTPException(status_code=401, detail="Webhook nao autorizado")
         if not secrets.compare_digest(token, secret):
@@ -202,8 +222,11 @@ async def webhook_whatsapp(
         )
 
     provider = settings.WHATSAPP_PROVIDER.lower().strip()
-    _validar_autenticacao_webhook(request, provider)
-    raw_body = await request.json()
+    try:
+        raw_body = await request.json()
+    except Exception:
+        return {"status": "invalid_json"}
+    _validar_autenticacao_webhook(request, provider, raw_body=raw_body)
 
     instance = _normalizar_query_instance(instance)
 
@@ -246,17 +269,17 @@ async def webhook_comercial(
             headers={"Retry-After": str(rl.retry_after_seconds)},
         )
 
-    # Valida autenticação pelo EVOLUTION_API_KEY (mesma chave da instância comercial)
-    secret = (getattr(settings, "EVOLUTION_API_KEY", "") or "").strip()
-    if secret:
-        token = _extrair_token_evolution_webhook(request)
-        if not token or not secrets.compare_digest(token, secret):
-            raise HTTPException(status_code=401, detail="Webhook nao autorizado")
-
     try:
         raw_body = await request.json()
     except Exception:
         return {"status": "invalid_json"}
+
+    # Valida autenticação pelo EVOLUTION_API_KEY (mesma chave da instância comercial)
+    secret = (getattr(settings, "EVOLUTION_API_KEY", "") or "").strip()
+    if secret:
+        token = _extrair_token_evolution_webhook(request, raw_body=raw_body)
+        if not token or not secrets.compare_digest(token, secret):
+            raise HTTPException(status_code=401, detail="Webhook nao autorizado")
 
     background_tasks.add_task(_processar_webhook_comercial, raw_body)
     return {"status": "ok"}

@@ -1,9 +1,14 @@
 import asyncio
 
 from fastapi import BackgroundTasks
+from starlette.requests import Request
 
 from app.models.models import AuditLog, TenantCommercialInteraction, TenantCommercialLead
-from app.routers.whatsapp import _webhook_evolution, _normalizar_query_instance
+from app.routers.whatsapp import (
+    _webhook_evolution,
+    _normalizar_query_instance,
+    _extrair_token_evolution_webhook,
+)
 from app.schemas.schemas import WebhookEvolution
 from app.services.tenant_commercial_service import registrar_interacao_whatsapp
 from tests.conftest import make_empresa
@@ -62,6 +67,19 @@ def test_normalizar_query_instance_remove_sufixo_evolution_v2():
     assert _normalizar_query_instance("empresa-5") == "empresa-5"
     assert _normalizar_query_instance(None) is None
     assert _normalizar_query_instance("  ") is None
+
+
+def test_extrair_token_evolution_webhook_ler_apikey_do_body():
+    scope = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "method": "POST",
+        "path": "/api/v1/whatsapp/webhook",
+    }
+    req = Request(scope)
+    token = _extrair_token_evolution_webhook(req, raw_body={"apikey": "abc-123"})
+    assert token == "abc-123"
 
 
 def test_webhook_evolution_phone_remove_sufixo_device():
