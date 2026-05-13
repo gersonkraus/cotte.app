@@ -216,13 +216,70 @@ async def cancelar_campaign(
     current_user: Usuario = Depends(exigir_permissao("comercial", "escrita")),
 ):
     campaign = _get_campaign_orm(campaign_id, current_user.empresa_id, db)
-    if campaign.status != "em_andamento":
-        raise HTTPException(status_code=400, detail="Somente campanhas em andamento podem ser canceladas")
+    if campaign.status not in ["em_andamento", "pausada", "agendada"]:
+        raise HTTPException(status_code=400, detail="Esta campanha não pode ser cancelada neste estado")
     _running_campaigns[campaign_id] = False
     campaign.status = "cancelada"
     campaign.atualizado_em = datetime.now()
     db.commit()
     return {"message": "Campanha cancelada"}
+
+
+@router.post("/{campaign_id}/pause")
+async def pause_campaign(
+    campaign_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("comercial", "escrita")),
+):
+    campaign = _get_campaign_orm(campaign_id, current_user.empresa_id, db)
+    if campaign.status not in ["em_andamento", "agendada"]:
+        raise HTTPException(status_code=400, detail="Somente campanhas em andamento ou agendadas podem ser pausadas")
+    
+    # Se estiver rodando, sinalizar para parar o loop
+    _running_campaigns[campaign_id] = False
+    
+    campaign.status = "pausada"
+    campaign.atualizado_em = datetime.now()
+    db.commit()
+    return {"message": "Campanha pausada/suspensa"}
+
+
+@router.post("/{campaign_id}/resume")
+async def resume_campaign(
+    campaign_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(exigir_permissao("comercial", "escrita")),
+):
+    campaign = _get_campaign_orm(campaign_id, current_user.empresa_id, db)
+    if campaign.status != "pausada":
+        raise HTTPException(status_code=400, detail="Somente campanhas pausadas podem ser retomadas")
+    
+    # Previne erro de comparação entre offset-naive e offset-aware
+    agora_cmp = datetime.now(campaign.data_agendamento.tzinfo) if campaign.data_agendamento and campaign.data_agendamento.tzinfo else datetime.now()
+    
+    # Se tem agendamento futuro, volta para agendada e deixa o scheduler do main.py cuidar
+    if campaign.data_agendamento and campaign.data_agendamento > agora_cmp:
+        campaign.status = "agendada"
+        campaign.atualizado_em = datetime.now()
+        db.commit()
+        return {"message": "Campanha reagendada para o horário original"}
+    
+    # Caso contrário, inicia o disparo imediato
+    campaign.status = "em_andamento"
+    campaign.atualizado_em = datetime.now()
+    db.commit()
+    
+    background_tasks.add_task(
+        _executar_disparo_background,
+        campaign_id,
+        None, # Todas as pendentes
+        campaign.canal,
+        current_user.empresa_id,
+        None
+    )
+    
+    return {"message": "Campanha retomada e disparos iniciados"}
 
 
 async def _executar_disparo_background(
@@ -260,7 +317,13 @@ async def _executar_disparo_background(
         canal = canal_override or campaign.canal
         empresa = db.query(Empresa).filter(Empresa.id == empresa_id).first()
 
-        leads_q = db.query(TenantCampaignLead).filter(TenantCampaignLead.campaign_id == campaign.id)
+        leads_q = (
+            db.query(TenantCampaignLead)
+            .filter(
+                TenantCampaignLead.campaign_id == campaign.id,
+                TenantCampaignLead.status == "pendente"
+            )
+        )
         if lead_ids:
             leads_q = leads_q.filter(TenantCampaignLead.lead_id.in_(lead_ids))
         
@@ -363,8 +426,9 @@ async def _executar_disparo_background(
                 db.commit()
 
         if _running_campaigns.get(campaign_id) is False:
-            campaign.status = "cancelada"
-            campaign.atualizado_em = datetime.now()
+            # Se foi cancelada/pausada externamente, o loop já quebrou
+            # O status já deve ter sido definido como 'cancelada' ou 'pausada' no endpoint
+            # mas vamos garantir que não mudamos para 'concluida'
             db.commit()
         else:
             # Recorrência: reiniciar campanha se configurada

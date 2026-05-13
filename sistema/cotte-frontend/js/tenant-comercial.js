@@ -2756,85 +2756,207 @@ function _pararMetricasPolling() {
 }
 
 async function carregarCampanhas() {
+  const container = document.getElementById('campanhas-list');
+  if (container) container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  
   try {
-    var res = await api.get('/tenant/comercial/campaigns/');
+    const res = await api.get('/tenant/comercial/campaigns/');
     campanhasCache = res || [];
-    renderCampanhasTable(campanhasCache);
-    renderCampanhasMobile(campanhasCache);
+    renderCampanhas(campanhasCache);
     _checarPollingCampanhas();
   } catch (e) {
     console.error('Erro ao carregar campanhas:', e);
-    document.getElementById('campanhas-tbody').innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--red)">Erro ao carregar</td></tr>';
+    if (container) container.innerHTML = '<div style="text-align:center;padding:24px;color:var(--red)">Erro ao carregar campanhas</div>';
   }
 }
 
-function renderCampanhasTable(campanhas) {
-  var tbody = document.getElementById('campanhas-tbody');
-  if (!campanhas.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted)">Nenhuma campanha criada</td></tr>';
-    return;
-  }
-  var statusLabels = { agendada: 'Agendada', em_andamento: 'Em Andamento', concluida: 'Concluída', cancelada: 'Cancelada' };
-  var canalLabels = { whatsapp: '📱 WhatsApp', email: '📧 E-mail', ambos: '📱📧 Ambos' };
-  tbody.innerHTML = campanhas.map(function(c) {
-    var pct = c.total_leads ? Math.round((c.enviados || 0) / c.total_leads * 100) : 0;
-    var activeClass = c.status === 'em_andamento' ? ' camp-progress-active' : '';
-    var rowClass = c.status === 'em_andamento' ? ' class="camp-row-disparando"' : '';
-    return '<tr' + rowClass + ' data-camp-id="' + c.id + '">' +
-      '<td>' + escapeHtml(c.nome) +
-        (c.recorrencia && c.recorrencia !== 'nenhuma' ? ' <span style="font-size:11px;color:var(--muted)">🔁 ' + (c.recorrencia === 'diario' ? 'Diária' : c.recorrencia === 'semanal' ? 'Semanal' : escapeHtml(c.recorrencia)) + '</span>' : '') +
-        (c.data_agendamento && c.status === 'agendada' ? '<br><small style="color:var(--muted)">📅 ' + new Date(c.data_agendamento).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) + '</small>' : '') +
-      '</td>' +
-      '<td>' + (canalLabels[c.canal] || c.canal) + '</td>' +
-      '<td><span class="badge badge-' + c.status + '">' + (statusLabels[c.status] || c.status) + (c.status === 'em_andamento' ? ' ⏳' : '') + '</span></td>' +
-      '<td>' + (c.total_leads || 0) + '</td>' +
-      '<td class="camp-enviados-live">' + (c.enviados || 0) + '/' + (c.total_leads || 0) +
-        '<div class="camp-progress-bar"><div class="camp-progress-fill' + activeClass + '" style="width:' + pct + '%"></div></div>' +
-      '</td>' +
-      '<td>' + (c.tempo_estimado_restante || '-') + '</td>' +
-      '<td>' + (c.entregues || 0) + '</td>' +
-      '<td>' + (c.respondidos || 0) + '</td>' +
-      '<td>' +
-        '<button class="btn btn-sm btn-ghost" onclick="verMetricasCampanha(' + c.id + ')" title="Métricas">📊</button>' +
-        (c.status === 'agendada' ? '<button class="btn btn-sm btn-primary" onclick="dispararCampanha(' + c.id + ')" title="Disparar">🚀</button>' : '') +
-        (c.status === 'em_andamento' ? '<button class="btn btn-sm btn-ghost" onclick="cancelarCampanha(' + c.id + ')" title="Cancelar" style="color:var(--red)">⏹</button>' : '') +
-        '<button class="btn btn-sm btn-ghost" onclick="excluirCampanha(' + c.id + ')" title="Excluir" style="color:var(--red)">🗑️</button>' +
-      '</td></tr>';
-  }).join('');
-}
-
-function renderCampanhasMobile(campanhas) {
-  var container = document.getElementById('campanhas-cards-mobile');
+function renderCampanhas(campanhas) {
+  const container = document.getElementById('campanhas-list');
   if (!container) return;
-  if (!campanhas.length) {
-    container.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted)">Nenhuma campanha criada</div>';
+
+  // Garantir a classe de grid para o layout de cards
+  container.className = 'campaigns-grid';
+
+  if (!campanhas || !campanhas.length) {
+    container.innerHTML = `
+      <div class="empty-state" style="grid-column: 1/-1; padding: 40px; text-align: center; background: var(--bg-dim); border-radius: 12px; border: 2px dashed var(--border);">
+        <div style="font-size: 40px; margin-bottom: 12px;">📧</div>
+        <h4 style="margin-bottom: 8px; color: var(--text);">Nenhuma campanha encontrada</h4>
+        <p style="color: var(--muted); font-size: 14px;">Crie sua primeira campanha para começar a disparar mensagens.</p>
+      </div>
+    `;
     return;
   }
-  var statusLabels = { agendada: 'Agendada', em_andamento: 'Em Andamento', concluida: 'Concluída', cancelada: 'Cancelada' };
-  var canalLabels = { whatsapp: '📱 WhatsApp', email: '📧 E-mail', ambos: '📱📧 Ambos' };
-  container.innerHTML = campanhas.map(function(c) {
-    var pct = c.total_leads ? Math.round((c.enviados || 0) / c.total_leads * 100) : 0;
-    return '<div class="crud-mobile-card">' +
-      '<div class="crud-mobile-card-header">' +
-        '<div class="crud-mobile-card-title">' + escapeHtml(c.nome) +
-          (c.recorrencia && c.recorrencia !== 'nenhuma' ? ' <span style="font-size:11px">🔁</span>' : '') +
-        '</div>' +
-        (c.data_agendamento && c.status === 'agendada' ? '<div style="font-size:12px;color:var(--muted)">📅 ' + new Date(c.data_agendamento).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) + '</div>' : '') +
-        '<span class="badge badge-' + c.status + '">' + (statusLabels[c.status] || c.status) + '</span>' +
-      '</div>' +
-      '<div class="crud-mobile-card-body">' +
-        '<div><strong>Canal:</strong> ' + (canalLabels[c.canal] || c.canal) + '</div>' +
-        '<div><strong>Enviados:</strong> <span class="camp-enviados-live">' + (c.enviados || 0) + '/' + (c.total_leads || 0) + '</span>' +
-          (c.tempo_estimado_restante ? ' <span style="color:var(--muted);font-size:12px">(~' + c.tempo_estimado_restante + ')</span>' : '') + '</div>' +
-        '<div class="camp-progress-bar"><div class="camp-progress-fill' + (c.status === 'em_andamento' ? ' camp-progress-active' : '') + '" style="width:' + pct + '%"></div></div>' +
-      '</div>' +
-      '<div class="crud-mobile-card-actions">' +
-        '<button class="btn btn-sm btn-ghost" onclick="verMetricasCampanha(' + c.id + ')">📊 Métricas</button>' +
-        (c.status === 'agendada' ? '<button class="btn btn-sm btn-primary" onclick="dispararCampanha(' + c.id + ')">🚀 Disparar</button>' : '') +
-        (c.status === 'em_andamento' ? '<button class="btn btn-sm btn-ghost" onclick="cancelarCampanha(' + c.id + ')" style="color:var(--red)">⏹ Cancelar</button>' : '') +
-        '<button class="btn btn-sm btn-ghost" onclick="excluirCampanha(' + c.id + ')" style="color:var(--red)">🗑️</button>' +
-      '</div></div>';
+
+  const statusLabels = {
+    agendada: 'Agendada',
+    em_andamento: 'Em Andamento',
+    pausada: 'Pausada',
+    concluida: 'Concluída',
+    cancelada: 'Cancelada'
+  };
+
+  const statusIcons = {
+    agendada: '📅',
+    em_andamento: '⚡',
+    pausada: '⏸',
+    concluida: '✅',
+    cancelada: '🚫'
+  };
+
+  container.innerHTML = campanhas.map(c => {
+    const total = c.total_leads || 0;
+    const enviados = c.enviados || 0;
+    const entregues = c.entregues || 0;
+    const respondidos = c.respondidos || 0;
+    
+    const pctEnviados = total > 0 ? Math.round((enviados / total) * 100) : 0;
+    const pctEntregues = enviados > 0 ? Math.round((entregues / enviados) * 100) : 0;
+    const pctRespondidos = entregues > 0 ? Math.round((respondidos / entregues) * 100) : 0;
+
+    const isRunning = c.status === 'em_andamento';
+    const isScheduled = c.status === 'agendada';
+    const isPaused = c.status === 'pausada';
+
+    return `
+      <div class="campaign-card ${isRunning ? 'active' : ''}" data-id="${c.id}">
+        <div class="campaign-header">
+          <div class="campaign-info">
+            <h4 class="campaign-name">
+              ${c.recorrencia && c.recorrencia !== 'nenhuma' ? '🔁 ' : ''}${escapeHtml(c.nome)}
+            </h4>
+            <div class="campaign-meta">
+              <span class="campaign-type">${c.canal === 'whatsapp' ? '📱 WhatsApp' : '📧 E-mail'}</span>
+            </div>
+          </div>
+          <div class="campaign-status-badge badge-${c.status}">
+            ${statusIcons[c.status] || ''} ${statusLabels[c.status] || c.status}
+          </div>
+        </div>
+
+        <div class="campaign-body">
+          <div class="funnel-container">
+            <!-- Barra de Enviados -->
+            <div class="funnel-step">
+              <div class="funnel-label">
+                <span>Enviados</span>
+                <span>${enviados}/${total} (${pctEnviados}%)</span>
+              </div>
+              <div class="funnel-bar">
+                <div class="funnel-fill primary" style="width: ${pctEnviados}%"></div>
+              </div>
+            </div>
+
+            <div class="funnel-stats-grid">
+              <div class="mini-stat">
+                <div class="mini-stat-label">Entregues</div>
+                <div class="mini-stat-value">${entregues}</div>
+                <div class="mini-stat-bar"><div class="fill" style="width: ${pctEntregues}%"></div></div>
+              </div>
+              <div class="mini-stat">
+                <div class="mini-stat-label">Respostas</div>
+                <div class="mini-stat-value">${respondidos}</div>
+                <div class="mini-stat-bar"><div class="fill" style="width: ${pctRespondidos}%"></div></div>
+              </div>
+            </div>
+          </div>
+          
+          ${isRunning && c.tempo_estimado_restante ? `
+            <div class="campaign-eta">
+              <span class="pulse-icon"></span> Est. restante: <strong>${c.tempo_estimado_restante}</strong>
+            </div>
+          ` : ''}
+
+          ${isScheduled && c.data_agendamento ? `
+            <div class="campaign-schedule">
+              📅 Agendado para: <strong>${new Date(c.data_agendamento).toLocaleString('pt-BR')}</strong>
+            </div>
+          ` : ''}
+        </div>
+
+        <div class="campaign-footer">
+          <div class="campaign-actions">
+            <button class="btn btn-sm btn-outline" onclick="verMetricasCampanha(${c.id})" title="Ver métricas detalhadas e taxa de conversão">📊 Métricas</button>
+            ${isScheduled ? `<button class="btn btn-sm btn-primary" onclick="dispararCampanha(${c.id}, this)" title="Iniciar disparos agora mesmo">🚀 Disparar</button>` : ''}
+            ${isScheduled || isPaused ? `<button class="btn btn-sm btn-ghost" onclick="editarCampanha(${c.id})" title="Editar configurações e lista de contatos">✏️ Editar</button>` : ''}
+            ${(isRunning || isScheduled) ? `<button class="btn btn-sm btn-warning" onclick="pausarCampanha(${c.id}, this)" title="Pausar disparos (pode ser retomado depois)">⏸ Pausar</button>` : ''}
+            ${isPaused ? `<button class="btn btn-sm btn-success" onclick="retomarCampanha(${c.id}, this)" title="Retomar disparos ou reativar agendamento">▶️ Retomar</button>` : ''}
+            ${(isRunning || isPaused || isScheduled) ? `<button class="btn btn-sm btn-ghost" style="color:var(--red)" onclick="cancelarCampanha(${c.id}, this)" title="Suspender e cancelar esta campanha permanentemente">⏹ Cancelar</button>` : ''}
+            <button class="btn btn-sm btn-ghost" style="color:var(--red)" onclick="excluirCampanha(${c.id}, this)" title="Excluir campanha e todo o seu histórico">🗑️ Excluir</button>
+          </div>
+        </div>
+      </div>
+    `;
   }).join('');
+}
+
+async function pausarCampanha(id, btn) {
+  if (btn) btn.classList.add('loading');
+  try {
+    await api.post(`/tenant/comercial/campaigns/${id}/pause`);
+    showToast('Campanha pausada com sucesso', 'success');
+    carregarCampanhas();
+  } catch (e) {
+    showToast('Erro ao pausar campanha', 'error');
+    if (btn) btn.classList.remove('loading');
+  }
+}
+
+async function retomarCampanha(id, btn) {
+  if (btn) btn.classList.add('loading');
+  try {
+    await api.post(`/tenant/comercial/campaigns/${id}/resume`);
+    showToast('Campanha retomada com sucesso', 'success');
+    carregarCampanhas();
+  } catch (e) {
+    showToast('Erro ao retomar campanha', 'error');
+    if (btn) btn.classList.remove('loading');
+  }
+}
+
+async function editarCampanha(id) {
+  const camp = campanhasCache.find(c => c.id == id);
+  if (!camp) return;
+
+  abrirModalCampanha();
+  document.getElementById('modal-camp-title').textContent = 'Editar Campanha';
+  document.getElementById('camp-id').value = camp.id;
+  document.getElementById('camp-nome').value = camp.nome;
+  document.getElementById('camp-template').value = camp.template_id || '';
+  document.getElementById('camp-canal').value = camp.canal || 'whatsapp';
+  
+  if (camp.data_agendamento) {
+    document.getElementById('camp-agendar').checked = true;
+    document.getElementById('camp-agendar-container').style.display = 'block';
+    // Formato YYYY-MM-DDTHH:mm
+    const dt = new Date(camp.data_agendamento);
+    const dateStr = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0') + 'T' + String(dt.getHours()).padStart(2, '0') + ':' + String(dt.getMinutes()).padStart(2, '0');
+    document.getElementById('camp-data-agendamento').value = dateStr;
+  }
+
+  // Carregar leads da campanha
+  try {
+    const res = await api.get(`/tenant/comercial/campaigns/${id}/leads`);
+    renderLeadsSelecionados(res || []);
+  } catch (e) {
+    console.error('Erro ao carregar leads da campanha:', e);
+  }
+}
+
+function renderLeadsSelecionados(leads) {
+  // Converte o formato do backend (CampaignLeadOut) para o formato esperado pelo modal
+  const leadsFormatados = leads.map(cl => ({
+    id: cl.lead_id,
+    nome: cl.lead_nome,
+    nome_empresa: cl.lead_nome_empresa,
+    whatsapp: cl.lead_whatsapp,
+    email: cl.lead_email,
+    lead_score: cl.lead_score
+  }));
+
+  _campLeadsCache = leadsFormatados;
+  _campLeadIds = new Set(leadsFormatados.map(l => l.id));
+  _renderizarListaLeadsCampanha();
 }
 
 function abrirModalCampanha() {
@@ -3154,18 +3276,18 @@ async function salvarCampanha() {
   }
 }
 
-async function dispararCampanha(id) {
-  if (!confirm('Disparar campanha agora? Esta ação enviará mensagens para os leads selecionados.')) return;
+async function dispararCampanha(id, btn) {
+  if (!confirm('Deseja iniciar os disparos desta campanha agora mesmo? (Isso ignorará qualquer agendamento futuro)')) return;
+  if (btn) btn.classList.add('loading');
   try {
-    var row = document.querySelector('tr[data-camp-id="' + id + '"]');
-    if (row) row.classList.add('camp-row-disparando');
     await api.post('/tenant/comercial/campaigns/' + id + '/disparo', {
       campaign_id: id
     });
-    showToast('Disparo iniciado! Acompanhe o progresso.');
+    showToast('Disparo iniciado com sucesso!', 'success');
     carregarCampanhas();
   } catch (e) {
     showToast('Erro ao disparar: ' + (e.message || 'Falha'), 'error');
+    if (btn) btn.classList.remove('loading');
     carregarCampanhas();
   }
 }
@@ -3231,25 +3353,29 @@ async function verMetricasCampanha(id) {
   }
 }
 
-async function cancelarCampanha(id) {
-  if (!confirm('Cancelar esta campanha? Os envios já realizados serão mantidos.')) return;
+async function cancelarCampanha(id, btn) {
+  if (!confirm('Deseja realmente suspender esta campanha? Os agendamentos futuros serão removidos e os envios atuais parados.')) return;
+  if (btn) btn.classList.add('loading');
   try {
     await api.post('/tenant/comercial/campaigns/' + id + '/cancelar');
-    showToast('Campanha cancelada.');
+    showToast('Campanha suspensa permanentemente', 'success');
     carregarCampanhas();
   } catch (e) {
-    showToast('Erro ao cancelar: ' + (e.message || 'Falha'), 'error');
+    showToast('Erro ao cancelar campanha', 'error');
+    if (btn) btn.classList.remove('loading');
   }
 }
 
-async function excluirCampanha(id) {
-  if (!confirm('Excluir esta campanha? Esta ação não pode ser desfeita.')) return;
+async function excluirCampanha(id, btn) {
+  if (!confirm('ATENÇÃO: Excluir esta campanha apagará todo o histórico de envios e métricas. Deseja continuar?')) return;
+  if (btn) btn.classList.add('loading');
   try {
     await api.delete('/tenant/comercial/campaigns/' + id);
-    showToast('Campanha excluída!');
+    showToast('Campanha excluída com sucesso', 'success');
     carregarCampanhas();
   } catch (e) {
-    showToast('Erro ao excluir: ' + (e.message || 'Falha'), 'error');
+    showToast('Erro ao excluir campanha', 'error');
+    if (btn) btn.classList.remove('loading');
   }
 }
 
