@@ -19,6 +19,82 @@
         erro: "Falha na emissão",
     };
 
+    /** Conteúdo interno dos ícones (viewBox 24×24) para _svgIcon */
+    var _ICO_PATH = {
+        menu:
+            '<circle cx="12" cy="6" r="1.35" fill="currentColor"/><circle cx="12" cy="12" r="1.35" fill="currentColor"/><circle cx="12" cy="18" r="1.35" fill="currentColor"/>',
+        doc: '<path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>',
+        code: '<path d="M17.25 6.75L22 12l-4.75 5.25M6.75 17.25L2 12l4.75-5.25"/>',
+        qr: '<path d="M3.75 4.5h4.5v4.5h-4.5V4.5zM15.75 4.5h4.5v4.5h-4.5V4.5zM3.75 15h4.5v4.5h-4.5V15zM13.5 13.5h1.5v1.5H13.5v-1.5zm0 3h1.5v1.5H13.5v-1.5zm3-3H18v1.5h-1.5v-1.5zm0 3H18v1.5h-1.5v-1.5zm3-3h1.5V15H19.5v-1.5zm0 3h1.5v1.5H19.5v-1.5zm-6 3h1.5V21H13.5v-1.5zm3 0H18V21h-1.5v-1.5zm3 0h1.5V21H19.5v-1.5z"/>',
+        refresh:
+            '<path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/>',
+        webhook: '<path d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/>',
+        pencil: '<path d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487zm0 0L19.5 7.125"/>',
+        eye: '<path d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>',
+        ban: '<path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>',
+        search: '<path d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>',
+    };
+
+    function _svgIcon(which, size) {
+        var w = size || 16;
+        var inner = _ICO_PATH[which] || _ICO_PATH.menu;
+        return (
+            '<svg class="nf-ico" xmlns="http://www.w3.org/2000/svg" width="' +
+            w +
+            '" height="' +
+            w +
+            '" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+            inner +
+            "</svg>"
+        );
+    }
+
+    function _menuRow(iconWhich, labelHtml) {
+        return (
+            '<span class="nf-menu-item__ico">' +
+            _svgIcon(iconWhich, 15) +
+            '</span><span class="nf-menu-item__txt">' +
+            labelHtml +
+            "</span>"
+        );
+    }
+
+    function _nfIconButton(onclickHtml, iconWhich, label, extraClass) {
+        var escL = _escHtml(label);
+        var cls = "nf-icon-btn" + (extraClass ? " " + extraClass : "");
+        return (
+            '<button type="button" class="' +
+            cls +
+            '" title="' +
+            escL +
+            '" aria-label="' +
+            escL +
+            '" ' +
+            onclickHtml +
+            ">" +
+            _svgIcon(iconWhich, 18) +
+            "</button>"
+        );
+    }
+
+    function _nfIconLink(hrefEscaped, iconWhich, label, extraClass) {
+        var escL = _escHtml(label);
+        var cls = "nf-icon-btn nf-icon-btn--link" + (extraClass ? " " + extraClass : "");
+        return (
+            '<a class="' +
+            cls +
+            '" href="' +
+            hrefEscaped +
+            '" target="_blank" rel="noopener noreferrer" title="' +
+            escL +
+            '" aria-label="' +
+            escL +
+            '">' +
+            _svgIcon(iconWhich, 18) +
+            "</a>"
+        );
+    }
+
     var ultimasNotas = [];
     var paginaAtual = 1;
 
@@ -174,21 +250,27 @@
             items.push(
                 '<a role="menuitem" class="nf-menu-link" href="' +
                     _escHtml(n.danfe_url) +
-                    '" target="_blank" rel="noopener noreferrer" onclick="NotasFiscaisPage.fecharMenusAcoes()">DANFE</a>'
+                    '" target="_blank" rel="noopener noreferrer" onclick="NotasFiscaisPage.fecharMenusAcoes()">' +
+                    _menuRow("doc", "DANFE") +
+                    "</a>"
             );
         }
         if (n.xml_url) {
             items.push(
                 '<a role="menuitem" class="nf-menu-link" href="' +
                     _escHtml(n.xml_url) +
-                    '" target="_blank" rel="noopener noreferrer" onclick="NotasFiscaisPage.fecharMenusAcoes()">XML</a>'
+                    '" target="_blank" rel="noopener noreferrer" onclick="NotasFiscaisPage.fecharMenusAcoes()">' +
+                    _menuRow("code", "XML") +
+                    "</a>"
             );
         }
         if (n.qr_code) {
             items.push(
                 '<a role="menuitem" class="nf-menu-link" href="' +
                     _escHtml(n.qr_code) +
-                    '" target="_blank" rel="noopener noreferrer" onclick="NotasFiscaisPage.fecharMenusAcoes()">QR Code</a>'
+                    '" target="_blank" rel="noopener noreferrer" onclick="NotasFiscaisPage.fecharMenusAcoes()">' +
+                    _menuRow("qr", "QR Code") +
+                    "</a>"
             );
         }
 
@@ -197,18 +279,24 @@
             items.push(
                 '<button type="button" role="menuitem" onclick="NotasFiscaisPage.fecharMenusAcoes();NotasFiscaisPage.sincronizarFocus(' +
                     id +
-                    ')">Sincronizar</button>'
+                    ')">' +
+                    _menuRow("refresh", "Sincronizar com Focus") +
+                    "</button>"
             );
             items.push(
                 '<button type="button" role="menuitem" onclick="NotasFiscaisPage.fecharMenusAcoes();NotasFiscaisPage.reenviarHook(' +
                     id +
-                    ')">Webhook</button>'
+                    ')">' +
+                    _menuRow("webhook", "Reenviar webhook") +
+                    "</button>"
             );
             if (n.tipo === "nfe") {
                 items.push(
                     '<button type="button" role="menuitem" onclick="NotasFiscaisPage.fecharMenusAcoes();NotasFiscaisPage.cartaCorrecao(' +
                         id +
-                        ')">CC-e</button>'
+                        ')">' +
+                        _menuRow("pencil", "Carta de correção (CC-e)") +
+                        "</button>"
                 );
             }
             if (n.orcamento_id && (n.tipo === "nfe" || n.tipo === "nfce")) {
@@ -218,14 +306,18 @@
                         n.orcamento_id +
                         ",'" +
                         tipoPrev +
-                        '\')">Prévia DANFE</button>'
+                        '\')">' +
+                        _menuRow("eye", "Prévia DANFE") +
+                        "</button>"
                 );
             }
             items.push('<div class="nf-actions__sep" role="separator"></div>');
             items.push(
                 '<button type="button" role="menuitem" class="nf-actions__danger" onclick="NotasFiscaisPage.fecharMenusAcoes();NotasFiscaisPage.cancelar(' +
                     id +
-                    ')">Cancelar nota</button>'
+                    ')">' +
+                    _menuRow("ban", "Cancelar nota") +
+                    "</button>"
             );
         }
         if (n.status === "processando") {
@@ -233,15 +325,19 @@
             items.push(
                 '<button type="button" role="menuitem" onclick="NotasFiscaisPage.fecharMenusAcoes();NotasFiscaisPage.sincronizarFocus(' +
                     id +
-                    ')">Sincronizar</button>'
+                    ')">' +
+                    _menuRow("refresh", "Sincronizar com Focus") +
+                    "</button>"
             );
         }
         if (n.status === "erro") {
             if (items.length) items.push('<div class="nf-actions__sep" role="separator"></div>');
             items.push(
-                '<button type="button" role="menuitem" class="nf-btn-analisar btn-warning" style="background:transparent;border:none;padding:8px 10px;width:100%;text-align:left;font:inherit;color:inherit" onclick="NotasFiscaisPage.fecharMenusAcoes();NotasFiscaisPage.analisarErro(' +
+                '<button type="button" role="menuitem" class="nf-menu-btn nf-menu-btn--warning nf-btn-analisar" onclick="NotasFiscaisPage.fecharMenusAcoes();NotasFiscaisPage.analisarErro(' +
                     id +
-                    ')">Analisar e corrigir</button>'
+                    ')">' +
+                    _menuRow("search", "Analisar e corrigir") +
+                    "</button>"
             );
         }
 
@@ -251,7 +347,9 @@
 
         return (
             '<div class="nf-actions">' +
-            '<button type="button" class="nf-actions__trigger btn btn-sm btn-secondary" aria-expanded="false" aria-haspopup="true">Ações</button>' +
+            '<button type="button" class="nf-actions__trigger nf-actions__trigger--icon btn btn-sm btn-secondary" aria-expanded="false" aria-haspopup="true" aria-label="Menu de ações" title="Ações">' +
+            _svgIcon("menu", 18) +
+            "</button>" +
             '<div class="nf-actions__menu" role="menu" hidden>' +
             items.join("") +
             "</div></div>"
@@ -464,73 +562,79 @@
                 var ops = [];
                 if (n.status === "emitida") {
                     ops.push(
-                        '<button type="button" onclick="NotasFiscaisPage.cancelar(' +
-                            n.id +
-                            ')" class="btn btn-sm btn-danger">Cancelar</button>'
+                        _nfIconButton('onclick="NotasFiscaisPage.cancelar(' + n.id + ')"', "ban", "Cancelar nota fiscal", "nf-icon-btn--danger")
                     );
                     ops.push(
-                        '<button type="button" onclick="NotasFiscaisPage.sincronizarFocus(' +
-                            n.id +
-                            ')" class="btn btn-sm btn-secondary" title="Atualiza status consultando a API Focus">Sincronizar</button>'
+                        _nfIconButton(
+                            'onclick="NotasFiscaisPage.sincronizarFocus(' + n.id + ')"',
+                            "refresh",
+                            "Sincronizar status com a Focus",
+                            ""
+                        )
                     );
                     ops.push(
-                        '<button type="button" onclick="NotasFiscaisPage.reenviarHook(' +
-                            n.id +
-                            ')" class="btn btn-sm btn-secondary" title="Reenvia notificação (webhook) da Focus">Webhook</button>'
+                        _nfIconButton(
+                            'onclick="NotasFiscaisPage.reenviarHook(' + n.id + ')"',
+                            "webhook",
+                            "Reenviar webhook da Focus",
+                            ""
+                        )
                     );
                     if (n.tipo === "nfe") {
                         ops.push(
-                            '<button type="button" onclick="NotasFiscaisPage.cartaCorrecao(' +
-                                n.id +
-                                ')" class="btn btn-sm btn-secondary">CC-e</button>'
+                            _nfIconButton(
+                                'onclick="NotasFiscaisPage.cartaCorrecao(' + n.id + ')"',
+                                "pencil",
+                                "Emitir carta de correção (CC-e)",
+                                ""
+                            )
                         );
                     }
                     if (n.orcamento_id && (n.tipo === "nfe" || n.tipo === "nfce")) {
                         ops.push(
-                            '<button type="button" onclick="NotasFiscaisPage.previaDanfe(' +
-                                n.orcamento_id +
-                                ",'" +
-                                String(n.tipo || "nfe").replace(/'/g, "") +
-                                '\')" class="btn btn-sm btn-secondary">Prévia DANFE</button>'
+                            _nfIconButton(
+                                "onclick=\"NotasFiscaisPage.previaDanfe(" +
+                                    n.orcamento_id +
+                                    ",'" +
+                                    String(n.tipo || "nfe").replace(/'/g, "") +
+                                    '\')"',
+                                "eye",
+                                "Pré-visualizar DANFE (PDF)",
+                                ""
+                            )
                         );
                     }
                 }
                 if (n.status === "processando") {
                     ops.push(
-                        '<button type="button" onclick="NotasFiscaisPage.sincronizarFocus(' +
-                            n.id +
-                            ')" class="btn btn-sm btn-secondary">Sincronizar</button>'
+                        _nfIconButton(
+                            'onclick="NotasFiscaisPage.sincronizarFocus(' + n.id + ')"',
+                            "refresh",
+                            "Sincronizar status com a Focus",
+                            ""
+                        )
                     );
                 }
                 if (n.status === "erro") {
                     ops.push(
-                        '<button type="button" onclick="NotasFiscaisPage.analisarErro(' +
-                            n.id +
-                            ')" class="btn btn-sm btn-warning nf-btn-analisar">Analisar e corrigir</button>'
+                        _nfIconButton(
+                            'onclick="NotasFiscaisPage.analisarErro(' + n.id + ')"',
+                            "search",
+                            "Analisar erro e sugerir correções",
+                            "nf-btn-analisar nf-icon-btn--warning"
+                        )
                     );
                 }
 
                 var links = [];
                 if (n.danfe_url) {
-                    links.push(
-                        '<a href="' +
-                            _escHtml(n.danfe_url) +
-                            '" target="_blank" rel="noopener noreferrer" class="btn btn-sm">DANFE</a>'
-                    );
+                    links.push(_nfIconLink(_escHtml(n.danfe_url), "doc", "Abrir DANFE em nova aba", ""));
                 }
                 if (n.xml_url) {
-                    links.push(
-                        '<a href="' +
-                            _escHtml(n.xml_url) +
-                            '" target="_blank" rel="noopener noreferrer" class="btn btn-sm">XML</a>'
-                    );
+                    links.push(_nfIconLink(_escHtml(n.xml_url), "code", "Baixar ou abrir XML", ""));
                 }
                 if (n.qr_code) {
-                    links.push(
-                        '<a href="' +
-                            _escHtml(n.qr_code) +
-                            '" target="_blank" rel="noopener noreferrer" class="btn btn-sm">QR Code</a>'
-                    );
+                    links.push(_nfIconLink(_escHtml(n.qr_code), "qr", "Abrir QR Code da NFC-e", ""));
                 }
 
                 var metaHtml =
@@ -538,8 +642,8 @@
                     _blocoOrcamento(n) +
                     _blocoTemporalNota(n);
 
-                var linksHtml = links.length ? '<div class="nf-card__links">' + links.join("") + "</div>" : "";
-                var opsHtml = ops.length ? '<div class="nf-card__ops">' + ops.join("") + "</div>" : "";
+                var linksHtml = links.length ? '<div class="nf-card__links nf-card__icon-row">' + links.join("") + "</div>" : "";
+                var opsHtml = ops.length ? '<div class="nf-card__ops nf-card__icon-row">' + ops.join("") + "</div>" : "";
                 var footerInner = linksHtml + opsHtml;
                 var footerBlock = footerInner ? '<div class="nf-card__footer">' + footerInner + "</div>" : "";
 
@@ -809,28 +913,56 @@
         }
     }
 
-    async function analisarErro(notaId) {
-        var btn = document.querySelector('[data-nota-id="' + notaId + '"] .nf-btn-analisar, [data-nota-id="' + notaId + '"] .btn-warning');
-        if (btn) {
-            btn.disabled = true;
-            btn.textContent = "Analisando...";
+    function _analisarBtnSetLoading(btn, loading) {
+        if (!btn) return;
+        btn.disabled = !!loading;
+        if (btn.classList.contains("nf-icon-btn")) {
+            btn.classList.toggle("nf-icon-btn--loading", !!loading);
+            btn.setAttribute("aria-busy", loading ? "true" : "false");
+            if (loading) {
+                if (!btn.getAttribute("data-nf-al-orig")) {
+                    btn.setAttribute("data-nf-al-orig", btn.getAttribute("aria-label") || "");
+                }
+                btn.setAttribute("aria-label", "Analisando, aguarde…");
+            } else {
+                var orig = btn.getAttribute("data-nf-al-orig");
+                if (orig) btn.setAttribute("aria-label", orig);
+                btn.removeAttribute("data-nf-al-orig");
+            }
+            return;
         }
+        if (btn.querySelector && btn.querySelector(".nf-menu-item__txt")) {
+            var txt = btn.querySelector(".nf-menu-item__txt");
+            if (loading) {
+                if (!btn.getAttribute("data-nf-al-txt")) {
+                    btn.setAttribute("data-nf-al-txt", txt ? txt.textContent : "");
+                }
+                if (txt) txt.textContent = "Analisando…";
+            } else {
+                var prev = btn.getAttribute("data-nf-al-txt");
+                if (txt && prev) txt.textContent = prev;
+                btn.removeAttribute("data-nf-al-txt");
+            }
+            return;
+        }
+        btn.textContent = loading ? "Analisando…" : "Analisar e corrigir";
+    }
+
+    async function analisarErro(notaId) {
+        var btn = document.querySelector(
+            '[data-nota-id="' + notaId + '"] .nf-btn-analisar, [data-nota-id="' + notaId + '"] .btn-warning'
+        );
+        _analisarBtnSetLoading(btn, true);
 
         var analise = null;
         try {
             analise = await api.post("/notas-fiscais/" + notaId + "/analisar-erro", {});
         } catch (e) {
             alert("Erro ao analisar: " + (e.message || "tente novamente"));
-            if (btn) {
-                btn.disabled = false;
-                btn.textContent = "Analisar e corrigir";
-            }
+            _analisarBtnSetLoading(btn, false);
             return;
         }
-        if (btn) {
-            btn.disabled = false;
-            btn.textContent = "Analisar e corrigir";
-        }
+        _analisarBtnSetLoading(btn, false);
 
         _mostrarModalAnalise(analise);
     }
