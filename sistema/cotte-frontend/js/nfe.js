@@ -9,6 +9,62 @@ const NFeService = (() => {
   let _orcSnapshot = null;
   /** True se o operador alterou NCM/CFOP/unidade/CSOSN/origem na tabela desta sessão. */
   let _fiscalItensDirty = false;
+  /** Valores fiscais efetivos do último preparar (payload Focus `items`), por id do item do orçamento. */
+  let _fiscalEfetivoPorItemId = {};
+
+  function _limparFiscalEfetivoPreparar() {
+    _fiscalEfetivoPorItemId = {};
+  }
+
+  /** Converte um elemento de `payload_preview.items` (Focus) para campos da tabela do modal. */
+  function _payloadItemParaFiscalLinha(pItem) {
+    if (!pItem || typeof pItem !== 'object') return null;
+    let ncm = '';
+    try {
+      const n = parseInt(String(pItem.codigo_ncm ?? ''), 10);
+      if (Number.isFinite(n) && n > 0) ncm = String(n).padStart(8, '0').slice(-8);
+    } catch (_) { /* ignora */ }
+    let cfop = '';
+    try {
+      const c = parseInt(String(pItem.cfop ?? ''), 10);
+      if (Number.isFinite(c) && c > 0) cfop = String(c).padStart(4, '0').slice(-4);
+    } catch (_) { /* ignora */ }
+    const uniRaw = pItem.unidade_comercial || pItem.unidade_tributavel || 'UN';
+    const uni = (String(uniRaw || 'UN').trim().toUpperCase().slice(0, 6) || 'UN');
+    const st = pItem.icms_situacao_tributaria;
+    const csosn = st != null && String(st).trim() !== ''
+      ? String(st).replace(/\D/g, '').slice(0, 4)
+      : '';
+    let origem = '0';
+    if (pItem.icms_origem != null && String(pItem.icms_origem).trim() !== '') {
+      const o = parseInt(String(pItem.icms_origem), 10);
+      if (!Number.isNaN(o)) origem = String(o);
+    }
+    return { ncm, cfop, unidade: uni, csosn, origem };
+  }
+
+  /** Preenche `_fiscalEfetivoPorItemId` a partir de `payload_preview` (mesma ordem dos itens do orçamento). */
+  function _aplicarFiscalDoPayloadPreparar(payloadPreview) {
+    const tipo = document.getElementById('nfe-tipo')?.value || 'nfe';
+    if (tipo === 'nfse' || !_orcSnapshot?.itens?.length) {
+      _limparFiscalEfetivoPreparar();
+      return;
+    }
+    const rawItems = payloadPreview && payloadPreview.items;
+    if (!Array.isArray(rawItems) || rawItems.length !== _orcSnapshot.itens.length) {
+      _limparFiscalEfetivoPreparar();
+      return;
+    }
+    const next = {};
+    for (let i = 0; i < _orcSnapshot.itens.length; i++) {
+      const it = _orcSnapshot.itens[i];
+      if (it == null || it.id == null) continue;
+      const line = _payloadItemParaFiscalLinha(rawItems[i]);
+      if (line) next[String(it.id)] = line;
+    }
+    _fiscalEfetivoPorItemId = next;
+    _fiscalItensDirty = false;
+  }
 
   /** Valor sentinela da opção «Outro» no select (não é texto enviado à API). */
   const NATUREZA_OUTRO = '__outro__';
@@ -112,17 +168,31 @@ const NFeService = (() => {
       return;
     }
     bloco.style.display = 'block';
-    _fiscalItensDirty = false;
     const itens = _orcSnapshot.itens;
     const rows = itens.map((it, idx) => {
       const s = it.servico || {};
-      const ncm = String(s.ncm || '').replace(/\D/g, '').slice(0, 8);
-      const cfop = String(s.cfop || '').replace(/\D/g, '').slice(0, 4);
-      const uni = String(s.unidade_fiscal || s.unidade || it.unidade || 'UN').slice(0, 6);
-      const csosn = s.csosn != null && String(s.csosn).trim() !== ''
-        ? String(s.csosn).replace(/\D/g, '').slice(0, 4)
-        : '';
-      const origem = s.origem != null && s.origem !== '' ? String(s.origem) : '0';
+      const fid = _fiscalEfetivoPorItemId[String(it.id)];
+      const ncmPrep = fid && fid.ncm ? String(fid.ncm).replace(/\D/g, '').slice(0, 8) : '';
+      const ncmCat = String(s.ncm || '').replace(/\D/g, '').slice(0, 8);
+      const ncm = ncmPrep || ncmCat;
+      const cfopPrep = fid && fid.cfop ? String(fid.cfop).replace(/\D/g, '').slice(0, 4) : '';
+      const cfopCat = String(s.cfop || '').replace(/\D/g, '').slice(0, 4);
+      const cfop = cfopPrep || cfopCat;
+      const uniPrep = fid && fid.unidade ? String(fid.unidade).trim().toUpperCase().slice(0, 6) : '';
+      const uniCat = String(s.unidade_fiscal || s.unidade || it.unidade || 'UN').slice(0, 6);
+      const uni = uniPrep || uniCat || 'UN';
+      let csosn = '';
+      if (fid && fid.csosn != null && String(fid.csosn).trim() !== '') {
+        csosn = String(fid.csosn).replace(/\D/g, '').slice(0, 4);
+      } else if (s.csosn != null && String(s.csosn).trim() !== '') {
+        csosn = String(s.csosn).replace(/\D/g, '').slice(0, 4);
+      }
+      let origem = '0';
+      if (fid && fid.origem != null && String(fid.origem).trim() !== '') {
+        origem = String(fid.origem);
+      } else if (s.origem != null && s.origem !== '') {
+        origem = String(s.origem);
+      }
       return `<tr data-nfe-item-row data-item-id="${it.id}" style="font-size:12px">
         <td style="padding:6px;border-bottom:1px solid var(--border,#eee);max-width:200px;vertical-align:middle">${_esc((it.descricao || '—').slice(0, 100))}</td>
         <td style="padding:4px;border-bottom:1px solid var(--border,#eee);vertical-align:middle"><input class="nfe-in-ncm" type="text" inputmode="numeric" maxlength="8" value="${_esc(ncm)}" style="width:7rem" aria-label="NCM item ${idx + 1}" oninput="NFeService._markFiscalItensDirty()"></td>
@@ -284,6 +354,7 @@ const NFeService = (() => {
   async function _carregarContextoOrcamento() {
     const host = document.getElementById('nfe-contexto-orcamento');
     if (host) host.innerHTML = '<p style="margin:0;color:var(--muted,#666);font-size:12px">Carregando dados fiscais e materiais...</p>';
+    _limparFiscalEfetivoPreparar();
     try {
       const [orc, cfg] = await Promise.all([
         api.get(`/orcamentos/${_orcamentoId}`),
@@ -296,6 +367,7 @@ const NFeService = (() => {
       _renderTabelaFiscalItens();
     } catch (e) {
       _orcSnapshot = null;
+      _limparFiscalEfetivoPreparar();
       if (host) host.innerHTML = `<p style="margin:0;color:#ef4444;font-size:12px">Erro ao carregar contexto: ${_esc(e?.message || 'tente novamente')}</p>`;
       _renderTabelaFiscalItens();
     }
@@ -305,6 +377,7 @@ const NFeService = (() => {
     _orcamentoId = orcamentoId;
     _orcSnapshot = null;
     _fiscalItensDirty = false;
+    _limparFiscalEfetivoPreparar();
     const modal = document.getElementById('modal-nfe');
     if (!modal) return;
     const tipoSel = document.getElementById('nfe-tipo');
@@ -335,6 +408,7 @@ const NFeService = (() => {
     _orcamentoId = null;
     _orcSnapshot = null;
     _fiscalItensDirty = false;
+    _limparFiscalEfetivoPreparar();
     _preparadoOk = false;
     const fiHost = document.getElementById('nfe-itens-fiscais');
     if (fiHost) fiHost.innerHTML = '';
@@ -582,6 +656,12 @@ const NFeService = (() => {
       }
 
       if (areaPrep) areaPrep.innerHTML = html;
+
+      const tipoAtual = document.getElementById('nfe-tipo')?.value || 'nfe';
+      if (tipoAtual === 'nfe' || tipoAtual === 'nfce') {
+        _aplicarFiscalDoPayloadPreparar(resultado.payload_preview);
+        _renderTabelaFiscalItens();
+      }
     } catch (e) {
       _preparadoOk = false;
       if (btnEmitir) btnEmitir.disabled = true;
@@ -592,6 +672,7 @@ const NFeService = (() => {
   }
 
   function _toggleCamposNfse() {
+    _limparFiscalEfetivoPreparar();
     const tipo = document.getElementById('nfe-tipo')?.value || 'nfe';
     const campos = document.getElementById('campos-nfse');
     if (!campos) return;
