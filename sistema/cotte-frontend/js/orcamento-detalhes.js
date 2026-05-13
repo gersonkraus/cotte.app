@@ -1,6 +1,70 @@
-// Detalhes de orçamento em modal reutilizável (dashboard + listagem) — v11
+// Detalhes de orçamento em modal reutilizável (dashboard + listagem) — v12
 
 const _PAG_LABELS = { pix: 'PIX', a_vista: 'À vista', '2x': '2x sem juros', '3x': '3x sem juros', '4x': '4x sem juros' };
+
+const _NF_RESUMO_ST = {
+  emitida: { bg: 'rgba(22,163,74,.12)', color: '#16a34a', label: 'Emitida' },
+  processando: { bg: 'rgba(37,99,235,.12)', color: '#2563eb', label: 'Processando' },
+  erro: { bg: 'rgba(220,38,38,.12)', color: '#dc2626', label: 'Erro' },
+  cancelada: { bg: 'rgba(107,114,128,.12)', color: '#6b7280', label: 'Cancelada' },
+};
+
+async function _buscarNotasPorOrcamento(orcamentoId) {
+  try {
+    const resp = await api.get(`/notas-fiscais/orcamento/${orcamentoId}`);
+    return Array.isArray(resp) ? resp : (resp?.data || []);
+  } catch (_) {
+    return [];
+  }
+}
+
+function _fmtDataNfResumo(iso) {
+  if (!iso) return '';
+  const s = String(iso);
+  const d = s.slice(0, 10);
+  if (d.length === 10 && d.includes('-')) return d.split('-').reverse().join('/');
+  return s.slice(0, 16);
+}
+
+function _htmlResumoNotasFiscais(notas) {
+  if (!notas.length) {
+    return '<p style="margin:0;font-size:13px;color:var(--muted)">Nenhuma nota fiscal vinculada a este orçamento.</p>';
+  }
+  const emitida = notas.some((n) => n && n.status === 'emitida');
+  const linhas = notas.map((n) => {
+    if (!n) return '';
+    const st = (n.status || '').toLowerCase();
+    const meta = _NF_RESUMO_ST[st] || { bg: 'var(--surface2)', color: 'var(--muted)', label: n.status || '—' };
+    const tipo = (n.tipo || '—').toString().toUpperCase();
+    const num = n.numero != null ? `Nº ${escapeHtml(String(n.numero))}` : 'sem número';
+    const ser = n.serie != null && n.serie !== '' ? ` · Série ${escapeHtml(String(n.serie))}` : '';
+    const when = _fmtDataNfResumo(n.emitida_em || n.criado_em);
+    return `
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
+        <span style="font-weight:700;letter-spacing:.04em;font-size:11px">${escapeHtml(tipo)}</span>
+        <span style="color:var(--text)">${num}${ser}</span>
+        <span style="padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;background:${meta.bg};color:${meta.color}">${escapeHtml(meta.label)}</span>
+        ${when ? `<span style="font-size:11px;color:var(--muted);margin-left:auto">${escapeHtml(when)}</span>` : ''}
+      </div>`;
+  }).join('');
+  const hint = emitida
+    ? '<p style="margin:10px 0 0;font-size:11px;color:var(--muted)">Já existe nota emitida para este orçamento; emissão adicional depende do tipo e da série (evite duplicidade).</p>'
+    : '';
+  return `<div style="display:flex;flex-direction:column">${linhas}</div>${hint}`;
+}
+
+/** Preenche #detalhes-nf-section (se existir no DOM) após GET /notas-fiscais/orcamento/:id */
+async function preencherSecaoNotasFiscaisDetalhes(orcamentoId) {
+  const el = document.getElementById('detalhes-nf-section');
+  if (!el) return;
+  el.innerHTML = '<p style="margin:0;font-size:12px;color:var(--muted)">Carregando notas fiscais…</p>';
+  const notas = await _buscarNotasPorOrcamento(orcamentoId);
+  el.innerHTML = `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;font-weight:600">Notas fiscais</div>
+      ${_htmlResumoNotasFiscais(notas)}
+    </div>`;
+}
 
 // ── Modal Principal ────────────────────────────────────────────────────────────
 
@@ -107,6 +171,7 @@ async function abrirDetalhesOrcamento(id) {
         <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;font-weight:600">Observações</div>
         <div style="font-size:13px;color:var(--muted);line-height:1.6">${escapeHtmlWithBreaks(orc.observacoes)}</div>
       </div>` : ''}
+      <div id="detalhes-nf-section" style="margin-bottom:14px"></div>
       <div id="detalhes-documentos-section" style="margin-bottom:14px"></div>
       ${orc.status === 'aprovado' ? `
       <div id="pagamentos-section" style="border:1px solid rgba(0,229,160,0.3);border-radius:10px;padding:14px 16px;margin-bottom:20px">
@@ -161,6 +226,15 @@ async function abrirDetalhesOrcamento(id) {
     footerHtml += `
     <button class="btn btn-ghost" onclick="fecharDetalhes();abrirModalDocsOrcamento(${orc.id})" title="Documentos do orçamento">📎 Docs</button>`;
   }
+  const podeGerarNf = ['aprovado', 'concluido'].includes(orc.status);
+  const temNfeModal = typeof NFeService !== 'undefined' && typeof NFeService.abrirModal === 'function' && document.getElementById('modal-nfe');
+  if (podeGerarNf && temNfeModal) {
+    footerHtml += `
+    <button class="btn btn-ghost" style="font-weight:600" onclick="fecharDetalhes();NFeService.abrirModal(${orc.id})" title="Emitir nota fiscal (NF-e, NFC-e ou NFS-e)">🧾 Gerar NF</button>`;
+  } else if (podeGerarNf) {
+    footerHtml += `
+    <a class="btn btn-ghost" href="notas-fiscais.html" title="Abrir tela de notas fiscais">🧾 Notas fiscais</a>`;
+  }
   if (temWhats) {
     footerHtml += `
     <button class="btn ${['rascunho','enviado'].includes(orc.status) ? 'btn-ghost' : 'btn-primary'}" onclick="fecharDetalhes();enviarWhatsapp(${orc.id})" title="Enviar via WhatsApp">📲 WhatsApp</button>`;
@@ -176,6 +250,8 @@ async function abrirDetalhesOrcamento(id) {
 
   footerEl.innerHTML = footerHtml;
   modalEl.classList.add('open');
+
+  preencherSecaoNotasFiscaisDetalhes(orc.id);
 
   // Carregar documentos vinculados
   _carregarDocumentosDetalhes(orc.id);

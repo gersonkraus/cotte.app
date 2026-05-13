@@ -524,6 +524,77 @@
     </div>
   </div>
 
+  <div id="modal-nfe" class="modal-overlay" aria-hidden="true" role="dialog" aria-labelledby="modal-nfe-title" aria-modal="true">
+    <div class="modal" style="width:min(640px,96vw)">
+      <div class="modal-header">
+        <span class="modal-title" id="modal-nfe-title">🧾 Emitir Nota Fiscal</span>
+        <button class="modal-close" onclick="NFeService.fecharModal()" aria-label="Fechar">&times;</button>
+      </div>
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:12px">
+        <div class="form-group">
+          <label for="nfe-tipo">Tipo de nota</label>
+          <select id="nfe-tipo" onchange="NFeService._toggleCamposNfse()">
+            <option value="nfe" selected>NF-e — Produto (Modelo 55)</option>
+            <option value="nfce">NFC-e — Consumidor (Modelo 65)</option>
+            <option value="nfse">NFS-e — Serviço</option>
+          </select>
+          <p id="nfe-dica-tipo" style="margin:6px 0 0;font-size:12px;color:var(--muted,#666)"></p>
+        </div>
+        <details id="nfe-detalhes-avancados" style="border:1px solid var(--border,#e5e5e5);border-radius:8px;padding:8px 10px">
+          <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--text)">Avançado — série da nota</summary>
+          <div class="form-group" style="margin-top:10px;max-width:120px">
+            <label for="nfe-serie">Série</label>
+            <input type="text" id="nfe-serie" value="1" maxlength="3" inputmode="numeric" autocomplete="off">
+          </div>
+        </details>
+        <div class="form-group">
+          <label for="nfe-natureza">Natureza da operação</label>
+          <select id="nfe-natureza" onchange="NFeService._onNaturezaSelectChange()"></select>
+          <div id="nfe-natureza-outro-wrap" style="display:none;margin-top:8px">
+            <label for="nfe-natureza-outro" style="display:block;font-size:12px;color:var(--muted,#666);margin-bottom:4px">Descrição personalizada (máx. 120 caracteres, exigência da API)</label>
+            <input type="text" id="nfe-natureza-outro" maxlength="120" autocomplete="off" placeholder="Ex.: Venda de mercadorias destinada à Zona Franca de Manaus" oninput="NFeService._invalidatePrep()">
+          </div>
+        </div>
+        <div id="campos-nfse" style="display:none;flex-direction:column;gap:10px">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Código LC116</label>
+              <input type="text" id="nfe-codigo-servico" placeholder="Ex: 170600 (6 dígitos)">
+            </div>
+            <div class="form-group">
+              <label>Alíquota ISS (%)</label>
+              <input type="number" id="nfe-aliquota-iss" placeholder="Ex: 5" step="0.01" min="0" max="100">
+            </div>
+          </div>
+        </div>
+        <div style="border:1px solid var(--border,#e5e5e5);border-radius:10px;padding:10px 12px;background:var(--bg-secondary,rgba(0,0,0,0.02))">
+          <p style="margin:0 0 8px;font-size:12px;font-weight:700">Orçamento e dados fiscais</p>
+          <div id="nfe-contexto-orcamento" style="min-height:24px"></div>
+        </div>
+        <div id="nfe-bloco-itens-fiscal" style="display:none">
+          <p style="margin:0 0 6px;font-size:12px;font-weight:700">Dados fiscais por item (só esta NF-e / NFC-e)</p>
+          <p style="margin:0 0 10px;font-size:11px;color:var(--muted,#666)">Alterações aqui não atualizam o catálogo; entram apenas na verificação e na emissão após «Verificar».</p>
+          <div id="nfe-itens-fiscais" style="max-width:100%;overflow-x:hidden"></div>
+        </div>
+        <p style="margin:0;font-size:12px;line-height:1.45;color:var(--muted,#666)">Ao abrir este modal, o sistema já executa uma verificação automática. Use <strong>Verificar</strong> de novo após mudar tipo de nota, natureza, série ou os dados fiscais por item.</p>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button id="btn-verificar-nfe" class="btn btn-ghost" onclick="NFeService.verificar()" style="flex:1;min-width:140px">🔍 Verificar</button>
+          <button id="btn-emitir-nfe" class="btn btn-primary" onclick="NFeService.emitir()" style="flex:1;min-width:140px" disabled>✅ Confirmar e Emitir</button>
+        </div>
+        <p style="margin:0;font-size:0.75rem;color:var(--muted,#666)">Nada é emitido até confirmar. A verificação mostra só pendências e avisos.</p>
+        <div id="nfe-prep-resultado" style="min-height:20px"></div>
+        <div id="nfe-status-msg" style="min-height:1.25rem;font-size:0.85rem;color:var(--accent)"></div>
+        <div id="nfe-poll-wrap" style="display:none;margin-top:6px">
+          <progress id="nfe-poll-progress" max="45" value="0" style="width:100%;height:8px;border-radius:4px"></progress>
+          <p id="nfe-poll-caption" style="margin:4px 0 0;font-size:11px;color:var(--muted,#666)"></p>
+        </div>
+        <hr style="margin:0.25rem 0;border:none;border-top:1px solid var(--border)">
+        <p style="font-weight:600;margin:0 0 0.25rem;font-size:0.875rem">Notas emitidas para este orçamento</p>
+        <div id="nfe-lista-notas"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Linha do tempo (dashboard + orcamentos) -->
   <div class="modal-overlay" id="modal-timeline">
     <div class="modal" style="max-width:520px">
@@ -2349,7 +2420,8 @@
     restaurarChatNaTela();
   </script>
   <script src="js/api-financeiro.js?v=1"></script>
-  <script src="js/orcamento-detalhes.js?v=6"></script>
+  <script src="js/orcamento-detalhes.js?v=7"></script>
+  <script src="js/nfe.js?v=16"></script>
 
   <!-- MODAL SELEÇÃO DE PLANOS -->
   <div id="modal-planos" class="modal-planos-overlay" style="display: none;" role="dialog" aria-modal="true"
