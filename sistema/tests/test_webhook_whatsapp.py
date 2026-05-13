@@ -12,6 +12,7 @@ Cobre:
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
 from app.models.models import StatusOrcamento
+from app.models.models import AuditLog, TenantCommercialInteraction, TenantCommercialLead
 from app.services.rate_limit_service import RateLimitResult
 from tests.conftest import make_cliente, make_empresa, make_orcamento, make_usuario
 
@@ -236,6 +237,166 @@ class TestWebhookEvolution:
             }, headers=EVOLUTION_HEADERS)
         assert r.status_code == 200
         assert r.json()["status"] == "ignored"
+
+    def test_evolution_inbound_registra_interacao_tenant_recebida(self, http_client, db):
+        emp = make_empresa(db)
+        emp.evolution_instance = "tenant-empresa-1"
+        db.add(emp)
+        db.flush()
+
+        lead = TenantCommercialLead(
+            empresa_id=emp.id,
+            nome="Lead Tenant",
+            nome_empresa="Lead Tenant LTDA",
+            telefone="5511987654321",
+            status_pipeline="novo",
+            ativo=True,
+        )
+        db.add(lead)
+        db.commit()
+
+        payload = {
+            "event": "messages.upsert",
+            "instance": "tenant-empresa-1",
+            "data": {
+                "key": {
+                    "fromMe": False,
+                    "remoteJid": "5511987654321:26@s.whatsapp.net",
+                    "id": "ABCD1234",
+                },
+                "messageType": "conversation",
+                "message": {"conversation": "Oi, tenho interesse."},
+            },
+        }
+
+        with patch("app.routers.whatsapp.settings") as mock_settings:
+            mock_settings.WHATSAPP_PROVIDER = "evolution"
+            mock_settings.EVOLUTION_API_KEY = "test-evolution-api-key"
+            r = http_client.post(
+                "/whatsapp/webhook?instance=tenant-empresa-1",
+                json=payload,
+                headers=EVOLUTION_HEADERS,
+            )
+
+        assert r.status_code == 200
+        assert r.json()["status"] == "ok"
+
+        db.expire_all()
+        interacoes = (
+            db.query(TenantCommercialInteraction)
+            .filter(
+                TenantCommercialInteraction.empresa_id == emp.id,
+                TenantCommercialInteraction.lead_id == lead.id,
+            )
+            .all()
+        )
+        assert len(interacoes) == 1
+        assert interacoes[0].direcao == "recebido"
+        assert interacoes[0].message_id == "ABCD1234"
+
+    def test_evolution_inbound_midia_sem_texto_registra_placeholder_tenant(self, http_client, db):
+        emp = make_empresa(db)
+        emp.evolution_instance = "tenant-empresa-2"
+        db.add(emp)
+        db.flush()
+
+        lead = TenantCommercialLead(
+            empresa_id=emp.id,
+            nome="Lead Midia",
+            nome_empresa="Lead Midia LTDA",
+            telefone="5511991112222",
+            status_pipeline="novo",
+            ativo=True,
+        )
+        db.add(lead)
+        db.commit()
+
+        payload = {
+            "event": "messages.upsert",
+            "instance": "tenant-empresa-2",
+            "data": {
+                "key": {
+                    "fromMe": False,
+                    "remoteJid": "5511991112222@s.whatsapp.net",
+                    "id": "MIDIA123",
+                },
+                "messageType": "imageMessage",
+                "message": {
+                    "imageMessage": {"mimetype": "image/jpeg"},
+                },
+            },
+        }
+
+        with patch("app.routers.whatsapp.settings") as mock_settings:
+            mock_settings.WHATSAPP_PROVIDER = "evolution"
+            mock_settings.EVOLUTION_API_KEY = "test-evolution-api-key"
+            r = http_client.post(
+                "/whatsapp/webhook?instance=tenant-empresa-2",
+                json=payload,
+                headers=EVOLUTION_HEADERS,
+            )
+
+        assert r.status_code == 200
+        assert r.json()["status"] in ("ok", "ignored")
+
+        db.expire_all()
+        interacao = (
+            db.query(TenantCommercialInteraction)
+            .filter(
+                TenantCommercialInteraction.empresa_id == emp.id,
+                TenantCommercialInteraction.lead_id == lead.id,
+                TenantCommercialInteraction.message_id == "MIDIA123",
+            )
+            .first()
+        )
+        assert interacao is not None
+        assert interacao.direcao == "recebido"
+        assert interacao.conteudo == "[imagem recebida]"
+
+    def test_evolution_inbound_sem_lead_gera_auditlog_nao_vinculado(self, http_client, db):
+        emp = make_empresa(db)
+        emp.evolution_instance = "tenant-empresa-3"
+        db.add(emp)
+        db.commit()
+
+        payload = {
+            "event": "messages.upsert",
+            "instance": "tenant-empresa-3",
+            "data": {
+                "key": {
+                    "fromMe": False,
+                    "remoteJid": "5511993334444@s.whatsapp.net",
+                    "id": "NOLEAD123",
+                },
+                "messageType": "conversation",
+                "message": {"conversation": "Mensagem de cliente sem lead"},
+            },
+        }
+
+        with patch("app.routers.whatsapp.settings") as mock_settings:
+            mock_settings.WHATSAPP_PROVIDER = "evolution"
+            mock_settings.EVOLUTION_API_KEY = "test-evolution-api-key"
+            r = http_client.post(
+                "/whatsapp/webhook?instance=tenant-empresa-3",
+                json=payload,
+                headers=EVOLUTION_HEADERS,
+            )
+
+        assert r.status_code == 200
+        assert r.json()["status"] == "ok"
+
+        db.expire_all()
+        audit = (
+            db.query(AuditLog)
+            .filter(
+                AuditLog.empresa_id == emp.id,
+                AuditLog.acao == "whatsapp_inbound_nao_vinculado",
+            )
+            .order_by(AuditLog.id.desc())
+            .first()
+        )
+        assert audit is not None
+        assert "NOLEAD123" in (audit.detalhes or "")
 
 
 # ── Rate Limiting ─────────────────────────────────────────────────────────

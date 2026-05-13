@@ -657,10 +657,11 @@ class WebhookEvolution(BaseModel):
 
     @property
     def phone(self) -> Optional[str]:
-        """Extrai o número de telefone limpo do remoteJid (remove @s.whatsapp.net)."""
+        """Extrai o número de telefone do remoteJid removendo sufixos de device/jid."""
         k = self.key
         if k and k.remoteJid:
-            return k.remoteJid.split("@")[0]
+            raw = k.remoteJid.split("@")[0]
+            return raw.split(":")[0]
         return None
 
     @property

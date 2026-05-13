@@ -529,7 +529,7 @@ async def whatsapp_conectar(
 
     instance_name = empresa.evolution_instance or f"empresa-{empresa.id}"
     webhook_url = (
-        f"{settings.APP_URL.rstrip('/')}/whatsapp/webhook?instance={instance_name}"
+        f"{settings.APP_URL.rstrip('/')}/api/v1/whatsapp/webhook?instance={instance_name}"
     )
 
     # Se já existe instância salva, valida se ainda existe na Evolution

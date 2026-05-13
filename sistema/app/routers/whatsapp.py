@@ -64,6 +64,57 @@ def _validar_autenticacao_webhook(request: Request, provider: str) -> None:
         raise HTTPException(status_code=401, detail="Webhook nao autorizado")
 
 
+def _resumir_mensagem_para_timeline_evolution(payload: WebhookEvolution, raw_body: dict) -> str | None:
+    """
+    Extrai uma representação textual mínima para timeline do CRM.
+    Prioriza texto real e, quando não houver, registra placeholders de mídias/eventos
+    para não perder a evidência da interação do cliente.
+    """
+    texto = sanitizar_mensagem(payload.mensagem_texto)
+    if texto:
+        return texto
+
+    data = raw_body.get("data") if isinstance(raw_body, dict) else {}
+    if not isinstance(data, dict):
+        return None
+    msg = data.get("message") or {}
+    if not isinstance(msg, dict):
+        return None
+
+    if msg.get("audioMessage") or msg.get("pttMessage"):
+        return "[audio recebido]"
+    if msg.get("imageMessage"):
+        return "[imagem recebida]"
+    if msg.get("videoMessage"):
+        return "[video recebido]"
+    if msg.get("documentMessage"):
+        return "[documento recebido]"
+    if msg.get("stickerMessage"):
+        return "[sticker recebido]"
+    if msg.get("locationMessage"):
+        return "[localizacao recebida]"
+    if msg.get("contactMessage"):
+        return "[contato recebido]"
+
+    if msg.get("listResponseMessage"):
+        row_id = payload.list_response_row_id
+        if row_id:
+            return f"[resposta de lista: {row_id}]"
+        return "[resposta de lista recebida]"
+
+    if msg.get("buttonsResponseMessage"):
+        b = msg.get("buttonsResponseMessage") or {}
+        selected_id = b.get("selectedButtonId") or b.get("selectedDisplayText")
+        if selected_id:
+            return f"[resposta de botao: {selected_id}]"
+        return "[resposta de botao recebida]"
+
+    msg_type = (data.get("messageType") or "").strip()
+    if msg_type:
+        return f"[mensagem recebida sem texto: {msg_type}]"
+    return "[mensagem recebida sem texto]"
+
+
 @router.get("/status")
 async def status_conexao():
     return await get_status()
@@ -318,9 +369,9 @@ async def _webhook_evolution(
     empresa_id = empresa_instancia.id if empresa_instancia else None
 
     telefone = sanitizar_telefone(payload.phone)
-    mensagem = sanitizar_mensagem(payload.mensagem_texto)
+    mensagem_timeline = _resumir_mensagem_para_timeline_evolution(payload, raw_body)
 
-    if telefone and mensagem and empresa_id and not payload.isGroup:
+    if telefone and mensagem_timeline and empresa_id and not payload.isGroup:
         direcao = "enviado" if payload.fromMe else "recebido"
         message_id = payload.data.get("key", {}).get("id") if isinstance(payload.data, dict) else None
         
@@ -330,7 +381,7 @@ async def _webhook_evolution(
             registrar_interacao_whatsapp,
             empresa_id=empresa_id,
             telefone=telefone,
-            mensagem=mensagem,
+            mensagem=mensagem_timeline,
             direcao=direcao,
             message_id=message_id
         )
@@ -376,6 +427,7 @@ async def _webhook_evolution(
         return {"status": "ok", "type": "audio"}
 
     if not telefone or not mensagem:
+        # A interação já pode ter sido registrada na timeline como placeholder.
         return {"status": "ignored"}
 
     background_tasks.add_task(processar_mensagem, telefone, mensagem, empresa_id)

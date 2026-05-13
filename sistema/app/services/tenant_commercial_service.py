@@ -1,8 +1,10 @@
 import logging
+import json
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models.models import (
+    AuditLog,
     TenantCommercialLead,
     TenantCommercialInteraction,
     TipoInteracao,
@@ -91,6 +93,25 @@ async def registrar_interacao_whatsapp(
         lead = find_lead_by_phone(_db, empresa_id, telefone)
         if not lead:
             logger.warning("[TenantCommercialService] Lead nao localizado para telefone %s na empresa %s", telefone, empresa_id)
+            _db.add(
+                AuditLog(
+                    empresa_id=empresa_id,
+                    acao="whatsapp_inbound_nao_vinculado",
+                    recurso="tenant_commercial_lead",
+                    recurso_id=None,
+                    detalhes=json.dumps(
+                        {
+                            "telefone": telefone,
+                            "telefone_sufixo": _digitos_telefone(telefone)[-8:],
+                            "direcao": direcao,
+                            "message_id": message_id,
+                            "preview": mensagem[:120],
+                        },
+                        ensure_ascii=False,
+                    ),
+                )
+            )
+            _db.commit()
             return False
 
         # 3. Registrar Interação
