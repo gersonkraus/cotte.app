@@ -267,6 +267,8 @@ class ComercialCampanhas {
 
         btnSubmit.disabled = blockSubmit;
     }
+
+    renderCampanhas() {
         const list = document.getElementById('campaigns-list');
         list.innerHTML = '';
 
@@ -278,26 +280,77 @@ class ComercialCampanhas {
         this.filteredCampanhas.forEach(campanha => {
             const card = document.createElement('div');
             card.className = 'campaign-card';
+
+            const total = campanha.total_leads || 1;
+            const enviadosPct = Math.min(100, Math.round((campanha.enviados / total) * 100));
+            const entreguesPct = Math.min(100, Math.round((campanha.entregues / total) * 100));
+            const respondidosPct = Math.min(100, Math.round((campanha.respondidos / total) * 100));
+
+            const btnPausar = campanha.status === 'agendada' 
+                ? `<button class="btn-camp-icon" title="Pausar" onclick="app.pauseCampanha(${campanha.id})">⏸️</button>` : '';
+            const btnRetomar = campanha.status === 'pausada'
+                ? `<button class="btn-camp-icon" title="Retomar" onclick="app.resumeCampanha(${campanha.id})">▶️</button>` : '';
+            const btnEditar = (campanha.status === 'agendada' || campanha.status === 'pausada')
+                ? `<button class="btn-camp-icon" title="Editar" onclick="app.editCampanha(${campanha.id})">✏️</button>` : '';
+            const btnExcluir = `<button class="btn-camp-icon danger" title="Excluir" onclick="app.deleteCampanha(${campanha.id})">🗑️</button>`;
+
+            let mainAction = '';
+            if (campanha.status === 'agendada' || campanha.status === 'pausada') {
+                mainAction = `<button class="btn-camp-primary" onclick="app.startDisparo(${campanha.id})">🚀 Iniciar Disparo</button>`;
+            } else {
+                mainAction = `<button class="btn-camp-primary" onclick="app.viewMetrics(${campanha.id})">📊 Ver Métricas</button>`;
+            }
+
             card.innerHTML = `
                 <div class="campaign-header">
                     <h3>${campanha.nome}</h3>
                     <div class="campaign-badges">
-                        <span class="badge">${this.getStatusLabel(campanha.status)}</span>
-                        <span class="badge">${this.getCanalLabel(campanha.canal)}</span>
+                        <span class="campaign-badge status-${campanha.status}">${this.getStatusLabel(campanha.status)}</span>
+                        <span class="campaign-badge canal-${campanha.canal}">${this.getCanalLabel(campanha.canal)}</span>
                     </div>
                 </div>
-                <div class="campaign-info">
-                    <p><strong>Template:</strong> ${campanha.template.nome}</p>
-                    <p><strong>Total de Leads:</strong> ${campanha.total_leads}</p>
-                    <p><strong>Enviados:</strong> ${campanha.enviados}</p>
-                    <p><strong>Entregues:</strong> ${campanha.entregues}</p>
-                    <p><strong>Respondidos:</strong> ${campanha.respondidos}</p>
-                    <p><strong>Criado em:</strong> ${this.formatDate(campanha.criado_em)}</p>
+                
+                <div class="campaign-template-name">
+                    <span>📄</span> ${campanha.template.nome}
                 </div>
-                <div class="campaign-actions">
-                    <button class="btn btn-sm btn-secondary" onclick="app.viewMetrics(${campanha.id})">Métricas</button>
-                    <button class="btn btn-sm btn-primary" onclick="app.startDisparo(${campanha.id})">Iniciar Disparo</button>
-                    <button class="btn btn-sm btn-error" onclick="app.deleteCampanha(${campanha.id})">Excluir</button>
+
+                <div class="campaign-meta">
+                    <span>📅 Criado em: ${this.formatDate(campanha.criado_em)}</span>
+                    <span>👥 Total de Leads: ${campanha.total_leads}</span>
+                </div>
+
+                <div class="campaign-funnel">
+                    <div class="funnel-stat">
+                        <span class="funnel-label">Enviados</span>
+                        <span class="funnel-value">${campanha.enviados} <small>(${enviadosPct}%)</small></span>
+                    </div>
+                    <div class="funnel-bar-container">
+                        <div class="funnel-bar-sent" style="width: ${enviadosPct}%;"></div>
+                    </div>
+
+                    <div class="funnel-stat">
+                        <span class="funnel-label">Entregues</span>
+                        <span class="funnel-value">${campanha.entregues} <small>(${entreguesPct}%)</small></span>
+                    </div>
+                    <div class="funnel-bar-container">
+                        <div class="funnel-bar-delivered" style="width: ${entreguesPct}%;"></div>
+                    </div>
+
+                    <div class="funnel-stat" style="margin-bottom: 2px;">
+                        <span class="funnel-label">Respondidos</span>
+                        <span class="funnel-value">${campanha.respondidos} <small>(${respondidosPct}%)</small></span>
+                    </div>
+                    <div class="funnel-bar-container" style="margin-bottom: 0;">
+                        <div class="funnel-bar-replied" style="width: ${respondidosPct}%;"></div>
+                    </div>
+                </div>
+
+                <div class="campaign-actions-modern">
+                    ${mainAction}
+                    ${btnEditar}
+                    ${btnPausar}
+                    ${btnRetomar}
+                    ${btnExcluir}
                 </div>
             `;
             list.appendChild(card);
@@ -309,7 +362,8 @@ class ComercialCampanhas {
             'agendada': 'Agendada',
             'em_andamento': 'Em Andamento',
             'concluida': 'Concluída',
-            'cancelada': 'Cancelada'
+            'cancelada': 'Cancelada',
+            'pausada': 'Pausada'
         };
         return labels[status] || status;
     }
@@ -377,8 +431,11 @@ class ComercialCampanhas {
         }
 
         try {
-            const response = await fetch('/comercial/campaigns', {
-                method: 'POST',
+            const url = this.currentCampanha ? `/comercial/campaigns/${this.currentCampanha.id}` : '/comercial/campaigns';
+            const method = this.currentCampanha ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
                 headers: {
                     'Content-Type': 'application/json',
                 },
@@ -386,16 +443,16 @@ class ComercialCampanhas {
             });
 
             if (!response.ok) {
-                throw new Error('Erro ao criar campanha');
+                throw new Error('Erro ao salvar campanha');
             }
 
-            toastr.success('Campanha criada com sucesso!');
+            toastr.success(this.currentCampanha ? 'Campanha atualizada com sucesso!' : 'Campanha criada com sucesso!');
             this.closeCampaignModal();
             this.loadCampanhas();
 
         } catch (error) {
-            console.error('Erro ao criar campanha:', error);
-            toastr.error('Erro ao criar campanha.');
+            console.error('Erro ao salvar campanha:', error);
+            toastr.error('Erro ao salvar campanha.');
         }
     }
 
@@ -522,6 +579,81 @@ class ComercialCampanhas {
         document.getElementById('filter-canal').value = '';
         this.filteredCampanhas = [...this.campanhas];
         this.renderCampanhas();
+    }
+
+    async pauseCampanha(campanhaId) {
+        if (!confirm('Pausar esta campanha?')) return;
+        try {
+            const response = await fetch(`/comercial/campaigns/${campanhaId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'pausada' })
+            });
+            if (!response.ok) throw new Error('Erro ao pausar');
+            toastr.success('Campanha pausada!');
+            this.loadCampanhas();
+        } catch (error) {
+            console.error(error);
+            toastr.error('Erro ao pausar campanha.');
+        }
+    }
+
+    async resumeCampanha(campanhaId) {
+        if (!confirm('Retomar esta campanha?')) return;
+        try {
+            const response = await fetch(`/comercial/campaigns/${campanhaId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'agendada' })
+            });
+            if (!response.ok) throw new Error('Erro ao retomar');
+            toastr.success('Campanha retomada!');
+            this.loadCampanhas();
+        } catch (error) {
+            console.error(error);
+            toastr.error('Erro ao retomar campanha.');
+        }
+    }
+
+    async editCampanha(id) {
+        const campanha = this.campanhas.find(c => c.id === id);
+        if (!campanha) return;
+        this.currentCampanha = campanha;
+        document.getElementById('campaign-modal-title').textContent = 'Editar Campanha';
+        document.getElementById('campaign-form').reset();
+        document.getElementById('campaign-nome').value = campanha.nome;
+        
+        // Find template dropdown and set value safely
+        let templateId = campanha.template_id;
+        if (!templateId && campanha.template) {
+            templateId = campanha.template.id;
+        }
+        document.getElementById('campaign-template').value = templateId || '';
+        document.getElementById('campaign-canal').value = campanha.canal;
+        
+        this.selectedLeads.clear();
+        this.updateSelectionPanel();
+        
+        document.getElementById('campaign-modal-overlay').style.display = 'flex';
+        document.getElementById('leads-loading').style.display = 'block';
+        
+        try {
+            const response = await fetch(`/comercial/campaigns/${id}/leads`);
+            const leads = await response.json();
+            for (const cl of leads) {
+                this.selectedLeads.set(cl.lead_id, {
+                    id: cl.lead_id,
+                    whatsapp: true,
+                    email: true
+                });
+            }
+            this.updateSelectionPanel();
+            this.loadLeads(true);
+        } catch(e) {
+            console.error(e);
+            toastr.error('Erro ao carregar leads da campanha');
+            document.getElementById('leads-loading').style.display = 'none';
+        }
     }
 
     closeCampaignModal() {

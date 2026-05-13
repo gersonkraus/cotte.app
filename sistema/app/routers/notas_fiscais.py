@@ -29,8 +29,39 @@ from app.schemas.schemas import (
     NotaFiscalPrepararOut,
 )
 from app.services import nfe_service
+from app.services.email_service import email_habilitado, enviar_nota_fiscal_por_email
+from app.services.whatsapp_service import enviar_mensagem_texto, enviar_pdf, whatsapp_envio_disponivel
+
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/notas-fiscais", tags=["Notas Fiscais"])
+
+
+def _absolutizar_midia_focus(val: Optional[str]) -> Optional[str]:
+    if not val:
+        return None
+    s = str(val).strip()
+    if s.startswith("http://") or s.startswith("https://"):
+        return s
+    if s.startswith("/"):
+        base = (
+            "https://api.focusnfe.com.br"
+            if (settings.FOCUS_AMBIENTE or "").lower() == "producao"
+            else "https://homologacao.focusnfe.com.br"
+        )
+        return f"{base.rstrip('/')}{s}"
+    return s
+
+
+def _tipo_nf_label(t: str) -> str:
+    u = (t or "").lower().strip()
+    return {"nfe": "NF-e", "nfce": "NFC-e", "nfse": "NFS-e"}.get(u, t or "Nota fiscal")
+
+
+async def _baixar_url_bytes(url: str) -> bytes:
+    async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
+        r = await client.get(url)
+        r.raise_for_status()
+        return r.content
 
 
 def _bloqueios_from_checklist(checklist: list[dict]) -> list[str]:
@@ -621,7 +652,8 @@ async def listar_notas_fiscais(
         )
     total = query.count()
     notas = (
-        query.order_by(NotaFiscal.criado_em.desc())
+        query.options(joinedload(NotaFiscal.orcamento))
+        .order_by(NotaFiscal.criado_em.desc())
         .offset((pagina - 1) * por_pagina)
         .limit(por_pagina)
         .all()
@@ -639,6 +671,7 @@ def listar_notas_por_orcamento(
     set_tenant_context(db, empresa_id=usuario.empresa_id, usuario_id=usuario.id)
     return (
         db.query(NotaFiscal)
+        .options(joinedload(NotaFiscal.orcamento))
         .filter(NotaFiscal.empresa_id == usuario.empresa_id, NotaFiscal.orcamento_id == orcamento_id)
         .order_by(NotaFiscal.criado_em.desc())
         .all()
@@ -712,6 +745,151 @@ async def reenviar_hook_focus_nota(
     return {"success": True, "data": out}
 
 
+@router.post("/{nota_id}/enviar-whatsapp")
+async def enviar_nota_whatsapp_cliente(
+    nota_id: int,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exigir_permissao("orcamentos", "escrita")),
+):
+    """Envia mensagem ao cliente do orçamento com DANFE/PDF da nota (quando disponível)."""
+    set_tenant_context(db, empresa_id=usuario.empresa_id, usuario_id=usuario.id)
+    if not whatsapp_envio_disponivel():
+        raise HTTPException(
+            status_code=503,
+            detail="WhatsApp não configurado (Evolution API ou Z-API).",
+        )
+    nota = (
+        db.query(NotaFiscal)
+        .options(
+            joinedload(NotaFiscal.orcamento).joinedload(Orcamento.cliente),
+            joinedload(NotaFiscal.orcamento).joinedload(Orcamento.empresa),
+        )
+        .filter(NotaFiscal.id == nota_id, NotaFiscal.empresa_id == usuario.empresa_id)
+        .first()
+    )
+    if not nota:
+        raise HTTPException(404, "Nota fiscal não encontrada")
+    if nota.status != "emitida":
+        raise HTTPException(400, "Somente notas emitidas podem ser enviadas ao cliente.")
+    if not nota.orcamento_id or not nota.orcamento:
+        raise HTTPException(400, "Nota sem orçamento vinculado; não é possível obter o telefone do cliente.")
+    orc = nota.orcamento
+    tel = (orc.cliente.telefone or "").strip() if orc.cliente else ""
+    if not tel:
+        raise HTTPException(
+            status_code=400,
+            detail="Cliente sem telefone cadastrado. Atualize o cadastro do cliente para enviar WhatsApp.",
+        )
+    empresa = orc.empresa or db.query(Empresa).filter(Empresa.id == usuario.empresa_id).first()
+    tipo_pt = _tipo_nf_label(nota.tipo)
+    num = (nota.numero or "").strip() or "—"
+    orc_num = (orc.numero or "").strip()
+    danfe_abs = _absolutizar_midia_focus(nota.danfe_url)
+    xml_abs = _absolutizar_midia_focus(nota.xml_url)
+
+    pdf_bytes = b""
+    if danfe_abs:
+        try:
+            pdf_bytes = await _baixar_url_bytes(danfe_abs)
+        except Exception as e:
+            logger.warning("Falha ao baixar DANFE para WhatsApp (nota %s): %s", nota_id, e)
+            pdf_bytes = b""
+
+    nome_cli = (orc.cliente.nome or "Cliente").strip()
+    nome_emp = (empresa.nome if empresa else "Empresa").strip()
+    caption = (
+        f"📄 *{tipo_pt}*\n"
+        f"Olá, {nome_cli}!\n\n"
+        f"Segue o documento da sua nota fiscal *nº {num}*"
+    )
+    if orc_num:
+        caption += f", referente ao orçamento *{orc_num}*"
+    caption += f".\n\n_{nome_emp}_"
+    if not pdf_bytes and danfe_abs:
+        caption += f"\n\n🔗 {danfe_abs}"
+    if not pdf_bytes and xml_abs:
+        caption += f"\n\n📎 XML: {xml_abs}"
+
+    doc_label = f"NF-{num}".replace("/", "-")[:40]
+    ok = False
+    if pdf_bytes:
+        ok = await enviar_pdf(tel, pdf_bytes, doc_label, caption, empresa=empresa)
+    else:
+        ok = await enviar_mensagem_texto(tel, caption, empresa=empresa)
+    if not ok:
+        raise HTTPException(
+            status_code=502,
+            detail="Falha ao enviar WhatsApp. Verifique a instância Evolution/Z-API e tente novamente.",
+        )
+    return {"success": True, "data": {"mensagem": "Mensagem enviada ao cliente via WhatsApp."}}
+
+
+@router.post("/{nota_id}/enviar-email")
+def enviar_nota_email_cliente(
+    nota_id: int,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exigir_permissao("orcamentos", "escrita")),
+):
+    """Envia e-mail ao cliente do orçamento com resumo da nota e anexo DANFE (quando disponível)."""
+    set_tenant_context(db, empresa_id=usuario.empresa_id, usuario_id=usuario.id)
+    if not email_habilitado():
+        raise HTTPException(
+            status_code=503,
+            detail="E-mail não configurado (Brevo API ou SMTP).",
+        )
+    nota = (
+        db.query(NotaFiscal)
+        .options(joinedload(NotaFiscal.orcamento).joinedload(Orcamento.cliente))
+        .filter(NotaFiscal.id == nota_id, NotaFiscal.empresa_id == usuario.empresa_id)
+        .first()
+    )
+    if not nota:
+        raise HTTPException(404, "Nota fiscal não encontrada")
+    if nota.status != "emitida":
+        raise HTTPException(400, "Somente notas emitidas podem ser enviadas ao cliente.")
+    if not nota.orcamento_id or not nota.orcamento:
+        raise HTTPException(400, "Nota sem orçamento vinculado.")
+    orc = nota.orcamento
+    if not orc.cliente:
+        raise HTTPException(400, "Orçamento sem cliente.")
+    email_dest = (orc.cliente.email or "").strip()
+    if not email_dest:
+        raise HTTPException(
+            status_code=400,
+            detail="Cliente sem e-mail cadastrado. Atualize o cadastro do cliente para enviar e-mail.",
+        )
+    empresa = orc.empresa or db.query(Empresa).filter(Empresa.id == usuario.empresa_id).first()
+    danfe_abs = _absolutizar_midia_focus(nota.danfe_url)
+
+    pdf_bytes: bytes | None = None
+    if danfe_abs:
+        try:
+            with httpx.Client(timeout=60.0, follow_redirects=True) as client:
+                r = client.get(danfe_abs)
+                r.raise_for_status()
+                pdf_bytes = r.content
+        except Exception as e:
+            logger.warning("Falha ao baixar DANFE para e-mail (nota %s): %s", nota_id, e)
+            pdf_bytes = None
+
+    ok = enviar_nota_fiscal_por_email(
+        destinatario=email_dest,
+        cliente_nome=orc.cliente.nome or "Cliente",
+        empresa_nome=empresa.nome if empresa else "Empresa",
+        tipo_nf=nota.tipo,
+        numero_nf=nota.numero,
+        orcamento_numero=orc.numero,
+        danfe_url=danfe_abs,
+        pdf_bytes=pdf_bytes,
+    )
+    if not ok:
+        raise HTTPException(
+            status_code=502,
+            detail="Falha ao enviar e-mail. Verifique Brevo/SMTP e tente novamente.",
+        )
+    return {"success": True, "data": {"mensagem": "E-mail enviado ao cliente."}}
+
+
 @router.get("/{nota_id}", response_model=NotaFiscalOut)
 def get_nota_fiscal(
     nota_id: int,
@@ -719,9 +897,12 @@ def get_nota_fiscal(
     usuario=Depends(get_usuario_atual),
 ):
     set_tenant_context(db, empresa_id=usuario.empresa_id, usuario_id=usuario.id)
-    nota = db.query(NotaFiscal).filter(
-        NotaFiscal.id == nota_id, NotaFiscal.empresa_id == usuario.empresa_id
-    ).first()
+    nota = (
+        db.query(NotaFiscal)
+        .options(joinedload(NotaFiscal.orcamento))
+        .filter(NotaFiscal.id == nota_id, NotaFiscal.empresa_id == usuario.empresa_id)
+        .first()
+    )
     if not nota:
         raise HTTPException(404, "Nota fiscal não encontrada")
     return nota

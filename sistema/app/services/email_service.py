@@ -1678,3 +1678,117 @@ def send_email_simples(
     except Exception as e:
         logging.exception("Falha ao enviar e-mail simples para %s: %s", destinatario, e)
         return False
+
+
+def enviar_nota_fiscal_por_email(
+    destinatario: str,
+    cliente_nome: str,
+    empresa_nome: str,
+    tipo_nf: str,
+    numero_nf: str | None,
+    orcamento_numero: str | None,
+    danfe_url: str | None,
+    pdf_bytes: bytes | None,
+) -> bool:
+    """
+    Envia e-mail ao cliente com resumo da nota fiscal e link (e anexo PDF do DANFE, se disponível).
+    Usa Brevo ou SMTP conforme configuração global.
+    """
+    if not email_habilitado():
+        logging.error("E-mail não configurado (Brevo/SMTP)")
+        return False
+
+    tipo_u = (tipo_nf or "").strip().lower()
+    tipo_pt = {"nfe": "NF-e", "nfce": "NFC-e", "nfse": "NFS-e"}.get(tipo_u, tipo_nf or "Nota fiscal")
+    num = (numero_nf or "").strip() or "—"
+    orc_lbl = (orcamento_numero or "").strip()
+    cli = escape((cliente_nome or "Cliente").strip())
+    emp = escape((empresa_nome or "Empresa").strip())
+    tipo_e = escape(tipo_pt)
+    num_e = escape(num)
+    orc_e = escape(orc_lbl) if orc_lbl else ""
+    url_e = escape((danfe_url or "").strip(), quote=True)
+
+    assunto = f"{empresa_nome} — {tipo_pt} nº {num}"
+
+    linhas_orc = (
+        f'<p style="margin:0 0 12px 0;"><strong>Orçamento:</strong> {orc_e}</p>'
+        if orc_e
+        else ""
+    )
+    bloco_link = ""
+    if danfe_url:
+        bloco_link = (
+            f'<p style="margin:16px 0;"><a href="{url_e}" style="display:inline-block;padding:12px 20px;'
+            'background:#0ea5e9;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">'
+            "Abrir DANFE / documento</a></p>"
+            "<p style=\"font-size:13px;color:#64748b;\">Se o botão não abrir, copie o link do DANFE do seu sistema ou consulte o portal da prefeitura/SEFAZ.</p>"
+        )
+
+    html = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"/></head>
+<body style="font-family:system-ui,Segoe UI,sans-serif;background:#f8fafc;padding:24px;">
+  <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;padding:28px;border:1px solid #e2e8f0;">
+    <p style="margin:0 0 8px 0;">Olá, <strong>{cli}</strong>,</p>
+    <p style="margin:0 0 16px 0;">Segue a confirmação da sua <strong>{tipo_e}</strong> número <strong>{num_e}</strong> emitida por <strong>{emp}</strong>.</p>
+    {linhas_orc}
+    {bloco_link}
+    <p style="margin-top:24px;font-size:13px;color:#64748b;">Em caso de dúvidas, responda a este e-mail ou entre em contato com a empresa.</p>
+  </div>
+</body></html>"""
+
+    texto = (
+        f"Olá, {cliente_nome or 'Cliente'},\n\n"
+        f"Sua {tipo_pt} nº {num} emitida por {empresa_nome or 'Empresa'}.\n"
+    )
+    if orc_lbl:
+        texto += f"Orçamento: {orc_lbl}\n"
+    if danfe_url:
+        texto += f"\nLink do documento (DANFE/PDF): {danfe_url}\n"
+    texto += "\nAtenciosamente,\nEquipe " + (empresa_nome or "") + "\n"
+
+    nome_anexo = f"DANFE-{num.replace('/', '-')}.pdf".replace(" ", "_")
+    attachments = []
+    if pdf_bytes:
+        attachments.append(
+            {
+                "name": nome_anexo[:120],
+                "content": base64.b64encode(pdf_bytes).decode("ascii"),
+            }
+        )
+
+    if brevo_api_habilitado():
+        ok, err = _enviar_via_brevo_api(
+            destinatario,
+            assunto,
+            html,
+            texto=texto,
+            attachments=attachments if attachments else None,
+        )
+        if not ok:
+            logging.error("Falha Brevo NF-e-mail: %s", err)
+        return ok
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = assunto
+        msg["From"] = settings.SMTP_FROM or settings.SMTP_USER
+        msg["To"] = destinatario
+        msg.attach(MIMEText(texto, "plain", "utf-8"))
+        msg.attach(MIMEText(html, "html", "utf-8"))
+        if pdf_bytes:
+            part = MIMEBase("application", "pdf")
+            part.set_payload(pdf_bytes)
+            encoders.encode_base64(part)
+            part.add_header(
+                "Content-Disposition",
+                "attachment",
+                filename=nome_anexo[:120],
+            )
+            msg.attach(part)
+        _enviar_via_smtp(msg)
+        logging.info("E-mail de nota fiscal enviado para %s", destinatario)
+        return True
+    except Exception as e:
+        logging.exception("Falha ao enviar e-mail de NF para %s: %s", destinatario, e)
+        return False

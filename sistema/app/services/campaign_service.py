@@ -70,6 +70,16 @@ class CampaignService:
         if request.status:
             campaign.status = request.status
 
+        if hasattr(request, 'lead_ids') and request.lead_ids is not None:
+            # Remover antigos
+            self.db.query(CampaignLead).filter(CampaignLead.campaign_id == campaign.id).delete()
+            # Adicionar novos
+            for lead_id in request.lead_ids:
+                lead = self.db.query(CommercialLead).filter(CommercialLead.id == lead_id).first()
+                if lead:
+                    self.db.add(CampaignLead(campaign_id=campaign.id, lead_id=lead.id, status="pendente"))
+            campaign.total_leads = len(request.lead_ids)
+
         self.db.commit()
         return campaign
 

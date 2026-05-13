@@ -992,6 +992,14 @@ class NotaFiscal(TenantScopedMixin, Base):
     orcamento = relationship("Orcamento", back_populates="notas_fiscais")
     criado_por = relationship("Usuario")
 
+    @property
+    def orcamento_numero(self) -> str | None:
+        """Número legível do orçamento (ex.: ORC-12-26), quando a relação está carregada."""
+        orc = self.orcamento
+        if orc is None:
+            return None
+        return getattr(orc, "numero", None) or None
+
 
 # ── HISTÓRICO DE EDIÇÕES ────────────────────────────────────────────────────
 

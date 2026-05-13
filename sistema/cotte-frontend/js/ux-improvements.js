@@ -259,6 +259,104 @@ var UXImprovements = (function() {
   }
 
   /**
+   * Modal de confirmação simples (sem checkbox). Resolve com true/false.
+   * opts: { titulo, mensagem, botaoConfirmar, botaoCancelar, variante: 'primary' | 'danger' }
+   */
+  function confirmarModal(opts) {
+    opts = opts || {};
+    return new Promise(function (resolve) {
+      var id = 'cotte-modal-confirm-simple';
+      var prev = document.getElementById(id);
+      if (prev) prev.remove();
+
+      var overlay = null;
+
+      function cleanup(result) {
+        document.removeEventListener('keydown', onKey);
+        if (overlay && overlay.parentNode) overlay.remove();
+        resolve(result);
+      }
+
+      function onKey(ev) {
+        if (ev.key === 'Escape') {
+          ev.preventDefault();
+          cleanup(false);
+        }
+      }
+
+      overlay = document.createElement('div');
+      overlay.id = id;
+      overlay.className = 'modal-overlay open';
+      overlay.setAttribute('role', 'dialog');
+      overlay.setAttribute('aria-modal', 'true');
+      overlay.setAttribute('aria-labelledby', 'cotte-modal-confirm-simple-title');
+      overlay.style.zIndex = '10000';
+
+      var box = document.createElement('div');
+      box.className = 'modal';
+      box.style.maxWidth = '440px';
+
+      var header = document.createElement('div');
+      header.className = 'modal-header';
+      var h3 = document.createElement('h3');
+      h3.className = 'modal-title';
+      h3.id = 'cotte-modal-confirm-simple-title';
+      h3.textContent = opts.titulo || 'Confirmar';
+      var btnX = document.createElement('button');
+      btnX.type = 'button';
+      btnX.className = 'modal-close';
+      btnX.setAttribute('aria-label', 'Fechar');
+      btnX.textContent = '\u00D7';
+      btnX.onclick = function () { cleanup(false); };
+      header.appendChild(h3);
+      header.appendChild(btnX);
+
+      var body = document.createElement('div');
+      body.className = 'modal-body';
+      var p = document.createElement('p');
+      p.style.margin = '0';
+      p.style.color = 'var(--muted)';
+      p.style.fontSize = '15px';
+      p.style.lineHeight = '1.55';
+      p.style.whiteSpace = 'pre-wrap';
+      p.textContent = opts.mensagem || '';
+      body.appendChild(p);
+
+      var footer = document.createElement('div');
+      footer.className = 'modal-footer';
+
+      var btnCancel = document.createElement('button');
+      btnCancel.type = 'button';
+      btnCancel.className = 'btn btn-ghost';
+      btnCancel.textContent = opts.botaoCancelar || 'Cancelar';
+      btnCancel.onclick = function () { cleanup(false); };
+
+      var isDanger = opts.variante === 'danger';
+      var btnOk = document.createElement('button');
+      btnOk.type = 'button';
+      btnOk.className = isDanger ? 'btn btn-danger' : 'btn btn-primary';
+      btnOk.textContent = opts.botaoConfirmar || 'Confirmar';
+      btnOk.onclick = function () { cleanup(true); };
+
+      footer.appendChild(btnCancel);
+      footer.appendChild(btnOk);
+
+      box.appendChild(header);
+      box.appendChild(body);
+      box.appendChild(footer);
+      overlay.appendChild(box);
+
+      overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) cleanup(false);
+      });
+
+      document.addEventListener('keydown', onKey);
+      document.body.appendChild(overlay);
+      btnCancel.focus();
+    });
+  }
+
+  /**
    * Mostra um alerta intrusivo com Double Opt-in
    */
   function confirmarAcaoCritica(titulo, mensagem, acaoLabel = 'Confirmar', corBtn = 'var(--accent)') {
@@ -332,6 +430,7 @@ var UXImprovements = (function() {
       renderizarPaginacao: renderizarPaginacao,
       mostrarLoading: mostrarLoading,
       fecharLoading: fecharLoading,
+      confirmarModal: confirmarModal,
       confirmarAcaoCritica: confirmarAcaoCritica
   };
 })();
@@ -346,6 +445,7 @@ window.mostrarEstadoErro = UXImprovements.mostrarEstadoErro;
 window.renderizarPaginacao = UXImprovements.renderizarPaginacao;
 window.mostrarLoading = UXImprovements.mostrarLoading;
 window.fecharLoading = UXImprovements.fecharLoading;
+window.confirmarModal = UXImprovements.confirmarModal;
 window.confirmarAcaoCritica = UXImprovements.confirmarAcaoCritica;
 window.setButtonLoading = UXImprovements.setButtonLoading;
 window.showSuccess = UXImprovements.showSuccess;

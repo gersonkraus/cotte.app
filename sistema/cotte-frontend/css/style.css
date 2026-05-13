@@ -3126,26 +3126,48 @@ a.btn:focus-visible {
   background: var(--surface);
   font-size: 12px;
 }
+.nf-grupo__detail td.nf-col-acoes {
+  padding-left: 10px;
+  vertical-align: middle;
+}
 .nf-grupo__detail:hover td {
   background: rgba(239, 68, 68, 0.04);
 }
 
-.nf-actions {
-  position: relative;
-  display: inline-block;
+/* Ações em linha na tabela de notas fiscais */
+.nf-col-acoes {
+  white-space: normal;
+  vertical-align: middle;
+  text-align: right;
+  min-width: 120px;
 }
-.nf-actions__trigger {
-  min-height: 36px;
-}
-.nf-actions__trigger--icon {
-  min-width: 38px;
-  padding: 0 10px;
-  display: inline-flex;
+.nf-row-acoes {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
+  gap: 4px;
+  max-width: 360px;
+  margin-left: auto;
 }
-.nf-actions__trigger--icon .nf-ico {
-  display: block;
+.nf-row-acoes .nf-icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+}
+.nf-row-acoes .nf-icon-btn .nf-ico {
+  width: 16px;
+  height: 16px;
+}
+@media (max-width: 900px) {
+  .nf-row-acoes {
+    justify-content: flex-start;
+    margin-left: 0;
+    max-width: none;
+  }
+  .nf-col-acoes {
+    text-align: left;
+  }
 }
 /* Botões só-ícone (cartões e barra de atalhos) */
 .nf-icon-btn {
@@ -3205,6 +3227,24 @@ a.btn:focus-visible {
 [data-theme="dark"] .nf-icon-btn--warning:hover {
   color: #fde68a;
 }
+.nf-icon-btn--whatsapp {
+  border-color: rgba(37, 211, 102, 0.35);
+  color: #128c7e;
+}
+.nf-icon-btn--whatsapp:hover {
+  background: rgba(37, 211, 102, 0.12);
+  border-color: rgba(37, 211, 102, 0.55);
+  color: #075e54;
+}
+.nf-icon-btn--mail {
+  border-color: rgba(14, 165, 233, 0.35);
+  color: #0369a1;
+}
+.nf-icon-btn--mail:hover {
+  background: rgba(14, 165, 233, 0.1);
+  border-color: rgba(14, 165, 233, 0.55);
+  color: #0c4a6e;
+}
 .nf-icon-btn--loading {
   opacity: 0.55;
   pointer-events: none;
@@ -3212,72 +3252,6 @@ a.btn:focus-visible {
 .nf-card__links.nf-card__icon-row,
 .nf-card__ops.nf-card__icon-row {
   gap: 6px;
-}
-.nf-menu-item__ico {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--muted);
-}
-.nf-menu-item__txt {
-  flex: 1;
-  min-width: 0;
-}
-.nf-menu-btn.nf-menu-btn--warning {
-  color: #b45309;
-}
-[data-theme="dark"] .nf-menu-btn.nf-menu-btn--warning {
-  color: #fbbf24;
-}
-.nf-actions__menu {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 4px);
-  min-width: 200px;
-  padding: 6px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  z-index: 50;
-}
-.nf-actions__menu[hidden] {
-  display: none !important;
-}
-.nf-actions__menu button,
-.nf-actions__menu a {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  font-size: 13px;
-  font-family: inherit;
-  color: var(--text);
-  text-align: left;
-  text-decoration: none;
-  cursor: pointer;
-}
-.nf-actions__menu a.nf-menu-link {
-  display: flex;
-}
-.nf-actions__menu a:hover,
-.nf-actions__menu button:hover {
-  background: var(--accent-dim);
-  color: var(--accent-dark);
-}
-.nf-actions__menu .nf-actions__danger:hover {
-  background: var(--red-dim);
-  color: var(--red);
-}
-.nf-actions__sep {
-  height: 1px;
-  margin: 6px 0;
-  background: var(--border);
 }
 .nf-grupo__detail-erro {
   margin-top: 8px;

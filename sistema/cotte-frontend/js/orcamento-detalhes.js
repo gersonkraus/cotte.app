@@ -1,4 +1,4 @@
-// Detalhes de orçamento em modal reutilizável (dashboard + listagem) — v12
+// Detalhes de orçamento em modal reutilizável (dashboard + listagem) — v13
 
 const _PAG_LABELS = { pix: 'PIX', a_vista: 'À vista', '2x': '2x sem juros', '3x': '3x sem juros', '4x': '4x sem juros' };
 
@@ -18,52 +18,68 @@ async function _buscarNotasPorOrcamento(orcamentoId) {
   }
 }
 
-function _fmtDataNfResumo(iso) {
-  if (!iso) return '';
-  const s = String(iso);
-  const d = s.slice(0, 10);
-  if (d.length === 10 && d.includes('-')) return d.split('-').reverse().join('/');
-  return s.slice(0, 16);
-}
-
 function _htmlResumoNotasFiscais(notas) {
   if (!notas.length) {
-    return '<p style="margin:0;font-size:13px;color:var(--muted)">Nenhuma nota fiscal vinculada a este orçamento.</p>';
+    return '<span style="font-size:12px;color:var(--muted);line-height:1.3">Sem notas fiscais vinculadas.</span>';
   }
-  const emitida = notas.some((n) => n && n.status === 'emitida');
-  const linhas = notas.map((n) => {
-    if (!n) return '';
+  const emitidas = notas.filter((n) => n && n.status === 'emitida').length;
+  const erros = notas.filter((n) => n && n.status === 'erro').length;
+  const processando = notas.filter((n) => n && (n.status === 'processando' || n.status === 'pendente')).length;
+  const outros = Math.max(0, notas.length - emitidas - erros - processando);
+  const partes = [`<strong style="color:var(--text);font-weight:600">${notas.length}</strong> <span style="color:var(--muted)">nota(s)</span>`];
+  if (emitidas) partes.push(`<span style="color:#16a34a;font-weight:600">${emitidas} emitida(s)</span>`);
+  if (erros) partes.push(`<span style="color:#dc2626;font-weight:600">${erros} erro</span>`);
+  if (processando) partes.push(`<span style="color:#2563eb">${processando} em processamento</span>`);
+  if (outros) partes.push(`<span style="color:var(--muted)">${outros} outro(s)</span>`);
+  const linha1 = `<div style="font-size:12px;line-height:1.35">${partes.join(' · ')}</div>`;
+
+  if (notas.length === 1) {
+    const n = notas[0];
     const st = (n.status || '').toLowerCase();
-    const meta = _NF_RESUMO_ST[st] || { bg: 'var(--surface2)', color: 'var(--muted)', label: n.status || '—' };
+    const meta = _NF_RESUMO_ST[st] || { label: n.status || '—' };
     const tipo = (n.tipo || '—').toString().toUpperCase();
     const num = n.numero != null ? `Nº ${escapeHtml(String(n.numero))}` : 'sem número';
     const ser = n.serie != null && n.serie !== '' ? ` · Série ${escapeHtml(String(n.serie))}` : '';
-    const when = _fmtDataNfResumo(n.emitida_em || n.criado_em);
-    return `
-      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
-        <span style="font-weight:700;letter-spacing:.04em;font-size:11px">${escapeHtml(tipo)}</span>
-        <span style="color:var(--text)">${num}${ser}</span>
-        <span style="padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;background:${meta.bg};color:${meta.color}">${escapeHtml(meta.label)}</span>
-        ${when ? `<span style="font-size:11px;color:var(--muted);margin-left:auto">${escapeHtml(when)}</span>` : ''}
-      </div>`;
-  }).join('');
-  const hint = emitida
-    ? '<p style="margin:10px 0 0;font-size:11px;color:var(--muted)">Já existe nota emitida para este orçamento; emissão adicional depende do tipo e da série (evite duplicidade).</p>'
+    return `${linha1}<div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.3">${escapeHtml(tipo)} · ${num}${ser} · <span style="color:${meta.color || 'var(--muted)'}">${escapeHtml(meta.label)}</span></div>`;
+  }
+
+  const tipos = [...new Set(notas.map((n) => (n && n.tipo ? String(n.tipo).toUpperCase() : '')).filter(Boolean))];
+  const tiposTxt = tipos.length ? escapeHtml(tipos.slice(0, 3).join(', ')) + (tipos.length > 3 ? '…' : '') : '';
+  const linha2 = tiposTxt
+    ? `<div style="font-size:11px;color:var(--muted);margin-top:3px;line-height:1.25;max-height:2.5em;overflow:hidden">${tiposTxt}</div>`
     : '';
-  return `<div style="display:flex;flex-direction:column">${linhas}</div>${hint}`;
+  return linha1 + linha2;
 }
 
 /** Preenche #detalhes-nf-section (se existir no DOM) após GET /notas-fiscais/orcamento/:id */
 async function preencherSecaoNotasFiscaisDetalhes(orcamentoId) {
   const el = document.getElementById('detalhes-nf-section');
   if (!el) return;
-  el.innerHTML = '<p style="margin:0;font-size:12px;color:var(--muted)">Carregando notas fiscais…</p>';
+  el.innerHTML = '<p style="margin:0;font-size:11px;color:var(--muted)">Carregando…</p>';
   const notas = await _buscarNotasPorOrcamento(orcamentoId);
+  const href = 'notas-fiscais.html';
   el.innerHTML = `
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
-      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;font-weight:600">Notas fiscais</div>
-      ${_htmlResumoNotasFiscais(notas)}
-    </div>`;
+    <a href="${href}" class="detalhes-nf-card-link" title="Abrir painel de notas fiscais"
+      style="display:block;text-decoration:none;color:inherit;border-radius:8px;border:1px solid var(--border);background:var(--surface2);padding:6px 8px;transition:background .15s,border-color .15s;cursor:pointer">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px">
+        <span style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:700">Notas fiscais</span>
+        <span style="font-size:10px;color:var(--muted);white-space:nowrap;flex-shrink:0">Painel ›</span>
+      </div>
+      <div class="detalhes-nf-card-body" style="pointer-events:none">
+        ${_htmlResumoNotasFiscais(notas)}
+      </div>
+    </a>`;
+  const link = el.querySelector('a.detalhes-nf-card-link');
+  if (link) {
+    link.addEventListener('mouseenter', () => {
+      link.style.background = 'var(--surface)';
+      link.style.borderColor = 'var(--accent, #06b6d4)';
+    });
+    link.addEventListener('mouseleave', () => {
+      link.style.background = 'var(--surface2)';
+      link.style.borderColor = 'var(--border)';
+    });
+  }
 }
 
 // ── Modal Principal ────────────────────────────────────────────────────────────

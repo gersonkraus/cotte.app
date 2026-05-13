@@ -86,6 +86,11 @@ def _whatsapp_config_ok() -> bool:
     return False
 
 
+def whatsapp_envio_disponivel() -> bool:
+    """True se o provider WhatsApp (Evolution/Z-API) estiver configurado para envios."""
+    return _whatsapp_config_ok()
+
+
 # ── Atalhos de compatibilidade ─────────────────────────────────────────────
 # Todos aceitam `empresa` opcional — quando fornecido, usam a instância própria.
 

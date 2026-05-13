@@ -21,8 +21,6 @@
 
     /** Conteúdo interno dos ícones (viewBox 24×24) para _svgIcon */
     var _ICO_PATH = {
-        menu:
-            '<circle cx="12" cy="6" r="1.35" fill="currentColor"/><circle cx="12" cy="12" r="1.35" fill="currentColor"/><circle cx="12" cy="18" r="1.35" fill="currentColor"/>',
         doc: '<path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>',
         code: '<path d="M17.25 6.75L22 12l-4.75 5.25M6.75 17.25L2 12l4.75-5.25"/>',
         qr: '<path d="M3.75 4.5h4.5v4.5h-4.5V4.5zM15.75 4.5h4.5v4.5h-4.5V4.5zM3.75 15h4.5v4.5h-4.5V15zM13.5 13.5h1.5v1.5H13.5v-1.5zm0 3h1.5v1.5H13.5v-1.5zm3-3H18v1.5h-1.5v-1.5zm0 3H18v1.5h-1.5v-1.5zm3-3h1.5V15H19.5v-1.5zm0 3h1.5v1.5H19.5v-1.5zm-6 3h1.5V21H13.5v-1.5zm3 0H18V21h-1.5v-1.5zm3 0h1.5V21H19.5v-1.5z"/>',
@@ -33,11 +31,14 @@
         eye: '<path d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>',
         ban: '<path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>',
         search: '<path d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>',
+        mail: '<path d="M1.5 8.67v8.58a1.875 1.875 0 001.875 1.875h17.25a1.875 1.875 0 001.875-1.875V8.67m-21 0A1.875 1.875 0 013.375 6.75h17.25a1.875 1.875 0 011.704 1.08L12 12.75l-10.329-4.92a1.875 1.875 0 01-.671-.16Z"/>',
+        whatsapp:
+            '<path d="M20.25 10.5c0 4.556-4.03 8.25-9 8.25a9.77 9.77 0 01-4.255-.934L3 21l1.395-3.72C3.512 15.042 3 12.835 3 10.5 3 5.944 7.03 2.25 12 2.25s8.25 3.694 8.25 8.25Z"/>',
     };
 
     function _svgIcon(which, size) {
         var w = size || 16;
-        var inner = _ICO_PATH[which] || _ICO_PATH.menu;
+        var inner = _ICO_PATH[which] || _ICO_PATH.doc;
         return (
             '<svg class="nf-ico" xmlns="http://www.w3.org/2000/svg" width="' +
             w +
@@ -46,16 +47,6 @@
             '" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
             inner +
             "</svg>"
-        );
-    }
-
-    function _menuRow(iconWhich, labelHtml) {
-        return (
-            '<span class="nf-menu-item__ico">' +
-            _svgIcon(iconWhich, 15) +
-            '</span><span class="nf-menu-item__txt">' +
-            labelHtml +
-            "</span>"
         );
     }
 
@@ -108,6 +99,15 @@
             .replace(/'/g, "&#39;");
     }
 
+    /** Confirmação via modal COTTE (fallback para confirm nativo). */
+    function _confirmarModal(op) {
+        if (typeof window.confirmarModal === "function") {
+            return window.confirmarModal(op || {});
+        }
+        var m = (op && op.mensagem) || "Confirmar?";
+        return Promise.resolve(window.confirm(m));
+    }
+
     function _fmtDataHora(iso) {
         if (!iso) return "—";
         try {
@@ -139,27 +139,6 @@
         if (bCards) {
             bCards.classList.toggle("is-active", m === VIEW_CARDS);
             bCards.setAttribute("aria-pressed", m === VIEW_CARDS ? "true" : "false");
-        }
-    }
-
-    function fecharMenusAcoes() {
-        document.querySelectorAll(".nf-actions__menu").forEach(function (menu) {
-            menu.hidden = true;
-            var wrap = menu.closest(".nf-actions");
-            var trig = wrap && wrap.querySelector(".nf-actions__trigger");
-            if (trig) trig.setAttribute("aria-expanded", "false");
-        });
-    }
-
-    function alternarMenuAcoes(btn) {
-        var wrap = btn.closest(".nf-actions");
-        var menu = wrap && wrap.querySelector(".nf-actions__menu");
-        if (!menu) return;
-        var willOpen = btn.getAttribute("aria-expanded") !== "true";
-        fecharMenusAcoes();
-        if (willOpen) {
-            menu.hidden = false;
-            btn.setAttribute("aria-expanded", "true");
         }
     }
 
@@ -213,11 +192,15 @@
 
     function _orcamentoCell(n) {
         if (!n.orcamento_id) return "—";
+        var label =
+            n.orcamento_numero != null && String(n.orcamento_numero).trim() !== ""
+                ? String(n.orcamento_numero).trim()
+                : "#" + String(n.orcamento_id);
         return (
             '<a href="orcamento-view.html?id=' +
             encodeURIComponent(String(n.orcamento_id)) +
-            '">#' +
-            _escHtml(String(n.orcamento_id)) +
+            '" title="Abrir orçamento">' +
+            _escHtml(label) +
             "</a>"
         );
     }
@@ -242,117 +225,115 @@
         return grupos;
     }
 
-    function _menuAcoesHtml(n) {
-        var id = n.id;
-        var items = [];
-
+    /** Links (DANFE/XML/QR) e botões de ação — reutilizado na tabela (linha) e nos cartões */
+    function _partesAcoesNota(n) {
+        var links = [];
+        var ops = [];
         if (n.danfe_url) {
-            items.push(
-                '<a role="menuitem" class="nf-menu-link" href="' +
-                    _escHtml(n.danfe_url) +
-                    '" target="_blank" rel="noopener noreferrer" onclick="NotasFiscaisPage.fecharMenusAcoes()">' +
-                    _menuRow("doc", "DANFE") +
-                    "</a>"
-            );
+            links.push(_nfIconLink(_escHtml(n.danfe_url), "doc", "Abrir DANFE em nova aba", ""));
         }
         if (n.xml_url) {
-            items.push(
-                '<a role="menuitem" class="nf-menu-link" href="' +
-                    _escHtml(n.xml_url) +
-                    '" target="_blank" rel="noopener noreferrer" onclick="NotasFiscaisPage.fecharMenusAcoes()">' +
-                    _menuRow("code", "XML") +
-                    "</a>"
-            );
+            links.push(_nfIconLink(_escHtml(n.xml_url), "code", "Baixar ou abrir XML", ""));
         }
         if (n.qr_code) {
-            items.push(
-                '<a role="menuitem" class="nf-menu-link" href="' +
-                    _escHtml(n.qr_code) +
-                    '" target="_blank" rel="noopener noreferrer" onclick="NotasFiscaisPage.fecharMenusAcoes()">' +
-                    _menuRow("qr", "QR Code") +
-                    "</a>"
-            );
+            links.push(_nfIconLink(_escHtml(n.qr_code), "qr", "Abrir QR Code da NFC-e", ""));
         }
-
         if (n.status === "emitida") {
-            if (items.length) items.push('<div class="nf-actions__sep" role="separator"></div>');
-            items.push(
-                '<button type="button" role="menuitem" onclick="NotasFiscaisPage.fecharMenusAcoes();NotasFiscaisPage.sincronizarFocus(' +
-                    id +
-                    ')">' +
-                    _menuRow("refresh", "Sincronizar com Focus") +
-                    "</button>"
+            if (n.orcamento_id) {
+                ops.push(
+                    _nfIconButton(
+                        'onclick="NotasFiscaisPage.enviarNotaWhatsapp(' + n.id + ')"',
+                        "whatsapp",
+                        "Enviar documento da NF ao cliente por WhatsApp",
+                        "nf-icon-btn--whatsapp"
+                    )
+                );
+                ops.push(
+                    _nfIconButton(
+                        'onclick="NotasFiscaisPage.enviarNotaEmail(' + n.id + ')"',
+                        "mail",
+                        "Enviar documento da NF ao cliente por e-mail",
+                        "nf-icon-btn--mail"
+                    )
+                );
+            }
+            ops.push(
+                _nfIconButton('onclick="NotasFiscaisPage.cancelar(' + n.id + ')"', "ban", "Cancelar nota fiscal", "nf-icon-btn--danger")
             );
-            items.push(
-                '<button type="button" role="menuitem" onclick="NotasFiscaisPage.fecharMenusAcoes();NotasFiscaisPage.reenviarHook(' +
-                    id +
-                    ')">' +
-                    _menuRow("webhook", "Reenviar webhook") +
-                    "</button>"
+            ops.push(
+                _nfIconButton(
+                    'onclick="NotasFiscaisPage.sincronizarFocus(' + n.id + ')"',
+                    "refresh",
+                    "Sincronizar status com a Focus",
+                    ""
+                )
+            );
+            ops.push(
+                _nfIconButton(
+                    'onclick="NotasFiscaisPage.reenviarHook(' + n.id + ')"',
+                    "webhook",
+                    "Reenviar webhook da Focus",
+                    ""
+                )
             );
             if (n.tipo === "nfe") {
-                items.push(
-                    '<button type="button" role="menuitem" onclick="NotasFiscaisPage.fecharMenusAcoes();NotasFiscaisPage.cartaCorrecao(' +
-                        id +
-                        ')">' +
-                        _menuRow("pencil", "Carta de correção (CC-e)") +
-                        "</button>"
+                ops.push(
+                    _nfIconButton(
+                        'onclick="NotasFiscaisPage.cartaCorrecao(' + n.id + ')"',
+                        "pencil",
+                        "Emitir carta de correção (CC-e)",
+                        ""
+                    )
                 );
             }
             if (n.orcamento_id && (n.tipo === "nfe" || n.tipo === "nfce")) {
-                var tipoPrev = String(n.tipo || "nfe").replace(/'/g, "");
-                items.push(
-                    '<button type="button" role="menuitem" onclick="NotasFiscaisPage.fecharMenusAcoes();NotasFiscaisPage.previaDanfe(' +
-                        n.orcamento_id +
-                        ",'" +
-                        tipoPrev +
-                        '\')">' +
-                        _menuRow("eye", "Prévia DANFE") +
-                        "</button>"
+                ops.push(
+                    _nfIconButton(
+                        "onclick=\"NotasFiscaisPage.previaDanfe(" +
+                            n.orcamento_id +
+                            ",'" +
+                            String(n.tipo || "nfe").replace(/'/g, "") +
+                            '\')"',
+                        "eye",
+                        "Pré-visualizar DANFE (PDF)",
+                        ""
+                    )
                 );
             }
-            items.push('<div class="nf-actions__sep" role="separator"></div>');
-            items.push(
-                '<button type="button" role="menuitem" class="nf-actions__danger" onclick="NotasFiscaisPage.fecharMenusAcoes();NotasFiscaisPage.cancelar(' +
-                    id +
-                    ')">' +
-                    _menuRow("ban", "Cancelar nota") +
-                    "</button>"
-            );
         }
         if (n.status === "processando") {
-            if (items.length) items.push('<div class="nf-actions__sep" role="separator"></div>');
-            items.push(
-                '<button type="button" role="menuitem" onclick="NotasFiscaisPage.fecharMenusAcoes();NotasFiscaisPage.sincronizarFocus(' +
-                    id +
-                    ')">' +
-                    _menuRow("refresh", "Sincronizar com Focus") +
-                    "</button>"
+            ops.push(
+                _nfIconButton(
+                    'onclick="NotasFiscaisPage.sincronizarFocus(' + n.id + ')"',
+                    "refresh",
+                    "Sincronizar status com a Focus",
+                    ""
+                )
             );
         }
         if (n.status === "erro") {
-            if (items.length) items.push('<div class="nf-actions__sep" role="separator"></div>');
-            items.push(
-                '<button type="button" role="menuitem" class="nf-menu-btn nf-menu-btn--warning nf-btn-analisar" onclick="NotasFiscaisPage.fecharMenusAcoes();NotasFiscaisPage.analisarErro(' +
-                    id +
-                    ')">' +
-                    _menuRow("search", "Analisar e corrigir") +
-                    "</button>"
+            ops.push(
+                _nfIconButton(
+                    'onclick="NotasFiscaisPage.analisarErro(' + n.id + ')"',
+                    "search",
+                    "Analisar erro e sugerir correções",
+                    "nf-btn-analisar nf-icon-btn--warning"
+                )
             );
         }
+        return { links: links, ops: ops };
+    }
 
-        if (!items.length) {
+    function _acoesCelulaTabelaHtml(n) {
+        var p = _partesAcoesNota(n);
+        var inner = p.links.concat(p.ops).join("");
+        if (!inner) {
             return '<span class="nf-muted">—</span>';
         }
-
         return (
-            '<div class="nf-actions">' +
-            '<button type="button" class="nf-actions__trigger nf-actions__trigger--icon btn btn-sm btn-secondary" aria-expanded="false" aria-haspopup="true" aria-label="Menu de ações" title="Ações">' +
-            _svgIcon("menu", 18) +
-            "</button>" +
-            '<div class="nf-actions__menu" role="menu" hidden>' +
-            items.join("") +
-            "</div></div>"
+            '<div class="nf-row-acoes" role="group" aria-label="Ações desta nota fiscal">' +
+            inner +
+            "</div>"
         );
     }
 
@@ -398,8 +379,8 @@
             '<td class="nf-col-erro" style="max-width:200px;font-size:12px">' +
             erroCell +
             "</td>" +
-            "<td>" +
-            _menuAcoesHtml(n) +
+            '<td class="nf-col-acoes">' +
+            _acoesCelulaTabelaHtml(n) +
             "</td></tr>"
         );
     }
@@ -425,11 +406,15 @@
         var ultimoErro = latest.erro_mensagem ? _resumirErro(latest.erro_mensagem) : "—";
         var orcLabel = "";
         if (g.orcamento_id) {
+            var onum =
+                latest.orcamento_numero != null && String(latest.orcamento_numero).trim() !== ""
+                    ? String(latest.orcamento_numero).trim()
+                    : "#" + String(g.orcamento_id);
             orcLabel =
                 'Orçamento <a href="orcamento-view.html?id=' +
                 encodeURIComponent(String(g.orcamento_id)) +
-                '" onclick="event.stopPropagation()">#' +
-                _escHtml(String(g.orcamento_id)) +
+                '" onclick="event.stopPropagation()">' +
+                _escHtml(onum) +
                 "</a>";
         } else {
             orcLabel = "Sem orçamento vinculado";
@@ -456,8 +441,8 @@
                     _escHtml(er) +
                     "</div>" +
                     "</td>" +
-                    "<td>" +
-                    _menuAcoesHtml(n) +
+                    '<td class="nf-col-acoes">' +
+                    _acoesCelulaTabelaHtml(n) +
                     "</td></tr>"
                 );
             })
@@ -538,11 +523,15 @@
 
     function _blocoOrcamento(n) {
         if (!n.orcamento_id) return "";
+        var label =
+            n.orcamento_numero != null && String(n.orcamento_numero).trim() !== ""
+                ? String(n.orcamento_numero).trim()
+                : "#" + String(n.orcamento_id);
         var link =
             '<a href="orcamento-view.html?id=' +
             encodeURIComponent(String(n.orcamento_id)) +
-            '">#' +
-            _escHtml(String(n.orcamento_id)) +
+            '">' +
+            _escHtml(label) +
             "</a>";
         return _nfMetaRow("Orçamento", link);
     }
@@ -559,83 +548,13 @@
                         "</div></div>";
                 }
 
-                var ops = [];
-                if (n.status === "emitida") {
-                    ops.push(
-                        _nfIconButton('onclick="NotasFiscaisPage.cancelar(' + n.id + ')"', "ban", "Cancelar nota fiscal", "nf-icon-btn--danger")
-                    );
-                    ops.push(
-                        _nfIconButton(
-                            'onclick="NotasFiscaisPage.sincronizarFocus(' + n.id + ')"',
-                            "refresh",
-                            "Sincronizar status com a Focus",
-                            ""
-                        )
-                    );
-                    ops.push(
-                        _nfIconButton(
-                            'onclick="NotasFiscaisPage.reenviarHook(' + n.id + ')"',
-                            "webhook",
-                            "Reenviar webhook da Focus",
-                            ""
-                        )
-                    );
-                    if (n.tipo === "nfe") {
-                        ops.push(
-                            _nfIconButton(
-                                'onclick="NotasFiscaisPage.cartaCorrecao(' + n.id + ')"',
-                                "pencil",
-                                "Emitir carta de correção (CC-e)",
-                                ""
-                            )
-                        );
-                    }
-                    if (n.orcamento_id && (n.tipo === "nfe" || n.tipo === "nfce")) {
-                        ops.push(
-                            _nfIconButton(
-                                "onclick=\"NotasFiscaisPage.previaDanfe(" +
-                                    n.orcamento_id +
-                                    ",'" +
-                                    String(n.tipo || "nfe").replace(/'/g, "") +
-                                    '\')"',
-                                "eye",
-                                "Pré-visualizar DANFE (PDF)",
-                                ""
-                            )
-                        );
-                    }
-                }
-                if (n.status === "processando") {
-                    ops.push(
-                        _nfIconButton(
-                            'onclick="NotasFiscaisPage.sincronizarFocus(' + n.id + ')"',
-                            "refresh",
-                            "Sincronizar status com a Focus",
-                            ""
-                        )
-                    );
-                }
-                if (n.status === "erro") {
-                    ops.push(
-                        _nfIconButton(
-                            'onclick="NotasFiscaisPage.analisarErro(' + n.id + ')"',
-                            "search",
-                            "Analisar erro e sugerir correções",
-                            "nf-btn-analisar nf-icon-btn--warning"
-                        )
-                    );
-                }
-
-                var links = [];
-                if (n.danfe_url) {
-                    links.push(_nfIconLink(_escHtml(n.danfe_url), "doc", "Abrir DANFE em nova aba", ""));
-                }
-                if (n.xml_url) {
-                    links.push(_nfIconLink(_escHtml(n.xml_url), "code", "Baixar ou abrir XML", ""));
-                }
-                if (n.qr_code) {
-                    links.push(_nfIconLink(_escHtml(n.qr_code), "qr", "Abrir QR Code da NFC-e", ""));
-                }
+                var pAcoes = _partesAcoesNota(n);
+                var linksHtml = pAcoes.links.length
+                    ? '<div class="nf-card__links nf-card__icon-row">' + pAcoes.links.join("") + "</div>"
+                    : "";
+                var opsHtml = pAcoes.ops.length
+                    ? '<div class="nf-card__ops nf-card__icon-row">' + pAcoes.ops.join("") + "</div>"
+                    : "";
 
                 var metaHtml =
                     _nfMetaRow("Natureza", _escHtml(n.natureza_operacao || "—")) +
@@ -843,7 +762,12 @@
     }
 
     async function reenviarHook(notaId) {
-        if (!confirm("Reenviar o webhook desta nota para a URL configurada na Focus?")) return;
+        var ok = await _confirmarModal({
+            titulo: "Reenviar webhook",
+            mensagem: "Reenviar o webhook desta nota para a URL configurada na Focus?",
+            botaoConfirmar: "Reenviar",
+        });
+        if (!ok) return;
         try {
             var r = await api.post("/notas-fiscais/" + notaId + "/reenviar-hook-focus", {});
             alert("Webhook reenviado. Resposta: " + JSON.stringify(r && (r.data != null ? r.data : r)).substring(0, 400));
@@ -928,20 +852,6 @@
                 var orig = btn.getAttribute("data-nf-al-orig");
                 if (orig) btn.setAttribute("aria-label", orig);
                 btn.removeAttribute("data-nf-al-orig");
-            }
-            return;
-        }
-        if (btn.querySelector && btn.querySelector(".nf-menu-item__txt")) {
-            var txt = btn.querySelector(".nf-menu-item__txt");
-            if (loading) {
-                if (!btn.getAttribute("data-nf-al-txt")) {
-                    btn.setAttribute("data-nf-al-txt", txt ? txt.textContent : "");
-                }
-                if (txt) txt.textContent = "Analisando…";
-            } else {
-                var prev = btn.getAttribute("data-nf-al-txt");
-                if (txt && prev) txt.textContent = prev;
-                btn.removeAttribute("data-nf-al-txt");
             }
             return;
         }
@@ -1046,6 +956,50 @@
         }
     }
 
+    async function enviarNotaWhatsapp(notaId) {
+        var ok = await _confirmarModal({
+            titulo: "Enviar por WhatsApp",
+            mensagem:
+                "Enviar a nota fiscal ao cliente por WhatsApp? Será usado o telefone cadastrado no orçamento.",
+            botaoConfirmar: "Enviar",
+        });
+        if (!ok) return;
+        try {
+            var resp = await api.post("/notas-fiscais/" + notaId + "/enviar-whatsapp", {});
+            var msg =
+                (resp && resp.data && resp.data.mensagem) ||
+                (resp && resp.mensagem) ||
+                "Mensagem enviada ao cliente.";
+            if (typeof showNotif === "function") showNotif("OK", "WhatsApp", msg);
+            else alert(msg);
+            carregarNotas(paginaAtual);
+        } catch (e) {
+            alert("WhatsApp: " + (e.message || "Falha ao enviar."));
+        }
+    }
+
+    async function enviarNotaEmail(notaId) {
+        var ok = await _confirmarModal({
+            titulo: "Enviar por e-mail",
+            mensagem:
+                "Enviar a nota fiscal por e-mail ao cliente? Será usado o e-mail cadastrado no orçamento.",
+            botaoConfirmar: "Enviar",
+        });
+        if (!ok) return;
+        try {
+            var resp = await api.post("/notas-fiscais/" + notaId + "/enviar-email", {});
+            var msg =
+                (resp && resp.data && resp.data.mensagem) ||
+                (resp && resp.mensagem) ||
+                "E-mail enviado ao cliente.";
+            if (typeof showNotif === "function") showNotif("OK", "E-mail", msg);
+            else alert(msg);
+            carregarNotas(paginaAtual);
+        } catch (e) {
+            alert("E-mail: " + (e.message || "Falha ao enviar."));
+        }
+    }
+
     var debounceTimer;
     function debounce(fn, ms) {
         return function () {
@@ -1061,16 +1015,6 @@
         var bCards = document.getElementById("nf-view-cards");
         if (bTable) bTable.addEventListener("click", function () { setViewMode(VIEW_TABLE); });
         if (bCards) bCards.addEventListener("click", function () { setViewMode(VIEW_CARDS); });
-
-        document.addEventListener("click", function (e) {
-            if (e.target.closest(".nf-actions__trigger")) {
-                e.preventDefault();
-                e.stopPropagation();
-                alternarMenuAcoes(e.target.closest(".nf-actions__trigger"));
-                return;
-            }
-            if (!e.target.closest(".nf-actions")) fecharMenusAcoes();
-        });
 
         var t = document.getElementById("filtro-tipo");
         if (t) t.addEventListener("change", function () { carregarNotas(1); });
@@ -1098,7 +1042,8 @@
         reenviarHook: reenviarHook,
         cartaCorrecao: cartaCorrecao,
         previaDanfe: previaDanfe,
-        fecharMenusAcoes: fecharMenusAcoes,
+        enviarNotaWhatsapp: enviarNotaWhatsapp,
+        enviarNotaEmail: enviarNotaEmail,
         toggleGrupoErro: toggleGrupoErro,
     };
 })();

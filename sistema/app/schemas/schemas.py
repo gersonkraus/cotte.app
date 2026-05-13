@@ -2107,6 +2107,7 @@ class NotaFiscalOut(BaseModel):
     cancelada_em: Optional[datetime] = None
     criado_em: datetime
     orcamento_id: Optional[int] = None
+    orcamento_numero: Optional[str] = None
     focus_ref: Optional[str] = None
     denegada: Optional[bool] = False
 
