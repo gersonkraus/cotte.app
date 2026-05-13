@@ -13,6 +13,8 @@ const NFeService = (() => {
   let _fiscalItensDirty = false;
   /** Valores fiscais efetivos do último preparar (payload Focus `items`), por id do item do orçamento. */
   let _fiscalEfetivoPorItemId = {};
+  /** Delegação de clique em «Ir ao campo» (checklist) — instalada uma vez. */
+  let _nfeScrollDelegationInstalled = false;
 
   function _limparFiscalEfetivoPreparar() {
     _fiscalEfetivoPorItemId = {};
@@ -310,12 +312,163 @@ const NFeService = (() => {
     return map[g] || map.outros;
   }
 
+  function _checklistChaveDataAttr(chave) {
+    const s = String(chave == null ? '' : chave).trim();
+    return /^[a-z0-9_]+$/i.test(s) ? s : '';
+  }
+
+  function _countChecklistFalhas(checklist) {
+    if (!Array.isArray(checklist) || !checklist.length) return 0;
+    return checklist.filter((raw) => raw && typeof raw === 'object' && raw.ok !== true).length;
+  }
+
+  /** Itens com `ok` verdadeiro — `<details>` compacto (não polui a vista principal). */
+  function _renderChecklistValidadosDetails(checklist) {
+    if (!Array.isArray(checklist) || !checklist.length) return '';
+    const okItems = checklist.filter((raw) => raw && typeof raw === 'object' && raw.ok === true);
+    if (!okItems.length) return '';
+    const m = okItems.length;
+    const rows = okItems
+      .map((c) => {
+        const g = _tituloGrupoChecklist(c.grupo);
+        return `<li style="font-size:11px;line-height:1.35;margin:3px 0;color:var(--text);list-style:none;padding-left:0">
+          <span style="color:#15803d;font-weight:600" aria-hidden="true">✓ </span>${_esc(c.titulo || '')}
+          <span style="color:var(--muted,#888);font-size:10px"> · ${_esc(g)}</span>
+        </li>`;
+      })
+      .join('');
+    return `<details class="nfe-checklist-validados" style="margin-top:10px;border:1px solid var(--border,#e5e5e5);border-radius:8px;padding:8px 10px;background:var(--surface2,rgba(0,0,0,0.02))">
+      <summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--text);user-select:none">Ver tudo que foi validado (${m})</summary>
+      <ul style="margin:8px 0 0;padding:0">${rows}</ul>
+    </details>`;
+  }
+
+  function scrollParaChecklistChave(chaveRaw) {
+    const chave = String(chaveRaw || '').trim().toLowerCase();
+    const modal = document.getElementById('modal-nfe');
+    const fallbackBody = modal?.querySelector('.modal-body');
+
+    function ir(el, focusEl) {
+      if (!el) return false;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (focusEl && typeof focusEl.focus === 'function') {
+        try {
+          focusEl.focus({ preventScroll: true });
+        } catch (_) {
+          focusEl.focus();
+        }
+      }
+      return true;
+    }
+
+    if (chave === 'natureza_operacao' || chave === 'natureza') {
+      const wrap = document.getElementById('nfe-natureza-outro-wrap');
+      const outro = document.getElementById('nfe-natureza-outro');
+      const sel = document.getElementById('nfe-natureza');
+      if (wrap && wrap.style.display === 'block' && outro) return ir(outro, outro);
+      return ir(sel, sel);
+    }
+    if (chave === 'nota_autorizada_equivalente') {
+      const det = document.getElementById('nfe-detalhes-avancados');
+      const ser = document.getElementById('nfe-serie');
+      if (det) det.open = true;
+      return ir(ser || det, ser || null);
+    }
+    if (chave === 'tipo_nota') {
+      const el = document.getElementById('nfe-tipo');
+      return ir(el, el);
+    }
+
+    const chavesItensNfe = new Set([
+      'ncm',
+      'cfop',
+      'unidades',
+      'quantidade_valor',
+      'icms',
+      'pis_cofins',
+      'frete',
+      'consumidor_final',
+      'presenca_comprador',
+    ]);
+    if (chavesItensNfe.has(chave)) {
+      const bloco = document.getElementById('nfe-bloco-itens-fiscal');
+      const host = document.getElementById('nfe-itens-fiscais');
+      const firstIn = host && host.querySelector('input.nfe-in-ncm');
+      const alvo = bloco?.style.display !== 'none' && host ? host : bloco;
+      return ir(alvo || bloco, firstIn || null);
+    }
+
+    if (chave === 'item_lista') {
+      const el = document.getElementById('nfe-codigo-servico');
+      return ir(el, el);
+    }
+    if (chave === 'aliquota_iss') {
+      const el = document.getElementById('nfe-aliquota-iss');
+      return ir(el, el);
+    }
+    if (chave === 'iss_retido') {
+      const campos = document.getElementById('campos-nfse');
+      return ir(campos, null);
+    }
+
+    const chavesContexto = new Set([
+      'orcamento_aprovado',
+      'cliente_documento',
+      'cliente_endereco',
+      'emitente_configurado',
+      'token_focus',
+      'ambiente',
+      'referencia',
+      'valor_total',
+      'data_emissao',
+      'prestador',
+      'tomador',
+      'municipio_prestacao',
+      'valor_servico',
+      'descricao_servico',
+      'optante_sn',
+    ]);
+    if (chavesContexto.has(chave)) {
+      const ctx = document.getElementById('nfe-contexto-orcamento');
+      return ir(ctx, null);
+    }
+
+    if (fallbackBody) {
+      fallbackBody.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return true;
+    }
+    return false;
+  }
+
+  function _ensureNfeScrollDelegation() {
+    if (_nfeScrollDelegationInstalled) return;
+    _nfeScrollDelegationInstalled = true;
+    document.addEventListener('click', (ev) => {
+      const modal = document.getElementById('modal-nfe');
+      if (!modal || !modal.classList.contains('open')) return;
+      const btn = ev.target.closest('[data-nfe-scroll-chave]');
+      if (!btn || !modal.contains(btn)) return;
+      const ck = btn.getAttribute('data-nfe-scroll-chave');
+      if (!ck) return;
+      ev.preventDefault();
+      const ok = scrollParaChecklistChave(ck);
+      if (!ok) {
+        try {
+          alert('Campo não associado a um atalho neste modal. Corrija usando o título da pendência como guia.');
+        } catch (_) { /* ignora */ }
+      }
+    });
+  }
+
   /** Lista estruturada do backend (evita duplicar linhas idênticas aos bloqueios quando o checklist veio preenchido). */
+  /** Só pendências (`ok` falso): itens aprovados não aparecem na UI. */
   function _renderChecklistHtml(checklist) {
     if (!Array.isArray(checklist) || !checklist.length) return '';
+    const falhas = checklist.filter((raw) => raw && typeof raw === 'object' && raw.ok !== true);
+    if (!falhas.length) return '';
+    const n = falhas.length;
     const byGroup = {};
-    checklist.forEach((raw) => {
-      if (!raw || typeof raw !== 'object') return;
+    falhas.forEach((raw) => {
       const g = String(raw.grupo || 'outros').toLowerCase();
       if (!byGroup[g]) byGroup[g] = [];
       byGroup[g].push(raw);
@@ -325,20 +478,24 @@ const NFeService = (() => {
       (a, b) => (order.includes(a) ? order.indexOf(a) : 99) - (order.includes(b) ? order.indexOf(b) : 99),
     );
     let html = '<div id="nfe-checklist-host" style="margin-top:10px;border:1px solid var(--border,#e5e5e5);border-radius:8px;padding:10px 12px;background:var(--surface2,rgba(0,0,0,0.02))">';
-    html += '<p style="margin:0 0 8px;font-size:12px;font-weight:700">Checklist da verificação</p>';
+    html += `<p style="margin:0 0 8px;font-size:12px;font-weight:700">Pendências na verificação (${n})</p>`;
     keys.forEach((g) => {
+      const items = byGroup[g];
+      if (!items || !items.length) return;
       html += `<div style="margin-top:6px"><div style="font-size:11px;font-weight:600;color:var(--muted,#666);text-transform:uppercase;letter-spacing:0.02em;margin-bottom:6px">${_esc(_tituloGrupoChecklist(g))}</div>`;
-      byGroup[g].forEach((c) => {
-        const ok = c.ok === true;
-        const chip = ok ? 'OK' : 'Pendente';
-        const bg = ok ? 'rgba(34,197,94,0.14)' : 'rgba(239,68,68,0.12)';
-        const col = ok ? '#15803d' : '#b91c1c';
+      items.forEach((c) => {
         const det = (c.detalhe && String(c.detalhe).trim())
           ? `<div style="font-size:11px;color:var(--muted,#666);margin-top:3px">${_esc(String(c.detalhe))}</div>`
           : '';
+        const ckAttr = _checklistChaveDataAttr(c.chave);
+        const btnIr =
+          ckAttr !== ''
+            ? `<button type="button" class="btn btn-sm btn-ghost" style="flex-shrink:0;font-size:11px;padding:4px 8px;white-space:nowrap" data-nfe-scroll-chave="${_esc(ckAttr)}">Ir ao campo</button>`
+            : '';
         html += `<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--border,#eee)">
-          <span style="flex-shrink:0;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:${bg};color:${col}">${chip}</span>
-          <div style="flex:1;font-size:12px;line-height:1.4"><div>${_esc(c.titulo || '')}</div>${det}</div>
+          <span style="flex-shrink:0;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(239,68,68,0.12);color:#b91c1c">Pendente</span>
+          <div style="flex:1;min-width:0;font-size:12px;line-height:1.4"><div>${_esc(c.titulo || '')}</div>${det}</div>
+          ${btnIr}
         </div>`;
       });
       html += '</div>';
@@ -778,6 +935,8 @@ const NFeService = (() => {
       const temChecklist = checklist.length > 0;
       const bloqueios = Array.isArray(resultado.bloqueios) ? resultado.bloqueios : [];
       const avisos = Array.isArray(resultado.avisos) ? resultado.avisos : [];
+      const falhasCount = _countChecklistFalhas(checklist);
+      const colapsarAvisos = avisos.length > 0 && falhasCount === 0 && bloqueios.length === 0;
       const resumoTxt = (resultado.resumo && String(resultado.resumo).trim()) || (_preparadoOk ? 'Pronto para emitir' : 'Verificação concluída');
       const resumoCor = _preparadoOk ? '#15803d' : '#b45309';
       const resumoPeso = _preparadoOk ? '600' : '600';
@@ -791,7 +950,9 @@ const NFeService = (() => {
       );
 
       if (temChecklist) {
-        partes.push(_renderChecklistHtml(checklist));
+        const pendHtml = _renderChecklistHtml(checklist);
+        const valHtml = _renderChecklistValidadosDetails(checklist);
+        if (pendHtml || valHtml) partes.push(`${pendHtml}${valHtml}`);
       } else if (bloqueios.length) {
         partes.push(
           bloqueios.map(b =>
@@ -800,7 +961,15 @@ const NFeService = (() => {
         );
       }
 
-      if (avisos.length) {
+      if (colapsarAvisos) {
+        const textoCompleto = avisos.map((a) => String(a)).join(' · ');
+        partes.push(
+          `<div style="margin-top:8px;padding:8px 10px;background:rgba(245,158,11,0.08);border-left:3px solid #f59e0b;border-radius:4px;font-size:12px;line-height:1.35;color:#92400e;display:flex;align-items:baseline;gap:6px;min-width:0;white-space:nowrap;overflow:hidden" title="${_esc(textoCompleto)}">
+            <strong style="flex-shrink:0">Resumo das sugestões:</strong>
+            <span style="min-width:0;overflow:hidden;text-overflow:ellipsis">${_esc(textoCompleto)}</span>
+          </div>`,
+        );
+      } else if (avisos.length) {
         partes.push(
           avisos.map(a =>
             `<div style="color:#f59e0b;font-size:12px;padding:4px 0">⚠️ ${_esc(a)}</div>`,
@@ -852,6 +1021,8 @@ const NFeService = (() => {
     return map[status] || 'secondary';
   }
 
+  _ensureNfeScrollDelegation();
+
   return {
     abrirModal,
     fecharModal,
@@ -862,6 +1033,7 @@ const NFeService = (() => {
     _onNaturezaSelectChange,
     _invalidatePrep,
     _markFiscalItensDirty,
+    scrollParaChecklistChave,
   };
 })();
 
