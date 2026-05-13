@@ -120,6 +120,113 @@ def _regime_tributario_para_focus(regime: Optional[str]) -> int:
     return 3
 
 
+def _sanitizar_texto_fiscal(texto: Optional[str]) -> Optional[str]:
+    """Remove placeholders que a API da Focus rejeita (ex.: '-' como município)."""
+    if texto is None:
+        return None
+    t = str(texto).strip()
+    if not t:
+        return None
+    tl = t.lower()
+    if t in ("-", "—", "–", ".", "..", "...", "null", "none"):
+        return None
+    if tl in ("n/a", "na", "s/n", "sn", "inválido", "invalido", "cidade", "município", "municipio", "digite", "a definir"):
+        return None
+    return t
+
+
+def _montar_payload_cadastro_empresa_focus_com_certificado(
+    empresa: Empresa,
+    cert_b64: str,
+    senha_certificado: str,
+) -> Dict[str, Any]:
+    """Monta JSON para POST/PUT ``/v2/empresas`` com endereço exigido pela Focus.
+
+    A validação da Focus falha com \"Município inválido: -\" quando o cadastro
+    COTTE usa '-' ou vazio em cidade/UF/CEP.
+    """
+    cnpj = re.sub(r"\D", "", empresa.cnpj or "")
+    if not cnpj:
+        raise ValueError("Empresa sem CNPJ — impossível registrar na Focus NFe")
+
+    email = _sanitizar_texto_fiscal(empresa.email)
+    if not email or "@" not in email:
+        raise ValueError(
+            "E-mail da empresa é obrigatório e deve ser válido (Configurações) "
+            "para cadastro na Focus NFe."
+        )
+
+    mun = _sanitizar_texto_fiscal(getattr(empresa, "endereco_cidade", None))
+    if not mun:
+        raise ValueError(
+            "Município (cidade) do endereço fiscal é obrigatório nas configurações da empresa. "
+            "Informe o nome completo do município (a Focus rejeita '-' ou campo vazio)."
+        )
+
+    uf_raw = _sanitizar_texto_fiscal(getattr(empresa, "endereco_uf", None))
+    uf = (uf_raw or "").upper()[:2]
+    if len(uf) != 2:
+        raise ValueError(
+            "UF do endereço fiscal deve ter 2 letras (ex.: SP) nas configurações da empresa."
+        )
+
+    logradouro = _sanitizar_texto_fiscal(getattr(empresa, "endereco_logradouro", None)) or "Não informado"
+    bairro = _sanitizar_texto_fiscal(getattr(empresa, "endereco_bairro", None)) or "Centro"
+
+    cep_digits = re.sub(r"\D", "", getattr(empresa, "endereco_cep", None) or "")
+    if len(cep_digits) != 8:
+        raise ValueError(
+            "CEP fiscal com 8 dígitos é obrigatório nas configurações da empresa para cadastro na Focus NFe."
+        )
+
+    num_raw = _sanitizar_texto_fiscal(getattr(empresa, "endereco_numero", None))
+    numero_int = 0
+    if num_raw:
+        m = re.match(r"^(\d+)", str(num_raw))
+        if m:
+            numero_int = int(m.group(1))
+
+    complemento = _sanitizar_texto_fiscal(getattr(empresa, "endereco_complemento", None))
+
+    razao = _sanitizar_texto_fiscal(empresa.nome) or "Razão social"
+    payload: Dict[str, Any] = {
+        "cnpj": cnpj,
+        "nome": razao,
+        "nome_fantasia": razao[:150],
+        "regime_tributario": _regime_tributario_para_focus(empresa.regime_tributario),
+        "logradouro": logradouro,
+        "numero": numero_int,
+        "bairro": bairro,
+        "municipio": mun,
+        "uf": uf,
+        "cep": int(cep_digits),
+        "email": email,
+        "habilita_nfe": True,
+        "arquivo_certificado_base64": cert_b64,
+        "senha_certificado": senha_certificado,
+    }
+    if complemento:
+        payload["complemento"] = complemento
+
+    ie = _sanitizar_texto_fiscal(getattr(empresa, "inscricao_estadual", None))
+    if ie and re.fullmatch(r"\d+", ie):
+        payload["inscricao_estadual"] = int(ie)
+
+    im = _sanitizar_texto_fiscal(getattr(empresa, "inscricao_municipal", None))
+    if im and re.fullmatch(r"\d+", im):
+        payload["inscricao_municipal"] = int(im)
+
+    cm = re.sub(r"\D", "", getattr(empresa, "endereco_codigo_municipio_ibge", None) or "")
+    if len(cm) in (7, 8):
+        payload["codigo_municipio"] = cm
+
+    tel = re.sub(r"\D", "", getattr(empresa, "telefone", None) or "")
+    if tel:
+        payload["telefone"] = tel
+
+    return payload
+
+
 def _normalizar_texto_ibge(s: str) -> str:
     if not s:
         return ""
@@ -1028,26 +1135,17 @@ async def registrar_empresa_focus(
     (independente de ``FOCUS_AMBIENTE`` para emissão de notas).
 
     POST /v2/empresas — primeiro cadastro (ou recuperação se não existir id na Focus).
-    PUT /v2/empresas/{id} — atualização de certificado; ``id`` é o identificador numérico
-    retornado pela Focus (obtido via GET /v2/empresas?cnpj=).
+    PUT /v2/empresas/{id} — atualização; envia **cadastro completo** + certificado
+    (a Focus valida endereço; PUT só com certificado pode manter/rejeitar '-').
     """
     cnpj = re.sub(r"\D", "", empresa.cnpj or "")
     if not cnpj:
         raise ValueError("Empresa sem CNPJ — impossível registrar na Focus NFe")
 
     cert_b64 = base64.b64encode(cert_bytes).decode()
-
-    # Nomes de campo conforme documentação Focus NFe /v2/empresas (validar no painel Focus).
-    payload = {
-        "cnpj": cnpj,
-        "nome": empresa.nome or "",
-        "email": empresa.email or "",
-        "inscricao_estadual": empresa.inscricao_estadual or "",
-        "regime_tributario": _regime_tributario_para_focus(empresa.regime_tributario),
-        "arquivo_certificado_base64": cert_b64,
-        "certificado_pfx": cert_b64,
-        "senha_certificado": senha_certificado,
-    }
+    payload_completo = _montar_payload_cadastro_empresa_focus_com_certificado(
+        empresa, cert_b64, senha_certificado
+    )
 
     ja_cadastrada = bool(getattr(empresa, "focus_certificado_configurado", None))
 
@@ -1058,11 +1156,7 @@ async def registrar_empresa_focus(
                 if id_focus is not None:
                     resp = await client.put(
                         f"/v2/empresas/{id_focus}",
-                        json={
-                            "arquivo_certificado_base64": cert_b64,
-                            "certificado_pfx": cert_b64,
-                            "senha_certificado": senha_certificado,
-                        },
+                        json=payload_completo,
                     )
                 else:
                     logger.info(
@@ -1070,12 +1164,24 @@ async def registrar_empresa_focus(
                         "para CNPJ %s — tentando POST /v2/empresas.",
                         cnpj,
                     )
-                    resp = await client.post("/v2/empresas", json=payload)
+                    resp = await client.post("/v2/empresas", json=payload_completo)
             else:
-                resp = await client.post("/v2/empresas", json=payload)
+                resp = await client.post("/v2/empresas", json=payload_completo)
 
             if resp.status_code not in (200, 201):
-                detalhe = resp.text[:300]
+                detalhe = (resp.text or "")[:800]
+                try:
+                    body = resp.json()
+                    if isinstance(body.get("erros"), list):
+                        msgs = [
+                            e.get("mensagem")
+                            for e in body["erros"]
+                            if isinstance(e, dict) and e.get("mensagem")
+                        ]
+                        if msgs:
+                            detalhe = "; ".join(msgs) + " | " + detalhe[:400]
+                except Exception:
+                    pass
                 return {"success": False, "erro": f"Focus retornou {resp.status_code}: {detalhe}"}
 
             data = resp.json()

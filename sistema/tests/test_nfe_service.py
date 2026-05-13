@@ -621,6 +621,17 @@ async def test_registrar_empresa_focus_sucesso(db):
     from tests.conftest import make_empresa
 
     emp = make_empresa(db, nome="Emp Cert", cnpj="12345678000195")
+    emp.email = "cert@teste.com"
+    emp.telefone = "5511999990001"
+    emp.endereco_cidade = "São Paulo"
+    emp.endereco_uf = "SP"
+    emp.endereco_cep = "01310100"
+    emp.endereco_logradouro = "Av Paulista"
+    emp.endereco_numero = "1000"
+    emp.endereco_bairro = "Bela Vista"
+    emp.inscricao_estadual = "118888888119"
+    db.flush()
+
     cert_bytes = b"fake-pfx-content"
     senha = "senha123"
 
@@ -648,7 +659,17 @@ async def test_registrar_empresa_focus_atualiza_se_ja_existe(db):
     from tests.conftest import make_empresa
 
     emp = make_empresa(db, nome="Emp Cert Existe", cnpj="12345678000195")
+    emp.email = "cert2@teste.com"
+    emp.telefone = "5511888880002"
+    emp.endereco_cidade = "São Paulo"
+    emp.endereco_uf = "SP"
+    emp.endereco_cep = "01310100"
+    emp.endereco_logradouro = "Rua X"
+    emp.endereco_numero = "10"
+    emp.endereco_bairro = "Centro"
     emp.focus_certificado_configurado = True
+    db.flush()
+
     cert_bytes = b"new-pfx-content"
     senha = "nova_senha"
 
@@ -683,4 +704,19 @@ async def test_registrar_empresa_focus_cnpj_vazio_levanta_erro(db):
     emp = make_empresa(db, nome="Emp SemCNPJ", cnpj=None)
 
     with pytest.raises(ValueError, match="CNPJ"):
+        await nfe_service.registrar_empresa_focus(emp, b"pfx", "senha")
+
+
+@pytest.mark.asyncio
+async def test_registrar_empresa_focus_exige_endereco_valido(db):
+    from tests.conftest import make_empresa
+
+    emp = make_empresa(db, nome="Emp Sem Cidade", cnpj="12345678000195")
+    emp.email = "x@teste.com"
+    emp.endereco_cidade = "-"
+    emp.endereco_uf = "SP"
+    emp.endereco_cep = "01310100"
+    db.flush()
+
+    with pytest.raises(ValueError, match="Município"):
         await nfe_service.registrar_empresa_focus(emp, b"pfx", "senha")

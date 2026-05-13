@@ -341,7 +341,10 @@ async def configurar_certificado_focus(
         raise HTTPException(400, f"Erro ao registrar empresa na Focus NFe: {e}")
 
     if not resultado["success"]:
-        raise HTTPException(400, resultado.get("erro", "Erro desconhecido na Focus NFe"))
+        msg = resultado.get("erro", "Erro desconhecido na Focus NFe")
+        if "Focus retornou 422" in msg:
+            raise HTTPException(422, msg)
+        raise HTTPException(400, msg)
 
     db.commit()
 
