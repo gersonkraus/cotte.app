@@ -196,11 +196,24 @@
 
     var html = '<div class="briefing-header">' +
       '<div>' +
-        '<h3 class="briefing-title">Briefing de hoje — ' + dataHoje + '</h3>' +
+        '<div style="display:flex;align-items:center;gap:8px">' +
+          '<h3 class="briefing-title">Briefing de hoje — ' + dataHoje + '</h3>' +
+          '<button class="briefing-btn-info" onclick="BriefingIA.toggleRegras()" title="Ver regras de priorização">ℹ️</button>' +
+        '</div>' +
         '<p class="briefing-subtitle">IA analisou ' + (_dados.total_leads || 0) + ' leads · ' +
           (_dados.total_acoes || 0) + ' precisam de ação' + geradoEm + '</p>' +
       '</div>' +
       '<button class="briefing-btn-atualizar" onclick="BriefingIA.atualizar()">🔄 Atualizar</button>' +
+    '</div>' +
+    '<div id="briefing-regras" class="briefing-regras-box" style="display:none">' +
+      '<h4>Como a IA prioriza seus contatos:</h4>' +
+      '<ul>' +
+        '<li>🔥 <strong>Urgente</strong>: Propostas paradas há +5 dias, leads quentes sem contato há 3 dias ou agendamentos vencidos.</li>' +
+        '<li>📅 <strong>Hoje</strong>: Agendamentos para hoje ou leads mornos sem contato há 7 dias.</li>' +
+        '<li>📆 <strong>Esta Semana</strong>: Outros leads que precisam de acompanhamento em breve.</li>' +
+        '<li>✅ <strong>Em dia</strong>: Contatos recentes ou leads frios sem pendências.</li>' +
+      '</ul>' +
+      '<p style="margin-top:8px;font-size:0.75rem;color:#64748b">A IA também considera se o cliente respondeu recentemente para sugerir mudanças de etapa.</p>' +
     '</div>' +
     _renderProgressBar(counts.concluidos, counts.total);
 
@@ -273,6 +286,13 @@
       '.briefing-textarea-edicao{width:100%;min-height:80px;border:1px solid #6366f1;border-radius:6px;padding:10px;font-size:0.82rem;font-family:inherit;resize:vertical;box-sizing:border-box;margin-bottom:10px}',
       '.briefing-btn-template{background:#6366f1;color:#fff;border:none;border-radius:6px;padding:7px 12px;font-size:0.8rem;font-weight:500;cursor:pointer}',
       '.briefing-btn-template:hover{background:#4f46e5}',
+      '.briefing-btn-info{background:transparent;border:none;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:0.85rem;color:#64748b;transition:background .2s}',
+      '.briefing-btn-info:hover{background:#f1f5f9;color:#1e293b}',
+      '.briefing-regras-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:20px;animation:slideDown 0.3s ease-out}',
+      '.briefing-regras-box h4{margin:0 0 10px;font-size:0.85rem;font-weight:600;color:#1e293b}',
+      '.briefing-regras-box ul{margin:0;padding-left:18px;font-size:0.8rem;color:#334155;line-height:1.6}',
+      '.briefing-regras-box li{margin-bottom:6px}',
+      '@keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}',
       '.briefing-template-dropdown{position:absolute;top:100%;left:0;z-index:100;background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.15);min-width:250px;max-height:300px;overflow-y:auto;margin-top:4px}',
       '.briefing-template-list{padding:8px 0}',
       '.briefing-template-item{padding:10px 14px;cursor:pointer;border-bottom:1px solid #f1f5f9}',
@@ -309,6 +329,15 @@
     atualizar: function () {
       _dados = null;
       _carregarEExibir(true);
+    },
+
+    toggleRegras: function () {
+      var el = document.getElementById('briefing-regras');
+      if (!el) return;
+      var isHidden = el.style.display === 'none';
+      el.style.display = isHidden ? 'block' : 'none';
+      var btn = document.querySelector('.briefing-btn-info');
+      if (btn) btn.style.background = isHidden ? '#e2e8f0' : 'transparent';
     },
 
     enviar: async function (leadId, tipoAcao) {
