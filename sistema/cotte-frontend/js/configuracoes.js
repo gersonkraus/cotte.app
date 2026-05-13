@@ -2753,9 +2753,13 @@ async function carregarStatusFocus() {
       icon.textContent = '✅';
       text.textContent = `Focus NFe conectada — Ambiente: ${s.ambiente === 'producao' ? 'Produção' : 'Homologação'}.`;
     } else if (s.configurado && !s.conectado) {
-      bar.style.background = 'rgba(234,179,8,0.1)';
+      bar.style.background = s.focus_token_rejeitado
+        ? 'rgba(239,68,68,0.12)'
+        : 'rgba(234,179,8,0.1)';
       icon.textContent = '⚠️';
-      text.textContent = 'Token configurado mas sem conexão com a Focus NFe. Verifique a rede ou o token.';
+      text.textContent = s.focus_token_rejeitado
+        ? 'A Focus rejeitou o token (HTTP 401). Em homologação use o Token de Homologação (Painel API → Tokens): defina FOCUS_TOKEN_HOMOLOGACAO no Railway/servidor ou coloque esse token em FOCUS_TOKEN. Mantenha o Token Principal em FOCUS_TOKEN para enviar o certificado (.pfx).'
+        : 'Token configurado mas sem conexão com a Focus NFe. Verifique a rede ou o token.';
     } else {
       bar.style.background = 'rgba(239,68,68,0.1)';
       icon.textContent = '❌';

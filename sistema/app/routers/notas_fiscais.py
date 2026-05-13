@@ -4,6 +4,7 @@ notas_fiscais.py — Endpoints para emissão e gestão de NF-e/NFC-e/NFS-e.
 
 import logging
 import httpx
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import List, Optional
 
@@ -38,8 +39,8 @@ def _get_empresa_com_nfe(db: Session, usuario) -> Empresa:
     empresa = db.query(Empresa).filter(Empresa.id == usuario.empresa_id).first()
     if not empresa:
         raise HTTPException(404, "Empresa não encontrada")
-    if not settings.FOCUS_TOKEN:
-        raise HTTPException(422, "Token Focus NFe não configurado. Contate o suporte.")
+    if not nfe_service.focus_token_emissao_disponivel(empresa):
+        raise HTTPException(422, "Token Focus NFe não configurado para emissão neste ambiente. Contate o suporte.")
     if not empresa.cnpj:
         raise HTTPException(422, "Preencha o CNPJ da empresa em Configurações → Fiscal antes de emitir notas")
     return empresa
@@ -134,25 +135,32 @@ async def emitir_nota_fiscal(
         natureza_operacao=dados.natureza_operacao,
         status="pendente",
         criado_por_id=usuario.id,
+        criado_em=datetime.now(timezone.utc),
     )
     db.add(nota)
     db.flush()
 
-    if dados.tipo == "nfse":
-        payload = nfe_service._montar_payload_nfse(
-            empresa, orcamento,
-            dados.codigo_servico_lc116 or "170600",
-            dados.aliquota_iss or 0,
-        )
-    else:
-        payload = await nfe_service._montar_payload_nfe(
-            empresa, orcamento, dados.tipo,
-            dados.natureza_operacao, dados.serie,
-            dados.itens_override,
-            db=db,
-        )
+    try:
+        if dados.tipo == "nfse":
+            payload = nfe_service._montar_payload_nfse(
+                empresa, orcamento,
+                dados.codigo_servico_lc116 or "170600",
+                dados.aliquota_iss or 0,
+            )
+        else:
+            payload = await nfe_service._montar_payload_nfe(
+                empresa, orcamento, dados.tipo,
+                dados.natureza_operacao, dados.serie,
+                dados.itens_override,
+                db=db,
+            )
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
 
     db.commit()
+    # Garante `criado_em` (server_default) e demais colunas persistidas no objeto ORM
+    # antes do `response_model=NotaFiscalOut` — evita ResponseValidationError (criado_em=None).
+    db.refresh(nota)
     # BUG1-FIX: passa IDs em vez de objetos ORM — a session será fechada antes
     # da background task executar; emitir_nota_background cria session própria.
     background_tasks.add_task(nfe_service.emitir_nota_background, nota.id, empresa.id, payload)
@@ -190,8 +198,11 @@ async def preparar_nota_fiscal(
     # Valida empresa
     if not empresa.cnpj:
         bloqueios.append("CNPJ da empresa não configurado (Configurações → Fiscal)")
-    if not settings.FOCUS_TOKEN:
-        bloqueios.append("Token Focus NFe não configurado — contate o suporte")
+    if not nfe_service.focus_token_emissao_disponivel(empresa):
+        bloqueios.append(
+            "Token Focus NFe não configurado para emissão neste ambiente — contate o suporte "
+            "(em homologação use o Token de Homologação: variável FOCUS_TOKEN_HOMOLOGACAO ou o token correto em FOCUS_TOKEN)."
+        )
     if not empresa.endereco_cidade:
         avisos.append("Endereço da empresa incompleto — pode causar rejeição")
 
@@ -300,7 +311,8 @@ def configurar_focus(
         "success": True,
         "message": "Configuração fiscal salva",
         "ambiente": empresa.nfe_ambiente,
-        "token_configurado": bool(settings.FOCUS_TOKEN),
+        "token_configurado": nfe_service.focus_token_emissao_disponivel(empresa),
+        "focus_homolog_token_configurado": bool((settings.FOCUS_TOKEN_HOMOLOGACAO or "").strip()),
     }
 
 
@@ -322,7 +334,11 @@ async def configurar_certificado_focus(
         raise HTTPException(422, "CNPJ da empresa é obrigatório. Preencha os dados fiscais primeiro.")
 
     if not settings.FOCUS_TOKEN:
-        raise HTTPException(503, "FOCUS_TOKEN não configurado no servidor.")
+        raise HTTPException(
+            503,
+            "FOCUS_TOKEN (Token Principal de Produção) não configurado — necessário para cadastrar "
+            "empresa/certificado na API Focus (api.focusnfe.com.br). Veja documentação Focus: Painel API → Tokens.",
+        )
 
     cert_bytes = await certificado.read()
     if len(cert_bytes) > 102400:  # 100KB
@@ -366,13 +382,18 @@ async def status_focus(
     if not empresa:
         raise HTTPException(404, "Empresa não encontrada")
 
-    token_ok = bool(settings.FOCUS_TOKEN)
+    token_ok = nfe_service.focus_token_emissao_disponivel(empresa)
     conectado = False
+    focus_probe_http: Optional[int] = None
+    focus_token_rejeitado = False
 
     if token_ok:
         try:
-            async with nfe_service._get_client() as client:
+            async with nfe_service._get_client(empresa) as client:
                 r = await client.get("/v2/nfe/ref-ping-teste-cotte")
+                focus_probe_http = r.status_code
+                if r.status_code == 401:
+                    focus_token_rejeitado = True
                 conectado = r.status_code in (200, 404, 422)
         except Exception:
             conectado = False
@@ -380,8 +401,15 @@ async def status_focus(
     return {
         "configurado": token_ok,
         "conectado": conectado,
+        "focus_probe_http": focus_probe_http,
+        "focus_token_rejeitado": focus_token_rejeitado,
         "ambiente": settings.FOCUS_AMBIENTE,
         "nfe_ambiente_empresa": empresa.nfe_ambiente or "homologacao",
+        "ambiente_emissao_efetivo": nfe_service._ambiente_nf_effective(empresa),
+        "host_emissao_efetivo": nfe_service._focus_base_url_for_empresa(empresa),
+        "focus_token_tamanho": len(nfe_service._focus_api_token_for_emission(empresa)),
+        "focus_homolog_token_configurado": bool((settings.FOCUS_TOKEN_HOMOLOGACAO or "").strip()),
+        "focus_token_principal_configurado": bool((settings.FOCUS_TOKEN or "").strip()),
         "certificado_configurado": bool(empresa.focus_certificado_configurado),
         "certificado_validade": empresa.focus_certificado_validade.isoformat()
         if empresa.focus_certificado_validade
@@ -396,7 +424,7 @@ async def receber_webhook_focus(
     authorization: str = Header(None),
 ):
     """Recebe notificações de status de NF-e, NFC-e e NFS-e da Focus NFe."""
-    if not nfe_service.verificar_token_webhook_focus(authorization or "", settings.FOCUS_TOKEN):
+    if not nfe_service.webhook_focus_autorizado(authorization or ""):
         raise HTTPException(401, "Autenticação do webhook Focus inválida")
 
     payload = await request.json()
@@ -457,7 +485,7 @@ async def previsualizar_danfe_focus(
         empresa, orcamento, dados.tipo, natureza, serie_val, None, db=db
     )
     try:
-        pdf = await nfe_service.previsualizar_danfe_pdf(payload)
+        pdf = await nfe_service.previsualizar_danfe_pdf(payload, empresa)
     except ValueError as e:
         raise HTTPException(400, str(e))
     return Response(
@@ -747,26 +775,31 @@ async def reemitir_nota_fiscal(
         natureza_operacao=nota_original.natureza_operacao,
         status="pendente",
         criado_por_id=usuario.id,
+        criado_em=datetime.now(timezone.utc),
     )
     db.add(nova_nota)
     db.flush()
 
-    if nova_nota.tipo == "nfse":
-        payload = nfe_service._montar_payload_nfse(
-            empresa, orcamento,
-            nota_original.codigo_servico_lc116 if hasattr(nota_original, "codigo_servico_lc116") else "170600",
-            0,
-        )
-    else:
-        payload = await nfe_service._montar_payload_nfe(
-            empresa, orcamento, nova_nota.tipo,
-            nova_nota.natureza_operacao or "Venda de Mercadorias",
-            nova_nota.serie or "1",
-            None,
-            db=db,
-        )
+    try:
+        if nova_nota.tipo == "nfse":
+            payload = nfe_service._montar_payload_nfse(
+                empresa, orcamento,
+                nota_original.codigo_servico_lc116 if hasattr(nota_original, "codigo_servico_lc116") else "170600",
+                0,
+            )
+        else:
+            payload = await nfe_service._montar_payload_nfe(
+                empresa, orcamento, nova_nota.tipo,
+                nova_nota.natureza_operacao or "Venda de Mercadorias",
+                nova_nota.serie or "1",
+                None,
+                db=db,
+            )
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
 
     db.commit()
+    db.refresh(nova_nota)
     background_tasks.add_task(nfe_service.emitir_nota_background, nova_nota.id, empresa.id, payload)
     return nova_nota
 

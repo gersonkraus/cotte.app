@@ -468,7 +468,15 @@ const NFeService = (() => {
       if (statusMsg) statusMsg.textContent = `✓ NF emitida com sucesso! N\xfamero: ${nota.numero || '—'}`;
       if (_orcamentoId) carregarNotasExistentes(_orcamentoId);
     } else if (nota.status === 'erro') {
-      if (statusMsg) statusMsg.textContent = `Erro SEFAZ: ${nota.erro_mensagem || nota.erro_codigo || 'desconhecido'}`;
+      const msg = nota.erro_mensagem || nota.erro_codigo || 'desconhecido';
+      const msgStr = String(msg);
+      const ehAuthFocus =
+        nota.erro_codigo === 'AUTH_ERROR' ||
+        (msgStr.includes('HTTP 401') && msgStr.includes('Focus'));
+      const prefix = ehAuthFocus
+        ? 'Erro de autenticação na Focus (ainda não chegou à SEFAZ): '
+        : 'Erro SEFAZ: ';
+      if (statusMsg) statusMsg.textContent = prefix + msg;
       if (_orcamentoId) carregarNotasExistentes(_orcamentoId);
       _mostrarBotaoAnalise(notaId);
     } else {

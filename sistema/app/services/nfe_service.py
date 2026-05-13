@@ -33,9 +33,48 @@ POLLING_MAX_ATTEMPTS = 20
 
 
 def _focus_base_url() -> str:
-    if settings.FOCUS_AMBIENTE == "producao":
+    """Host da API de notas (NF-e/NFC-e/NFS-e) conforme ambiente global no `.env`.
+
+    Para chamadas com contexto de empresa, preferir ``_focus_base_url_for_empresa``.
+    """
+    return _focus_base_url_for_ambiente(_ambiente_nf_effective(None))
+
+
+def _ambiente_nf_effective(empresa: Optional[Empresa]) -> str:
+    """Homologação x produção: prioriza ``empresa.nfe_ambiente``, senão ``FOCUS_AMBIENTE``."""
+    if empresa is not None:
+        raw = (getattr(empresa, "nfe_ambiente", None) or "").strip().lower()
+        if raw in ("producao", "homologacao"):
+            return "producao" if raw == "producao" else "homologacao"
+    g = (settings.FOCUS_AMBIENTE or "").strip().lower()
+    return "producao" if g == "producao" else "homologacao"
+
+
+def _focus_base_url_for_ambiente(ambiente: str) -> str:
+    if ambiente == "producao":
         return "https://api.focusnfe.com.br"
     return "https://homologacao.focusnfe.com.br"
+
+
+def _focus_base_url_for_empresa(empresa: Optional[Empresa]) -> str:
+    return _focus_base_url_for_ambiente(_ambiente_nf_effective(empresa))
+
+
+def focus_token_emissao_disponivel(empresa: Optional[Empresa] = None) -> bool:
+    """Há credencial para emitir no host Focus do ambiente efetivo (homologação aceita FOCUS_TOKEN_HOMOLOGACAO)."""
+    if _ambiente_nf_effective(empresa) == "homologacao":
+        if (getattr(settings, "FOCUS_TOKEN_HOMOLOGACAO", None) or "").strip():
+            return True
+    return bool((settings.FOCUS_TOKEN or "").strip())
+
+
+def _focus_api_token_for_emission(empresa: Optional[Empresa] = None) -> str:
+    """Token HTTP Basic para ``homologacao.focusnfe.com.br`` ou ``api.focusnfe.com.br`` (emissão/consulta)."""
+    if _ambiente_nf_effective(empresa) == "homologacao":
+        h = (getattr(settings, "FOCUS_TOKEN_HOMOLOGACAO", None) or "").strip()
+        if h:
+            return h
+    return (settings.FOCUS_TOKEN or "").strip()
 
 
 def _focus_base_url_empresas() -> str:
@@ -48,10 +87,11 @@ def _focus_base_url_empresas() -> str:
     return "https://api.focusnfe.com.br"
 
 
-def _get_client() -> httpx.AsyncClient:
+def _get_client(empresa: Optional[Empresa] = None) -> httpx.AsyncClient:
+    token = _focus_api_token_for_emission(empresa)
     return httpx.AsyncClient(
-        base_url=_focus_base_url(),
-        auth=(settings.FOCUS_TOKEN, ""),
+        base_url=_focus_base_url_for_empresa(empresa),
+        auth=(token, ""),
         headers={"Content-Type": "application/json"},
         timeout=30.0,
     )
@@ -59,9 +99,10 @@ def _get_client() -> httpx.AsyncClient:
 
 def _get_client_empresas() -> httpx.AsyncClient:
     """Cliente HTTP só para rotas /v2/empresas (sempre host de produção da Focus)."""
+    token = (settings.FOCUS_TOKEN or "").strip()
     return httpx.AsyncClient(
         base_url=_focus_base_url_empresas(),
-        auth=(settings.FOCUS_TOKEN, ""),
+        auth=(token, ""),
         headers={"Content-Type": "application/json"},
         timeout=60.0,
     )
@@ -887,7 +928,9 @@ def _montar_payload_nfse(
     """
     from datetime import date
 
-    cliente: Cliente = orcamento.cliente
+    cliente: Optional[Cliente] = orcamento.cliente
+    if not cliente:
+        raise ValueError("Orçamento sem cliente — impossível emitir NFS-e")
     nome_cliente = cliente.razao_social or cliente.nome
 
     # tomador: usa presença real do documento, não tipo_pessoa (pode ser inconsistente)
@@ -1020,7 +1063,7 @@ async def emitir_nota(
     nota_fiscal.payload_enviado = payload
     db.commit()
 
-    async with _get_client() as client:
+    async with _get_client(empresa) as client:
         try:
             resp = await client.post(f"{endpoint}?ref={ref}", json=payload)
         except httpx.RequestError as e:
@@ -1033,8 +1076,26 @@ async def emitir_nota(
         if resp.status_code == 401:
             nota_fiscal.status = "erro"
             nota_fiscal.erro_codigo = "AUTH_ERROR"
-            nota_fiscal.erro_mensagem = "Token Focus inválido — verifique FOCUS_TOKEN no ambiente"
-            logger.critical("FOCUS_TOKEN inválido — revisar configuração (empresa_id=%s)", empresa.id)
+            host_usado = _focus_base_url_for_empresa(empresa)
+            amb = _ambiente_nf_effective(empresa)
+            nota_fiscal.erro_mensagem = (
+                "A Focus retornou HTTP 401 (não autorizado). "
+                f"Host usado: {host_usado} (ambiente efetivo: {amb}). "
+                "Na documentação Focus, 401 indica token de acesso inválido. Verifique: "
+                "(1) FOCUS_TOKEN sem BOM/aspas/extra espaços — reinicie o processo após alterar .env; "
+                "(2) em Railway/hosting, variável FOCUS_TOKEN no painel substitui o .env local; "
+                "(3) copie o token de API do painel Focus (mesmo projeto da conta); "
+                "(4) «Ambiente NF-e» da empresa em Configurações → Fiscal deve ser homologação se estiver usando este host; "
+                "(5) em homologação a Focus exige o Token de Homologação (menu Painel API → Tokens), "
+                "não o Token Principal nem o Token de Produção — defina FOCUS_TOKEN_HOMOLOGACAO no .env/Railway "
+                "com esse valor (mantenha FOCUS_TOKEN com o Token Principal para cadastro de empresa/certificado na API de produção)."
+            )
+            logger.critical(
+                "Focus HTTP 401 ao emitir (empresa_id=%s host=%s ambiente_efetivo=%s)",
+                empresa.id,
+                host_usado,
+                amb,
+            )
             db.commit()
             return nota_fiscal
 
@@ -1088,7 +1149,17 @@ async def emitir_nota(
                 db.commit()
                 return nota_fiscal
 
-            status_data = status_resp.json()
+            try:
+                status_data = status_resp.json()
+            except Exception:
+                logger.warning(
+                    "Focus GET status retornou corpo não-JSON (nota_id=%s ref=%s): %s",
+                    nota_fiscal.id,
+                    ref,
+                    (status_resp.text or "")[:300],
+                )
+                continue
+
             current = status_data.get("status", "")
 
             if current == "processando_autorizacao":
@@ -1217,13 +1288,20 @@ async def consultar_nota_focus_e_persistir(
     if not ref:
         raise ValueError("Nota sem focus_ref — impossível consultar na Focus")
     path = _path_focus(nota_fiscal.tipo, ref)
-    async with _get_client() as client:
+    empresa = db.query(Empresa).filter(Empresa.id == nota_fiscal.empresa_id).first()
+    async with _get_client(empresa) as client:
         resp = await client.get(path, params={"completa": 1})
         if resp.status_code == 404:
             raise ValueError("Referência não encontrada na Focus NFe")
         if resp.status_code >= 400:
             raise ValueError(resp.text[:500])
-        status_data = resp.json()
+        try:
+            status_data = resp.json()
+        except Exception as e:
+            raise ValueError(
+                f"Resposta da Focus não é JSON válido (HTTP {resp.status_code}): "
+                f"{(resp.text or '')[:400]}"
+            ) from e
     _atualizar_nota_com_status_focus(nota_fiscal, status_data)
     db.commit()
     return nota_fiscal
@@ -1244,7 +1322,8 @@ async def emitir_carta_correcao_focus(
     if len(txt) < 15 or len(txt) > 1000:
         raise ValueError("Texto da carta de correção deve ter entre 15 e 1000 caracteres.")
     path = f"/v2/nfe/{ref}/carta_correcao"
-    async with _get_client() as client:
+    empresa = db.query(Empresa).filter(Empresa.id == nota_fiscal.empresa_id).first()
+    async with _get_client(empresa) as client:
         resp = await client.post(path, json={"correcao": txt})
         try:
             data = resp.json()
@@ -1262,15 +1341,19 @@ async def emitir_carta_correcao_focus(
     return data
 
 
-async def previsualizar_danfe_pdf(payload: dict) -> bytes:
+async def previsualizar_danfe_pdf(payload: dict, empresa: Optional[Empresa] = None) -> bytes:
     """POST /v2/nfe/danfe — retorna PDF (pré-visualização Focus)."""
+    token = _focus_api_token_for_emission(empresa)
     async with httpx.AsyncClient(
-        base_url=_focus_base_url(),
-        auth=(settings.FOCUS_TOKEN, ""),
+        base_url=_focus_base_url_for_empresa(empresa),
+        auth=(token, ""),
         headers={"Content-Type": "application/json", "Accept": "application/pdf"},
         timeout=90.0,
     ) as client:
-        resp = await client.post("/v2/nfe/danfe", json=payload)
+        try:
+            resp = await client.post("/v2/nfe/danfe", json=payload)
+        except httpx.RequestError as e:
+            raise ValueError(f"Erro de conexão com a Focus ao gerar prévia DANFE: {e}") from e
         if resp.status_code >= 400:
             try:
                 err = resp.json()
@@ -1287,7 +1370,8 @@ async def reenviar_webhook_focus(nota_fiscal: NotaFiscal) -> dict:
         raise ValueError("Nota sem focus_ref")
     base = _path_focus(nota_fiscal.tipo, ref).rstrip("/")
     path = f"{base}/hook"
-    async with _get_client() as client:
+    empresa = getattr(nota_fiscal, "empresa", None)
+    async with _get_client(empresa) as client:
         resp = await client.post(path)
         try:
             return resp.json()
@@ -1311,7 +1395,7 @@ async def cancelar_nota(
 
     path = _path_focus(nota_fiscal.tipo, ref)
 
-    async with _get_client() as client:
+    async with _get_client(empresa) as client:
         try:
             resp = await client.delete(path, json={"justificativa": motivo_limpo})
             if resp.status_code not in (200, 201, 204):
@@ -1340,6 +1424,18 @@ def verificar_token_webhook_focus(authorization_header: str, expected_token: str
         return hmac.compare_digest(token, expected_token)
     except Exception:
         return False
+
+
+def webhook_focus_autorizado(authorization_header: str) -> bool:
+    """Aceita webhooks assinados com Token Principal ou Token de Homologação."""
+    candidatos = [
+        (settings.FOCUS_TOKEN or "").strip(),
+        (getattr(settings, "FOCUS_TOKEN_HOMOLOGACAO", None) or "").strip(),
+    ]
+    for tok in dict.fromkeys(t for t in candidatos if t):
+        if verificar_token_webhook_focus(authorization_header, tok):
+            return True
+    return False
 
 
 def _limpar_doc(doc: str) -> str:

@@ -141,6 +141,28 @@ def test_webhook_focus_rejeita_token_errado(http_client, db, empresa_nfe, nota_n
     assert resp.status_code == 401
 
 
+def test_webhook_focus_aceita_token_homologacao(http_client, db, empresa_nfe, nota_nfe):
+    """Webhooks de notas emitidas em homologação podem autenticar com FOCUS_TOKEN_HOMOLOGACAO."""
+    payload = {
+        "ref": "12345678000100-42",
+        "status": "autorizado",
+        "chave_nfe": "35240512345678000100550010000000421000000421",
+        "numero": "42",
+    }
+    homolog = "focus_homolog_secret"
+
+    with patch("app.core.config.settings.FOCUS_TOKEN", ""), patch(
+        "app.core.config.settings.FOCUS_TOKEN_HOMOLOGACAO", homolog
+    ):
+        resp = http_client.post(
+            "/api/v1/notas-fiscais/webhook/focus",
+            json=payload,
+            headers={"Authorization": _basic_auth(homolog)},
+        )
+
+    assert resp.status_code == 200
+
+
 def test_webhook_focus_ref_desconhecida_ignora(http_client, db, empresa_nfe):
     """Payload com ref que não existe no banco deve retornar 200 sem erro."""
     payload = {"ref": "00000000000000-999", "status": "autorizado"}

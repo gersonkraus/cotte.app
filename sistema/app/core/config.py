@@ -1,9 +1,11 @@
-from pydantic_settings import BaseSettings
-from typing import Optional
-import subprocess
-
+from pathlib import Path
 
 import time
+
+from pydantic import field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Optional
+import subprocess
 
 
 def _compute_version() -> str:
@@ -29,7 +31,30 @@ def _compute_version() -> str:
         return "dev"
 
 
+def _dotenv_paths() -> tuple[str, ...]:
+    """Ordem: `.env` no cwd primeiro, depois `sistema/.env` (o último sobrescreve chaves iguais).
+
+    Assim o token definido em `sistema/.env` prevalece sobre um `.env` vazio na raiz do projeto.
+    Arquivos inexistentes são ignorados pelo pydantic-settings.
+    """
+    paths: list[str] = []
+    cwd_env = Path.cwd() / ".env"
+    if cwd_env.is_file():
+        paths.append(str(cwd_env))
+    sistema_env = Path(__file__).resolve().parents[2] / ".env"
+    if sistema_env.is_file():
+        if not paths or Path(paths[-1]).resolve() != sistema_env.resolve():
+            paths.append(str(sistema_env))
+    return tuple(paths) if paths else (".env",)
+
+
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=_dotenv_paths(),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
     # App
     APP_NAME: str = "COTTE"
     APP_URL: str = "https://cotte.app"
@@ -132,16 +157,36 @@ class Settings(BaseSettings):
     ML_SYNC_PERIODIC_INTERVAL_MINUTES: int = 15
     ML_TOKEN_CRYPTO_SECRET: str = ""
     FOCUS_TOKEN: str = ""
+    # Token de Homologação (Painel API → Tokens). Homologação na Focus não aceita o token de produção/principal.
+    FOCUS_TOKEN_HOMOLOGACAO: str = ""
     FOCUS_AMBIENTE: str = "homologacao"  # "homologacao" | "producao"
+
+    @field_validator("FOCUS_TOKEN", "FOCUS_TOKEN_HOMOLOGACAO", mode="before")
+    @classmethod
+    def _strip_focus_token(cls, v):
+        """Evita 401 na Focus por BOM, aspas ou espaços ao copiar o token no .env / Railway."""
+        if v is None:
+            return ""
+        s = str(v).replace("\ufeff", "").strip()
+        if len(s) >= 2 and s[0] == s[-1] and s[0] in ("'", '"'):
+            s = s[1:-1].strip()
+        return s
+
+    @field_validator("FOCUS_AMBIENTE", mode="before")
+    @classmethod
+    def _norm_focus_ambiente(cls, v):
+        if v is None:
+            return "homologacao"
+        s = str(v).replace("\ufeff", "").strip().lower()
+        if s in ("producao", "prod", "production", "produção"):
+            return "producao"
+        return "homologacao"
+
     # OAuth: offline_access é necessário para o Mercado Livre devolver refresh_token na troca do code.
     ML_OAUTH_SCOPE: str = "offline_access read write"
 
     # Prefixo da API (alguns módulos usam /api/v1, outros usam /)
     API_V1_STR: str = ""
-
-    class Config:
-        env_file = ".env"
-        extra = "ignore"
 
 
 settings = Settings()
