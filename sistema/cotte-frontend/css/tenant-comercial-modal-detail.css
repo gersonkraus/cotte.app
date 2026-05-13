@@ -554,8 +554,26 @@
   text-transform: uppercase;
   letter-spacing: .04em;
 }
-.lead-tl-tag.system { background: #e2e8f0; color: #334155; }
-.lead-tl-tag.user   { background: #dcfce7; color: #166534; }
+.lead-tl-tag.system   { background: #e2e8f0; color: #334155; }
+.lead-tl-tag.user     { background: #dcfce7; color: #166534; }
+.lead-tl-tag.sent     { background: #dbeafe; color: #1e40af; }
+.lead-tl-tag.received { background: #f0fdf4; color: #15803d; }
+
+/* ── Bolhas de chat WhatsApp ─────────────────────────────────────────────── */
+.lead-chat-timeline { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; }
+.lead-tl-bubble { display: flex; max-width: 85%; }
+.tl-bubble-out { align-self: flex-end; flex-direction: row-reverse; }
+.tl-bubble-out .tl-bubble-body { background: #dcfce7; border-radius: 16px 4px 16px 16px; border: 1px solid #bbf7d0; }
+.tl-bubble-in  { align-self: flex-start; }
+.tl-bubble-in  .tl-bubble-body { background: var(--surface2,#f8fafc); border-radius: 4px 16px 16px 16px; border: 1px solid var(--border,#e1e7f0); }
+.tl-bubble-body { padding: 8px 12px 6px; max-width: 100%; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+.tl-bubble-text { font-size: 13px; color: var(--text,#0f172a); line-height: 1.45; word-break: break-word; white-space: pre-wrap; }
+.tl-bubble-meta { display: flex; align-items: center; gap: 6px; margin-top: 4px; justify-content: flex-end; }
+.tl-bubble-time { font-size: 10px; color: var(--muted,#64748b); white-space: nowrap; }
+[data-theme="dark"] .tl-bubble-out .tl-bubble-body { background: #14532d; border-color: #166534; }
+[data-theme="dark"] .tl-bubble-in  .tl-bubble-body { background: var(--surface2,#1e293b); border-color: var(--border,#334155); }
+.lead-chat-timeline .lead-tl-item { border-bottom: none; background: none; padding: 4px 0; }
+
 
 /* Propostas container */
 .lead-propostas-empty {

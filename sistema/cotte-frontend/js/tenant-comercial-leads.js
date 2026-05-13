@@ -605,54 +605,55 @@ function renderLeadDetail(l) {
       obsHtml +
     '</div>';
 
-  // ── Tab: Atividade (timeline agrupada) ──
-  var interacoes = (l.interacoes || []).slice(0, 30);
+  // ── Tab: Atividade (timeline com bolhas de chat para WhatsApp) ──
+  var interacoes = (l.interacoes || []).slice().sort(function(a, b) {
+    return new Date(a.criado_em) - new Date(b.criado_em);
+  });
   var timelHtml = '';
   if (interacoes.length) {
-    var now2 = new Date();
-    var hoje    = new Date(now2.getFullYear(), now2.getMonth(), now2.getDate());
-    var ontem   = new Date(hoje); ontem.setDate(hoje.getDate() - 1);
-    var semana  = new Date(hoje); semana.setDate(hoje.getDate() - 7);
-    var groups = { hoje: [], ontem: [], semana: [], antigo: [] };
-    interacoes.forEach(function(i) {
-      var d = new Date(i.criado_em);
-      var dDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-      if (dDay >= hoje)   groups.hoje.push(i);
-      else if (dDay >= ontem)  groups.ontem.push(i);
-      else if (dDay >= semana) groups.semana.push(i);
-      else                     groups.antigo.push(i);
-    });
-    var tileMap = [['hoje','Hoje'],['ontem','Ontem'],['semana','Esta semana'],['antigo','Mais antigo']];
-    tileMap.forEach(function(kv) {
-      var key = kv[0], label = kv[1];
-      if (!groups[key].length) return;
-      timelHtml += '<div class="lead-tl-group-label">' + label + '</div>';
-      timelHtml += groups[key].map(function(i) {
-        var tipo = (i.tipo || '').toLowerCase();
-        var emoji = '📝';
-        if (tipo.includes('whatsapp')) emoji = '📱';
-        else if (tipo.includes('email')) emoji = '📧';
-        else if (tipo.includes('status')) emoji = '🔄';
-        else if (tipo.includes('lembrete')) emoji = '⏰';
-        var sistema = tipo.includes('sistema') || tipo.includes('status') || tipo.includes('cadastro') || tipo.includes('origem');
-        return '<div class="lead-tl-item">' +
-          '<div class="lead-tl-dot">' + emoji + '</div>' +
-          '<div>' +
-            '<div class="lead-tl-text">' + esc(i.conteudo || '') + '</div>' +
-            '<div class="lead-tl-meta">' +
-              '<span class="lead-tl-tag ' + (sistema ? 'system' : 'user') + '">' + (sistema ? 'Sistema' : 'Comentário') + '</span>' +
-              ' <span class="lead-tl-time">' + fmtDataHora(i.criado_em) + '</span>' +
+    timelHtml += '<div class="lead-chat-timeline">';
+    timelHtml += interacoes.slice(-30).map(function(i) {
+      var tipo = (i.tipo || '').toLowerCase();
+      var direcao = (i.direcao || 'enviado').toLowerCase();
+      var isRecebido = direcao === 'recebido';
+      // Mensagens WhatsApp: bolhas de chat
+      if (tipo.includes('whatsapp')) {
+        var tagLabel = isRecebido ? 'Lead' : 'Enviado';
+        return '<div class="lead-tl-bubble ' + (isRecebido ? 'tl-bubble-in' : 'tl-bubble-out') + '">' +
+          '<div class="tl-bubble-body">' +
+            '<div class="tl-bubble-text">' + esc(i.conteudo || '') + '</div>' +
+            '<div class="tl-bubble-meta">' +
+              '<span class="lead-tl-tag ' + (isRecebido ? 'received' : 'sent') + '">' + tagLabel + '</span>' +
+              '<span class="tl-bubble-time">' + fmtDataHora(i.criado_em) + '</span>' +
             '</div>' +
           '</div>' +
         '</div>';
-      }).join('');
-    });
+      }
+      // Outros tipos: estilo linear
+      var emoji = '📝', tagLbl = 'Nota';
+      if (tipo.includes('email')) { emoji = '📧'; tagLbl = 'E-mail'; }
+      else if (tipo.includes('status')) { emoji = '🔄'; tagLbl = 'Status'; }
+      else if (tipo.includes('lembrete')) { emoji = '⏰'; tagLbl = 'Lembrete'; }
+      var isSistema = tipo.includes('sistema') || tipo.includes('status') || tipo.includes('cadastro') || tipo.includes('origem');
+      return '<div class="lead-tl-item">' +
+        '<div class="lead-tl-dot">' + emoji + '</div>' +
+        '<div>' +
+          '<div class="lead-tl-text">' + esc(i.conteudo || '') + '</div>' +
+          '<div class="lead-tl-meta">' +
+            '<span class="lead-tl-tag ' + (isSistema ? 'system' : 'user') + '">' + tagLbl + '</span>' +
+            ' <span class="lead-tl-time">' + fmtDataHora(i.criado_em) + '</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+    timelHtml += '</div>';
     if (l.interacoes && l.interacoes.length > 30) {
-      timelHtml += '<div style="font-size:11px;color:var(--muted);padding:8px 0">+' + (l.interacoes.length - 30) + ' interações mais antigas</div>';
+      timelHtml += '<div style="font-size:11px;color:var(--muted);padding:8px 0">▲ Mostrando as últimas 30 de ' + l.interacoes.length + ' interações</div>';
     }
   } else {
     timelHtml = '<div class="lead-propostas-empty">Nenhuma atividade registrada ainda.</div>';
   }
+
 
   var tabAtividadeHtml =
     '<div class="lead-tab-panel" data-panel="atividade" role="tabpanel" aria-labelledby="tab-atividade" hidden>' +

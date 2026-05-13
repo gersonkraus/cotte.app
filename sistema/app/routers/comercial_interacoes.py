@@ -129,6 +129,7 @@ async def send_whatsapp(
             canal=CanalInteracao.WHATSAPP,
             conteudo=data.mensagem,
             status_envio="enviado" if sucesso else "falha",
+            direcao="enviado",
             enviado_em=datetime.now(timezone.utc) if sucesso else None,
         )
         db.add(interacao)
@@ -149,12 +150,14 @@ async def send_whatsapp(
             canal=CanalInteracao.WHATSAPP,
             conteudo=data.mensagem,
             status_envio="falha",
+            direcao="enviado",
         )
         db.add(interacao)
         db.commit()
         raise HTTPException(
             status_code=500, detail=f"Erro ao enviar WhatsApp: {str(e)}"
         )
+
 
 
 @router.post("/leads/{lead_id}/email")

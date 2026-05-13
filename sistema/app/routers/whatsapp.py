@@ -14,6 +14,7 @@ from app.services.whatsapp_service import (
     desconectar,
 )
 from app.services.whatsapp_bot_service import processar_mensagem
+from app.services.tenant_commercial_service import registrar_interacao_whatsapp
 from app.utils.whatsapp_sanitizer import sanitizar_telefone, sanitizar_mensagem
 from app.services.rate_limit_service import (
     webhook_rate_limiter,
@@ -120,6 +121,152 @@ async def webhook_whatsapp(
         return {"status": "parse_error"}
 
 
+@router.post("/webhook-comercial")
+async def webhook_comercial(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    """
+    Webhook dedicado para a instância Evolution 'cotte-comercial'.
+    Captura respostas recebidas dos leads do CRM e registra em CommercialInteraction.
+
+    Configurar no painel da Evolution API:
+      URL: <base_url>/api/v1/whatsapp/webhook-comercial
+      Eventos: messages.upsert
+    """
+    client_ip = (request.client.host if request.client else None) or "unknown"
+    rl = webhook_rate_limiter.check(f"webhook-comercial:{client_ip}")
+    if not rl.allowed:
+        raise HTTPException(
+            status_code=429,
+            detail="Muitas requisicoes. Tente novamente em instantes.",
+            headers={"Retry-After": str(rl.retry_after_seconds)},
+        )
+
+    # Valida autenticação pelo EVOLUTION_API_KEY (mesma chave da instância comercial)
+    secret = (getattr(settings, "EVOLUTION_API_KEY", "") or "").strip()
+    if secret:
+        token = (
+            request.headers.get("apikey", "")
+            or request.headers.get("Apikey", "")
+            or request.query_params.get("apikey", "")
+            or _extrair_bearer_token(request)
+        )
+        if not token or not secrets.compare_digest(token.strip(), secret):
+            raise HTTPException(status_code=401, detail="Webhook nao autorizado")
+
+    try:
+        raw_body = await request.json()
+    except Exception:
+        return {"status": "invalid_json"}
+
+    background_tasks.add_task(_processar_webhook_comercial, raw_body)
+    return {"status": "ok"}
+
+
+async def _processar_webhook_comercial(raw_body: dict) -> None:
+    """
+    Background task: processa evento da instância comercial.
+    Filtra apenas mensagens recebidas dos leads (fromMe=false) e as grava
+    em CommercialInteraction com direcao='recebido'.
+    """
+    from app.core.database import SessionLocal
+    from app.models.models import CommercialLead, CommercialInteraction, TipoInteracao, CanalInteracao
+    from app.utils.whatsapp_sanitizer import sanitizar_telefone, sanitizar_mensagem
+
+    event = raw_body.get("event", "")
+    if event not in ("messages.upsert", "MESSAGES_UPSERT"):
+        return
+
+    data = raw_body.get("data") or {}
+    if not isinstance(data, dict):
+        return
+
+    # Ignorar mensagens enviadas pelo sistema (fromMe=true) e grupos
+    key = data.get("key") or {}
+    from_me = key.get("fromMe", False)
+    remote_jid = key.get("remoteJid", "")
+    is_group = "@g.us" in remote_jid
+    if from_me or is_group:
+        return
+
+    # Extrair número e texto
+    phone_raw = remote_jid.split("@")[0].split(":")[0]
+    telefone = sanitizar_telefone(phone_raw)
+    if not telefone:
+        return
+
+    # Extrair conteúdo de texto
+    msg_obj = data.get("message") or {}
+    texto = (
+        msg_obj.get("conversation")
+        or (msg_obj.get("extendedTextMessage") or {}).get("text")
+        or ""
+    )
+    mensagem = sanitizar_mensagem(texto)
+
+    # Extrair message_id para deduplicação
+    message_id = key.get("id", "")
+
+    # Tipos de mídia sem texto (ignorar silenciosamente por ora)
+    if not mensagem:
+        logger.debug("[webhook-comercial] Mensagem sem texto de %s — ignorando", telefone)
+        return
+
+    db = SessionLocal()
+    try:
+        # Deduplicação: se já existe interação com esse message_id, ignorar
+        if message_id:
+            existe = (
+                db.query(CommercialInteraction)
+                .filter(CommercialInteraction.message_id == message_id)
+                .first()
+            )
+            if existe:
+                logger.debug("[webhook-comercial] Duplicata ignorada: message_id=%s", message_id)
+                return
+
+        # Buscar lead pelo número de WhatsApp
+        lead = (
+            db.query(CommercialLead)
+            .filter(CommercialLead.whatsapp.ilike(f"%{telefone[-8:]}%"))
+            .first()
+        )
+        if not lead:
+            logger.info(
+                "[webhook-comercial] Lead não encontrado para telefone %s — ignorando", telefone
+            )
+            return
+
+        from datetime import datetime, timezone
+
+        interacao = CommercialInteraction(
+            lead_id=lead.id,
+            tipo=TipoInteracao.WHATSAPP,
+            canal=CanalInteracao.WHATSAPP,
+            conteudo=mensagem,
+            status_envio="recebido",
+            direcao="recebido",
+            message_id=message_id or None,
+            criado_em=datetime.now(timezone.utc),
+        )
+        db.add(interacao)
+        lead.ultimo_contato_em = datetime.now(timezone.utc)
+        db.commit()
+        logger.info(
+            "[webhook-comercial] Resposta registrada: lead_id=%s telefone=%s msg='%s...'",
+            lead.id, telefone, mensagem[:50],
+        )
+    except Exception:
+        logger.exception("[webhook-comercial] Erro ao processar mensagem de %s", telefone)
+        db.rollback()
+    finally:
+        db.close()
+
+
+
+
 async def _webhook_zapi(raw_body: dict, background_tasks: BackgroundTasks, db: Session):
     payload = WebhookZAPI(**raw_body)
     if payload.fromMe or payload.isGroup or payload.isNewsletter:
@@ -150,6 +297,25 @@ async def _webhook_evolution(
         return {"status": "ignored", "event": event}
 
     payload = WebhookEvolution(**raw_body)
+    
+    # ── Registro de Histórico para Tenants (CRM Comercial) ──
+    # Captura interações antes de filtrar por fromMe/isGroup
+    telefone = sanitizar_telefone(payload.phone)
+    mensagem = sanitizar_mensagem(payload.mensagem_texto)
+    empresa_id = empresa_instancia.id if empresa_instancia else None
+
+    if telefone and mensagem and empresa_id and not payload.isGroup:
+        direcao = "enviado" if payload.fromMe else "recebido"
+        message_id = payload.data.get("key", {}).get("id") if isinstance(payload.data, dict) else None
+        background_tasks.add_task(
+            registrar_interacao_whatsapp,
+            empresa_id=empresa_id,
+            telefone=telefone,
+            mensagem=mensagem,
+            direcao=direcao,
+            message_id=message_id
+        )
+
     if payload.fromMe or payload.isGroup:
         return {"status": "ignored"}
 

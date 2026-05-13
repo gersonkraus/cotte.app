@@ -1639,6 +1639,8 @@ class CommercialInteractionCreate(CommercialInteractionBase):
 class CommercialInteractionOut(CommercialInteractionBase):
     id: int
     lead_id: int
+    direcao: str = "enviado"  # "enviado" | "recebido"
+    message_id: Optional[str] = None
     criado_em: datetime
     enviado_em: Optional[datetime] = None
 

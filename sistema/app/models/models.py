@@ -1430,6 +1430,10 @@ class TenantCommercialInteraction(TenantScopedMixin, Base):
     tipo = Column(Enum(TipoInteracao), nullable=False)
     canal = Column(Enum(CanalInteracao), nullable=True)
     conteudo = Column(Text, nullable=True)
+    # "enviado" = mensagem enviada pelo sistema; "recebido" = resposta do lead
+    direcao = Column(String(10), default="enviado", nullable=False, server_default="enviado")
+    # ID da mensagem no Evolution API para deduplicação de webhooks duplicados
+    message_id = Column(String(100), nullable=True, index=True)
     criado_em = Column(DateTime(timezone=True), server_default=func.now())
 
     lead = relationship("TenantCommercialLead", back_populates="interacoes")
@@ -1770,6 +1774,10 @@ class CommercialInteraction(Base):
     canal = Column(Enum(CanalInteracao), nullable=True)
     conteudo = Column(Text, nullable=True)  # mensagem enviada ou observação
     status_envio = Column(String(20), default="enviado")  # enviado, falha, pendente
+    # "enviado" = mensagem enviada pelo sistema; "recebido" = resposta do lead
+    direcao = Column(String(10), default="enviado", nullable=False, server_default="enviado")
+    # ID da mensagem no Evolution API para deduplicação de webhooks duplicados
+    message_id = Column(String(100), nullable=True, index=True)
     criado_em = Column(DateTime(timezone=True), server_default=func.now())
     enviado_em = Column(DateTime(timezone=True), nullable=True)
 

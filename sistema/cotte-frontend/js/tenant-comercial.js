@@ -3353,8 +3353,51 @@ async function verMetricasCampanha(id) {
   }
 }
 
+function confirmarAcaoDestrutiva(titulo, mensagem, textoBotao = 'Confirmar Ação') {
+  return new Promise((resolve) => {
+    var modal = document.getElementById('modal-confirmacao-destrutiva');
+    if (!modal) return resolve(false);
+
+    document.getElementById('titulo-confirmacao-destrutiva').textContent = titulo;
+    document.getElementById('msg-confirmacao-destrutiva').textContent = mensagem;
+    
+    var btn = document.getElementById('btn-confirmar-destrutivo');
+    btn.textContent = textoBotao;
+    btn.disabled = false;
+    
+    // Remove listeners anteriores
+    var cloneBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(cloneBtn, btn);
+    btn = cloneBtn;
+
+    // Resolve com false se fechar (já tratado pelo onclick do html que chama fecharModal) mas pra fechar promise:
+    var closeButtons = modal.querySelectorAll('.modal-close, .btn-secondary');
+    closeButtons.forEach(cb => {
+      cb.onclick = () => {
+        fecharModal('modal-confirmacao-destrutiva');
+        resolve(false);
+      };
+    });
+
+    btn.onclick = () => {
+      btn.disabled = true;
+      btn.textContent = 'Aguarde...';
+      fecharModal('modal-confirmacao-destrutiva');
+      resolve(true);
+    };
+
+    modal.style.display = 'flex';
+  });
+}
+
 async function cancelarCampanha(id, btn) {
-  if (!confirm('Deseja realmente suspender esta campanha? Os agendamentos futuros serão removidos e os envios atuais parados.')) return;
+  var confirmado = await confirmarAcaoDestrutiva(
+    'Suspender Campanha',
+    'Deseja realmente suspender esta campanha? Os agendamentos futuros serão removidos e os envios atuais parados.',
+    'Sim, Suspender'
+  );
+  if (!confirmado) return;
+
   if (btn) btn.classList.add('loading');
   try {
     await api.post('/tenant/comercial/campaigns/' + id + '/cancelar');
@@ -3367,7 +3410,13 @@ async function cancelarCampanha(id, btn) {
 }
 
 async function excluirCampanha(id, btn) {
-  if (!confirm('ATENÇÃO: Excluir esta campanha apagará todo o histórico de envios e métricas. Deseja continuar?')) return;
+  var confirmado = await confirmarAcaoDestrutiva(
+    'Excluir Campanha',
+    'ATENÇÃO: Excluir esta campanha apagará todo o histórico de envios e métricas. Deseja continuar?',
+    'Sim, Excluir'
+  );
+  if (!confirmado) return;
+
   if (btn) btn.classList.add('loading');
   try {
     await api.delete('/tenant/comercial/campaigns/' + id);
