@@ -55,6 +55,27 @@ def _normalizar_query_instance(instance: Optional[str]) -> Optional[str]:
     return s or None
 
 
+def _normalizar_token_evolution(token: str) -> str:
+    """
+    Evolution v2.x pode concatenar o evento ao valor do token na URL, ex:
+    apikey=ABC/messages-upsert
+    Mantém somente o token base antes da primeira barra.
+    """
+    if not token or not isinstance(token, str):
+        return ""
+    t = token.strip()
+    if "/" in t:
+        base = t.split("/", 1)[0].strip()
+        if base and base != t:
+            logger.warning(
+                "[WA Webhook] Token vinha com sufixo de evento; normalizado %r -> %r",
+                t,
+                base,
+            )
+            t = base
+    return t
+
+
 def _extrair_bearer_token(request: Request) -> str:
     auth = request.headers.get("Authorization", "") or request.headers.get("authorization", "")
     if isinstance(auth, str) and auth.lower().startswith("bearer "):
@@ -80,7 +101,7 @@ def _extrair_token_evolution_webhook(
         or ""
     ).strip()
     if token:
-        return token
+        return _normalizar_token_evolution(token)
     if isinstance(raw_body, dict):
         body_token = (
             raw_body.get("apikey")
@@ -89,7 +110,7 @@ def _extrair_token_evolution_webhook(
             or ""
         )
         if isinstance(body_token, str):
-            return body_token.strip()
+            return _normalizar_token_evolution(body_token)
     return ""
 
 

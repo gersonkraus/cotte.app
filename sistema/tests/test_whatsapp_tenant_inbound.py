@@ -8,6 +8,7 @@ from app.routers.whatsapp import (
     _webhook_evolution,
     _normalizar_query_instance,
     _extrair_token_evolution_webhook,
+    _normalizar_token_evolution,
 )
 from app.schemas.schemas import WebhookEvolution
 from app.services.tenant_commercial_service import registrar_interacao_whatsapp
@@ -80,6 +81,31 @@ def test_extrair_token_evolution_webhook_ler_apikey_do_body():
     req = Request(scope)
     token = _extrair_token_evolution_webhook(req, raw_body={"apikey": "abc-123"})
     assert token == "abc-123"
+
+
+def test_normalizar_token_evolution_remove_sufixo_evento():
+    assert (
+        _normalizar_token_evolution("AB284026-1A99-445B-AEE1-2F05CEFF5880/messages-upsert")
+        == "AB284026-1A99-445B-AEE1-2F05CEFF5880"
+    )
+    assert _normalizar_token_evolution("AB284026-1A99-445B-AEE1-2F05CEFF5880") == (
+        "AB284026-1A99-445B-AEE1-2F05CEFF5880"
+    )
+
+
+def test_extrair_token_evolution_webhook_ler_apikey_query_com_sufixo():
+    scope = {
+        "type": "http",
+        "headers": [],
+        "query_string": (
+            b"instance=empresa-5&apikey=AB284026-1A99-445B-AEE1-2F05CEFF5880/messages-upsert"
+        ),
+        "method": "POST",
+        "path": "/api/v1/whatsapp/webhook",
+    }
+    req = Request(scope)
+    token = _extrair_token_evolution_webhook(req, raw_body={})
+    assert token == "AB284026-1A99-445B-AEE1-2F05CEFF5880"
 
 
 def test_webhook_evolution_phone_remove_sufixo_device():
