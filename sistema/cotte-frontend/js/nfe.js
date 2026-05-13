@@ -692,15 +692,23 @@ const NFeService = (() => {
       lista.innerHTML = '<p style="color:var(--text-muted,#888)">Nenhuma nota emitida para este orçamento.</p>';
       return;
     }
+    const temEmitida = notas.some((x) => x && x.status === 'emitida');
     lista.innerHTML = notas.map((n) => {
       const when = n.emitida_em || n.criado_em;
       const whenStr = _fmtDataListaNota(when);
       const numSer = n.numero
         ? `Nº ${_esc(String(n.numero))} · Série ${_esc(String(n.serie != null ? n.serie : ''))}`
         : '—';
-      const err = n.status === 'erro'
-        ? `<div style="font-size:12px;color:var(--danger,#dc2626);margin-top:4px;line-height:1.35">Erro: ${_esc(n.erro_mensagem || n.erro_codigo || '')}</div>`
-        : '';
+      const msgErro = _esc(n.erro_mensagem || n.erro_codigo || '');
+      const err =
+        n.status === 'erro'
+          ? temEmitida
+            ? `<details class="nfe-hist-erro" style="margin-top:6px;font-size:12px;line-height:1.35;color:var(--danger,#dc2626)">
+                <summary style="cursor:pointer;font-weight:600;color:var(--danger,#dc2626)">Histórico de erro · ${_esc(whenStr || 'tentativa')}</summary>
+                <div style="margin-top:6px;padding-top:4px;border-top:1px solid var(--border,#fecaca)">${msgErro}</div>
+              </details>`
+            : `<div style="font-size:12px;color:var(--danger,#dc2626);margin-top:4px;line-height:1.35">Erro: ${msgErro}</div>`
+          : '';
       const acoes = [
         n.danfe_url ? `<a href="${n.danfe_url}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">DANFE</a>` : '',
         n.xml_url ? `<a href="${n.xml_url}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">XML</a>` : '',
@@ -790,6 +798,27 @@ const NFeService = (() => {
     }
   }
 
+  /**
+   * Após a nota ser autorizada: lista de notas já mostra erros antigos em `<details>`;
+   * aqui contrai/remove o painel «Analisar erro» no resultado da verificação.
+   */
+  function _contrairPrepPosEmissaoOk() {
+    const area = document.getElementById('nfe-prep-resultado');
+    if (!area) return;
+    const btn = document.getElementById('btn-analisar-erro-nfe');
+    const analise = document.getElementById('nfe-analise-resultado');
+    if (!btn && !analise) return;
+    const inner = analise && String(analise.innerHTML || '').trim();
+    if (inner) {
+      area.innerHTML = `<details class="nfe-prep-hist-erro" style="margin-top:8px;border:1px solid var(--border,#e5e5e5);border-radius:8px;padding:8px 10px;background:var(--surface2,rgba(0,0,0,0.02))">
+        <summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--muted,#666);user-select:none">Histórico da análise de erro</summary>
+        <div style="margin-top:8px">${inner}</div>
+      </details>`;
+    } else {
+      area.innerHTML = '';
+    }
+  }
+
   async function _aguardarStatus(notaId, tentativas = 0) {
     const statusMsg = document.getElementById('nfe-status-msg');
     if (tentativas > NFE_STATUS_POLL_MAX) {
@@ -802,7 +831,8 @@ const NFeService = (() => {
           if (statusMsg) {
             statusMsg.textContent = `✓ NF emitida com sucesso! N\xfamero: ${notaSync.numero || '—'}`;
           }
-          if (_orcamentoId) carregarNotasExistentes(_orcamentoId);
+          if (_orcamentoId) await carregarNotasExistentes(_orcamentoId);
+          _contrairPrepPosEmissaoOk();
           return;
         }
         if (notaSync && notaSync.status === 'erro') {
@@ -840,7 +870,8 @@ const NFeService = (() => {
     if (nota.status === 'emitida') {
       _setNfePollUi(0, false);
       if (statusMsg) statusMsg.textContent = `✓ NF emitida com sucesso! N\xfamero: ${nota.numero || '—'}`;
-      if (_orcamentoId) carregarNotasExistentes(_orcamentoId);
+      if (_orcamentoId) await carregarNotasExistentes(_orcamentoId);
+      _contrairPrepPosEmissaoOk();
     } else if (nota.status === 'erro') {
       _setNfePollUi(0, false);
       const msg = nota.erro_mensagem || nota.erro_codigo || 'desconhecido';
