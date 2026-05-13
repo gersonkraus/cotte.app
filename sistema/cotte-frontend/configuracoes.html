@@ -2881,9 +2881,17 @@ Estamos à disposição! 😊"></textarea>
             </div>
             <div class="cfg-card-body">
               <div class="cfg-fields-grid">
-                <div class="cfg-form-group">
+                <div class="cfg-form-group" data-search-terms="cnpj empresa receita federal buscar dados fiscais">
                   <label for="fiscal-cnpj">CNPJ da Empresa</label>
-                  <input type="text" id="fiscal-cnpj" class="cfg-input" placeholder="00.000.000/0001-00" maxlength="18">
+                  <div style="display:flex;gap:8px;align-items:stretch;flex-wrap:wrap">
+                    <input type="text" id="fiscal-cnpj" class="cfg-input" placeholder="00.000.000/0001-00" maxlength="18"
+                      style="flex:1;min-width:160px"
+                      oninput="mascaraFiscalCnpj(this)"
+                      onkeydown="if(event.key==='Enter'){event.preventDefault();buscarCnpjFiscal();}">
+                    <button type="button" id="btn-buscar-fiscal-cnpj" class="btn btn-ghost" onclick="buscarCnpjFiscal()"
+                      title="Buscar dados na Receita (BrasilAPI)" style="flex-shrink:0;padding:0 14px">🔍</button>
+                  </div>
+                  <div id="fiscal-cnpj-status" class="cfg-field-hint" style="min-height:1.1em;margin-top:4px"></div>
                 </div>
                 <div class="cfg-form-group">
                   <label for="fiscal-ie">Inscrição Estadual</label>

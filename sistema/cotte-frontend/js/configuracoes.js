@@ -2709,12 +2709,146 @@ window.salvarTemplateUnificado = salvarTemplateUnificado;
 window.abrirPreviewTemplatePublico = abrirPreviewTemplatePublico;
 window.fecharModalPreviewTemplatePublico = fecharModalPreviewTemplatePublico;
 
+// ── FISCAL / NF-e — consulta CNPJ (BrasilAPI, mesma fonte que cadastro de clientes) ─
+function _setFiscalCnpjStatus(msg, tipo = '') {
+  const el = document.getElementById('fiscal-cnpj-status');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.style.color =
+    tipo === 'erro' ? '#ef4444' : tipo === 'ok' ? 'var(--green, #22c55e)' : 'var(--muted, #888)';
+}
+
+/** Máscara 00.000.000/0000-00. Com `semAutoBusca`, só formata (ex.: ao carregar do servidor). */
+function mascaraFiscalCnpj(input, semAutoBusca = false) {
+  const digits = (input.value || '').replace(/\D/g, '').slice(0, 14);
+  let v = digits;
+  if (v.length > 12) {
+    v = `${v.slice(0, 2)}.${v.slice(2, 5)}.${v.slice(5, 8)}/${v.slice(8, 12)}-${v.slice(12)}`;
+  } else if (v.length > 8) {
+    v = `${v.slice(0, 2)}.${v.slice(2, 5)}.${v.slice(5, 8)}/${v.slice(8)}`;
+  } else if (v.length > 5) {
+    v = `${v.slice(0, 2)}.${v.slice(2, 5)}.${v.slice(5)}`;
+  } else if (v.length > 2) {
+    v = `${v.slice(0, 2)}.${v.slice(2)}`;
+  }
+  input.value = v;
+  _setFiscalCnpjStatus('');
+  if (!semAutoBusca && digits.length === 14) buscarCnpjFiscal();
+}
+
+function _regimeTributarioDeBrasilApi(d) {
+  if (d.opcao_pelo_mei === true) return 'mei';
+  if (d.opcao_pelo_simples === true) return 'simples_nacional';
+  const arr = d.regime_tributario;
+  if (!Array.isArray(arr) || !arr.length) return null;
+  const forma = String(arr[arr.length - 1].forma_de_tributacao || '')
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  if (forma.includes('LUCRO REAL')) return 'lucro_real';
+  if (forma.includes('LUCRO PRESUMIDO')) return 'lucro_presumido';
+  if (forma.includes('SIMPLES')) return 'simples_nacional';
+  return null;
+}
+
+/** Preenche campos fiscais/endereço a partir do CNPJ (API pública BrasilAPI). */
+async function buscarCnpjFiscal() {
+  const input = document.getElementById('fiscal-cnpj');
+  if (!input) return;
+  const cnpj = input.value.replace(/\D/g, '');
+  if (cnpj.length !== 14) {
+    _setFiscalCnpjStatus('Digite um CNPJ com 14 dígitos', 'erro');
+    return;
+  }
+
+  const btn = document.getElementById('btn-buscar-fiscal-cnpj');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳';
+  }
+  _setFiscalCnpjStatus('Buscando dados na Receita Federal…', '');
+
+  try {
+    const resp = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
+    if (!resp.ok) {
+      _setFiscalCnpjStatus('CNPJ não encontrado ou indisponível.', 'erro');
+      return;
+    }
+    const d = await resp.json();
+
+    const ie = d.inscricao_estadual != null ? String(d.inscricao_estadual).trim() : '';
+    if (ie) {
+      const elIe = document.getElementById('fiscal-ie');
+      if (elIe) elIe.value = ie;
+    }
+
+    const regimeSel = document.getElementById('fiscal-regime');
+    const regimeApi = _regimeTributarioDeBrasilApi(d);
+    if (regimeSel && regimeApi) {
+      regimeSel.value = regimeApi;
+    }
+
+    if (d.logradouro) {
+      const el = document.getElementById('fiscal-logradouro');
+      if (el) el.value = String(d.logradouro).slice(0, 120);
+    }
+    if (d.numero != null && String(d.numero).trim() !== '') {
+      const el = document.getElementById('fiscal-numero');
+      if (el) el.value = String(d.numero).slice(0, 20);
+    }
+    if (d.complemento) {
+      const el = document.getElementById('fiscal-complemento');
+      if (el) el.value = String(d.complemento).slice(0, 120);
+    }
+    if (d.bairro) {
+      const el = document.getElementById('fiscal-bairro');
+      if (el) el.value = String(d.bairro).slice(0, 120);
+    }
+    if (d.municipio) {
+      const el = document.getElementById('fiscal-cidade');
+      if (el) el.value = String(d.municipio).slice(0, 120);
+    }
+    if (d.uf) {
+      const el = document.getElementById('fiscal-uf');
+      if (el) el.value = String(d.uf).toUpperCase().slice(0, 2);
+    }
+    if (d.cep) {
+      const raw = String(d.cep).replace(/\D/g, '').slice(0, 8);
+      const el = document.getElementById('fiscal-cep');
+      if (el) el.value = raw.length === 8 ? `${raw.slice(0, 5)}-${raw.slice(5)}` : raw;
+    }
+
+    const ibgeRaw = d.codigo_municipio_ibge;
+    if (ibgeRaw != null && ibgeRaw !== '') {
+      const digits = String(ibgeRaw).replace(/\D/g, '');
+      const elIbge = document.getElementById('fiscal-ibge');
+      if (elIbge && digits.length >= 7) {
+        elIbge.value = digits.length > 7 ? digits.slice(0, 7) : digits.padStart(7, '0');
+      }
+    }
+
+    _setFiscalCnpjStatus('Dados preenchidos a partir do CNPJ. Revise e clique em Salvar.', 'ok');
+  } catch (e) {
+    console.error('[Fiscal] Erro BrasilAPI CNPJ:', e);
+    _setFiscalCnpjStatus('Erro ao consultar CNPJ. Tente de novo ou preencha manualmente.', 'erro');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '🔍';
+    }
+  }
+}
+
 // ── FISCAL / NF-e ─────────────────────────────────────────────────────────────
 async function carregarConfiguracaoFiscal() {
   try {
     const d = await api.get('/notas-fiscais/configuracao');
     if (!d) return;
-    document.getElementById('fiscal-cnpj').value = d.cnpj || '';
+    const cnpjEl = document.getElementById('fiscal-cnpj');
+    if (cnpjEl) {
+      cnpjEl.value = d.cnpj || '';
+      if (cnpjEl.value) mascaraFiscalCnpj(cnpjEl, true);
+    }
     document.getElementById('fiscal-ie').value = d.inscricao_estadual || '';
     document.getElementById('fiscal-im').value = d.inscricao_municipal || '';
     const regime = document.getElementById('fiscal-regime');
@@ -2866,5 +3000,7 @@ window.carregarConfiguracaoFiscal = carregarConfiguracaoFiscal;
 window.salvarConfiguracaoFiscal = salvarConfiguracaoFiscal;
 window.carregarStatusFocus = carregarStatusFocus;
 window.configurarCertificadoFocus = configurarCertificadoFocus;
+window.mascaraFiscalCnpj = mascaraFiscalCnpj;
+window.buscarCnpjFiscal = buscarCnpjFiscal;
 
 initTemplatePublicoUI();
