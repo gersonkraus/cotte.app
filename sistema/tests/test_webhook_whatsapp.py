@@ -351,7 +351,8 @@ class TestWebhookEvolution:
         )
         assert interacao is not None
         assert interacao.direcao == "recebido"
-        assert interacao.conteudo == "[imagem recebida]"
+        assert "[imagem]" in (interacao.conteudo or "")
+        assert "image/jpeg" in (interacao.conteudo or "")
 
     def test_evolution_inbound_sem_lead_gera_auditlog_nao_vinculado(self, http_client, db):
         emp = make_empresa(db)

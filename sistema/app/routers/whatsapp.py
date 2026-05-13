@@ -152,16 +152,68 @@ def _validar_autenticacao_webhook(
         raise HTTPException(status_code=401, detail="Webhook nao autorizado")
 
 
+def _linha_midia_whatsapp(
+    label: str,
+    bloco: dict | None,
+    *,
+    incluir_legenda: bool = True,
+) -> str | None:
+    """
+    Monta uma linha legível para o histórico (mime, arquivo, legenda, URL da mídia).
+    URLs do WhatsApp podem ser longas; truncamos para caber no limite do sanitizador.
+    """
+    if not isinstance(bloco, dict) or not bloco:
+        return None
+    mime = (bloco.get("mimetype") or bloco.get("mimeType") or "").strip()
+    nome = (bloco.get("fileName") or bloco.get("filename") or "").strip()
+    url = (bloco.get("url") or "").strip()
+    caption = (bloco.get("caption") or "").strip()
+    segundos = bloco.get("seconds")
+
+    partes: list[str] = [f"[{label}]"]
+    if mime:
+        partes.append(f"mime={mime}")
+    if nome:
+        nome_limpo = sanitizar_mensagem(nome) or nome[:120].strip()
+        if nome_limpo:
+            partes.append(f"arquivo={nome_limpo}")
+    if isinstance(segundos, (int, float)) and float(segundos) > 0:
+        partes.append(f"duracao_s={int(float(segundos))}")
+    if incluir_legenda and caption:
+        cap = sanitizar_mensagem(caption) or caption[:400].strip()
+        if cap:
+            partes.append(f"legenda={cap}")
+    if url.startswith("http"):
+        partes.append(f"url={url[:950]}")
+
+    if len(partes) == 1:
+        return f"[{label}]"
+    linha = " ".join(partes)
+    return sanitizar_mensagem(linha) or linha[:2000]
+
+
+def _primeiro_bloco_midia(msg: dict) -> tuple[str, dict] | None:
+    """Retorna (rótulo, bloco) do primeiro tipo de mídia presente na mensagem Baileys."""
+    for chave, rotulo in (
+        ("imageMessage", "imagem"),
+        ("videoMessage", "video"),
+        ("documentMessage", "documento"),
+        ("audioMessage", "audio"),
+        ("pttMessage", "audio"),
+        ("stickerMessage", "sticker"),
+    ):
+        bloco = msg.get(chave)
+        if isinstance(bloco, dict) and bloco:
+            return rotulo, bloco
+    return None
+
+
 def _resumir_mensagem_para_timeline_evolution(payload: WebhookEvolution, raw_body: dict) -> str | None:
     """
     Extrai uma representação textual mínima para timeline do CRM.
     Prioriza texto real e, quando não houver, registra placeholders de mídias/eventos
     para não perder a evidência da interação do cliente.
     """
-    texto = sanitizar_mensagem(payload.mensagem_texto)
-    if texto:
-        return texto
-
     data = raw_body.get("data") if isinstance(raw_body, dict) else {}
     if not isinstance(data, dict):
         return None
@@ -169,21 +221,58 @@ def _resumir_mensagem_para_timeline_evolution(payload: WebhookEvolution, raw_bod
     if isinstance(msg, dict):
         msg = desembrulhar_mensagem_baileys(msg)
     if not isinstance(msg, dict):
-        return None
+        msg = {}
 
-    if msg.get("audioMessage") or msg.get("pttMessage"):
-        return "[audio recebido]"
-    if msg.get("imageMessage"):
-        return "[imagem recebida]"
-    if msg.get("videoMessage"):
-        return "[video recebido]"
-    if msg.get("documentMessage"):
-        return "[documento recebido]"
-    if msg.get("stickerMessage"):
-        return "[sticker recebido]"
+    texto = sanitizar_mensagem(payload.mensagem_texto)
+    midia = _primeiro_bloco_midia(msg)
+
+    if texto and midia:
+        rotulo, bloco = midia
+        meta = _linha_midia_whatsapp(rotulo, bloco, incluir_legenda=False)
+        if meta:
+            combinado = f"{texto} — {meta}"
+            return sanitizar_mensagem(combinado) or texto
+        return texto
+    if texto:
+        return texto
+
+    if midia:
+        rotulo, bloco = midia
+        return _linha_midia_whatsapp(rotulo, bloco, incluir_legenda=True)
+
     if msg.get("locationMessage"):
+        loc = msg.get("locationMessage") or {}
+        if isinstance(loc, dict):
+            lat = loc.get("degreesLatitude")
+            lng = loc.get("degreesLongitude")
+            nome = (loc.get("name") or "").strip()
+            partes = ["[localizacao]"]
+            if lat is not None and lng is not None:
+                partes.append(f"lat={lat} lng={lng}")
+            if nome:
+                n = sanitizar_mensagem(nome) or nome[:120].strip()
+                if n:
+                    partes.append(f"nome={n}")
+            linha = " ".join(partes)
+            return sanitizar_mensagem(linha) or linha[:2000]
         return "[localizacao recebida]"
+
     if msg.get("contactMessage"):
+        c = msg.get("contactMessage") or {}
+        if isinstance(c, dict):
+            nome = (c.get("displayName") or "").strip()
+            org = (c.get("organization") or "").strip()
+            partes = ["[contato recebido]"]
+            if nome:
+                n = sanitizar_mensagem(nome) or nome[:120].strip()
+                if n:
+                    partes.append(f"nome={n}")
+            if org:
+                o = sanitizar_mensagem(org) or org[:120].strip()
+                if o:
+                    partes.append(f"empresa={o}")
+            linha = " ".join(partes)
+            return sanitizar_mensagem(linha) or linha[:2000]
         return "[contato recebido]"
 
     if msg.get("listResponseMessage"):
@@ -355,14 +444,22 @@ async def _processar_webhook_comercial(raw_body: dict) -> None:
         or ""
     )
     mensagem = sanitizar_mensagem(texto)
+    mid = _primeiro_bloco_midia(msg_inner)
+    if not mensagem and mid:
+        rotulo, bloco = mid
+        mensagem = _linha_midia_whatsapp(rotulo, bloco, incluir_legenda=True)
+    elif mensagem and mid:
+        rotulo, bloco = mid
+        meta = _linha_midia_whatsapp(rotulo, bloco, incluir_legenda=False)
+        if meta:
+            combinado = f"{mensagem} — {meta}"
+            mensagem = sanitizar_mensagem(combinado) or mensagem
 
-    # Extrair message_id para deduplicação
-    message_id = key.get("id", "")
-
-    # Tipos de mídia sem texto (ignorar silenciosamente por ora)
     if not mensagem:
-        logger.debug("[webhook-comercial] Mensagem sem texto de %s — ignorando", telefone)
+        logger.debug("[webhook-comercial] Mensagem sem texto ou mídia de %s — ignorando", telefone)
         return
+
+    message_id = key.get("id", "")
 
     db = SessionLocal()
     try:

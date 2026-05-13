@@ -9,6 +9,7 @@ from app.routers.whatsapp import (
     _normalizar_query_instance,
     _extrair_token_evolution_webhook,
     _normalizar_token_evolution,
+    _resumir_mensagem_para_timeline_evolution,
 )
 from app.schemas.schemas import WebhookEvolution
 from app.services.tenant_commercial_service import registrar_interacao_whatsapp
@@ -106,6 +107,35 @@ def test_extrair_token_evolution_webhook_ler_apikey_query_com_sufixo():
     req = Request(scope)
     token = _extrair_token_evolution_webhook(req, raw_body={})
     assert token == "AB284026-1A99-445B-AEE1-2F05CEFF5880"
+
+
+def test_resumir_imagem_inclui_url_no_historico():
+    """Histórico deve guardar mime e URL quando a Evolution enviar no payload."""
+    raw = {
+        "event": "messages.upsert",
+        "instance": "x",
+        "data": {
+            "key": {
+                "fromMe": False,
+                "remoteJid": "5511991112222@s.whatsapp.net",
+                "id": "IMG-URL",
+            },
+            "messageType": "imageMessage",
+            "message": {
+                "imageMessage": {
+                    "mimetype": "image/jpeg",
+                    "url": "https://mmg.whatsapp.net/fake-path-to-media",
+                    "caption": "Foto do local",
+                }
+            },
+        },
+    }
+    payload = WebhookEvolution(**raw)
+    linha = _resumir_mensagem_para_timeline_evolution(payload, raw)
+    assert linha is not None
+    assert "Foto do local" in linha
+    assert "mime=image/jpeg" in linha
+    assert "url=https://mmg.whatsapp.net/fake-path-to-media" in linha
 
 
 def test_webhook_evolution_phone_remove_sufixo_device():
@@ -219,7 +249,8 @@ def test_webhook_evolution_registra_placeholder_midia_no_tenant(db):
         .first()
     )
     assert interacao is not None
-    assert interacao.conteudo == "[imagem recebida]"
+    assert "[imagem]" in (interacao.conteudo or "")
+    assert "image/jpeg" in (interacao.conteudo or "")
     assert interacao.direcao == "recebido"
 
 
