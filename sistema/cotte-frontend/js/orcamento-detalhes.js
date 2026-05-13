@@ -204,6 +204,10 @@ async function abrirDetalhesOrcamento(id) {
 
   // Footer de ações
   const num = (orc.numero || '').replace(/'/g, "\\'");
+  const linkPublico = (orc.link_publico || '').trim();
+  const pdfDownloadUrl = linkPublico
+    ? '/api/v1/o/' + encodeURIComponent(linkPublico) + '/pdf?download=1'
+    : 'orcamento-view.html?id=' + encodeURIComponent(orc.id);
   const temTimeline = typeof abrirTimeline === 'function';
   const temEditar = typeof abrirModalEditarOrcamento === 'function';
   const temWhats = typeof enviarWhatsapp === 'function';
@@ -222,6 +226,8 @@ async function abrirDetalhesOrcamento(id) {
   }
   footerHtml += `
     <button class="btn btn-ghost" onclick="window.open('orcamento-view.html?id=${orc.id}','_blank')" title="Ver PDF">📄 PDF</button>`;
+  footerHtml += `
+    <button class="btn btn-ghost" onclick="window.open('${pdfDownloadUrl}','_blank')" title="Baixar PDF">⬇️ Baixar PDF</button>`;
   if (temDuplicar) {
     footerHtml += `
     <button class="btn btn-ghost" onclick="fecharDetalhes();duplicarOrcamento(${orc.id})" title="Duplicar orçamento">📋 Duplicar</button>`;

@@ -101,6 +101,7 @@ def _get_orcamento_publico(
 @router.get("/{link_publico}/pdf")
 def download_pdf_orcamento(
     link_publico: str,
+    download: bool = False,
     db: Session = Depends(get_db),
 ):
     """Gera e serve o PDF do orçamento on-the-fly, sem salvar em disco."""
@@ -118,13 +119,14 @@ def download_pdf_orcamento(
             raise ValueError("PDF vazio")
 
         filename = f"Orcamento-{orc.numero.replace('/', '-')}.pdf"
+        disposition = "attachment" if download else "inline"
         logger.info(f"PDF gerado com sucesso ({len(pdf_bytes)} bytes). Retornando resposta.")
         
         # Usando Response direto para evitar problemas com StreamingResponse em alguns ambientes
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
-            headers={"Content-Disposition": f"inline; filename={filename}"},
+            headers={"Content-Disposition": f'{disposition}; filename="{filename}"'},
         )
     except Exception as e:
         logger.exception("Erro fatal ao gerar PDF público para %s", link_publico)
