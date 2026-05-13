@@ -2610,3 +2610,351 @@ input[type="search"] {
 @media (max-width: 480px) { .pending-action-buttons { flex-direction: column; } .btn-confirm-alt { width: 100%; } }
 .pending-action-status { margin-top: 10px; font-size: 13px; color: #1d4ed8; }
 .pending-action-cancelled { padding: 10px 14px; font-size: 13px; color: #6b7280; font-style: italic; }
+
+/* ── Badges utilitários (NF-e, templates, dashboard) ───────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+.badge-success { background: var(--green-dim); color: #059669; border: 1px solid rgba(16, 185, 129, 0.22); }
+.badge-warning { background: var(--orange-dim); color: #c2410c; border: 1px solid rgba(249, 115, 22, 0.25); }
+.badge-info { background: var(--blue-dim); color: var(--blue); border: 1px solid rgba(59, 130, 246, 0.22); }
+.badge-secondary { background: rgba(100, 116, 139, 0.12); color: var(--muted); border: 1px solid var(--border); }
+.badge-danger { background: var(--red-dim); color: var(--red); border: 1px solid rgba(239, 68, 68, 0.22); }
+[data-theme="dark"] .badge-success { color: #34d399; border-color: rgba(52, 211, 153, 0.25); }
+[data-theme="dark"] .badge-warning { color: #fdba74; border-color: rgba(251, 146, 60, 0.3); }
+[data-theme="dark"] .badge-info { color: #93c5fd; border-color: rgba(147, 197, 253, 0.25); }
+[data-theme="dark"] .badge-secondary { color: #94a3b8; background: rgba(148, 163, 184, 0.12); }
+[data-theme="dark"] .badge-danger { color: #f87171; border-color: rgba(248, 113, 113, 0.28); }
+
+.text-danger { color: var(--red); font-size: 0.875rem; line-height: 1.45; }
+[data-theme="dark"] .text-danger { color: #f87171; }
+
+.btn-sm {
+  padding: 8px 12px;
+  font-size: 12px;
+  min-height: 40px;
+  border-radius: 8px;
+}
+.btn-secondary {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-xs);
+}
+.btn-secondary:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+.btn-warning {
+  background: var(--orange-dim);
+  color: #c2410c;
+  border: 1px solid rgba(249, 115, 22, 0.35);
+}
+.btn-warning:hover {
+  background: rgba(249, 115, 22, 0.22);
+  border-color: var(--orange);
+}
+[data-theme="dark"] .btn-warning { color: #fdba74; border-color: rgba(251, 146, 60, 0.35); }
+
+a.btn-sm { text-decoration: none; }
+
+.btn:focus-visible,
+a.btn:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+/* ── Notas fiscais: listagem e cartões ─────────────────────────────────── */
+.nf-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+@media (min-width: 1200px) {
+  .nf-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px;
+    align-items: start;
+  }
+}
+
+.nf-filtros-card {
+  margin-bottom: 20px;
+  padding: 16px 20px;
+}
+.nf-filtros-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.nf-filtros-bar .nf-filtro-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.nf-filtros-bar .nf-filtro-grupo--grow {
+  flex: 1;
+  min-width: 200px;
+}
+.nf-filtro-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.nf-filtros-bar input,
+.nf-filtros-bar select {
+  font-family: inherit;
+  width: 100%;
+}
+.nf-search-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  min-height: 42px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.nf-search-field:focus-within {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.12);
+}
+.nf-search-field svg {
+  flex-shrink: 0;
+  color: var(--muted2);
+}
+.nf-search-field input {
+  border: none;
+  background: transparent;
+  padding: 10px 0;
+  min-width: 0;
+  flex: 1;
+  outline: none;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.nf-pagination-outer {
+  margin-top: 24px;
+}
+.nf-pagination-outer .pagination-wrapper {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.nf-empty {
+  padding: 40px;
+  text-align: center;
+}
+.nf-empty-icon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+  color: var(--muted2);
+}
+.nf-empty .empty-state .title,
+.nf-empty h3 {
+  margin: 0 0 8px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.nf-card {
+  overflow: visible;
+}
+.nf-card__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+.nf-card__header-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+.nf-card__numero {
+  margin-left: auto;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+.nf-card__tipo {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.nf-card__numero .nf-card__numero-muted {
+  font-weight: 400;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.nf-card__body {
+  padding: 14px 18px 16px;
+}
+.nf-meta-grid {
+  display: grid;
+  grid-template-columns: minmax(100px, 120px) 1fr;
+  gap: 8px 14px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+@media (max-width: 480px) {
+  .nf-meta-grid {
+    grid-template-columns: 1fr;
+    gap: 2px 0;
+  }
+  .nf-meta-grid .nf-meta-label {
+    margin-top: 8px;
+  }
+  .nf-meta-grid .nf-meta-label:first-child {
+    margin-top: 0;
+  }
+}
+.nf-meta-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.nf-meta-value {
+  color: var(--text);
+  word-break: break-word;
+}
+.nf-meta-value a {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+.nf-meta-value a:hover {
+  text-decoration: underline;
+}
+.nf-meta-hint {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.nf-card__alert {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-left-width: 4px;
+  border-left-color: var(--red);
+  background: var(--red-dim);
+}
+.nf-card__alert .nf-card__alert-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--red);
+  margin-bottom: 4px;
+}
+.nf-card__alert .nf-card__alert-msg {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.nf-card__footer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 18px;
+  border-top: 1px dashed var(--border);
+  background: rgba(248, 250, 252, 0.5);
+}
+[data-theme="dark"] .nf-card__footer {
+  background: rgba(0, 0, 0, 0.15);
+}
+.nf-card__links,
+.nf-card__ops {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.nf-card__links .btn,
+.nf-card__links .btn-sm,
+.nf-card__ops .btn,
+.nf-card__ops .btn-sm {
+  cursor: pointer;
+}
+.nf-card__links .btn-sm {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  font-weight: 600;
+}
+.nf-card__links .btn-sm:hover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.topbar-actions .btn-ghost.nf-config-fiscal svg {
+  flex-shrink: 0;
+}
+
+.nf-pagination-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+}
+/* Botões de texto Anterior/Próxima (largura padrão da paginação é fixa 34px só para números) */
+.nf-pagination-outer .nf-pagination-nav > .pagination-btn {
+  width: auto;
+  min-width: 40px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+@media (max-width: 640px) {
+  .nf-pagination-outer .pagination-wrapper {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .nf-pagination-nav {
+    justify-content: center;
+  }
+}
+@media (max-width: 600px) {
+  .nf-filtros-bar {
+    gap: 10px;
+  }
+}

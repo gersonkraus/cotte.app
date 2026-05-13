@@ -34,6 +34,14 @@
         }
     }
 
+    function _nfMetaRow(label, valueHtml) {
+        return '<span class="nf-meta-label">' + _escHtml(label) + '</span><span class="nf-meta-value">' + valueHtml + "</span>";
+    }
+
+    function _nfMetaHint(texto) {
+        return '<p class="nf-meta-hint">' + _escHtml(texto) + "</p>";
+    }
+
     var paginaAtual = 1;
 
     async function carregarNotas(pagina) {
@@ -53,7 +61,7 @@
             var data = resp.data || resp;
             renderizarNotas(data.notas || []);
             renderizarPaginacao(data);
-        } catch(e) {
+        } catch (e) {
             console.error("Erro ao carregar notas", e);
         }
     }
@@ -79,34 +87,83 @@
         return raw.length > 200 ? raw.substring(0, 200) + "…" : raw;
     }
 
-    function _linhaTemporalNota(n) {
+    function _blocoTemporalNota(n) {
         var st = n.status || "";
         if (st === "emitida") {
-            return "<p><strong>Emitida em:</strong> " + _escHtml(_fmtDataHora(n.emitida_em)) + "</p>";
+            return _nfMetaRow("Emitida em", _escHtml(_fmtDataHora(n.emitida_em)));
         }
         if (st === "cancelada") {
             var emi = n.emitida_em ? _fmtDataHora(n.emitida_em) : "—";
             var canc = n.cancelada_em ? _fmtDataHora(n.cancelada_em) : "—";
-            return "<p><strong>Emitida em:</strong> " + _escHtml(emi) + "</p>"
-                + "<p><strong>Cancelada em:</strong> " + _escHtml(canc) + "</p>";
+            return _nfMetaRow("Emitida em", _escHtml(emi)) + _nfMetaRow("Cancelada em", _escHtml(canc));
         }
         if (st === "erro") {
-            return "<p><strong>Tentativa registrada em:</strong> " + _escHtml(_fmtDataHora(n.criado_em)) + "</p>"
-                + "<p style=\"font-size:0.82rem;color:var(--muted,#666);margin:4px 0\">"
-                + "Esta nota não foi autorizada pela SEFAZ; o número e a data de emissão só aparecem após sucesso."
-                + "</p>";
+            return _nfMetaRow("Tentativa em", _escHtml(_fmtDataHora(n.criado_em)))
+                + _nfMetaHint(
+                    "Esta nota não foi autorizada pela SEFAZ; o número e a data de emissão só aparecem após sucesso."
+                );
         }
-        return "<p><strong>Registrada em:</strong> " + _escHtml(_fmtDataHora(n.criado_em)) + "</p>"
-            + (st === "processando"
-                ? "<p style=\"font-size:0.82rem;color:var(--muted,#666);margin:4px 0\">Em processamento na Focus/SEFAZ.</p>"
-                : "");
+        var base = _nfMetaRow("Registrada em", _escHtml(_fmtDataHora(n.criado_em)));
+        if (st === "processando") {
+            base += _nfMetaHint("Em processamento na Focus/SEFAZ.");
+        }
+        return base;
     }
 
-    function _linhaOrcamento(n) {
+    function _blocoOrcamento(n) {
         if (!n.orcamento_id) return "";
-        return "<p><strong>Orçamento:</strong> "
-            + "<a href=\"orcamento-view.html?id=" + encodeURIComponent(String(n.orcamento_id)) + "\">#"
-            + _escHtml(String(n.orcamento_id)) + "</a></p>";
+        var link =
+            '<a href="orcamento-view.html?id=' +
+            encodeURIComponent(String(n.orcamento_id)) +
+            '">#' +
+            _escHtml(String(n.orcamento_id)) +
+            "</a>";
+        return _nfMetaRow("Orçamento", link);
+    }
+
+    function _indicesPaginas(atual, total) {
+        var map = {};
+        function add(p) {
+            if (p >= 1 && p <= total) map[p] = true;
+        }
+        add(1);
+        add(total);
+        add(atual);
+        add(atual - 1);
+        add(atual + 1);
+        add(atual - 2);
+        add(atual + 2);
+        return Object.keys(map)
+            .map(Number)
+            .sort(function (a, b) {
+                return a - b;
+            });
+    }
+
+    function _htmlBotoesNumeros(atual, total) {
+        var keys = _indicesPaginas(atual, total);
+        var parts = [];
+        var last = 0;
+        for (var i = 0; i < keys.length; i++) {
+            var p = keys[i];
+            if (last && p > last + 1) {
+                parts.push('<span class="pagination-ellipsis" aria-hidden="true">…</span>');
+            }
+            var isAtual = p === atual;
+            parts.push(
+                '<button type="button" class="pagination-btn' +
+                    (isAtual ? " active" : "") +
+                    '"' +
+                    (isAtual ? ' disabled aria-current="page"' : "") +
+                    ' onclick="NotasFiscaisPage.carregar(' +
+                    p +
+                    ')">' +
+                    p +
+                    "</button>"
+            );
+            last = p;
+        }
+        return parts.join("");
     }
 
     function renderizarNotas(notas) {
@@ -120,72 +177,190 @@
         }
         empty.style.display = "none";
 
-        container.innerHTML = notas.map(function(n) {
-            var erroHtml = "";
-            if (n.erro_mensagem) {
-                var resumo = _resumirErro(n.erro_mensagem);
-                erroHtml = '<p class="text-danger" style="font-size:0.82rem;margin:4px 0"><strong>Erro:</strong> '
-                    + _escHtml(resumo) + "</p>";
-            }
-            var botoesAcao = "";
-            if (n.status === "emitida") {
-                botoesAcao += '<button type="button" onclick="NotasFiscaisPage.cancelar(' + n.id + ')" class="btn btn-sm btn-danger">Cancelar</button>';
-                botoesAcao += ' <button type="button" onclick="NotasFiscaisPage.sincronizarFocus(' + n.id + ')" class="btn btn-sm btn-secondary" title="Atualiza status consultando a API Focus">Sincronizar</button>';
-                botoesAcao += ' <button type="button" onclick="NotasFiscaisPage.reenviarHook(' + n.id + ')" class="btn btn-sm btn-secondary" title="Reenvia notificação (webhook) da Focus">Webhook</button>';
-                if (n.tipo === "nfe") {
-                    botoesAcao += ' <button type="button" onclick="NotasFiscaisPage.cartaCorrecao(' + n.id + ')" class="btn btn-sm btn-secondary">CC-e</button>';
+        container.innerHTML = notas
+            .map(function (n) {
+                var erroHtml = "";
+                if (n.erro_mensagem) {
+                    var resumo = _resumirErro(n.erro_mensagem);
+                    erroHtml =
+                        '<div class="nf-card__alert" role="alert"><div class="nf-card__alert-title">Erro</div><div class="nf-card__alert-msg">' +
+                        _escHtml(resumo) +
+                        "</div></div>";
                 }
-                if (n.orcamento_id && (n.tipo === "nfe" || n.tipo === "nfce")) {
-                    botoesAcao += ' <button type="button" onclick="NotasFiscaisPage.previaDanfe(' + n.orcamento_id + ',\'' + String(n.tipo || "nfe").replace(/'/g, "") + '\')" class="btn btn-sm btn-secondary">Prévia DANFE</button>';
+
+                var ops = [];
+                if (n.status === "emitida") {
+                    ops.push(
+                        '<button type="button" onclick="NotasFiscaisPage.cancelar(' +
+                            n.id +
+                            ')" class="btn btn-sm btn-danger">Cancelar</button>'
+                    );
+                    ops.push(
+                        '<button type="button" onclick="NotasFiscaisPage.sincronizarFocus(' +
+                            n.id +
+                            ')" class="btn btn-sm btn-secondary" title="Atualiza status consultando a API Focus">Sincronizar</button>'
+                    );
+                    ops.push(
+                        '<button type="button" onclick="NotasFiscaisPage.reenviarHook(' +
+                            n.id +
+                            ')" class="btn btn-sm btn-secondary" title="Reenvia notificação (webhook) da Focus">Webhook</button>'
+                    );
+                    if (n.tipo === "nfe") {
+                        ops.push(
+                            '<button type="button" onclick="NotasFiscaisPage.cartaCorrecao(' +
+                                n.id +
+                                ')" class="btn btn-sm btn-secondary">CC-e</button>'
+                        );
+                    }
+                    if (n.orcamento_id && (n.tipo === "nfe" || n.tipo === "nfce")) {
+                        ops.push(
+                            '<button type="button" onclick="NotasFiscaisPage.previaDanfe(' +
+                                n.orcamento_id +
+                                ",'" +
+                                String(n.tipo || "nfe").replace(/'/g, "") +
+                                '\')" class="btn btn-sm btn-secondary">Prévia DANFE</button>'
+                        );
+                    }
                 }
-            }
-            if (n.status === "processando") {
-                botoesAcao += '<button type="button" onclick="NotasFiscaisPage.sincronizarFocus(' + n.id + ')" class="btn btn-sm btn-secondary">Sincronizar</button>';
-            }
-            if (n.status === "erro") {
-                botoesAcao += '<button onclick="NotasFiscaisPage.analisarErro(' + n.id + ')" class="btn btn-sm btn-warning">Analisar e Corrigir</button>';
-            }
-            var numLabel = n.numero ? _escHtml(n.numero) : (n.status === "erro" ? "— <span style=\"font-weight:400;color:var(--muted,#666)\">(não emitida)</span>" : "—");
-            return '<div class="card nf-card" data-id="' + n.id + '">'
-                + '<div class="card-header">'
-                + '<span class="badge ' + (STATUS_CLASSES[n.status] || "") + '">' + _escHtml(STATUS_LABELS[n.status] || n.status) + '</span>'
-                + '<span class="nf-tipo">' + _escHtml(TIPO_LABELS[n.tipo] || n.tipo) + '</span>'
-                + '<span class="nf-numero">' + numLabel + '</span>'
-                + '</div>'
-                + '<div class="card-body">'
-                + '<p><strong>Natureza:</strong> ' + _escHtml(n.natureza_operacao || "—") + '</p>'
-                + _linhaOrcamento(n)
-                + _linhaTemporalNota(n)
-                + erroHtml
-                + '</div>'
-                + '<div class="card-footer">'
-                + (n.danfe_url ? '<a href="' + _escHtml(n.danfe_url) + '" target="_blank" rel="noopener noreferrer" class="btn btn-sm">DANFE</a>' : "")
-                + (n.xml_url ? '<a href="' + _escHtml(n.xml_url) + '" target="_blank" rel="noopener noreferrer" class="btn btn-sm">XML</a>' : "")
-                + (n.qr_code ? '<a href="' + _escHtml(n.qr_code) + '" target="_blank" rel="noopener noreferrer" class="btn btn-sm">QR Code</a>' : "")
-                + botoesAcao
-                + '</div>'
-                + '</div>';
-        }).join("");
+                if (n.status === "processando") {
+                    ops.push(
+                        '<button type="button" onclick="NotasFiscaisPage.sincronizarFocus(' +
+                            n.id +
+                            ')" class="btn btn-sm btn-secondary">Sincronizar</button>'
+                    );
+                }
+                if (n.status === "erro") {
+                    ops.push(
+                        '<button type="button" onclick="NotasFiscaisPage.analisarErro(' +
+                            n.id +
+                            ')" class="btn btn-sm btn-warning">Analisar e Corrigir</button>'
+                    );
+                }
+
+                var links = [];
+                if (n.danfe_url) {
+                    links.push(
+                        '<a href="' +
+                            _escHtml(n.danfe_url) +
+                            '" target="_blank" rel="noopener noreferrer" class="btn btn-sm">DANFE</a>'
+                    );
+                }
+                if (n.xml_url) {
+                    links.push(
+                        '<a href="' +
+                            _escHtml(n.xml_url) +
+                            '" target="_blank" rel="noopener noreferrer" class="btn btn-sm">XML</a>'
+                    );
+                }
+                if (n.qr_code) {
+                    links.push(
+                        '<a href="' +
+                            _escHtml(n.qr_code) +
+                            '" target="_blank" rel="noopener noreferrer" class="btn btn-sm">QR Code</a>'
+                    );
+                }
+
+                var numLabel = n.numero
+                    ? _escHtml(n.numero)
+                    : n.status === "erro"
+                      ? '— <span class="nf-card__numero-muted">(não emitida)</span>'
+                      : "—";
+
+                var metaHtml =
+                    _nfMetaRow("Natureza", _escHtml(n.natureza_operacao || "—")) +
+                    _blocoOrcamento(n) +
+                    _blocoTemporalNota(n);
+
+                var linksHtml = links.length ? '<div class="nf-card__links">' + links.join("") + "</div>" : "";
+                var opsHtml = ops.length ? '<div class="nf-card__ops">' + ops.join("") + "</div>" : "";
+                var footerInner = linksHtml + opsHtml;
+                var footerBlock = footerInner ? '<div class="nf-card__footer">' + footerInner + "</div>" : "";
+
+                return (
+                    '<article class="card nf-card" data-id="' +
+                    n.id +
+                    '">' +
+                    '<header class="nf-card__header">' +
+                    '<div class="nf-card__header-main">' +
+                    '<span class="badge ' +
+                    (STATUS_CLASSES[n.status] || "") +
+                    '">' +
+                    _escHtml(STATUS_LABELS[n.status] || n.status) +
+                    "</span>" +
+                    '<span class="nf-card__tipo">' +
+                    _escHtml(TIPO_LABELS[n.tipo] || n.tipo) +
+                    "</span>" +
+                    "</div>" +
+                    '<div class="nf-card__numero">' +
+                    numLabel +
+                    "</div>" +
+                    "</header>" +
+                    '<div class="nf-card__body">' +
+                    '<div class="nf-meta-grid">' +
+                    metaHtml +
+                    "</div>" +
+                    erroHtml +
+                    "</div>" +
+                    footerBlock +
+                    "</article>"
+                );
+            })
+            .join("");
     }
 
     function renderizarPaginacao(data) {
         var container = document.getElementById("notas-pagination");
-        var totalPaginas = Math.ceil(data.total / data.por_pagina);
+        var porPagina = data.por_pagina || 20;
+        var total = data.total != null ? data.total : 0;
+        var totalPaginas = Math.max(1, Math.ceil(total / porPagina));
+
         if (totalPaginas <= 1) {
             container.innerHTML = "";
             return;
         }
-        var html = "";
-        for (var i = 1; i <= totalPaginas; i++) {
-            html += '<button class="btn btn-sm ' + (i === paginaAtual ? "btn-primary" : "") + '" onclick="NotasFiscaisPage.carregar(' + i + ')">' + i + '</button>';
-        }
-        container.innerHTML = html;
+
+        var infoTexto =
+            "Página " +
+            paginaAtual +
+            " de " +
+            totalPaginas +
+            " · " +
+            total +
+            " registro" +
+            (total !== 1 ? "s" : "");
+
+        var prevDisabled = paginaAtual <= 1;
+        var nextDisabled = paginaAtual >= totalPaginas;
+
+        var numerosHtml = _htmlBotoesNumeros(paginaAtual, totalPaginas);
+
+        container.innerHTML =
+            '<nav class="pagination-wrapper" aria-label="Paginação das notas fiscais">' +
+            '<span class="pagination-info">' +
+            _escHtml(infoTexto) +
+            "</span>" +
+            '<div class="nf-pagination-nav">' +
+            '<button type="button" class="pagination-btn"' +
+            (prevDisabled ? " disabled" : "") +
+            ' aria-label="Página anterior" onclick="NotasFiscaisPage.carregar(' +
+            (paginaAtual - 1) +
+            ')">Anterior</button>' +
+            '<div class="pagination-controls" role="group" aria-label="Número da página">' +
+            numerosHtml +
+            "</div>" +
+            '<button type="button" class="pagination-btn"' +
+            (nextDisabled ? " disabled" : "") +
+            ' aria-label="Próxima página" onclick="NotasFiscaisPage.carregar(' +
+            (paginaAtual + 1) +
+            ')">Próxima</button>' +
+            "</div>" +
+            "</nav>";
     }
 
     async function sincronizarFocus(notaId) {
         try {
             await api.post("/notas-fiscais/" + notaId + "/sincronizar-focus", {});
-            showNotif && showNotif("✓", "Sincronizado", "Status atualizado com a Focus.");
+            showNotif && showNotif("OK", "Sincronizado", "Status atualizado com a Focus.");
             carregarNotas(paginaAtual);
         } catch (e) {
             alert("Erro ao sincronizar: " + (e.message || ""));
@@ -215,7 +390,7 @@
         }
         try {
             await api.post("/notas-fiscais/" + notaId + "/carta-correcao", { correcao: t });
-            showNotif && showNotif("✓", "CC-e", "Carta de correção registrada na Focus.");
+            showNotif && showNotif("OK", "CC-e", "Carta de correção registrada na Focus.");
             carregarNotas(paginaAtual);
         } catch (e) {
             alert("Erro na carta de correção: " + (e.message || ""));
@@ -237,7 +412,9 @@
             );
             var u = URL.createObjectURL(blob);
             window.open(u, "_blank", "noopener,noreferrer");
-            setTimeout(function() { URL.revokeObjectURL(u); }, 120000);
+            setTimeout(function () {
+                URL.revokeObjectURL(u);
+            }, 120000);
         } catch (e) {
             alert("Erro na prévia DANFE: " + (e.message || ""));
         }
@@ -256,24 +433,33 @@
         try {
             await api.post("/notas-fiscais/" + notaId + "/cancelar", { motivo: motivo });
             carregarNotas(paginaAtual);
-        } catch(e) {
+        } catch (e) {
             alert("Erro ao cancelar nota: " + (e.response?.data?.detail || e.message));
         }
     }
 
     async function analisarErro(notaId) {
-        var btn = document.querySelector('[data-id="' + notaId + '"] .btn-warning');
-        if (btn) { btn.disabled = true; btn.textContent = "Analisando..."; }
+        var btn = document.querySelector('.nf-card[data-id="' + notaId + '"] .btn-warning');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = "Analisando...";
+        }
 
         var analise = null;
         try {
             analise = await api.post("/notas-fiscais/" + notaId + "/analisar-erro", {});
-        } catch(e) {
+        } catch (e) {
             alert("Erro ao analisar: " + (e.message || "tente novamente"));
-            if (btn) { btn.disabled = false; btn.textContent = "Analisar e Corrigir"; }
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = "Analisar e Corrigir";
+            }
             return;
         }
-        if (btn) { btn.disabled = false; btn.textContent = "Analisar e Corrigir"; }
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = "Analisar e Corrigir";
+        }
 
         _mostrarModalAnalise(analise);
     }
@@ -282,12 +468,20 @@
         var existente = document.getElementById("modal-analise-erro");
         if (existente) existente.remove();
 
-        var sugestoesHtml = (analise.sugestoes || []).map(function(s) {
-            return '<div style="margin-bottom:12px;padding:10px 12px;background:rgba(255,200,0,0.08);border-left:3px solid #f59e0b;border-radius:4px">'
-                + '<div style="font-size:0.75rem;color:#f59e0b;font-weight:600;text-transform:uppercase;margin-bottom:4px">' + s.campo + '</div>'
-                + '<div style="font-size:0.9rem">' + s.acao + '</div>'
-                + '</div>';
-        }).join("");
+        var sugestoesHtml = (analise.sugestoes || [])
+            .map(function (s) {
+                return (
+                    '<div style="margin-bottom:12px;padding:10px 12px;background:rgba(255,200,0,0.08);border-left:3px solid #f59e0b;border-radius:4px">' +
+                    '<div style="font-size:0.75rem;color:#f59e0b;font-weight:600;text-transform:uppercase;margin-bottom:4px">' +
+                    _escHtml(s.campo) +
+                    "</div>" +
+                    '<div style="font-size:0.9rem">' +
+                    _escHtml(s.acao) +
+                    "</div>" +
+                    "</div>"
+                );
+            })
+            .join("");
 
         if (!sugestoesHtml) {
             sugestoesHtml = '<p style="color:var(--text-muted,#888)">Nenhuma sugestão automática disponível.</p>';
@@ -295,37 +489,52 @@
 
         var botoesAcao = "";
         if (analise.orcamento_id) {
-            botoesAcao += '<a href="orcamento-view.html?id=' + encodeURIComponent(String(analise.orcamento_id)) + '" class="btn btn-secondary btn-sm" style="margin-right:8px" target="_blank" rel="noopener noreferrer">Ver Orçamento</a>';
+            botoesAcao +=
+                '<a href="orcamento-view.html?id=' +
+                encodeURIComponent(String(analise.orcamento_id)) +
+                '" class="btn btn-secondary btn-sm" style="margin-right:8px" target="_blank" rel="noopener noreferrer">Ver Orçamento</a>';
             botoesAcao += '<button id="btn-reemitir-analise" class="btn btn-primary btn-sm">Reemitir Nota</button>';
         }
 
         var modal = document.createElement("div");
         modal.id = "modal-analise-erro";
-        modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center";
-        modal.innerHTML = '<div style="background:var(--bg-card,#1e1e2e);border:1px solid var(--border,#2d2d3f);border-radius:12px;width:520px;max-width:95vw;max-height:85vh;overflow-y:auto;padding:24px">'
-            + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
-            + '<h3 style="margin:0;font-size:1.1rem">Análise do Erro</h3>'
-            + '<button id="btn-fechar-analise" style="background:none;border:none;cursor:pointer;font-size:1.4rem;color:var(--text-muted,#888)">&times;</button>'
-            + '</div>'
-            + '<div style="margin-bottom:16px">' + sugestoesHtml + '</div>'
-            + (botoesAcao ? '<div style="display:flex;align-items:center;gap:8px;padding-top:12px;border-top:1px solid var(--border,#2d2d3f)">' + botoesAcao + '</div>' : '')
-            + '</div>';
+        modal.style.cssText =
+            "position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center";
+        modal.innerHTML =
+            '<div style="background:var(--bg-card,#1e1e2e);border:1px solid var(--border,#2d2d3f);border-radius:12px;width:520px;max-width:95vw;max-height:85vh;overflow-y:auto;padding:24px">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">' +
+            '<h3 style="margin:0;font-size:1.1rem">Análise do Erro</h3>' +
+            '<button type="button" id="btn-fechar-analise" style="background:none;border:none;cursor:pointer;font-size:1.4rem;color:var(--text-muted,#888)" aria-label="Fechar">&times;</button>' +
+            "</div>" +
+            '<div style="margin-bottom:16px">' +
+            sugestoesHtml +
+            "</div>" +
+            (botoesAcao
+                ? '<div style="display:flex;align-items:center;gap:8px;padding-top:12px;border-top:1px solid var(--border,#2d2d3f)">' +
+                  botoesAcao +
+                  "</div>"
+                : "") +
+            "</div>";
 
         document.body.appendChild(modal);
 
-        document.getElementById("btn-fechar-analise").onclick = function() { modal.remove(); };
-        modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
+        document.getElementById("btn-fechar-analise").onclick = function () {
+            modal.remove();
+        };
+        modal.onclick = function (e) {
+            if (e.target === modal) modal.remove();
+        };
 
         var btnReemitir = document.getElementById("btn-reemitir-analise");
         if (btnReemitir) {
-            btnReemitir.onclick = async function() {
+            btnReemitir.onclick = async function () {
                 btnReemitir.disabled = true;
                 btnReemitir.textContent = "Reemitindo...";
                 try {
                     await api.post("/notas-fiscais/" + analise.nota_id + "/reemitir", {});
                     modal.remove();
                     carregarNotas(paginaAtual);
-                } catch(e) {
+                } catch (e) {
                     btnReemitir.disabled = false;
                     btnReemitir.textContent = "Reemitir Nota";
                     alert("Erro ao reemitir: " + (e.message || "tente novamente"));
@@ -336,7 +545,7 @@
 
     var debounceTimer;
     function debounce(fn, ms) {
-        return function() {
+        return function () {
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(fn, ms);
         };
@@ -344,13 +553,19 @@
 
     function init() {
         var t = document.getElementById("filtro-tipo");
-        if(t) t.addEventListener("change", function() { carregarNotas(1); });
+        if (t) t.addEventListener("change", function () {
+            carregarNotas(1);
+        });
 
         var s = document.getElementById("filtro-status");
-        if(s) s.addEventListener("change", function() { carregarNotas(1); });
+        if (s) s.addEventListener("change", function () {
+            carregarNotas(1);
+        });
 
         var b = document.getElementById("filtro-busca");
-        if(b) b.addEventListener("input", debounce(function() { carregarNotas(1); }, 300));
+        if (b) b.addEventListener("input", debounce(function () {
+            carregarNotas(1);
+        }, 300));
 
         carregarNotas(1);
     }
