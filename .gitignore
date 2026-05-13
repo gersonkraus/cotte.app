@@ -128,3 +128,9 @@ memory/.session-log
 
 .superpowers/
 .sisyphus/
+
+# Ferramentas auxiliares locais (caches/exports e projetos externos)
+graphify-out/
+todo-pro/
+Controle-Pessoal-Pro.html
+
