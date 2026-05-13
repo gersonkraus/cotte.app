@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="css/style.css?v=13">
+  <link rel="stylesheet" href="css/style.css?v=14">
 </head>
 <body>
 
@@ -66,6 +66,13 @@
           <option value="erro">Falhas na emissão</option>
         </select>
       </div>
+      <div class="nf-filtro-grupo nf-filtro-grupo--view">
+        <span class="nf-filtro-label" id="nf-view-label">Visualização</span>
+        <div class="nf-view-seg" role="group" aria-labelledby="nf-view-label">
+          <button type="button" id="nf-view-table" class="nf-view-seg__btn is-active" aria-pressed="true">Tabela</button>
+          <button type="button" id="nf-view-cards" class="nf-view-seg__btn" aria-pressed="false">Cartões</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -92,7 +99,7 @@
 <script>
   inicializarLayout('notas-fiscais');
 </script>
-<script src="js/notas-fiscais.js?v=4"></script>
+<script src="js/notas-fiscais.js?v=5"></script>
 
 </body>
 </html>

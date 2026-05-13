@@ -1,6 +1,6 @@
-from pydantic import BaseModel, EmailStr, Field, field_serializer, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_serializer, field_validator, model_validator
 from typing import Optional, List, Literal
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from decimal import Decimal
 from app.models.models import (
     StatusOrcamento,
@@ -2081,12 +2081,33 @@ class NotaFiscalOut(BaseModel):
     qr_code: Optional[str] = None
     erro_codigo: Optional[str] = None
     erro_mensagem: Optional[str] = None
-    criado_em: datetime
     emitida_em: Optional[datetime] = None
     cancelada_em: Optional[datetime] = None
+    criado_em: datetime
     orcamento_id: Optional[int] = None
     focus_ref: Optional[str] = None
     denegada: Optional[bool] = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def _preencher_criado_em_nulo(cls, data: object):
+        """Linhas legadas podem ter ``criado_em`` NULL no banco; evita ResponseValidationError na listagem."""
+        if data is None:
+            return data
+        if isinstance(data, dict):
+            if data.get("criado_em") is None:
+                d = dict(data)
+                d["criado_em"] = d.get("emitida_em") or datetime.now(timezone.utc)
+                return d
+            return data
+        if getattr(data.__class__, "__mapper__", None) is not None and getattr(data, "criado_em", None) is None:
+            from sqlalchemy import inspect as sa_inspect
+
+            insp = sa_inspect(data)
+            out = {col.key: getattr(data, col.key) for col in insp.mapper.columns}
+            out["criado_em"] = out.get("emitida_em") or datetime.now(timezone.utc)
+            return out
+        return data
 
     @field_serializer("danfe_url", "xml_url", when_used="json")
     def _absolutizar_midia_focus(self, v: Optional[str]) -> Optional[str]:

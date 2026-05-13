@@ -209,7 +209,32 @@ def register_exception_handlers(app):
         app: Instância do FastAPI
     """
     from fastapi.responses import JSONResponse
-    
+    from fastapi.exceptions import ResponseValidationError
+
+    @app.exception_handler(ResponseValidationError)
+    async def response_validation_exception_handler(request, exc: ResponseValidationError):
+        """Evita mascarar falha de serialização do response_model como erro genérico."""
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.error("ResponseValidationError: %s", exc.errors(), exc_info=True)
+        errs = exc.errors() or []
+        first = errs[0] if errs else {}
+        loc = " → ".join(str(x) for x in (first.get("loc") or ())[:8])
+        msg = (first.get("msg") or "")[:300]
+        hint = f"{loc}: {msg}".strip(": ").strip() or "verifique logs do servidor"
+
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "error": {
+                    "code": "RESPONSE_VALIDATION_ERROR",
+                    "message": "Resposta não passou na validação de saída (contrato da API).",
+                    "details": {"hint": hint[:500]},
+                }
+            },
+        )
+
     @app.exception_handler(AppException)
     async def app_exception_handler(request, exc: AppException):
         return JSONResponse(
