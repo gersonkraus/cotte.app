@@ -34,6 +34,27 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/whatsapp", tags=["WhatsApp"])
 
 
+def _normalizar_query_instance(instance: Optional[str]) -> Optional[str]:
+    """
+    Evolution API v2.x pode chamar o webhook com URL incorreta, por exemplo:
+    .../webhook?instance=empresa-5/messages-upsert
+    O FastAPI interpreta instance='empresa-5/messages-upsert' e não encontra a empresa.
+    Mantém só o segmento antes da primeira barra.
+    """
+    if not instance or not isinstance(instance, str):
+        return None
+    s = instance.strip()
+    if "/" in s:
+        parte = s.split("/", 1)[0].strip()
+        logger.warning(
+            "[WA Webhook] Query 'instance' vinha com sufixo de evento; normalizado %r -> %r",
+            s,
+            parte,
+        )
+        s = parte
+    return s or None
+
+
 def _extrair_bearer_token(request: Request) -> str:
     auth = request.headers.get("Authorization", "") or request.headers.get("authorization", "")
     if isinstance(auth, str) and auth.lower().startswith("bearer "):
@@ -41,18 +62,39 @@ def _extrair_bearer_token(request: Request) -> str:
     return ""
 
 
+def _extrair_token_evolution_webhook(request: Request) -> str:
+    """Headers/query aceitos pela Evolution API e proxies comuns."""
+    return (
+        (
+            request.headers.get("apikey", "")
+            or request.headers.get("Apikey", "")
+            or request.headers.get("x-api-key", "")
+            or request.headers.get("X-API-Key", "")
+            or request.headers.get("X-Api-Key", "")
+            or request.query_params.get("apikey", "")
+            or _extrair_bearer_token(request)
+        )
+        or ""
+    ).strip()
+
+
 def _validar_autenticacao_webhook(request: Request, provider: str) -> None:
     if provider == "evolution":
         secret = (getattr(settings, "EVOLUTION_API_KEY", "") or "").strip()
         if not secret:
             raise HTTPException(status_code=503, detail="Webhook Evolution nao configurado")
-        token = (
-            request.headers.get("apikey", "")
-            or request.headers.get("Apikey", "")
-            or request.query_params.get("apikey", "")
-            or _extrair_bearer_token(request)
-        )
-        if not token or not secrets.compare_digest(token.strip(), secret):
+        token = _extrair_token_evolution_webhook(request)
+        if not token:
+            logger.warning(
+                "[WA Webhook] 401: nenhum token recebido (esperado header apikey ou "
+                "x-api-key, query apikey, ou Authorization Bearer igual a EVOLUTION_API_KEY)"
+            )
+            raise HTTPException(status_code=401, detail="Webhook nao autorizado")
+        if not secrets.compare_digest(token, secret):
+            logger.warning(
+                "[WA Webhook] 401: token recebido nao confere com EVOLUTION_API_KEY do servidor "
+                "(alinhar a mesma chave na Evolution e no Railway / .env do COTTE)"
+            )
             raise HTTPException(status_code=401, detail="Webhook nao autorizado")
         return
 
@@ -163,6 +205,8 @@ async def webhook_whatsapp(
     _validar_autenticacao_webhook(request, provider)
     raw_body = await request.json()
 
+    instance = _normalizar_query_instance(instance)
+
     empresa_instancia: Empresa | None = None
     if instance:
         empresa_instancia = (
@@ -205,13 +249,8 @@ async def webhook_comercial(
     # Valida autenticação pelo EVOLUTION_API_KEY (mesma chave da instância comercial)
     secret = (getattr(settings, "EVOLUTION_API_KEY", "") or "").strip()
     if secret:
-        token = (
-            request.headers.get("apikey", "")
-            or request.headers.get("Apikey", "")
-            or request.query_params.get("apikey", "")
-            or _extrair_bearer_token(request)
-        )
-        if not token or not secrets.compare_digest(token.strip(), secret):
+        token = _extrair_token_evolution_webhook(request)
+        if not token or not secrets.compare_digest(token, secret):
             raise HTTPException(status_code=401, detail="Webhook nao autorizado")
 
     try:

@@ -3,7 +3,7 @@ import asyncio
 from fastapi import BackgroundTasks
 
 from app.models.models import AuditLog, TenantCommercialInteraction, TenantCommercialLead
-from app.routers.whatsapp import _webhook_evolution
+from app.routers.whatsapp import _webhook_evolution, _normalizar_query_instance
 from app.schemas.schemas import WebhookEvolution
 from app.services.tenant_commercial_service import registrar_interacao_whatsapp
 from tests.conftest import make_empresa
@@ -54,6 +54,14 @@ def test_webhook_evolution_phone_usa_remote_jid_alt_quando_lid():
         },
     )
     assert payload.phone == "5511888776655"
+
+
+def test_normalizar_query_instance_remove_sufixo_evolution_v2():
+    """Evolution v2.x pode concatenar o nome do evento ao query param instance."""
+    assert _normalizar_query_instance("empresa-5/messages-upsert") == "empresa-5"
+    assert _normalizar_query_instance("empresa-5") == "empresa-5"
+    assert _normalizar_query_instance(None) is None
+    assert _normalizar_query_instance("  ") is None
 
 
 def test_webhook_evolution_phone_remove_sufixo_device():
