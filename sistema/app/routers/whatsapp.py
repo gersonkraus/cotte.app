@@ -306,6 +306,14 @@ async def _webhook_evolution(
     if not empresa_instancia and payload.instance:
         inst_name = payload.instance.strip()
         empresa_instancia = db.query(Empresa).filter(Empresa.evolution_instance == inst_name).first()
+        
+        # Fallback para as instâncias globais do sistema (Railway Variables)
+        if not empresa_instancia:
+            if inst_name in (settings.EVOLUTION_INSTANCE, settings.EVOLUTION_INSTANCE_COMERCIAL):
+                # Tenta localizar a empresa 5 (cotte.app) ou a primeira empresa ativa
+                empresa_instancia = db.query(Empresa).filter(Empresa.id == 5).first() or db.query(Empresa).first()
+                if empresa_instancia:
+                    logger.info("[WA Webhook] Fallback sistema: instancia %s -> empresa %s", inst_name, empresa_instancia.id)
 
     empresa_id = empresa_instancia.id if empresa_instancia else None
 
