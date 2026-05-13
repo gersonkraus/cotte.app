@@ -330,7 +330,7 @@ async def processar_operador_wpp(
             current_user=operador,
         )
     except Exception as e:
-        logger.error("[OperadorWPP] Erro no assistente V2: %s", e)
+        logger.exception("[OperadorWPP] Erro no assistente V2: %s", e)
         await enviar_mensagem_texto(
             telefone, "Erro interno. Tente novamente.", empresa=empresa
         )

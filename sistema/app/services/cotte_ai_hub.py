@@ -2557,6 +2557,90 @@ _V2_MINIMAL_INTENTS = {
     "INADIMPLENCIA",
 }
 
+
+def _v2_prompt_listar_orcamentos_datas_br() -> str:
+    """Datas civis BR + exemplo de intervalo (reduz erro de parâmetro no LLM)."""
+    hoje = datetime.now(_TZ_BR).date()
+    ontem = hoje - timedelta(days=1)
+    return (
+        "\n\n## listar_orcamentos — datas (America/Sao_Paulo)\n"
+        f"- Hoje: `{hoje.isoformat()}` | Ontem: `{ontem.isoformat()}`\n"
+        f"- Só ontem: `aprovado_em_de` e `aprovado_em_ate` = `{ontem.isoformat()}`.\n"
+        f'- Ontem **e** hoje (uma chamada): `aprovado_em_de="{ontem.isoformat()}"`, '
+        f'`aprovado_em_ate="{hoje.isoformat()}"` (status APROVADO ou omita).\n'
+        "- Para listar **todos** os itens de um intervalo curto no card (até o teto do sistema), "
+        'use `limit=50` ou peça "lista completa" / "todos os orçamentos" na mensagem.\n'
+        "- Não dispare várias `listar_orcamentos` em paralelo para dias vizinhos — "
+        "use um único intervalo.\n"
+    )
+
+
+_V2_SYSTEM_PROMPT = (
+    "Você é o **Assistente COTTE**, um parceiro inteligente de gestão para pequenas empresas, "
+    "um **Assistente Operacional Universal**. Responda sempre em português, de forma direta e amigável. Máximo de 3 parágrafos. "
+    "\n\n"
+    "## Como funcionar:  \n"
+    "Use as ferramentas (tools) disponíveis para buscar informações reais e cruzamentos analíticos. "
+    "Se precisar de relatórios personalizados, agrupamentos por categoria, tabelas, rankings "
+    "ou cálculos complexos do financeiro/comercial, **FAÇA queries SQL** ativamente usando a tool 'executar_sql_analitico'. "
+    "NUNCA invente números, nomes, IDs ou valores — sempre obtenha via tool. "
+    "NUNCA use dados do histórico da conversa para responder uma nova consulta: "
+    "sempre chame a ferramenta para obter dados frescos. "
+    "\n\n"
+    "## Regras críticas:  \n"
+    "1. **Criar/excluir**: chame a tool DIRETAMENTE — o sistema mostrará um card de confirmação. "
+    "NÃO pergunte 'deseja prosseguir?' previamente. \n"
+    '2. **IDs por conta própria**: para excluir/editar por NOME, chame `listar_clientes(busca="nome")` '
+    "primeiro para obter o ID real. NUNCA chute IDs ou use posições de listas anteriores. \n"
+    "3. **Sem tool correspondente**: diga claramente que não há ferramenta para isso — "
+    "NÃO chame outra tool no lugar. \n"
+    "4. **Criar orçamentos**: chame `criar_orcamento` DIRETAMENTE com `cliente_nome` e o item. "
+    "NÃO busque o cliente antes, o backend resolve automaticamente. "
+    "PARSING DE PREÇO: extraia `valor_unit` do texto natural — 'pacote de prego por 36' → "
+    "descricao='pacote de prego', valor_unit=36. Preposições 'por', 'a', 'de', 'R$' indicam preço. "
+    "NUNCA coloque o preço dentro da descricao — sempre como campo `valor_unit` separado. \n"
+    "5. **Sem loop**: NUNCA repita a mesma tool call mais de uma vez. Se a resposta não vier "
+    "como esperado, explique o que tem e a limitação. \n"
+    "6. **Erros de identidade**: se não encontrar um recurso pelo nome/ID exato informado, "
+    "EXPLIQUE o motivo e sugira alternativas (ex: 'Não encontrei O-103 — os recentes são X e Y'). "
+    "NUNCA diga 'Comando DESCONHECIDO' ou retorne um erro técnico cru. \n"
+    "7. **Inteligente mas humilde**: se não tiver certeza, pergunte ao usuário uma "
+    "coisa de cada vez, sem listas de perguntas. \n"
+    "8. **`listar_orcamentos` e datas**: o parâmetro `dias` filtra pela **data de criação** "
+    '(criado_em). Para **aprovação** (ex.: "aprovados ontem", "ontem e hoje"), use '
+    "`aprovado_em_de` e `aprovado_em_ate` em YYYY-MM-DD (intervalo inclusivo; **um dia** = "
+    'mesma data nas duas chaves). `status="APROVADO"` ou omita. Ver bloco fixo de datas '
+    "no system prompt. \n"
+    "9. **`listar_orcamentos` e paginação**: o JSON da tool traz `total` (quantos batem com o filtro), "
+    "`itens_retornados` (ou o tamanho de `orcamentos`), `has_more` e `limit`. Se `total` for maior "
+    "que a quantidade listada ou `has_more` for true, diga na resposta quantos existem no total e "
+    'quantos foram mostrados (ex.: "Há 16 no período; abaixo os 10 mais recentes"); mencione '
+    "o botão Carregar mais no card, se existir. Não dê a entender que a tabela é a lista completa "
+    "quando houver paginação. \n"
+)
+
+_V2_MINIMAL_SYSTEM_PROMPT = (
+    "Você é o Assistente COTTE. Responda sempre em português, com objetividade e no máximo 3 parágrafos. "
+    "REGRA ABSOLUTA: Para qualquer consulta sobre dados do sistema (orçamentos, clientes, saldo, agendamentos, "
+    "despesas, relatórios), você DEVE chamar a ferramenta correspondente e usar apenas os dados retornados. "
+    "NUNCA liste orçamentos, clientes, IDs, nomes ou valores baseando-se em suposições, estimativas ou "
+    "no histórico da conversa — sempre consulte a ferramenta para obter dados atualizados do banco. "
+    "Se a ferramenta retornar vazio, informe que não há registros; nunca invente exemplos. "
+    "Para criar, editar ou excluir, chame a tool diretamente; o sistema cuida da confirmação quando necessário. "
+    "Ao criar orçamento, extraia `cliente_nome`, item e `valor_unit` do texto natural e não misture preço na descrição. "
+    "Se não existir ferramenta para a tarefa, diga isso claramente."
+)
+
+_V2_TECHNICAL_COPILOT_PROMPT = (
+    "Você é o **Copiloto Técnico Interno** do sistema. "
+    "Você é focado em engenharia de software e suporte técnico para o superadmin. "
+    "Seu papel é auxiliar no entendimento da arquitetura, debug de código, boas práticas e manutenção. "
+    "IMPORTANTE: Você tem acesso de leitura ao repositório! Use as ferramentas (tools) `ler_arquivo_repositorio`, "
+    "`buscar_codigo_repositorio` e `analisar_estrutura_html` para inspecionar ativamente arquivos como HTML, JS, CSS e Python quando o usuário relatar um bug. "
+    "Nunca diga que não tem acesso a arquivos. Se não encontrar algo, use a busca para localizar. "
+    "Retorne suas análises e correções com blocos de código markdown (```html, ```js, etc)."
+)
+
 _V2_TOOLSET_FINANCEIRO = {
     "obter_saldo_caixa",
     "listar_movimentacoes_financeiras",
@@ -3803,6 +3887,128 @@ def _v2_apply_prompt_caching(messages: list[dict]) -> list[dict]:
     return patched
 
 
+_V2_MAX_ITER = 5
+_V2_KB_SNIPPET_CACHE: Optional[str] = None
+
+
+def _v2_load_kb_snippet(max_chars: int = 1800) -> str:
+    """Carrega um trecho compacto da KB funcional para orientar o v2."""
+    global _V2_KB_SNIPPET_CACHE
+    if _V2_KB_SNIPPET_CACHE is not None:
+        return _V2_KB_SNIPPET_CACHE
+
+    kb_path = os.path.join(
+        os.path.dirname(__file__),
+        "prompts",
+        "knowledge_base.md",
+    )
+    try:
+        with open(kb_path, "r", encoding="utf-8") as f:
+            raw = f.read()
+        raw = re.sub(r"^---[\s\S]*?---\s*", "", raw, count=1)
+        raw = re.sub(r"\n{3,}", "\n\n", raw).strip()
+        if len(raw) > max_chars:
+            raw = raw[:max_chars].rsplit("\n", 1)[0].strip() + "\n\n[KB truncada]"
+        _V2_KB_SNIPPET_CACHE = raw
+    except Exception as e:
+        logger.warning("[assistente_v2] Falha ao carregar knowledge_base.md: %s", e)
+        _V2_KB_SNIPPET_CACHE = ""
+    return _V2_KB_SNIPPET_CACHE or ""
+
+
+def _v2_is_excel_chart_request(mensagem: str) -> bool:
+    msg = (mensagem or "").lower()
+    if not msg:
+        return False
+    has_excel = any(
+        k in msg for k in ("excel", "planilha", "xlsx", "arquivo xls", "arquivo excel")
+    )
+    has_chart = any(k in msg for k in ("gráfico", "grafico", "chart"))
+    has_financial_scope = any(
+        k in msg for k in ("financeiro", "finanças", "financas", "caixa", "receita", "despesa")
+    )
+    return has_excel and has_chart and has_financial_scope
+
+
+def _v2_is_financial_chart_request(mensagem: str) -> bool:
+    msg = (mensagem or "").lower()
+    if not msg:
+        return False
+    has_chart = any(k in msg for k in ("gráfico", "grafico", "chart"))
+    has_financial_scope = any(
+        k in msg
+        for k in (
+            "financeiro",
+            "finanças",
+            "financas",
+            "caixa",
+            "receita",
+            "despesa",
+            "movimenta",
+            "fluxo",
+        )
+    )
+    return has_chart and has_financial_scope
+
+
+def _v2_extract_days_window(mensagem: str, default_days: int = 30) -> int:
+    m = re.search(r"(\d{1,3})\s*dias?", (mensagem or "").lower())
+    if not m:
+        return default_days
+    dias = int(m.group(1))
+    return max(1, min(dias, 365))
+
+
+def _v2_build_financial_chart_payload(movimentacoes: list[dict]) -> dict | None:
+    if not movimentacoes:
+        return None
+
+    buckets: dict[str, dict[str, float]] = {}
+    for mov in movimentacoes:
+        data_raw = str(mov.get("data") or "")[:10]
+        if not re.match(r"^\d{4}-\d{2}-\d{2}$", data_raw):
+            continue
+        tipo = str(mov.get("tipo") or "").lower()
+        valor = float(mov.get("valor") or 0.0)
+        if data_raw not in buckets:
+            buckets[data_raw] = {"entrada": 0.0, "saida": 0.0}
+        if tipo == "entrada":
+            buckets[data_raw]["entrada"] += valor
+        elif tipo == "saida":
+            buckets[data_raw]["saida"] += valor
+
+    if not buckets:
+        return None
+
+    labels = sorted(buckets.keys())
+    entradas = [round(buckets[d]["entrada"], 2) for d in labels]
+    saidas = [round(buckets[d]["saida"], 2) for d in labels]
+    return {
+        "tipo": "line",
+        "dados": {
+            "labels": labels,
+            "datasets": [
+                {
+                    "label": "Entradas",
+                    "data": entradas,
+                    "borderColor": "#22c55e",
+                    "backgroundColor": "rgba(34,197,94,0.18)",
+                    "tension": 0.25,
+                    "fill": False,
+                },
+                {
+                    "label": "Saídas",
+                    "data": saidas,
+                    "borderColor": "#ef4444",
+                    "backgroundColor": "rgba(239,68,68,0.18)",
+                    "tension": 0.25,
+                    "fill": False,
+                },
+            ],
+        },
+    }
+
+
 def _v2_prompt_strategy(mensagem: str, resolved_engine: str) -> str:
     if resolved_engine == ENGINE_INTERNAL_COPILOT:
         return "technical"
@@ -4101,6 +4307,277 @@ async def assistente_unificado_v2(
         confianca=0.0,
         modulo_origem="assistente_v2",
     )
+
+
+def _tool_trace_reason(
+    *,
+    status: str | None,
+    code: str | None,
+    error: str | None,
+) -> str | None:
+    """Retorna um motivo curto e estável para renderização no trace."""
+    if status == "ok":
+        return None
+    if status == "pending":
+        return "requires_confirmation"
+    code_norm = str(code or "").strip().lower()
+    err_norm = str(error or "").strip().lower()
+    if code_norm:
+        if code_norm == "exception":
+            if "sqlalche.me/e/20/f405" in err_norm or (
+                "group by" in err_norm and "order by" in err_norm
+            ):
+                return "group_by_order_by_conflict"
+        return code_norm
+    if "sqlalche.me/e/20/f405" in err_norm or (
+        "group by" in err_norm and "order by" in err_norm
+    ):
+        return "group_by_order_by_conflict"
+    if status:
+        return str(status).strip().lower()
+    return "unknown_error"
+
+
+def _wants_all_orcamentos(mensagem: str) -> bool:
+    txt = str(mensagem or "").lower()
+    if "orcament" not in txt and "orçament" not in txt:
+        return False
+    if bool(re.search(r"\b(todos|todas|tudo|completo|inteiro)\b", txt)):
+        return True
+    if "lista completa" in txt or "sem limite" in txt or "sem limites" in txt:
+        return True
+    if re.search(r"\btodos os or[cç]amentos\b", txt):
+        return True
+    return False
+
+
+def _wants_all_clientes(mensagem: str) -> bool:
+    txt = str(mensagem or "").lower()
+    if "cliente" not in txt:
+        return False
+    if bool(re.search(r"\b(todos|todas|tudo|completo|inteiro)\b", txt)):
+        return True
+    if "lista completa" in txt or "sem limite" in txt or "sem limites" in txt:
+        return True
+    if re.search(r"\btodos os clientes\b", txt):
+        return True
+    return False
+
+
+def _tool_call_args(tc: dict[str, Any]) -> dict[str, Any]:
+    fn = tc.get("function") or {}
+    raw = fn.get("arguments")
+    if isinstance(raw, dict):
+        return dict(raw)
+    if isinstance(raw, str):
+        s = raw.strip()
+        if not s:
+            return {}
+        try:
+            parsed = json.loads(s)
+            return parsed if isinstance(parsed, dict) else {}
+        except Exception:
+            return {}
+    return {}
+
+
+async def _autopaginate_listar_orcamentos(
+    *,
+    mensagem: str,
+    tc: dict[str, Any],
+    result: Any,
+    tool_execute: Any,
+    db: Session,
+    current_user: Any,
+    sessao_id: str,
+    request_id: Optional[str],
+    confirmation_token: Optional[str],
+    engine: str = DEFAULT_ENGINE,
+) -> Any:
+    tool_name = ((tc.get("function") or {}).get("name") or "").strip()
+    if tool_name != "listar_orcamentos":
+        return result
+    if not _wants_all_orcamentos(mensagem):
+        return result
+    if not result or getattr(result, "status", None) != "ok":
+        return result
+    data = getattr(result, "data", None)
+    if not isinstance(data, dict):
+        return result
+    if not data.get("has_more") or not data.get("next_cursor"):
+        return result
+
+    args_base = _tool_call_args(tc)
+    if not args_base:
+        return result
+
+    itens = list(data.get("orcamentos") or [])
+    cursor = data.get("next_cursor")
+    max_items = 50
+    max_paginas = 6
+    paginas = 0
+    lat_extra = 0
+
+    while cursor and paginas < max_paginas and len(itens) < max_items:
+        prox_args = dict(args_base)
+        prox_args["cursor"] = cursor
+        if "limit" not in prox_args:
+            prox_args["limit"] = data.get("limit") or 10
+
+        tc_prox = {
+            "id": tc.get("id"),
+            "type": "function",
+            "function": {
+                "name": "listar_orcamentos",
+                "arguments": json.dumps(prox_args, ensure_ascii=False),
+            },
+        }
+        prox_result = await tool_execute(
+            tc_prox,
+            db=db,
+            current_user=current_user,
+            sessao_id=sessao_id,
+            request_id=request_id,
+            confirmation_token=confirmation_token,
+            engine=engine,
+        )
+        lat_extra += int(getattr(prox_result, "latencia_ms", 0) or 0)
+        if getattr(prox_result, "status", None) != "ok":
+            break
+        prox_data = getattr(prox_result, "data", None)
+        if not isinstance(prox_data, dict):
+            break
+
+        itens.extend(list(prox_data.get("orcamentos") or []))
+        cursor = prox_data.get("next_cursor")
+        data["has_more"] = bool(prox_data.get("has_more"))
+        data["next_cursor"] = cursor
+        paginas += 1
+        if not prox_data.get("has_more"):
+            break
+
+    if paginas > 0:
+        data["orcamentos"] = itens[:max_items]
+        data["itens_retornados"] = len(data["orcamentos"])
+        data["auto_paginated"] = True
+        data["auto_paginated_paginas"] = paginas
+        result.data = data
+        result.latencia_ms = int(getattr(result, "latencia_ms", 0) or 0) + lat_extra
+    return result
+
+
+async def _autopaginate_listar_clientes(
+    *,
+    mensagem: str,
+    tc: dict[str, Any],
+    result: Any,
+    tool_execute: Any,
+    db: Session,
+    current_user: Any,
+    sessao_id: str,
+    request_id: Optional[str],
+    confirmation_token: Optional[str],
+    engine: str = DEFAULT_ENGINE,
+) -> Any:
+    tool_name = ((tc.get("function") or {}).get("name") or "").strip()
+    if tool_name != "listar_clientes":
+        return result
+    if not _wants_all_clientes(mensagem):
+        return result
+    if not result or getattr(result, "status", None) != "ok":
+        return result
+
+    data = getattr(result, "data", None)
+    if not isinstance(data, dict):
+        return result
+    clientes = list(data.get("clientes") or [])
+
+    args_base = _tool_call_args(tc)
+    limit_atual_raw = args_base.get("limit")
+    try:
+        limit_atual = int(limit_atual_raw) if limit_atual_raw is not None else len(clientes)
+    except Exception:
+        limit_atual = len(clientes)
+
+    data["_llm_disable_preview"] = True
+    result.data = data
+
+    if limit_atual >= 50:
+        return result
+
+    prox_args = dict(args_base)
+    prox_args["limit"] = 50
+    tc_prox = {
+        "id": tc.get("id"),
+        "type": "function",
+        "function": {
+            "name": "listar_clientes",
+            "arguments": json.dumps(prox_args, ensure_ascii=False),
+        },
+    }
+    prox_result = await tool_execute(
+        tc_prox,
+        db=db,
+        current_user=current_user,
+        sessao_id=sessao_id,
+        request_id=request_id,
+        confirmation_token=confirmation_token,
+        engine=engine,
+    )
+    if getattr(prox_result, "status", None) != "ok":
+        return result
+    prox_data = getattr(prox_result, "data", None)
+    if not isinstance(prox_data, dict):
+        return result
+
+    prox_data["_llm_disable_preview"] = True
+    prox_data["auto_paginated"] = True
+    prox_data["auto_paginated_paginas"] = 1
+    result.data = prox_data
+    result.latencia_ms = int(getattr(result, "latencia_ms", 0) or 0) + int(
+        getattr(prox_result, "latencia_ms", 0) or 0
+    )
+    return result
+
+
+async def _autopaginate_tool_result(
+    *,
+    mensagem: str,
+    tc: dict[str, Any],
+    result: Any,
+    tool_execute: Any,
+    db: Session,
+    current_user: Any,
+    sessao_id: str,
+    request_id: Optional[str],
+    confirmation_token: Optional[str],
+    engine: str = DEFAULT_ENGINE,
+) -> Any:
+    result = await _autopaginate_listar_orcamentos(
+        mensagem=mensagem,
+        tc=tc,
+        result=result,
+        tool_execute=tool_execute,
+        db=db,
+        current_user=current_user,
+        sessao_id=sessao_id,
+        request_id=request_id,
+        confirmation_token=confirmation_token,
+        engine=engine,
+    )
+    result = await _autopaginate_listar_clientes(
+        mensagem=mensagem,
+        tc=tc,
+        result=result,
+        tool_execute=tool_execute,
+        db=db,
+        current_user=current_user,
+        sessao_id=sessao_id,
+        request_id=request_id,
+        confirmation_token=confirmation_token,
+        engine=engine,
+    )
+    return result
 
 
 async def assistente_v2_stream_core(
@@ -5215,7 +5692,7 @@ async def assistente_v2_stream_core(
         current_user=current_user,
         payload={**dados_out, "_tipo_resposta": final_tipo_resposta},
         engine=resolved_engine,
-        intent=intent_label,
+        intent=intent_str,
     )
 
     if final_text:
