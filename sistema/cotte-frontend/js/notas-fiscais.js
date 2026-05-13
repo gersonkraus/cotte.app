@@ -340,7 +340,7 @@
     function _linhaTabelaHtml(n) {
         var nat = n.natureza_operacao || "—";
         var natEsc = _escHtml(nat);
-        var natShort = _escHtml(_trunc(nat, 56));
+        var natShort = _escHtml(_trunc(nat, 38));
         var erro = n.erro_mensagem ? _resumirErro(n.erro_mensagem) : "";
         var erroCell = erro
             ? '<span class="text-danger" title="' +
