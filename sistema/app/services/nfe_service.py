@@ -32,6 +32,34 @@ POLLING_INTERVAL = 3
 # NF-e assíncrona na SEFAZ pode ultrapassar 1 min; alinhar com o polling do modal (nfe.js).
 POLLING_MAX_ATTEMPTS = 45
 
+# Limites alinhados ao modelo SQL (evita DataError no commit ao sincronizar com a Focus).
+_FOCUS_CHAVE_MAX = 44
+_FOCUS_PROTOCOLO_MAX = 20
+_FOCUS_NUMERO_MAX = 20
+_FOCUS_URL_MAX = 500
+
+
+def _focus_trunc_str(val: Any, max_len: int) -> Optional[str]:
+    if val is None:
+        return None
+    s = str(val).strip()
+    if not s:
+        return None
+    return s[:max_len] if len(s) > max_len else s
+
+
+def _focus_chave_acesso(val: Any) -> Optional[str]:
+    """Chave de acesso NF-e: 44 dígitos; a Focus pode prefixar texto ou retornar campo longo."""
+    if val is None:
+        return None
+    raw = str(val).strip()
+    if not raw:
+        return None
+    digits = re.sub(r"\D", "", raw)
+    if len(digits) >= 44:
+        return digits[-44:]
+    return raw[:_FOCUS_CHAVE_MAX] if len(raw) <= _FOCUS_CHAVE_MAX else raw[-_FOCUS_CHAVE_MAX:]
+
 
 def _focus_base_url() -> str:
     """Host da API de notas (NF-e/NFC-e/NFS-e) conforme ambiente global no `.env`.
@@ -1012,16 +1040,13 @@ def _atualizar_nota_com_status_focus(nota_fiscal: NotaFiscal, status_data: dict)
 
     if status == "autorizado":
         nota_fiscal.status = "emitida"
-        nota_fiscal.chave_acesso = (
-            status_data.get("chave_nfe")
-            or status_data.get("chave_nfse")
-            or status_data.get("chave_cte")
-        )
-        nota_fiscal.numero = str(status_data.get("numero") or "")
-        nota_fiscal.protocolo = str(status_data.get("protocolo") or "")
-        nota_fiscal.xml_url = status_data.get("caminho_xml_nota_fiscal")
-        nota_fiscal.danfe_url = status_data.get("caminho_danfe")
-        nota_fiscal.emitida_em = nota_fiscal.emitida_em or datetime.utcnow()
+        chave_raw = status_data.get("chave_nfe") or status_data.get("chave_nfse") or status_data.get("chave_cte")
+        nota_fiscal.chave_acesso = _focus_chave_acesso(chave_raw)
+        nota_fiscal.numero = _focus_trunc_str(status_data.get("numero"), _FOCUS_NUMERO_MAX) or ""
+        nota_fiscal.protocolo = _focus_trunc_str(status_data.get("protocolo"), _FOCUS_PROTOCOLO_MAX) or ""
+        nota_fiscal.xml_url = _focus_trunc_str(status_data.get("caminho_xml_nota_fiscal"), _FOCUS_URL_MAX)
+        nota_fiscal.danfe_url = _focus_trunc_str(status_data.get("caminho_danfe"), _FOCUS_URL_MAX)
+        nota_fiscal.emitida_em = nota_fiscal.emitida_em or datetime.now(timezone.utc)
 
     elif status == "denegado":
         nota_fiscal.status = "erro"
@@ -1041,7 +1066,7 @@ def _atualizar_nota_com_status_focus(nota_fiscal: NotaFiscal, status_data: dict)
 
     elif status == "cancelado":
         nota_fiscal.status = "cancelada"
-        nota_fiscal.cancelada_em = datetime.utcnow()
+        nota_fiscal.cancelada_em = datetime.now(timezone.utc)
 
     else:
         nota_fiscal.status = "erro"
@@ -1290,19 +1315,33 @@ async def consultar_nota_focus_e_persistir(
         raise ValueError("Nota sem focus_ref — impossível consultar na Focus")
     path = _path_focus(nota_fiscal.tipo, ref)
     empresa = db.query(Empresa).filter(Empresa.id == nota_fiscal.empresa_id).first()
-    async with _get_client(empresa) as client:
-        resp = await client.get(path, params={"completa": 1})
-        if resp.status_code == 404:
-            raise ValueError("Referência não encontrada na Focus NFe")
-        if resp.status_code >= 400:
-            raise ValueError(resp.text[:500])
-        try:
-            status_data = resp.json()
-        except Exception as e:
-            raise ValueError(
-                f"Resposta da Focus não é JSON válido (HTTP {resp.status_code}): "
-                f"{(resp.text or '')[:400]}"
-            ) from e
+    try:
+        async with _get_client(empresa) as client:
+            try:
+                resp = await client.get(path, params={"completa": 1})
+            except httpx.RequestError as e:
+                raise ValueError(f"Falha de rede ao consultar a Focus NFe: {e}") from e
+            if resp.status_code == 404:
+                raise ValueError("Referência não encontrada na Focus NFe")
+            if resp.status_code >= 400:
+                raise ValueError(resp.text[:500])
+            try:
+                status_data = resp.json()
+            except Exception as e:
+                raise ValueError(
+                    f"Resposta da Focus não é JSON válido (HTTP {resp.status_code}): "
+                    f"{(resp.text or '')[:400]}"
+                ) from e
+    except ValueError:
+        raise
+    except Exception as e:
+        logger.exception(
+            "Erro inesperado ao consultar Focus (nota_id=%s ref=%s): %s",
+            nota_fiscal.id,
+            ref,
+            e,
+        )
+        raise ValueError(f"Erro ao consultar a Focus NFe: {e}") from e
     _atualizar_nota_com_status_focus(nota_fiscal, status_data)
     db.commit()
     return nota_fiscal
