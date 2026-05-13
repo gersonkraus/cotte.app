@@ -29,10 +29,12 @@ from app.schemas.schemas import (
     NotaFiscalPrepararOut,
 )
 from app.services import nfe_service
-from app.services.fiscal_ai_service import sugerir_dados_fiscais
-
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/notas-fiscais", tags=["Notas Fiscais"])
+
+
+def _bloqueios_from_checklist(checklist: list[dict]) -> list[str]:
+    return [c.get("titulo") for c in checklist if not c.get("ok")]
 
 
 def _get_empresa_com_nfe(db: Session, usuario) -> Empresa:
@@ -126,13 +128,40 @@ async def emitir_nota_fiscal(
     if not orcamento:
         raise HTTPException(404, "Orçamento não encontrado")
 
+    tipo = (dados.tipo or "").strip().lower()
+    natureza = (dados.natureza_operacao or ("Prestação de Serviços" if tipo == "nfse" else "Venda de Mercadorias")).strip()
+    serie_val = (dados.serie or "1").strip() or "1"
+
+    duplicidade_equivalente = (
+        db.query(NotaFiscal.id)
+        .filter(
+            NotaFiscal.empresa_id == usuario.empresa_id,
+            NotaFiscal.orcamento_id == dados.orcamento_id,
+            NotaFiscal.status == "emitida",
+            NotaFiscal.tipo == tipo,
+            NotaFiscal.serie == serie_val,
+        )
+        .first()
+    )
+    checklist_geral = nfe_service.montar_checklist_validacoes_gerais(
+        empresa=empresa,
+        orcamento=orcamento,
+        tipo=tipo,
+        natureza_operacao=natureza,
+        serie=serie_val,
+        duplicidade_equivalente_autorizada=bool(duplicidade_equivalente),
+    )
+    bloqueios_gerais = _bloqueios_from_checklist(checklist_geral)
+    if bloqueios_gerais:
+        raise HTTPException(422, {"message": "Validação fiscal impedindo emissão", "bloqueios": bloqueios_gerais})
+
     nota = NotaFiscal(
         empresa_id=usuario.empresa_id,
         orcamento_id=dados.orcamento_id,
-        tipo=dados.tipo,
-        modelo=55 if dados.tipo == "nfe" else (65 if dados.tipo == "nfce" else None),
-        serie=dados.serie,
-        natureza_operacao=dados.natureza_operacao,
+        tipo=tipo,
+        modelo=55 if tipo == "nfe" else (65 if tipo == "nfce" else None),
+        serie=serie_val,
+        natureza_operacao=natureza,
         status="pendente",
         criado_por_id=usuario.id,
         criado_em=datetime.now(timezone.utc),
@@ -141,19 +170,25 @@ async def emitir_nota_fiscal(
     db.flush()
 
     try:
-        if dados.tipo == "nfse":
+        if tipo == "nfse":
             payload = nfe_service._montar_payload_nfse(
                 empresa, orcamento,
                 dados.codigo_servico_lc116 or "170600",
                 dados.aliquota_iss or 0,
+                natureza_operacao=natureza,
             )
+            checklist_tipo = nfe_service.montar_checklist_validacoes_nfse(payload, empresa)
         else:
             payload = await nfe_service._montar_payload_nfe(
-                empresa, orcamento, dados.tipo,
-                dados.natureza_operacao, dados.serie,
+                empresa, orcamento, tipo,
+                natureza, serie_val,
                 dados.itens_override,
                 db=db,
             )
+            checklist_tipo = nfe_service.montar_checklist_validacoes_nfe(payload)
+        bloqueios_tipo = _bloqueios_from_checklist(checklist_tipo)
+        if bloqueios_tipo:
+            raise HTTPException(422, {"message": "Validação fiscal impedindo emissão", "bloqueios": bloqueios_tipo})
     except ValueError as e:
         raise HTTPException(422, str(e)) from e
 
@@ -192,21 +227,13 @@ async def preparar_nota_fiscal(
     if not orcamento:
         raise HTTPException(404, "Orçamento não encontrado")
 
+    tipo = (dados.tipo or "").strip().lower()
+    natureza = (dados.natureza_operacao or ("Prestação de Serviços" if tipo == "nfse" else "Venda de Mercadorias")).strip()
+    serie_val = (dados.serie or "1").strip() or "1"
     bloqueios: list[str] = []
     avisos: list[str] = []
 
-    # Valida empresa
-    if not empresa.cnpj:
-        bloqueios.append("CNPJ da empresa não configurado (Configurações → Fiscal)")
-    if not nfe_service.focus_token_emissao_disponivel(empresa):
-        bloqueios.append(
-            "Token Focus NFe não configurado para emissão neste ambiente — contate o suporte "
-            "(em homologação use o Token de Homologação: variável FOCUS_TOKEN_HOMOLOGACAO ou o token correto em FOCUS_TOKEN)."
-        )
-    if not empresa.endereco_cidade:
-        avisos.append("Endereço da empresa incompleto — pode causar rejeição")
-
-    if dados.tipo in ("nfe", "nfce") and empresa:
+    if tipo in ("nfe", "nfce") and empresa:
         ie_emp = (empresa.inscricao_estadual or "").strip()
         if not ie_emp:
             avisos.append(
@@ -214,16 +241,37 @@ async def preparar_nota_fiscal(
                 "Sem IE coerente com o CNPJ e a UF, a SEFAZ pode rejeitar a NF-e (ex.: cStat 209 — IE do emitente inválida)."
             )
 
-    # Valida cliente/destinatário
     cliente = orcamento.cliente
-    if cliente:
-        from app.services.nfe_service import _limpar_doc
-        limpo_cnpj = _limpar_doc(cliente.cnpj or "")
-        limpo_cpf = _limpar_doc(cliente.cpf or "")
-        if not limpo_cnpj and not limpo_cpf:
-            bloqueios.append(f"Cliente '{cliente.nome or cliente.razao_social}' sem CPF ou CNPJ cadastrado")
-    else:
-        bloqueios.append("Orçamento sem cliente associado")
+    mutou_autofill_db = False
+    # Autocorreção: IBGE do destinatário via CEP antes das validações (desbloqueia emissão sem montar payload antes).
+    if dados.auto_fill and cliente and tipo in ("nfe", "nfce"):
+        cod_ibge_antes = (getattr(cliente, "codigo_municipio_ibge", None) or "").strip()
+        await nfe_service.resolver_codigo_municipio_ibge(cliente, db=db, persistir_se_viacep=True)
+        cod_ibge_depois = (getattr(cliente, "codigo_municipio_ibge", None) or "").strip()
+        if cod_ibge_depois and cod_ibge_depois != cod_ibge_antes:
+            mutou_autofill_db = True
+            avisos.append("Código IBGE do cliente preenchido automaticamente a partir do CEP.")
+
+    duplicidade_equivalente = (
+        db.query(NotaFiscal.id)
+        .filter(
+            NotaFiscal.empresa_id == usuario.empresa_id,
+            NotaFiscal.orcamento_id == dados.orcamento_id,
+            NotaFiscal.status == "emitida",
+            NotaFiscal.tipo == tipo,
+            NotaFiscal.serie == serie_val,
+        )
+        .first()
+    )
+    checklist: list[dict] = nfe_service.montar_checklist_validacoes_gerais(
+        empresa=empresa,
+        orcamento=orcamento,
+        tipo=tipo,
+        natureza_operacao=natureza,
+        serie=serie_val,
+        duplicidade_equivalente_autorizada=bool(duplicidade_equivalente),
+    )
+    bloqueios.extend(_bloqueios_from_checklist(checklist))
 
     # Verifica itens e dados fiscais
     itens_sem_ncm = []
@@ -239,31 +287,44 @@ async def preparar_nota_fiscal(
             + (" e outros" if len(itens_sem_ncm) > 3 else "")
         )
 
-    if dados.tipo in ("nfe", "nfce") and cliente:
+    if tipo in ("nfe", "nfce") and cliente:
         b_nfe, a_nfe = await nfe_service.coletar_bloqueios_avisos_preparacao_nfe(empresa, orcamento)
         bloqueios.extend(b_nfe)
         avisos.extend(a_nfe)
 
+    checklist_tipo: list[dict] = []
+    campos_autopreenchidos: list[str] = []
+    auto_fill_aplicado = False
     # Monta payload preview (apenas se não houver bloqueios) — alinhado ao que o emitirá usar
     payload_preview = None
     emitente_preview = None
     if not bloqueios:
         try:
-            if dados.tipo == "nfse":
+            if tipo == "nfse":
                 cod_lc = (dados.codigo_servico_lc116 or "170600").strip() or "170600"
                 aliq = dados.aliquota_iss if dados.aliquota_iss is not None else Decimal("0")
                 payload_preview = nfe_service._montar_payload_nfse(
-                    empresa, orcamento, cod_lc, aliq
+                    empresa, orcamento, cod_lc, aliq, natureza_operacao=natureza
                 )
+                checklist_tipo = nfe_service.montar_checklist_validacoes_nfse(payload_preview, empresa)
             else:
-                natureza = (dados.natureza_operacao or "Venda de Mercadorias").strip() or "Venda de Mercadorias"
-                serie_val = (dados.serie or "1").strip() or "1"
                 payload_preview = await nfe_service._montar_payload_nfe(
-                    empresa, orcamento, dados.tipo,
+                    empresa, orcamento, tipo,
                     natureza, serie_val,
                     None,
                     db=db,
                 )
+                checklist_tipo = nfe_service.montar_checklist_validacoes_nfe(payload_preview)
+                campos_autopreenchidos = nfe_service.listar_campos_autopreenchidos_nfe(orcamento, payload_preview)
+                if dados.auto_fill and campos_autopreenchidos:
+                    auto_fill_aplicado = True
+                    avisos.append(f"IA autopreencheu: {', '.join(campos_autopreenchidos)}")
+                    salvos_cat = nfe_service.persistir_sugestoes_ia_catalogo_nfe(db, orcamento, payload_preview)
+                    if salvos_cat:
+                        mutou_autofill_db = True
+                        avisos.extend(salvos_cat)
+            checklist.extend(checklist_tipo)
+            bloqueios.extend(_bloqueios_from_checklist(checklist_tipo))
             emitente_preview = nfe_service.emitente_preview_para_previa(empresa, orcamento)
         except Exception as e:
             avisos.append(f"Aviso ao montar payload: {str(e)[:100]}")
@@ -279,13 +340,23 @@ async def preparar_nota_fiscal(
     else:
         resumo = f"{total_itens} item(ns) prontos para emissão"
 
+    if mutou_autofill_db:
+        try:
+            db.commit()
+        except Exception as exc:  # noqa: BLE001
+            db.rollback()
+            avisos.append(f"Ajustes automáticos não puderam ser gravados no cadastro: {str(exc)[:120]}")
+
     return NotaFiscalPrepararOut(
         pronto=len(bloqueios) == 0,
         resumo=resumo,
-        avisos=avisos,
-        bloqueios=bloqueios,
+        avisos=list(dict.fromkeys(avisos)),
+        bloqueios=list(dict.fromkeys(bloqueios)),
         payload_preview=payload_preview,
         emitente_preview=emitente_preview,
+        checklist=checklist,
+        campos_autopreenchidos=campos_autopreenchidos,
+        auto_fill_aplicado=auto_fill_aplicado,
     )
 
 

@@ -2197,6 +2197,8 @@ class NotaFiscalPrepararRequest(BaseModel):
     serie: Optional[str] = None
     codigo_servico_lc116: Optional[str] = None
     aliquota_iss: Optional[Decimal] = None
+    # True: resolve IBGE (ViaCEP) antes das validações e grava NCM/CFOP sugeridos por IA no catálogo.
+    auto_fill: bool = True
 
 
 class NotaFiscalPrepararOut(BaseModel):
@@ -2208,3 +2210,6 @@ class NotaFiscalPrepararOut(BaseModel):
     payload_preview: Optional[dict] = None
     # Emitente + ref. orçamento para prévia local; PDF oficial via POST /previsualizar-danfe (Focus).
     emitente_preview: Optional[dict] = None
+    checklist: List[dict] = []
+    campos_autopreenchidos: List[str] = []
+    auto_fill_aplicado: bool = False

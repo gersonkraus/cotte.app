@@ -776,7 +776,7 @@
                 {
                     orcamento_id: orcamentoId,
                     tipo: tipo,
-                    natureza_operacao: "Venda de Mercadorias",
+                    natureza_operacao: "Venda de mercadorias",
                     serie: "1",
                 },
                 { expectBinary: true }

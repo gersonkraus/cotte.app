@@ -414,6 +414,43 @@ async def test_montar_payload_focus_nfe_estrutura(db):
 
 
 @pytest.mark.asyncio
+async def test_montar_payload_focus_nfe_ncm_fallback_quando_ia_sem_ncm(db):
+    """Sem NCM no serviço e IA sem NCM: aplica NCM genérico para não gerar codigo_ncm 0."""
+    from tests.conftest import make_empresa, make_usuario, make_cliente, make_orcamento
+
+    emp = make_empresa(db, cnpj="12.345.678/0001-90")
+    emp.endereco_logradouro = "Av Paulista"
+    emp.endereco_numero = "1000"
+    emp.endereco_bairro = "Bela Vista"
+    emp.endereco_cidade = "São Paulo"
+    emp.endereco_uf = "SP"
+    emp.endereco_cep = "01310100"
+    emp.inscricao_estadual = "123456789012"
+    emp.regime_tributario = "simples_nacional"
+    emp.crt = 1
+    db.flush()
+    u = make_usuario(db, emp)
+    cli = make_cliente(db, emp, nome="Cliente Consumidor")
+    cli.cpf = "12345678909"
+    cli.logradouro = "Rua das Flores"
+    cli.numero = "10"
+    cli.bairro = "Centro"
+    cli.cidade = "São Paulo"
+    cli.estado = "SP"
+    cli.cep = "01310100"
+    cli.codigo_municipio_ibge = "3550308"
+    db.commit()
+    orc = make_orcamento(db, emp, cli, u, total=150.0)
+    with patch("app.services.nfe_service.sugerir_dados_fiscais", new_callable=AsyncMock) as mock_ia:
+        mock_ia.return_value = {"ncm": None, "cfop": "5102"}
+        payload = await nfe_service.montar_payload_focus_nfe(
+            emp, orc, "nfe", "Venda de teste", "1", None, db=db
+        )
+    assert payload["items"]
+    assert int(payload["items"][0].get("codigo_ncm") or 0) == 61091000
+
+
+@pytest.mark.asyncio
 async def test_emitir_nota_focus_201_sincrono_sem_polling(db):
     from app.models.models import NotaFiscal
     from tests.conftest import make_empresa

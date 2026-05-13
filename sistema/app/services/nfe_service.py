@@ -645,6 +645,18 @@ async def montar_payload_focus_nfe(
         if not _cfop_formato_focus_valido(cfop):
             cfop = _normalizar_cfop_para_string(cfop_padrao_uf, "5102")
         ncm = _normalizar_ncm_para_string(ncm)
+        # NF-e exige NCM numérico válido; IA pode falhar ou devolver null — evita codigo_ncm 0 (rejeição SEFAZ).
+        ncm_somente_digitos = "".join(c for c in ncm if c.isdigit()) if ncm else ""
+        ncm_int_val = int(ncm_somente_digitos) if ncm_somente_digitos else 0
+        if ncm_int_val <= 0 or ncm == "00000000":
+            ncm = "61091000"
+            logger.warning(
+                "NCM ausente ou inválido após IA no item #%s (%r); usando NCM genérico têxtil %s — "
+                "revise no catálogo de materiais.",
+                idx,
+                (descricao_item or "")[:120],
+                ncm,
+            )
         cfop_i = _cfop_int(cfop)
         icms_st = _icms_situacao_tributaria_item(empresa, servico)
         icms_or = _icms_origem_item(servico)
@@ -802,6 +814,267 @@ async def coletar_bloqueios_avisos_preparacao_nfe(
     return bloqueios, avisos
 
 
+def _checklist_item(grupo: str, chave: str, titulo: str, ok: bool, detalhe: str = "") -> dict:
+    return {
+        "grupo": grupo,
+        "chave": chave,
+        "titulo": titulo,
+        "ok": bool(ok),
+        "detalhe": detalhe or "",
+    }
+
+
+def _documento_cliente_valido(cliente: Optional[Cliente]) -> bool:
+    if not cliente:
+        return False
+    cnpj = _limpar_doc(getattr(cliente, "cnpj", None) or "")
+    cpf = _limpar_doc(getattr(cliente, "cpf", None) or "")
+    return len(cnpj) == 14 or len(cpf) == 11
+
+
+def _cliente_endereco_completo(cliente: Optional[Cliente]) -> bool:
+    if not cliente:
+        return False
+    obrigatorios = [
+        getattr(cliente, "logradouro", None),
+        getattr(cliente, "numero", None),
+        getattr(cliente, "bairro", None),
+        getattr(cliente, "cidade", None),
+        getattr(cliente, "estado", None),
+        _limpar_cep(getattr(cliente, "cep", None) or ""),
+    ]
+    return all(str(c or "").strip() for c in obrigatorios)
+
+
+def _emitente_configurado(empresa: Empresa) -> bool:
+    cnpj_ok = len(_limpar_doc(getattr(empresa, "cnpj", None) or "")) == 14
+    endereco_ok = all(
+        str(v or "").strip()
+        for v in [
+            getattr(empresa, "endereco_logradouro", None),
+            getattr(empresa, "endereco_numero", None),
+            getattr(empresa, "endereco_bairro", None),
+            getattr(empresa, "endereco_cidade", None),
+            getattr(empresa, "endereco_uf", None),
+            _limpar_cep(getattr(empresa, "endereco_cep", None) or ""),
+        ]
+    )
+    return cnpj_ok and endereco_ok
+
+
+def montar_checklist_validacoes_gerais(
+    empresa: Empresa,
+    orcamento: Orcamento,
+    tipo: str,
+    natureza_operacao: str,
+    serie: str,
+    duplicidade_equivalente_autorizada: bool,
+) -> list[dict]:
+    cliente = getattr(orcamento, "cliente", None)
+    ambiente = _ambiente_nf_effective(empresa)
+    cnpj_emit = _limpar_doc(getattr(empresa, "cnpj", None) or "")
+    ref_previa = f"{cnpj_emit}-{orcamento.id}-{tipo}-{serie}".strip("-")
+
+    status_raw = getattr(orcamento, "status", "")
+    status_val = getattr(status_raw, "value", status_raw)
+    status_ok = str(status_val or "").lower() in ("aprovado", "concluido")
+    total_ok = float(getattr(orcamento, "total", 0) or 0) > 0
+    data_ok = bool(_data_emissao_focus_iso())
+    tipo_ok = (tipo or "").lower() in ("nfe", "nfce", "nfse")
+
+    return [
+        _checklist_item("geral", "orcamento_aprovado", "Orçamento existe e está aprovado", status_ok),
+        _checklist_item(
+            "geral",
+            "nota_autorizada_equivalente",
+            "Orçamento sem nota autorizada equivalente (tipo+série)",
+            not duplicidade_equivalente_autorizada,
+        ),
+        _checklist_item("geral", "cliente_documento", "Cliente possui CPF/CNPJ válido", _documento_cliente_valido(cliente)),
+        _checklist_item("geral", "cliente_endereco", "Cliente possui endereço completo", _cliente_endereco_completo(cliente)),
+        _checklist_item("geral", "emitente_configurado", "Emitente está configurado", _emitente_configurado(empresa)),
+        _checklist_item(
+            "geral",
+            "token_focus",
+            "Token Focus configurado para o ambiente",
+            focus_token_emissao_disponivel(empresa),
+        ),
+        _checklist_item(
+            "geral",
+            "ambiente",
+            "Ambiente selecionado",
+            ambiente in ("homologacao", "producao"),
+            detalhe=ambiente,
+        ),
+        _checklist_item("geral", "referencia", "Referência única gerada", bool(ref_previa)),
+        _checklist_item("geral", "valor_total", "Valor total maior que zero", total_ok),
+        _checklist_item("geral", "data_emissao", "Data de emissão válida", data_ok),
+        _checklist_item("geral", "tipo_nota", "Tipo de nota selecionado", tipo_ok),
+        _checklist_item("geral", "natureza_operacao", "Natureza da operação preenchida", bool((natureza_operacao or "").strip())),
+    ]
+
+
+def montar_checklist_validacoes_nfe(payload: dict) -> list[dict]:
+    items = payload.get("items") if isinstance(payload, dict) else []
+    items = items if isinstance(items, list) else []
+
+    def _todos(pred):
+        return bool(items) and all(pred(i or {}) for i in items)
+
+    return [
+        _checklist_item(
+            "nfe",
+            "ncm",
+            "NCM válido (8 dígitos, diferente de zeros) em todos os itens",
+            _todos(lambda i: int(i.get("codigo_ncm") or 0) > 0),
+        ),
+        _checklist_item(
+            "nfe",
+            "cfop",
+            "CFOP válido (4 dígitos) em todos os itens",
+            _todos(lambda i: int(i.get("cfop") or 0) > 0),
+        ),
+        _checklist_item(
+            "nfe",
+            "unidades",
+            "Itens com unidade comercial e tributável",
+            _todos(lambda i: bool(str(i.get("unidade_comercial") or "").strip()) and bool(str(i.get("unidade_tributavel") or "").strip())),
+        ),
+        _checklist_item(
+            "nfe",
+            "quantidade_valor",
+            "Itens com quantidade e valor unitário",
+            _todos(lambda i: float(i.get("quantidade_comercial") or 0) > 0 and float(i.get("valor_unitario_comercial") or 0) > 0),
+        ),
+        _checklist_item("nfe", "icms", "Situação tributária de ICMS preenchida", _todos(lambda i: i.get("icms_situacao_tributaria") is not None)),
+        _checklist_item("nfe", "pis_cofins", "Situação tributária de PIS/COFINS preenchida", _todos(lambda i: bool(i.get("pis_situacao_tributaria")) and bool(i.get("cofins_situacao_tributaria")))),
+        _checklist_item("nfe", "frete", "Modalidade de frete preenchida", payload.get("modalidade_frete") is not None),
+        _checklist_item("nfe", "natureza", "Natureza da operação preenchida", bool(str(payload.get("natureza_operacao") or "").strip())),
+        _checklist_item("nfe", "consumidor_final", "Indicador de consumidor final preenchido", payload.get("consumidor_final") is not None),
+        _checklist_item("nfe", "presenca_comprador", "Presença do comprador preenchida", payload.get("presenca_comprador") is not None),
+    ]
+
+
+def montar_checklist_validacoes_nfse(payload: dict, empresa: Empresa) -> list[dict]:
+    tomador = payload.get("tomador") if isinstance(payload, dict) else {}
+    servico = payload.get("servico") if isinstance(payload, dict) else {}
+    valores = payload.get("valores") if isinstance(payload, dict) else {}
+    tomador_end = tomador.get("endereco") if isinstance(tomador, dict) else {}
+    prestador_ok = (
+        len(_limpar_doc(getattr(empresa, "cnpj", None) or "")) == 14
+        and bool(str(getattr(empresa, "inscricao_municipal", None) or "").strip())
+        and bool(str(getattr(empresa, "endereco_codigo_municipio_ibge", None) or "").strip())
+    )
+    tomador_ok = (
+        bool(str(tomador.get("nome") or "").strip())
+        and bool(_limpar_doc(tomador.get("cnpj") or tomador.get("cpf") or ""))
+        and all(
+            str(v or "").strip()
+            for v in [
+                tomador_end.get("logradouro"),
+                tomador_end.get("numero"),
+                tomador_end.get("bairro"),
+                tomador_end.get("cidade"),
+                tomador_end.get("uf"),
+                _limpar_cep(tomador_end.get("cep") or ""),
+            ]
+        )
+    )
+    aliquota = float(valores.get("aliquotaIss") or 0)
+    exige_aliquota = not _empresa_optante_simples(empresa)
+
+    return [
+        _checklist_item("nfse", "prestador", "Prestador com CNPJ, IM e código de município", prestador_ok),
+        _checklist_item("nfse", "tomador", "Tomador completo", tomador_ok),
+        _checklist_item("nfse", "descricao_servico", "Serviço com discriminação preenchida", bool(str(servico.get("descricao") or "").strip())),
+        _checklist_item("nfse", "item_lista", "Item da lista de serviço preenchido", bool(str(servico.get("codigo") or "").strip())),
+        _checklist_item("nfse", "municipio_prestacao", "Município de prestação preenchido", bool(str(getattr(empresa, "endereco_cidade", None) or "").strip())),
+        _checklist_item("nfse", "valor_servico", "Valor do serviço preenchido", float(valores.get("total") or 0) > 0),
+        _checklist_item(
+            "nfse",
+            "aliquota_iss",
+            "Alíquota ISS preenchida quando exigida",
+            (aliquota > 0) if exige_aliquota else True,
+        ),
+        _checklist_item("nfse", "iss_retido", "ISS retido definido", isinstance(valores.get("issRetido"), bool)),
+        _checklist_item("nfse", "natureza", "Natureza da operação preenchida", bool(str(payload.get("natureza_operacao") or "").strip())),
+        _checklist_item("nfse", "optante_sn", "Optante Simples Nacional preenchido", getattr(empresa, "crt", None) is not None or bool(str(getattr(empresa, "regime_tributario", None) or "").strip())),
+    ]
+
+
+def listar_campos_autopreenchidos_nfe(orcamento: Orcamento, payload: Optional[dict]) -> list[str]:
+    if not isinstance(payload, dict):
+        return []
+    payload_items = payload.get("items")
+    if not isinstance(payload_items, list):
+        return []
+    campos: list[str] = []
+    for idx, item in enumerate(getattr(orcamento, "itens", []) or [], start=1):
+        servico = getattr(item, "servico", None)
+        p_item = payload_items[idx - 1] if idx - 1 < len(payload_items) else {}
+        ncm_original = _normalizar_ncm_para_string(getattr(servico, "ncm", None)) if servico and getattr(servico, "ncm", None) else "00000000"
+        cfop_original = _normalizar_cfop_para_string(getattr(servico, "cfop", None), "5102") if servico and getattr(servico, "cfop", None) else ""
+        if ncm_original == "00000000" and int(p_item.get("codigo_ncm") or 0) > 0:
+            campos.append(f"Item {idx}: NCM")
+        if (not cfop_original or not _cfop_formato_focus_valido(cfop_original)) and int(p_item.get("cfop") or 0) > 0:
+            campos.append(f"Item {idx}: CFOP")
+    # Remove duplicados preservando ordem
+    return list(dict.fromkeys(campos))
+
+
+def persistir_sugestoes_ia_catalogo_nfe(
+    db: Session,
+    orcamento: Orcamento,
+    payload: Optional[dict],
+) -> list[str]:
+    """Grava em `Servico` o NCM/CFOP inferidos no payload (IA na montagem) quando o catálogo estava vazio ou inválido.
+
+    Retorna mensagens curtas para avisos ao operador (uma por alteração).
+    """
+    if not isinstance(payload, dict):
+        return []
+    payload_items = payload.get("items")
+    if not isinstance(payload_items, list):
+        return []
+    alterados: list[str] = []
+    orc_itens = list(getattr(orcamento, "itens", []) or [])
+    for idx, row in enumerate(orc_itens, start=1):
+        servico = getattr(row, "servico", None)
+        if servico is None:
+            continue
+        p_item = payload_items[idx - 1] if idx - 1 < len(payload_items) else None
+        if not isinstance(p_item, dict):
+            continue
+        try:
+            ncm_payload_int = int(p_item.get("codigo_ncm") or 0)
+        except (TypeError, ValueError):
+            ncm_payload_int = 0
+        ncm_s = f"{ncm_payload_int:08d}" if ncm_payload_int > 0 else ""
+        try:
+            cfop_int = int(p_item.get("cfop") or 0)
+        except (TypeError, ValueError):
+            cfop_int = 0
+        cfop_s = f"{cfop_int:04d}" if cfop_int > 0 else ""
+
+        ncm_orig = _normalizar_ncm_para_string(getattr(servico, "ncm", None)) if getattr(servico, "ncm", None) else None
+        mudou = False
+        if (not ncm_orig or ncm_orig == "00000000") and ncm_s and ncm_s != "00000000":
+            servico.ncm = ncm_s
+            alterados.append(f"Item {idx}: NCM {ncm_s} salvo no catálogo")
+            mudou = True
+
+        cfop_orig = getattr(servico, "cfop", None)
+        cfop_orig_norm = _normalizar_cfop_para_string(cfop_orig, "5102") if cfop_orig else ""
+        if (not cfop_orig or not _cfop_formato_focus_valido(cfop_orig_norm)) and cfop_s and _cfop_formato_focus_valido(cfop_s):
+            servico.cfop = cfop_s
+            alterados.append(f"Item {idx}: CFOP {cfop_s} salvo no catálogo")
+            mudou = True
+
+        if mudou:
+            db.add(servico)
+    return alterados
+
+
 def sugerir_acao_campo_erro_focus(campo_msg: str) -> Optional[str]:
     """Mapeia texto do array `campos` retornado pela Focus/SEFAZ para orientação ao operador."""
     if not campo_msg:
@@ -949,6 +1222,7 @@ def _montar_payload_nfse(
     orcamento: Orcamento,
     codigo_servico: str,
     aliquota_iss: Decimal,
+    natureza_operacao: Optional[str] = None,
 ) -> dict:
     """Monta payload NFS-e no formato real da API Focus NFe.
 
@@ -992,6 +1266,7 @@ def _montar_payload_nfse(
 
     return {
         "tomador": tomador,
+        "natureza_operacao": (natureza_operacao or "Prestação de serviços").strip(),
         "servico": {
             "descricao": descricao,
             "codigo": _normalizar_codigo_servico(codigo_servico),

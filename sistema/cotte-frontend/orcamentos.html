@@ -1940,7 +1940,7 @@
   </script>
 <script src="js/api-financeiro.js?v=1"></script>
 <script src="js/orcamento-detalhes.js?v=6"></script>
-<script src="js/nfe.js?v=5"></script>
+<script src="js/nfe.js?v=9"></script>
 
 <!-- Modal: Emitir Nota Fiscal -->
 <div id="modal-nfe" class="modal-overlay" aria-hidden="true" role="dialog" aria-labelledby="modal-nfe-title" aria-modal="true">
@@ -1951,26 +1951,33 @@
     </div>
     <div class="modal-body" style="display:flex;flex-direction:column;gap:12px">
 
-      <!-- Tipo e série -->
-      <div class="form-row">
-        <div class="form-group">
-          <label>Tipo de nota</label>
-          <select id="nfe-tipo" onchange="NFeService._toggleCamposNfse()">
-            <option value="nfe" selected>NF-e — Produto (Modelo 55)</option>
-            <option value="nfce">NFC-e — Consumidor (Modelo 65)</option>
-            <option value="nfse">NFS-e — Serviço</option>
-          </select>
-        </div>
-        <div class="form-group" style="max-width:100px">
-          <label>Série</label>
-          <input type="text" id="nfe-serie" value="1" maxlength="3">
-        </div>
+      <!-- Tipo de nota -->
+      <div class="form-group">
+        <label for="nfe-tipo">Tipo de nota</label>
+        <select id="nfe-tipo" onchange="NFeService._toggleCamposNfse()">
+          <option value="nfe" selected>NF-e — Produto (Modelo 55)</option>
+          <option value="nfce">NFC-e — Consumidor (Modelo 65)</option>
+          <option value="nfse">NFS-e — Serviço</option>
+        </select>
+        <p id="nfe-dica-tipo" style="margin:6px 0 0;font-size:12px;color:var(--muted,#666)"></p>
       </div>
 
-      <!-- Natureza da operação -->
+      <details id="nfe-detalhes-avancados" style="border:1px solid var(--border,#e5e5e5);border-radius:8px;padding:8px 10px">
+        <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--text)">Avançado — série da nota</summary>
+        <div class="form-group" style="margin-top:10px;max-width:120px">
+          <label for="nfe-serie">Série</label>
+          <input type="text" id="nfe-serie" value="1" maxlength="3" inputmode="numeric" autocomplete="off">
+        </div>
+      </details>
+
+      <!-- Natureza da operação (valores alinhados ao payload Focus / nfe_service) -->
       <div class="form-group">
-        <label>Natureza da Operação</label>
-        <input type="text" id="nfe-natureza" value="Venda de Mercadorias">
+        <label for="nfe-natureza">Natureza da operação</label>
+        <select id="nfe-natureza" onchange="NFeService._onNaturezaSelectChange()"></select>
+        <div id="nfe-natureza-outro-wrap" style="display:none;margin-top:8px">
+          <label for="nfe-natureza-outro" style="display:block;font-size:12px;color:var(--muted,#666);margin-bottom:4px">Descrição personalizada (máx. 120 caracteres, exigência da API)</label>
+          <input type="text" id="nfe-natureza-outro" maxlength="120" autocomplete="off" placeholder="Ex.: Venda de mercadorias destinada à Zona Franca de Manaus" oninput="NFeService._invalidatePrep()">
+        </div>
       </div>
 
       <!-- Campos NFS-e (ocultos por padrão) -->
@@ -1987,33 +1994,22 @@
         </div>
       </div>
 
-      <!-- Verificação prévia + pré-visualização do payload -->
+      <div style="border:1px solid var(--border,#e5e5e5);border-radius:10px;padding:10px 12px;background:var(--bg-secondary,rgba(0,0,0,0.02))">
+        <p style="margin:0 0 8px;font-size:12px;font-weight:700">Orçamento, materiais e dados fiscais</p>
+        <div id="nfe-contexto-orcamento" style="min-height:24px"></div>
+      </div>
+
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <button id="btn-verificar-nfe" class="btn btn-ghost" onclick="NFeService.verificar()" style="flex:1;min-width:140px">
-          🔍 Verificar e pré-visualizar
+          🔍 Verificar
         </button>
         <button id="btn-emitir-nfe" class="btn btn-primary" onclick="NFeService.emitir()" style="flex:1;min-width:140px" disabled>
           ✅ Confirmar e Emitir
         </button>
       </div>
-      <p style="margin:0;font-size:0.75rem;color:var(--muted,#666)">A prévia mostra o JSON que será enviado à Focus/SEFAZ após a verificação passar (nada é emitido até confirmar). Inclui layout tipo DANFE/NFS-e simulado para conferência e impressão local.</p>
+      <p style="margin:0;font-size:0.75rem;color:var(--muted,#666)">Nada é emitido até confirmar. A verificação mostra só pendências e avisos.</p>
 
-      <!-- Resultado da verificação (bloqueios / avisos) -->
       <div id="nfe-prep-resultado" style="min-height:20px"></div>
-
-      <!-- Pré-visualização legível do envio -->
-      <div id="nfe-preview-wrap" style="display:none;margin-top:4px;border:1px solid var(--border,#e5e5e5);border-radius:10px;padding:12px 14px;background:var(--bg-secondary,rgba(0,0,0,0.02))">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-          <strong style="font-size:0.875rem">Pré-visualização do envio</strong>
-          <button type="button" id="btn-nfe-previa-print" class="btn btn-ghost btn-sm" onclick="NFeService.imprimirPreviaDanfe()" disabled style="white-space:nowrap">🖨 Imprimir prévia</button>
-        </div>
-        <div id="nfe-preview-body" style="font-size:0.8125rem;line-height:1.45"></div>
-        <div id="nfe-danfe-host" style="margin-top:12px"></div>
-        <details id="nfe-preview-json-details" style="margin-top:10px">
-          <summary style="cursor:pointer;font-size:0.8rem;color:var(--muted,#666)">JSON técnico (Focus)</summary>
-          <pre id="nfe-preview-json-pre" style="margin:8px 0 0;font-size:11px;overflow:auto;max-height:200px;padding:10px;border-radius:6px;border:1px solid var(--border,#ddd);background:var(--bg-card,#fff)"></pre>
-        </details>
-      </div>
 
       <!-- Status de emissão -->
       <div id="nfe-status-msg" style="min-height:1.25rem;font-size:0.85rem;color:var(--accent)"></div>
