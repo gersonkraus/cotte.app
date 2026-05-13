@@ -5,6 +5,8 @@
 const NFeService = (() => {
   let _orcamentoId = null;
   let _preparadoOk = false;
+  /** Última config fiscal (GET /notas-fiscais/configuracao) para ambiente no card de emitente. */
+  let _lastCfgFiscal = null;
   /** Snapshot do GET /orcamentos/{id} (para montar itens_override). */
   let _orcSnapshot = null;
   /** True se o operador alterou NCM/CFOP/unidade/CSOSN/origem na tabela desta sessão. */
@@ -157,6 +159,34 @@ const NFeService = (() => {
     _invalidatePrep();
   }
 
+  function _fiscalValoresLinha(it) {
+    const s = it.servico || {};
+    const fid = _fiscalEfetivoPorItemId[String(it.id)];
+    const ncmPrep = fid && fid.ncm ? String(fid.ncm).replace(/\D/g, '').slice(0, 8) : '';
+    const ncmCat = String(s.ncm || '').replace(/\D/g, '').slice(0, 8);
+    const ncm = ncmPrep || ncmCat;
+    const cfopPrep = fid && fid.cfop ? String(fid.cfop).replace(/\D/g, '').slice(0, 4) : '';
+    const cfopCat = String(s.cfop || '').replace(/\D/g, '').slice(0, 4);
+    const cfop = cfopPrep || cfopCat;
+    const uniPrep = fid && fid.unidade ? String(fid.unidade).trim().toUpperCase().slice(0, 6) : '';
+    const uniCat = String(s.unidade_fiscal || s.unidade || it.unidade || 'UN').slice(0, 6);
+    const uni = uniPrep || uniCat || 'UN';
+    let csosn = '';
+    if (fid && fid.csosn != null && String(fid.csosn).trim() !== '') {
+      csosn = String(fid.csosn).replace(/\D/g, '').slice(0, 4);
+    } else if (s.csosn != null && String(s.csosn).trim() !== '') {
+      csosn = String(s.csosn).replace(/\D/g, '').slice(0, 4);
+    }
+    let origem = '0';
+    if (fid && fid.origem != null && String(fid.origem).trim() !== '') {
+      origem = String(fid.origem);
+    } else if (s.origem != null && s.origem !== '') {
+      origem = String(s.origem);
+    }
+    return { ncm, cfop, uni, csosn, origem };
+  }
+
+  /** Cartões por item (sem scroll horizontal); mesmos inputs/classes que _montarItensOverrideBody espera. */
   function _renderTabelaFiscalItens() {
     const bloco = document.getElementById('nfe-bloco-itens-fiscal');
     const host = document.getElementById('nfe-itens-fiscais');
@@ -169,47 +199,23 @@ const NFeService = (() => {
     }
     bloco.style.display = 'block';
     const itens = _orcSnapshot.itens;
-    const rows = itens.map((it, idx) => {
-      const s = it.servico || {};
-      const fid = _fiscalEfetivoPorItemId[String(it.id)];
-      const ncmPrep = fid && fid.ncm ? String(fid.ncm).replace(/\D/g, '').slice(0, 8) : '';
-      const ncmCat = String(s.ncm || '').replace(/\D/g, '').slice(0, 8);
-      const ncm = ncmPrep || ncmCat;
-      const cfopPrep = fid && fid.cfop ? String(fid.cfop).replace(/\D/g, '').slice(0, 4) : '';
-      const cfopCat = String(s.cfop || '').replace(/\D/g, '').slice(0, 4);
-      const cfop = cfopPrep || cfopCat;
-      const uniPrep = fid && fid.unidade ? String(fid.unidade).trim().toUpperCase().slice(0, 6) : '';
-      const uniCat = String(s.unidade_fiscal || s.unidade || it.unidade || 'UN').slice(0, 6);
-      const uni = uniPrep || uniCat || 'UN';
-      let csosn = '';
-      if (fid && fid.csosn != null && String(fid.csosn).trim() !== '') {
-        csosn = String(fid.csosn).replace(/\D/g, '').slice(0, 4);
-      } else if (s.csosn != null && String(s.csosn).trim() !== '') {
-        csosn = String(s.csosn).replace(/\D/g, '').slice(0, 4);
-      }
-      let origem = '0';
-      if (fid && fid.origem != null && String(fid.origem).trim() !== '') {
-        origem = String(fid.origem);
-      } else if (s.origem != null && s.origem !== '') {
-        origem = String(s.origem);
-      }
-      return `<tr data-nfe-item-row data-item-id="${it.id}" style="font-size:12px">
-        <td style="padding:6px;border-bottom:1px solid var(--border,#eee);max-width:200px;vertical-align:middle">${_esc((it.descricao || '—').slice(0, 100))}</td>
-        <td style="padding:4px;border-bottom:1px solid var(--border,#eee);vertical-align:middle"><input class="nfe-in-ncm" type="text" inputmode="numeric" maxlength="8" value="${_esc(ncm)}" style="width:7rem" aria-label="NCM item ${idx + 1}" oninput="NFeService._markFiscalItensDirty()"></td>
-        <td style="padding:4px;border-bottom:1px solid var(--border,#eee);vertical-align:middle"><input class="nfe-in-cfop" type="text" inputmode="numeric" maxlength="4" value="${_esc(cfop)}" style="width:4.2rem" aria-label="CFOP item ${idx + 1}" oninput="NFeService._markFiscalItensDirty()"></td>
-        <td style="padding:4px;border-bottom:1px solid var(--border,#eee);vertical-align:middle"><input class="nfe-in-un" type="text" maxlength="6" value="${_esc(uni)}" style="width:3.5rem" aria-label="Unidade item ${idx + 1}" oninput="NFeService._markFiscalItensDirty()"></td>
-        <td style="padding:4px;border-bottom:1px solid var(--border,#eee);vertical-align:middle"><input class="nfe-in-csosn" type="text" inputmode="numeric" maxlength="4" value="${_esc(csosn)}" style="width:3.5rem" placeholder="102" aria-label="CSOSN item ${idx + 1}" oninput="NFeService._markFiscalItensDirty()"></td>
-        <td style="padding:4px;border-bottom:1px solid var(--border,#eee);vertical-align:middle"><input class="nfe-in-origem" type="number" min="0" max="8" step="1" value="${_esc(origem)}" style="width:3rem" aria-label="Origem item ${idx + 1}" oninput="NFeService._markFiscalItensDirty()"></td>
-      </tr>`;
+    const fld = (lab, full, inner) =>
+      `<div style="min-width:0"><label style="display:block;font-size:10px;color:var(--muted,#666);margin-bottom:2px" title="${_esc(full)}">${lab}</label>${inner}</div>`;
+    const cards = itens.map((it, idx) => {
+      const { ncm, cfop, uni, csosn, origem } = _fiscalValoresLinha(it);
+      const desc = _esc((it.descricao || '—').slice(0, 140));
+      return `<div data-nfe-item-row data-item-id="${it.id}" class="nfe-fiscal-item-card" style="border:1px solid var(--border,#e5e5e5);border-radius:8px;padding:10px 12px;margin-bottom:10px;background:var(--surface1,rgba(0,0,0,0.02))">
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px;line-height:1.35;color:var(--text)">${desc}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(5.5rem,1fr));gap:8px 10px;align-items:end">
+          ${fld('NCM', 'Nomenclatura Comum do Mercosul (8 dígitos)', `<input class="nfe-in-ncm" type="text" inputmode="numeric" maxlength="8" value="${_esc(ncm)}" style="width:100%;max-width:7.5rem;box-sizing:border-box;font-size:12px" aria-label="NCM item ${idx + 1}" oninput="NFeService._markFiscalItensDirty()">`)}
+          ${fld('CFOP', 'Código fiscal de operações e prestações', `<input class="nfe-in-cfop" type="text" inputmode="numeric" maxlength="4" value="${_esc(cfop)}" style="width:100%;max-width:5rem;box-sizing:border-box;font-size:12px" aria-label="CFOP item ${idx + 1}" oninput="NFeService._markFiscalItensDirty()">`)}
+          ${fld('Un.', 'Unidade comercial', `<input class="nfe-in-un" type="text" maxlength="6" value="${_esc(uni)}" style="width:100%;max-width:4rem;box-sizing:border-box;font-size:12px" aria-label="Unidade item ${idx + 1}" oninput="NFeService._markFiscalItensDirty()">`)}
+          ${fld('CSOSN', 'Código de Situação da Operação — Simples Nacional', `<input class="nfe-in-csosn" type="text" inputmode="numeric" maxlength="4" value="${_esc(csosn)}" style="width:100%;max-width:4rem;box-sizing:border-box;font-size:12px" placeholder="102" aria-label="CSOSN item ${idx + 1}" oninput="NFeService._markFiscalItensDirty()">`)}
+          ${fld('Origem', 'Origem da mercadoria (0–8)', `<input class="nfe-in-origem" type="number" min="0" max="8" step="1" value="${_esc(origem)}" style="width:100%;max-width:3.5rem;box-sizing:border-box;font-size:12px" aria-label="Origem da mercadoria item ${idx + 1}" oninput="NFeService._markFiscalItensDirty()">`)}
+        </div>
+      </div>`;
     }).join('');
-    host.innerHTML = `<table style="width:100%;border-collapse:collapse;min-width:520px"><thead><tr>
-      <th align="left" style="padding:6px;border-bottom:1px solid var(--border,#ddd);font-size:11px">Descrição</th>
-      <th align="left" style="padding:6px;border-bottom:1px solid var(--border,#ddd);font-size:11px">NCM</th>
-      <th align="left" style="padding:6px;border-bottom:1px solid var(--border,#ddd);font-size:11px">CFOP</th>
-      <th align="left" style="padding:6px;border-bottom:1px solid var(--border,#ddd);font-size:11px">Un.</th>
-      <th align="left" style="padding:6px;border-bottom:1px solid var(--border,#ddd);font-size:11px">CSOSN</th>
-      <th align="left" style="padding:6px;border-bottom:1px solid var(--border,#ddd);font-size:11px">Orig.</th>
-    </tr></thead><tbody>${rows}</tbody></table>`;
+    host.innerHTML = `<div class="nfe-fiscal-cards" style="max-width:100%">${cards}</div>`;
   }
 
   function _montarItensOverrideBody() {
@@ -217,18 +223,18 @@ const NFeService = (() => {
     if (tipo === 'nfse' || !_orcSnapshot?.itens?.length) return undefined;
     const host = document.getElementById('nfe-itens-fiscais');
     if (!host) return undefined;
-    const trs = host.querySelectorAll('tr[data-nfe-item-row]');
-    if (trs.length !== _orcSnapshot.itens.length) return undefined;
+    const rows = host.querySelectorAll('[data-nfe-item-row]');
+    if (rows.length !== _orcSnapshot.itens.length) return undefined;
     const out = [];
     for (let i = 0; i < _orcSnapshot.itens.length; i++) {
       const it = _orcSnapshot.itens[i];
-      const tr = trs[i];
-      if (!tr || String(it.id) !== tr.getAttribute('data-item-id')) return undefined;
-      const ncmRaw = tr.querySelector('.nfe-in-ncm')?.value?.trim().replace(/\D/g, '').slice(0, 8);
-      const cfopRaw = tr.querySelector('.nfe-in-cfop')?.value?.trim().replace(/\D/g, '').slice(0, 4);
-      const un = (tr.querySelector('.nfe-in-un')?.value || 'UN').trim().slice(0, 6) || 'UN';
-      const csRaw = tr.querySelector('.nfe-in-csosn')?.value?.trim().replace(/\D/g, '').slice(0, 4);
-      const oRaw = tr.querySelector('.nfe-in-origem')?.value?.trim();
+      const row = rows[i];
+      if (!row || String(it.id) !== row.getAttribute('data-item-id')) return undefined;
+      const ncmRaw = row.querySelector('.nfe-in-ncm')?.value?.trim().replace(/\D/g, '').slice(0, 8);
+      const cfopRaw = row.querySelector('.nfe-in-cfop')?.value?.trim().replace(/\D/g, '').slice(0, 4);
+      const un = (row.querySelector('.nfe-in-un')?.value || 'UN').trim().slice(0, 6) || 'UN';
+      const csRaw = row.querySelector('.nfe-in-csosn')?.value?.trim().replace(/\D/g, '').slice(0, 4);
+      const oRaw = row.querySelector('.nfe-in-origem')?.value?.trim();
       let origem = null;
       if (oRaw !== '' && oRaw != null && !Number.isNaN(Number(oRaw))) origem = parseInt(oRaw, 10);
       const codigo_produto = it.servico && it.servico.id != null ? String(it.servico.id) : String(it.id);
@@ -292,6 +298,86 @@ const NFeService = (() => {
     return [p1, p2, [p3, p4].filter(Boolean).join(' · ')].filter((x) => x && String(x).trim()).join('\n') || '—';
   }
 
+  function _tituloGrupoChecklist(grupo) {
+    const g = String(grupo || 'outros').toLowerCase();
+    const map = {
+      geral: 'Cadastro e orçamento',
+      nfe: 'Regras da NF-e / NFC-e',
+      nfce: 'Regras da NF-e / NFC-e',
+      nfse: 'Regras da NFS-e',
+      outros: 'Demais verificações',
+    };
+    return map[g] || map.outros;
+  }
+
+  /** Lista estruturada do backend (evita duplicar linhas idênticas aos bloqueios quando o checklist veio preenchido). */
+  function _renderChecklistHtml(checklist) {
+    if (!Array.isArray(checklist) || !checklist.length) return '';
+    const byGroup = {};
+    checklist.forEach((raw) => {
+      if (!raw || typeof raw !== 'object') return;
+      const g = String(raw.grupo || 'outros').toLowerCase();
+      if (!byGroup[g]) byGroup[g] = [];
+      byGroup[g].push(raw);
+    });
+    const order = ['geral', 'nfe', 'nfce', 'nfse', 'outros'];
+    const keys = Object.keys(byGroup).sort(
+      (a, b) => (order.includes(a) ? order.indexOf(a) : 99) - (order.includes(b) ? order.indexOf(b) : 99),
+    );
+    let html = '<div id="nfe-checklist-host" style="margin-top:10px;border:1px solid var(--border,#e5e5e5);border-radius:8px;padding:10px 12px;background:var(--surface2,rgba(0,0,0,0.02))">';
+    html += '<p style="margin:0 0 8px;font-size:12px;font-weight:700">Checklist da verificação</p>';
+    keys.forEach((g) => {
+      html += `<div style="margin-top:6px"><div style="font-size:11px;font-weight:600;color:var(--muted,#666);text-transform:uppercase;letter-spacing:0.02em;margin-bottom:6px">${_esc(_tituloGrupoChecklist(g))}</div>`;
+      byGroup[g].forEach((c) => {
+        const ok = c.ok === true;
+        const chip = ok ? 'OK' : 'Pendente';
+        const bg = ok ? 'rgba(34,197,94,0.14)' : 'rgba(239,68,68,0.12)';
+        const col = ok ? '#15803d' : '#b91c1c';
+        const det = (c.detalhe && String(c.detalhe).trim())
+          ? `<div style="font-size:11px;color:var(--muted,#666);margin-top:3px">${_esc(String(c.detalhe))}</div>`
+          : '';
+        html += `<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--border,#eee)">
+          <span style="flex-shrink:0;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:${bg};color:${col}">${chip}</span>
+          <div style="flex:1;font-size:12px;line-height:1.4"><div>${_esc(c.titulo || '')}</div>${det}</div>
+        </div>`;
+      });
+      html += '</div>';
+    });
+    html += '</div>';
+    return html;
+  }
+
+  function _renderEmitentePreviewBloco(ep, cfgFiscal) {
+    if (!ep || typeof ep !== 'object') return '';
+    const amb = cfgFiscal && cfgFiscal.nfe_ambiente != null ? String(cfgFiscal.nfe_ambiente) : '';
+    const raz = (ep.razao_social || '').trim() || '—';
+    const cnpjFmt = _fmtDoc(ep.cnpj);
+    const ie = (ep.inscricao_estadual || '').trim();
+    const ref = (ep.referencia_orcamento || '').trim();
+    const crt = (ep.crt_descricao || '').trim();
+    return `<div id="nfe-emitente-preview" style="margin-bottom:10px;padding:10px 12px;border-radius:8px;border:1px solid var(--border,#e5e5e5);background:var(--surface1,rgba(0,0,0,0.03))">
+      <p style="margin:0 0 6px;font-size:11px;font-weight:700;color:var(--muted,#666)">Emitente na prévia do envio</p>
+      <div style="font-size:12px;line-height:1.45">
+        <div><strong>${_esc(raz)}</strong></div>
+        <div>CNPJ: ${cnpjFmt}${ie ? ` · IE: ${_esc(ie)}` : ''}</div>
+        ${crt ? `<div>${_esc(crt)}</div>` : ''}
+        ${ref ? `<div>Referência: ${_esc(ref)}</div>` : ''}
+        ${amb ? `<div>Ambiente: ${_esc(amb)}</div>` : ''}
+      </div>
+    </div>`;
+  }
+
+  function _fmtDataListaNota(iso) {
+    if (!iso) return '';
+    try {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return '';
+      return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+    } catch (_) {
+      return '';
+    }
+  }
+
   function _corpoPreparar() {
     const tipo = document.getElementById('nfe-tipo')?.value || 'nfe';
     const natureza = _naturezaOperacaoResolvida();
@@ -324,7 +410,8 @@ const NFeService = (() => {
     const doc = cli.cnpj || cli.cpf || '';
     const itens = Array.isArray(data.itens) ? data.itens : [];
     const linhasItens = itens.length
-      ? `<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px"><thead><tr>
+      ? `<p style="margin:12px 0 6px;font-size:12px;font-weight:700;color:var(--text)">Itens do orçamento</p>
+        <table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>
           <th style="text-align:left;border-bottom:1px solid var(--border,#ddd);padding:4px">Material/Serviço</th>
           <th style="text-align:right;border-bottom:1px solid var(--border,#ddd);padding:4px">Qtd</th>
           <th style="text-align:right;border-bottom:1px solid var(--border,#ddd);padding:4px">V. unit.</th>
@@ -337,15 +424,20 @@ const NFeService = (() => {
           <td style="padding:4px;text-align:right;border-bottom:1px solid var(--border,#eee)">${_fmtBRL(it.total)}</td>
         </tr>`).join('')}
       </tbody></table>`
-      : '<p style="margin:6px 0 0;font-size:12px;color:var(--muted,#666)">Sem materiais/itens no orçamento.</p>';
+      : '<p style="margin:12px 0 0;font-size:12px;color:var(--muted,#666)">Sem materiais/itens no orçamento.</p>';
 
     host.innerHTML = `
+      <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:var(--text)">Destinatário (cliente)</p>
       <div style="font-size:12px;display:grid;grid-template-columns:1fr;gap:6px">
-        <div><strong>Cliente:</strong> ${_esc(cli.nome || cli.razao_social || '—')}</div>
+        <div><strong>Nome:</strong> ${_esc(cli.nome || cli.razao_social || '—')}</div>
         <div><strong>CPF/CNPJ:</strong> ${_fmtDoc(doc)}</div>
-        <div><strong>Endereço:</strong> ${_esc(_linhasEndereco(cli))}</div>
-        <div><strong>Total orçamento:</strong> ${_fmtBRL(data.total)}</div>
-        <div><strong>Emitente (fiscal):</strong> CNPJ ${_fmtDoc(cfgFiscal?.cnpj || '—')} · Ambiente ${_esc(cfgFiscal?.nfe_ambiente || '—')}</div>
+        <div style="white-space:pre-line"><strong>Endereço:</strong> ${_esc(_linhasEndereco(cli))}</div>
+        <div><strong>Total do orçamento:</strong> ${_fmtBRL(data.total)}</div>
+      </div>
+      <p style="margin:12px 0 6px;font-size:12px;font-weight:700;color:var(--text)">Empresa emissora (cadastro fiscal)</p>
+      <div style="font-size:12px;line-height:1.45">
+        <div><strong>CNPJ:</strong> ${_fmtDoc(cfgFiscal?.cnpj || '')}</div>
+        <div><strong>Ambiente NF-e:</strong> ${_esc(cfgFiscal?.nfe_ambiente || '—')}</div>
       </div>
       ${linhasItens}
     `;
@@ -361,12 +453,15 @@ const NFeService = (() => {
         api.get('/notas-fiscais/configuracao'),
       ]);
       const orcData = orc?.data || orc;
+      const cfgData = cfg?.data || cfg;
+      _lastCfgFiscal = cfgData && typeof cfgData === 'object' ? cfgData : null;
       _orcSnapshot = orcData;
       _fiscalItensDirty = false;
       _renderContextoOrcamento(orcData, cfg?.data || cfg);
       _renderTabelaFiscalItens();
     } catch (e) {
       _orcSnapshot = null;
+      _lastCfgFiscal = null;
       _limparFiscalEfetivoPreparar();
       if (host) host.innerHTML = `<p style="margin:0;color:#ef4444;font-size:12px">Erro ao carregar contexto: ${_esc(e?.message || 'tente novamente')}</p>`;
       _renderTabelaFiscalItens();
@@ -387,6 +482,7 @@ const NFeService = (() => {
     _toggleCamposNfse();
     modal.classList.add('open');
     modal.setAttribute('aria-hidden', 'false');
+    _setNfePollUi(0, false);
     const areaPrep = document.getElementById('nfe-prep-resultado');
     if (areaPrep) areaPrep.innerHTML = '';
     await Promise.all([carregarNotasExistentes(orcamentoId), _carregarContextoOrcamento()]);
@@ -407,6 +503,7 @@ const NFeService = (() => {
     if (wrapOutro) wrapOutro.style.display = 'none';
     _orcamentoId = null;
     _orcSnapshot = null;
+    _lastCfgFiscal = null;
     _fiscalItensDirty = false;
     _limparFiscalEfetivoPreparar();
     _preparadoOk = false;
@@ -418,6 +515,7 @@ const NFeService = (() => {
     if (btnEmitir) btnEmitir.disabled = true;
     const areaPrep = document.getElementById('nfe-prep-resultado');
     if (areaPrep) areaPrep.innerHTML = '';
+    _setNfePollUi(0, false);
   }
 
   async function carregarNotasExistentes(orcamentoId) {
@@ -437,17 +535,31 @@ const NFeService = (() => {
       lista.innerHTML = '<p style="color:var(--text-muted,#888)">Nenhuma nota emitida para este orçamento.</p>';
       return;
     }
-    lista.innerHTML = notas.map(n => `
-      <div class="nfe-item" style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0;border-bottom:1px solid var(--border,#eee)">
-        <span style="font-weight:600;text-transform:uppercase;font-size:0.8rem">${n.tipo}</span>
-        <span>${n.numero ? `N\xba ${n.numero} \xb7 S\xe9rie ${n.serie}` : '—'}</span>
-        <span class="badge badge-${_badgeClass(n.status)}" style="margin-left:auto">${n.status}</span>
-        ${n.danfe_url ? `<a href="${n.danfe_url}" target="_blank" class="btn btn-ghost btn-sm">DANFE</a>` : ''}
-        ${n.xml_url ? `<a href="${n.xml_url}" target="_blank" class="btn btn-ghost btn-sm">XML</a>` : ''}
-        ${n.status === 'emitida' ? `<button class="btn btn-ghost btn-sm" onclick="NFeService._cancelar(${n.id})">Cancelar</button>` : ''}
-        ${n.status === 'erro' ? `<span style="font-size:0.75rem;color:var(--danger,red)">Erro: ${n.erro_mensagem || n.erro_codigo || ''}</span>` : ''}
-      </div>
-    `).join('');
+    lista.innerHTML = notas.map((n) => {
+      const when = n.emitida_em || n.criado_em;
+      const whenStr = _fmtDataListaNota(when);
+      const numSer = n.numero
+        ? `Nº ${_esc(String(n.numero))} · Série ${_esc(String(n.serie != null ? n.serie : ''))}`
+        : '—';
+      const err = n.status === 'erro'
+        ? `<div style="font-size:12px;color:var(--danger,#dc2626);margin-top:4px;line-height:1.35">Erro: ${_esc(n.erro_mensagem || n.erro_codigo || '')}</div>`
+        : '';
+      const acoes = [
+        n.danfe_url ? `<a href="${n.danfe_url}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">DANFE</a>` : '',
+        n.xml_url ? `<a href="${n.xml_url}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">XML</a>` : '',
+        n.status === 'emitida' ? `<button type="button" class="btn btn-ghost btn-sm" onclick="NFeService._cancelar(${n.id})">Cancelar</button>` : '',
+      ].filter(Boolean).join(' ');
+      return `<div class="nfe-item" style="padding:10px 0;border-bottom:1px solid var(--border,#eee)">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px">
+          <span style="font-weight:700;text-transform:uppercase;font-size:11px;letter-spacing:0.04em">${_esc(n.tipo || '')}</span>
+          <span style="font-size:13px;color:var(--text)">${numSer}</span>
+          <span class="badge badge-${_badgeClass(n.status)}">${_esc(n.status || '')}</span>
+          ${whenStr ? `<span style="font-size:11px;color:var(--muted,#666);margin-left:auto">${_esc(whenStr)}</span>` : ''}
+        </div>
+        ${acoes ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${acoes}</div>` : ''}
+        ${err}
+      </div>`;
+    }).join('');
   }
 
   async function emitir() {
@@ -486,6 +598,7 @@ const NFeService = (() => {
     } catch (e) {
       if (btn) { btn.disabled = false; btn.textContent = '✅ Confirmar e Emitir'; }
       if (statusMsg) statusMsg.textContent = `Erro: ${e.message || 'Falha na emissão'}`;
+      _setNfePollUi(0, false);
       return;
     }
 
@@ -502,9 +615,28 @@ const NFeService = (() => {
   const NFE_STATUS_POLL_MAX = 45;
   const NFE_STATUS_INTERVAL_MS = 3000;
 
+  function _setNfePollUi(tentativas, active) {
+    const pollWrap = document.getElementById('nfe-poll-wrap');
+    const pollPr = document.getElementById('nfe-poll-progress');
+    const pollCap = document.getElementById('nfe-poll-caption');
+    if (!pollWrap || !pollPr) return;
+    if (!active) {
+      pollWrap.style.display = 'none';
+      return;
+    }
+    pollWrap.style.display = 'block';
+    pollPr.max = NFE_STATUS_POLL_MAX;
+    pollPr.value = Math.min(Math.max(0, tentativas), NFE_STATUS_POLL_MAX);
+    if (pollCap) {
+      const secs = Math.round((tentativas + 1) * (NFE_STATUS_INTERVAL_MS / 1000));
+      pollCap.textContent = `Aguardando retorno da SEFAZ/Focus… tentativa ${tentativas + 1} de ${NFE_STATUS_POLL_MAX} (~${secs}s decorridos).`;
+    }
+  }
+
   async function _aguardarStatus(notaId, tentativas = 0) {
     const statusMsg = document.getElementById('nfe-status-msg');
     if (tentativas > NFE_STATUS_POLL_MAX) {
+      _setNfePollUi(0, false);
       try {
         await api.post(`/notas-fiscais/${notaId}/sincronizar-focus`, {});
         const resp = await api.get(`/notas-fiscais/${notaId}`);
@@ -533,6 +665,7 @@ const NFeService = (() => {
       if (_orcamentoId) carregarNotasExistentes(_orcamentoId);
       return;
     }
+    _setNfePollUi(tentativas, true);
     await new Promise(r => setTimeout(r, NFE_STATUS_INTERVAL_MS));
 
     let nota = null;
@@ -548,9 +681,11 @@ const NFeService = (() => {
     }
 
     if (nota.status === 'emitida') {
+      _setNfePollUi(0, false);
       if (statusMsg) statusMsg.textContent = `✓ NF emitida com sucesso! N\xfamero: ${nota.numero || '—'}`;
       if (_orcamentoId) carregarNotasExistentes(_orcamentoId);
     } else if (nota.status === 'erro') {
+      _setNfePollUi(0, false);
       const msg = nota.erro_mensagem || nota.erro_codigo || 'desconhecido';
       const msgStr = String(msg);
       const ehAuthFocus =
@@ -573,12 +708,14 @@ const NFeService = (() => {
     if (!areaPrep) return;
     areaPrep.innerHTML = `
       <div style="margin-top:8px">
-        <button id="btn-analisar-erro-nfe" class="btn btn-sm btn-warning" style="width:100%">
+        <button type="button" id="btn-analisar-erro-nfe" class="btn btn-sm btn-warning" style="width:100%">
           Analisar Erro e Ver O Que Corrigir
         </button>
         <div id="nfe-analise-resultado" style="margin-top:8px"></div>
       </div>`;
-    document.getElementById('btn-analisar-erro-nfe').onclick = async function() {
+    const btnAn = document.getElementById('btn-analisar-erro-nfe');
+    if (!btnAn) return;
+    btnAn.onclick = async function() {
       const btn = this;
       btn.disabled = true;
       btn.textContent = 'Analisando...';
@@ -637,25 +774,45 @@ const NFeService = (() => {
       _preparadoOk = resultado.pronto === true;
       if (btnEmitir) btnEmitir.disabled = !_preparadoOk;
 
-      let html = '';
+      const checklist = Array.isArray(resultado.checklist) ? resultado.checklist : [];
+      const temChecklist = checklist.length > 0;
+      const bloqueios = Array.isArray(resultado.bloqueios) ? resultado.bloqueios : [];
+      const avisos = Array.isArray(resultado.avisos) ? resultado.avisos : [];
+      const resumoTxt = (resultado.resumo && String(resultado.resumo).trim()) || (_preparadoOk ? 'Pronto para emitir' : 'Verificação concluída');
+      const resumoCor = _preparadoOk ? '#15803d' : '#b45309';
+      const resumoPeso = _preparadoOk ? '600' : '600';
 
-      if (resultado.bloqueios && resultado.bloqueios.length) {
-        html += resultado.bloqueios.map(b =>
-          `<div style="color:#ef4444;font-size:12px;padding:4px 0">❌ ${_esc(b)}</div>`
-        ).join('');
-      }
-      if (resultado.avisos && resultado.avisos.length) {
-        html += resultado.avisos.map(a =>
-          `<div style="color:#f59e0b;font-size:12px;padding:4px 0">⚠️ ${_esc(a)}</div>`
-        ).join('');
-      }
-      if (_preparadoOk && !html) {
-        html = `<div style="color:#00e5a0;font-size:12px;font-weight:600">✅ ${resultado.resumo || 'Pronto para emitir'}</div>`;
-      } else if (_preparadoOk) {
-        html = `<div style="color:#00e5a0;font-size:12px;font-weight:600;margin-bottom:4px">✅ ${resultado.resumo}</div>` + html;
+      const partes = [];
+      const epHtml = _renderEmitentePreviewBloco(resultado.emitente_preview, _lastCfgFiscal);
+      if (epHtml) partes.push(epHtml);
+
+      partes.push(
+        `<div style="font-size:12px;font-weight:${resumoPeso};margin:0 0 8px;line-height:1.35;color:${resumoCor}">${_esc(resumoTxt)}</div>`,
+      );
+
+      if (temChecklist) {
+        partes.push(_renderChecklistHtml(checklist));
+      } else if (bloqueios.length) {
+        partes.push(
+          bloqueios.map(b =>
+            `<div style="color:#ef4444;font-size:12px;padding:4px 0">❌ ${_esc(b)}</div>`,
+          ).join(''),
+        );
       }
 
-      if (areaPrep) areaPrep.innerHTML = html;
+      if (avisos.length) {
+        partes.push(
+          avisos.map(a =>
+            `<div style="color:#f59e0b;font-size:12px;padding:4px 0">⚠️ ${_esc(a)}</div>`,
+          ).join(''),
+        );
+      }
+
+      if (_preparadoOk && !temChecklist && !bloqueios.length && !avisos.length) {
+        partes.push('<div style="color:#15803d;font-size:12px;font-weight:600">✅ Nenhum bloqueio encontrado.</div>');
+      }
+
+      if (areaPrep) areaPrep.innerHTML = partes.join('');
 
       const tipoAtual = document.getElementById('nfe-tipo')?.value || 'nfe';
       if (tipoAtual === 'nfe' || tipoAtual === 'nfce') {
