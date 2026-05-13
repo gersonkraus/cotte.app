@@ -446,13 +446,41 @@ const NFeService = (() => {
     }
   }
 
+  const NFE_STATUS_POLL_MAX = 45;
+  const NFE_STATUS_INTERVAL_MS = 3000;
+
   async function _aguardarStatus(notaId, tentativas = 0) {
-    if (tentativas > 20) {
-      const statusMsg = document.getElementById('nfe-status-msg');
-      if (statusMsg) statusMsg.textContent = 'Timeout: verifique o status manualmente.';
+    const statusMsg = document.getElementById('nfe-status-msg');
+    if (tentativas > NFE_STATUS_POLL_MAX) {
+      try {
+        await api.post(`/notas-fiscais/${notaId}/sincronizar-focus`, {});
+        const resp = await api.get(`/notas-fiscais/${notaId}`);
+        const notaSync = resp?.data || resp;
+        if (notaSync && notaSync.status === 'emitida') {
+          if (statusMsg) {
+            statusMsg.textContent = `✓ NF emitida com sucesso! N\xfamero: ${notaSync.numero || '—'}`;
+          }
+          if (_orcamentoId) carregarNotasExistentes(_orcamentoId);
+          return;
+        }
+        if (notaSync && notaSync.status === 'erro') {
+          const msg = notaSync.erro_mensagem || notaSync.erro_codigo || 'desconhecido';
+          if (statusMsg) statusMsg.textContent = `Erro: ${msg}`;
+          if (_orcamentoId) carregarNotasExistentes(_orcamentoId);
+          _mostrarBotaoAnalise(notaId);
+          return;
+        }
+      } catch (_) {
+        /* mantém mensagem genérica abaixo */
+      }
+      if (statusMsg) {
+        statusMsg.textContent =
+          'Tempo do modal esgotado. Se a Focus já mostra autorizado, atualize a lista de notas ou configure o webhook (URL pública POST …/api/v1/notas-fiscais/webhook/focus com Basic Auth = seu token).';
+      }
+      if (_orcamentoId) carregarNotasExistentes(_orcamentoId);
       return;
     }
-    await new Promise(r => setTimeout(r, 3000));
+    await new Promise(r => setTimeout(r, NFE_STATUS_INTERVAL_MS));
 
     let nota = null;
     try {
@@ -461,9 +489,11 @@ const NFeService = (() => {
     } catch (_) {
       nota = null;
     }
-    if (!nota) return;
+    if (!nota) {
+      if (statusMsg) statusMsg.textContent = `Processando... (sem resposta ${tentativas + 1}/${NFE_STATUS_POLL_MAX})`;
+      return _aguardarStatus(notaId, tentativas + 1);
+    }
 
-    const statusMsg = document.getElementById('nfe-status-msg');
     if (nota.status === 'emitida') {
       if (statusMsg) statusMsg.textContent = `✓ NF emitida com sucesso! N\xfamero: ${nota.numero || '—'}`;
       if (_orcamentoId) carregarNotasExistentes(_orcamentoId);
@@ -480,7 +510,7 @@ const NFeService = (() => {
       if (_orcamentoId) carregarNotasExistentes(_orcamentoId);
       _mostrarBotaoAnalise(notaId);
     } else {
-      if (statusMsg) statusMsg.textContent = `Processando... (${tentativas + 1}/20)`;
+      if (statusMsg) statusMsg.textContent = `Processando... (${tentativas + 1}/${NFE_STATUS_POLL_MAX})`;
       _aguardarStatus(notaId, tentativas + 1);
     }
   }

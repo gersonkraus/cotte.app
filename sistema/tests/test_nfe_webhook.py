@@ -128,6 +128,20 @@ def test_webhook_focus_rejeita_sem_auth(http_client, db, empresa_nfe, nota_nfe):
     assert resp.status_code == 401
 
 
+def test_webhook_focus_aceita_authorization_somente_token_sem_basic(http_client, db, empresa_nfe, nota_nfe):
+    """Gatilho Focus com «Chave» = token puro (sem prefixo Basic) também autentica."""
+    payload = {"ref": "12345678000100-42", "status": "autorizado", "numero": "42"}
+
+    with patch("app.core.config.settings.FOCUS_TOKEN", FOCUS_TOKEN_TEST):
+        resp = http_client.post(
+            "/api/v1/notas-fiscais/webhook/focus",
+            json=payload,
+            headers={"Authorization": FOCUS_TOKEN_TEST},
+        )
+
+    assert resp.status_code == 200
+
+
 def test_webhook_focus_rejeita_token_errado(http_client, db, empresa_nfe, nota_nfe):
     payload = {"ref": "12345678000100-42", "status": "autorizado"}
 

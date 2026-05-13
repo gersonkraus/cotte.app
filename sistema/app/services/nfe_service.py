@@ -29,7 +29,8 @@ from app.services.fiscal_ai_service import sugerir_dados_fiscais
 logger = logging.getLogger(__name__)
 
 POLLING_INTERVAL = 3
-POLLING_MAX_ATTEMPTS = 20
+# NF-e assíncrona na SEFAZ pode ultrapassar 1 min; alinhar com o polling do modal (nfe.js).
+POLLING_MAX_ATTEMPTS = 45
 
 
 def _focus_base_url() -> str:
@@ -1427,13 +1428,25 @@ def verificar_token_webhook_focus(authorization_header: str, expected_token: str
 
 
 def webhook_focus_autorizado(authorization_header: str) -> bool:
-    """Aceita webhooks assinados com Token Principal ou Token de Homologação."""
+    """Aceita webhooks assinados com Token Principal ou Token de Homologação.
+
+    Formato esperado (padrão Focus API): ``Authorization: Basic <base64(token:)>``.
+
+    Alguns cadastros de gatilho na Focus enviam só o token no header; também aceitamos
+    comparação direta (mesmo segredo que ``FOCUS_TOKEN`` / ``FOCUS_TOKEN_HOMOLOGACAO``).
+    """
+    h = (authorization_header or "").strip()
+    if not h:
+        return False
     candidatos = [
         (settings.FOCUS_TOKEN or "").strip(),
         (getattr(settings, "FOCUS_TOKEN_HOMOLOGACAO", None) or "").strip(),
     ]
     for tok in dict.fromkeys(t for t in candidatos if t):
         if verificar_token_webhook_focus(authorization_header, tok):
+            return True
+    for tok in dict.fromkeys(t for t in candidatos if t):
+        if hmac.compare_digest(h, tok):
             return True
     return False
 
