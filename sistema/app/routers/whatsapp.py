@@ -299,14 +299,22 @@ async def _webhook_evolution(
     payload = WebhookEvolution(**raw_body)
     
     # ── Registro de Histórico para Tenants (CRM Comercial) ──
-    # Captura interações antes de filtrar por fromMe/isGroup
+    # Se a empresa não foi resolvida via Query Param, tenta pelo payload
+    if not empresa_instancia and payload.instance:
+        inst_name = payload.instance.strip()
+        empresa_instancia = db.query(Empresa).filter(Empresa.evolution_instance == inst_name).first()
+
+    empresa_id = empresa_instancia.id if empresa_instancia else None
+
     telefone = sanitizar_telefone(payload.phone)
     mensagem = sanitizar_mensagem(payload.mensagem_texto)
-    empresa_id = empresa_instancia.id if empresa_instancia else None
 
     if telefone and mensagem and empresa_id and not payload.isGroup:
         direcao = "enviado" if payload.fromMe else "recebido"
         message_id = payload.data.get("key", {}).get("id") if isinstance(payload.data, dict) else None
+        
+        logger.info("[WA Webhook] Gravando interacao: empresa=%s telefone=%s direcao=%s", empresa_id, telefone, direcao)
+        
         background_tasks.add_task(
             registrar_interacao_whatsapp,
             empresa_id=empresa_id,
@@ -315,6 +323,10 @@ async def _webhook_evolution(
             direcao=direcao,
             message_id=message_id
         )
+    else:
+        if not empresa_id and event in ("messages.upsert", "MESSAGES_UPSERT"):
+            logger.warning("[WA Webhook] Empresa nao localizada para instancia: %s", payload.instance)
+
 
     if payload.fromMe or payload.isGroup:
         return {"status": "ignored"}

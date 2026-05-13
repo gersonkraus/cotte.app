@@ -522,20 +522,50 @@ function renderLeadDetail(l) {
 
     // TIMELINE
     if (l.interacoes && l.interacoes.length) {
-      html += '<div class="lead-panel-section"><div class="lead-panel-section-title">\uD83D\uDCCB Timeline de Interações (' + l.interacoes.length + ')</div><div class="lead-timeline">';
-      html += l.interacoes.slice(0, 15).map(function(i) {
+      // Ordenar cronologicamente (mais antigo primeiro, como chat)
+      var interacoesOrdenadas = l.interacoes.slice().sort(function(a, b) {
+        return new Date(a.criado_em) - new Date(b.criado_em);
+      });
+      html += '<div class="lead-panel-section"><div class="lead-panel-section-title">💬 Conversa WhatsApp (' + l.interacoes.length + ')</div><div class="lead-timeline lead-chat-timeline">';
+      html += interacoesOrdenadas.slice(-30).map(function(i) {
         var tipo = (i.tipo || '').toLowerCase();
-        var emoji = '\uD83D\uDCDD';
-        if (tipo.includes('whatsapp')) emoji = '\uD83D\uDCF1';
-        else if (tipo.includes('email')) emoji = '\uD83D\uDCE7';
-        else if (tipo.includes('status')) emoji = '\uD83D\uDD04';
-        else if (tipo.includes('lembrete')) emoji = '\u23F0';
-        var sistema = tipo.includes('sistema') || tipo.includes('status') || tipo.includes('cadastro') || tipo.includes('origem');
-        return '<div class="lead-tl-item"><div class="lead-tl-dot">' + emoji + '</div><div class="lead-tl-content"><div class="lead-tl-text">' + esc(i.conteudo || '') + '</div><div class="lead-tl-meta"><span class="lead-tl-tag ' + (sistema ? 'system' : 'user') + '">' + (sistema ? 'Sistema' : 'Comentário') + '</span></div></div><div class="lead-tl-time">' + fmtDataHora(i.criado_em) + '</div></div>';
+        var direcao = (i.direcao || 'enviado').toLowerCase();
+        var isRecebido = direcao === 'recebido';
+        var emoji = '📝';
+        var tagLabel = 'Nota';
+        if (tipo.includes('whatsapp')) { emoji = isRecebido ? '💬' : '📱'; tagLabel = isRecebido ? 'Lead' : 'Enviado'; }
+        else if (tipo.includes('email')) { emoji = '📧'; tagLabel = 'E-mail'; }
+        else if (tipo.includes('status')) { emoji = '🔄'; tagLabel = 'Status'; }
+        else if (tipo.includes('lembrete')) { emoji = '⏰'; tagLabel = 'Lembrete'; }
+        else if (tipo.includes('sistema') || tipo.includes('cadastro') || tipo.includes('origem')) { emoji = '🤖'; tagLabel = 'Sistema'; }
+        var isSistema = tipo.includes('sistema') || tipo.includes('status') || tipo.includes('cadastro') || tipo.includes('origem');
+        // Bolhas de chat só para WhatsApp com direção definida; demais ficam estilo linear
+        if (tipo.includes('whatsapp')) {
+          return '<div class="lead-tl-bubble ' + (isRecebido ? 'tl-bubble-in' : 'tl-bubble-out') + '">' +
+            '<div class="tl-bubble-body">' +
+              '<div class="tl-bubble-text">' + esc(i.conteudo || '') + '</div>' +
+              '<div class="tl-bubble-meta">' +
+                '<span class="lead-tl-tag ' + (isRecebido ? 'received' : 'sent') + '">' + tagLabel + '</span>' +
+                '<span class="tl-bubble-time">' + fmtDataHora(i.criado_em) + '</span>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+        }
+        return '<div class="lead-tl-item">' +
+          '<div class="lead-tl-dot">' + emoji + '</div>' +
+          '<div class="lead-tl-content">' +
+            '<div class="lead-tl-text">' + esc(i.conteudo || '') + '</div>' +
+            '<div class="lead-tl-meta">' +
+              '<span class="lead-tl-tag ' + (isSistema ? 'system' : 'user') + '">' + tagLabel + '</span>' +
+            '</div>' +
+          '</div>' +
+          '<div class="lead-tl-time">' + fmtDataHora(i.criado_em) + '</div>' +
+        '</div>';
       }).join('');
-      if (l.interacoes.length > 15) html += '<div style="font-size:11px;color:var(--muted);padding:8px 0 0 46px">+' + (l.interacoes.length - 15) + ' interações mais antigas</div>';
+      if (l.interacoes.length > 30) html += '<div style="font-size:11px;color:var(--muted);padding:8px 0 0 12px">▲ Mostrando as últimas 30 de ' + l.interacoes.length + ' interações</div>';
       html += '</div></div>';
     }
+
 
     // DANGER ZONE
     html += '<div class="danger-zone" style="margin-top:4px">' +

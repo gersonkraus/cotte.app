@@ -84,11 +84,13 @@ async def registrar_interacao_whatsapp(
                 TenantCommercialInteraction.message_id == message_id
             ).first()
             if existente:
+                logger.info("[TenantCommercialService] Mensagem ja registrada (deduplicacao): %s", message_id)
                 return True # Já registrado
 
         # 2. Localizar Lead
         lead = find_lead_by_phone(_db, empresa_id, telefone)
         if not lead:
+            logger.warning("[TenantCommercialService] Lead nao localizado para telefone %s na empresa %s", telefone, empresa_id)
             return False
 
         # 3. Registrar Interação
@@ -108,12 +110,14 @@ async def registrar_interacao_whatsapp(
         lead.ultimo_contato_em = datetime.now(timezone.utc)
         
         _db.commit()
+        logger.info("[TenantCommercialService] Interacao WhatsApp registrada com sucesso: lead=%s direcao=%s", lead.id, direcao)
         return True
 
     except Exception as e:
-        logger.error(f"[TenantCommercialService] Erro ao registrar interacao: {e}")
+        logger.error("[TenantCommercialService] Erro ao registrar interacao: %s", e)
         _db.rollback()
         return False
+
     finally:
         if db is None:
             _db.close()
