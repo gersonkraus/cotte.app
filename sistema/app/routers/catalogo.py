@@ -637,6 +637,7 @@ def _build_portfolio_dict(db: Session, req: PortfolioGenerateRequest) -> dict:
                 "preco": float(s.preco_padrao),
                 "unidade": getattr(s, 'unidade', 'un') or 'un',
                 "imagem_url": s.imagem_url,
+                "mostrar_preco_venda": req.exibir_preco_venda,
                 "mostrar_custo": req.incluir_custo,
             }
             if req.incluir_custo:
@@ -656,6 +657,7 @@ def _build_portfolio_dict(db: Session, req: PortfolioGenerateRequest) -> dict:
         "descricao": req.descricao,
         "tema": req.tema or "classico",
         "categorias": categorias,
+        "exibir_preco_venda": req.exibir_preco_venda,
         "incluir_custo": req.incluir_custo
     }
 

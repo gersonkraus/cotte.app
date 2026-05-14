@@ -426,9 +426,19 @@
         </select>
       </div>
 
-      <div class="form-group" style="display:flex;align-items:center;gap:8px">
-        <input type="checkbox" id="portfolio-incluir-custo" style="width:auto">
-        <label for="portfolio-incluir-custo" style="margin:0;cursor:pointer">Exibir preço de custo?</label>
+      <div class="form-group" style="display:flex;flex-direction:column;gap:10px">
+        <label style="margin:0">Exibição de valores</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+          <input type="checkbox" id="portfolio-exibir-preco-venda" style="width:auto" checked>
+          Exibir preço de venda
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+          <input type="checkbox" id="portfolio-incluir-custo" style="width:auto">
+          Exibir preço de custo (uso interno)
+        </label>
+        <div style="font-size:11px;color:var(--muted)">
+          Para catálogos de fábrica/distribuidor, desative o preço de venda.
+        </div>
       </div>
 
       <div class="form-group">
@@ -440,10 +450,10 @@
 
       <div class="form-group">
         <label style="display:flex;justify-content:space-between;align-items:center">
-          Mensagem de Apresentação
+          Mensagem de apresentação
           <button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" id="btn-portfolio-ia" onclick="sugerirDescricaoPortfolioIA()">✨ Sugerir texto com IA</button>
         </label>
-        <textarea id="portfolio-descricao" rows="3" placeholder="Escreva uma breve introdução ou deixe a IA sugerir..."></textarea>
+        <textarea id="portfolio-descricao" rows="3" placeholder="Apresente sua empresa, diferenciais e condições comerciais..."></textarea>
       </div>
 
       <div style="border-top:1px solid var(--border);margin:10px 0"></div>
@@ -1547,6 +1557,7 @@
     document.getElementById('portfolio-titulo').value = 'Nosso Portfólio';
     document.getElementById('portfolio-descricao').value = '';
     document.getElementById('portfolio-wpp').value = '';
+    document.getElementById('portfolio-exibir-preco-venda').checked = true;
     document.getElementById('portfolio-incluir-custo').checked = false;
     
     // Render categorias
@@ -1572,6 +1583,7 @@
     return {
       titulo: document.getElementById('portfolio-titulo').value.trim() || 'Nosso Portfólio',
       descricao: document.getElementById('portfolio-descricao').value.trim() || null,
+      exibir_preco_venda: document.getElementById('portfolio-exibir-preco-venda').checked,
       incluir_custo: document.getElementById('portfolio-incluir-custo').checked,
       tema: document.getElementById('portfolio-tema').value,
       categorias_ids
