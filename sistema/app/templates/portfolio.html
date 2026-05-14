@@ -479,6 +479,8 @@
 
             {% if portfolio.descricao %}
             <div class="intro">{{ portfolio.descricao }}</div>
+            {% elif empresa.descricao_publica_empresa %}
+            <div class="intro">{{ empresa.descricao_publica_empresa }}</div>
             {% endif %}
 
             <div class="cover-note">
@@ -495,6 +497,8 @@
                 <p class="presentation-text">
                     {% if portfolio.descricao %}
                     {{ portfolio.descricao }}
+                    {% elif empresa.descricao_publica_empresa %}
+                    {{ empresa.descricao_publica_empresa }}
                     {% else %}
                     A {{ empresa.nome }} apresenta este portfólio com soluções selecionadas para apoiar seu negócio com qualidade, agilidade e atendimento especializado.
                     {% endif %}
@@ -505,6 +509,9 @@
                     {% endif %}
                     {% if empresa.email %}
                     <p class="presentation-detail">E-mail: {{ empresa.email }}</p>
+                    {% endif %}
+                    {% if empresa.endereco_apresentacao %}
+                    <p class="presentation-detail">Endereço: {{ empresa.endereco_apresentacao }}</p>
                     {% endif %}
                 </div>
             </div>

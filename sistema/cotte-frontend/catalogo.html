@@ -87,7 +87,7 @@
           <label style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:6px">Categoria destino</label>
           <select id="import-categoria-select"
             style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;color:var(--text);font-size:13px;font-family:inherit;outline:none;cursor:pointer;width:100%">
-            <option value="">Sem categoria</option>
+            <option value="">— Selecione uma categoria (Obrigatório) —</option>
           </select>
         </div>
         <!-- Abas -->
@@ -493,10 +493,43 @@
       <div class="portfolio-section">
       <div class="form-group" style="margin-bottom:0">
         <label style="display:flex;justify-content:space-between;align-items:center">
-          Mensagem de apresentação
-          <button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" id="btn-portfolio-ia" onclick="sugerirDescricaoPortfolioIA()">Sugerir com IA</button>
+          Texto da capa (apresentação da empresa)
+          <button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" id="btn-portfolio-ia" onclick="sugerirDescricaoPortfolioIA()">Gerar capa com IA</button>
         </label>
+        <div class="portfolio-cover-grid" style="margin-bottom:8px">
+          <div>
+            <label style="font-size:12px;color:var(--muted)">Segmento da empresa</label>
+            <select id="portfolio-segmento">
+              <option value="">Selecionar segmento</option>
+              <option value="industria">Indústria</option>
+              <option value="distribuicao">Distribuição</option>
+              <option value="varejo">Varejo</option>
+              <option value="servicos">Serviços</option>
+              <option value="saude">Saúde</option>
+              <option value="beleza">Beleza</option>
+              <option value="educacao">Educação</option>
+              <option value="tecnologia">Tecnologia</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:12px;color:var(--muted)">Tom de voz da capa</label>
+            <select id="portfolio-tom-voz">
+              <option value="profissional">Profissional</option>
+              <option value="consultivo">Consultivo</option>
+              <option value="premium">Premium</option>
+              <option value="tecnico">Técnico</option>
+              <option value="acolhedor">Acolhedor</option>
+            </select>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
+          A IA gera um texto curto da capa com base no segmento, tom de voz e nos dados da empresa.
+        </div>
         <textarea id="portfolio-descricao" rows="3" placeholder="Apresente sua empresa, diferenciais e condições comerciais..."></textarea>
+        <div class="portfolio-company-preview" id="portfolio-company-preview">
+          <p class="portfolio-company-preview-title">Dados da empresa na capa</p>
+          <p class="portfolio-company-preview-line" id="portfolio-company-preview-content">Carregando dados da empresa...</p>
+        </div>
       </div>
       </div>
 
@@ -573,6 +606,7 @@
   let _mlIntegracaoConectada = false;
   let imagemFileNovo = null;  // arquivo selecionado ao criar novo item (enviado após salvar)
   let previewUrlNovo = null;   // object URL para preview no novo item
+  let portfolioEmpresaCache = null;
 
   function temPermCatalogo() {
     return Permissoes.pode('catalogo', 'escrita');
@@ -1155,9 +1189,11 @@
     const duplicado = catalogoCache.find(i => i.nome.toLowerCase() === nomeNorm && i.id !== editandoId);
     if (duplicado) { showNotif('⚠️', 'Nome já cadastrado', `"${duplicado.nome}" já existe no catálogo`, 'error'); return; }
 
+    const catVal = document.getElementById('item-categoria').value;
+    if (!catVal) { showNotif('⚠️', 'Categoria obrigatória', 'Selecione a categoria.', 'error'); return; }
+
     const custoVal = parseFloat(document.getElementById('item-custo').value);
     const precoMlVal = parseFloat(document.getElementById('item-preco-ml').value);
-    const catVal   = document.getElementById('item-categoria').value;
     const payload = {
       nome,
       descricao:    document.getElementById('item-descricao').value.trim() || null,
@@ -1295,7 +1331,7 @@
     document.getElementById('import-preview-actions').style.display = 'none';
     // Popular categorias no select
     const sel = document.getElementById('import-categoria-select');
-    sel.innerHTML = '<option value="">Sem categoria</option>' +
+    sel.innerHTML = '<option value="">— Selecione uma categoria (Obrigatório) —</option>' +
       categoriasCache.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
     setTimeout(() => document.getElementById('import-texto').focus(), 100);
   }
@@ -1375,6 +1411,7 @@
             <th style="padding:8px;text-align:left;width:30px"><input type="checkbox" id="select-all" onchange="toggleSelectAll()" style="cursor:pointer"></th>
             <th style="padding:8px;text-align:left">Nome</th>
             <th style="padding:8px;text-align:right;width:80px">Preço</th>
+            <th style="padding:8px;text-align:right;width:80px">Custo</th>
             <th style="padding:8px;text-align:center;width:60px">Unidade</th>
             <th style="padding:8px;text-align:center;width:80px">Status</th>
           </tr>
@@ -1394,6 +1431,7 @@
           </td>
           <td style="padding:8px;text-align:left">${item.nome}</td>
           <td style="padding:8px;text-align:right">${formatarMoeda(item.preco_padrao)}</td>
+          <td style="padding:8px;text-align:right">${item.preco_custo ? formatarMoeda(item.preco_custo) : '—'}</td>
           <td style="padding:8px;text-align:center">${item.unidade}</td>
           <td style="padding:8px;text-align:center;color:${statusColor};font-weight:600">${statusText}</td>
         </tr>`;
@@ -1422,12 +1460,17 @@
 
   async function confirmarImportacao() {
     const categoriaId = document.getElementById('import-categoria-select').value || null;
+    if (!categoriaId) {
+        showNotif('⚠️', 'Categoria obrigatória', 'Por favor, selecione uma categoria de destino antes de importar.', 'error');
+        return;
+    }
     const items_para_salvar = importacaoItemsPreview.filter(i => i.selecionado).map(i => ({
       nome: i.nome,
       preco_padrao: i.preco_padrao,
+      preco_custo: i.preco_custo || null,
       unidade: i.unidade,
       descricao: i.descricao || null,
-      categoria_id: categoriaId ? parseInt(categoriaId) : null,
+      categoria_id: parseInt(categoriaId),
     }));
 
     if (!items_para_salvar.length) {
@@ -1599,14 +1642,63 @@
   // ── INIT ─────────────────────────────────────────────────────────────
   
   // ── PORTFÓLIO ─────────────────────────────────────────────────────────
+  function montarEnderecoEmpresaPortfolio(empresa) {
+    if (!empresa) return '';
+    const partes = [
+      empresa.endereco_logradouro,
+      empresa.endereco_numero,
+      empresa.endereco_bairro,
+      empresa.endereco_cidade,
+      empresa.endereco_uf
+    ].map(v => String(v || '').trim()).filter(Boolean);
+    return partes.join(', ');
+  }
+
+  function renderPreviewEmpresaPortfolio(empresa) {
+    const el = document.getElementById('portfolio-company-preview-content');
+    if (!el) return;
+    if (!empresa) {
+      el.textContent = 'Não foi possível carregar os dados da empresa.';
+      return;
+    }
+    const linhas = [
+      `Nome: ${empresa.nome || 'Não informado'}`,
+      `Telefone: ${empresa.telefone || 'Não informado'}`,
+      `E-mail: ${empresa.email || 'Não informado'}`,
+      `Endereço: ${montarEnderecoEmpresaPortfolio(empresa) || 'Não informado'}`
+    ];
+    el.textContent = linhas.join(' | ');
+  }
+
+  async function carregarDadosEmpresaPortfolio(forceRefresh = false) {
+    if (!forceRefresh && portfolioEmpresaCache) {
+      renderPreviewEmpresaPortfolio(portfolioEmpresaCache);
+      return portfolioEmpresaCache;
+    }
+
+    try {
+      const empresa = await api.get('/empresa/');
+      portfolioEmpresaCache = empresa || null;
+      renderPreviewEmpresaPortfolio(portfolioEmpresaCache);
+      return portfolioEmpresaCache;
+    } catch (_) {
+      portfolioEmpresaCache = null;
+      renderPreviewEmpresaPortfolio(null);
+      return null;
+    }
+  }
+
   function abrirModalPortfolio() {
     document.getElementById('modal-portfolio').classList.add('open');
     document.getElementById('portfolio-titulo').value = 'Nosso Portfólio';
     document.getElementById('portfolio-descricao').value = '';
     document.getElementById('portfolio-wpp').value = '';
+    document.getElementById('portfolio-tema').value = 'classico';
     document.getElementById('portfolio-exibir-preco-venda').checked = true;
     document.getElementById('portfolio-incluir-custo').checked = false;
     document.getElementById('portfolio-primeira-folha-apresentacao').checked = false;
+    document.getElementById('portfolio-segmento').value = '';
+    document.getElementById('portfolio-tom-voz').value = 'profissional';
 
     if (window.PortfolioSelector && typeof PortfolioSelector.aoAbrirModal === 'function') {
       PortfolioSelector.aoAbrirModal(categoriasCache);
@@ -1623,6 +1715,16 @@
         </label>
       `).join('');
     }
+
+    carregarDadosEmpresaPortfolio()
+      .then((empresa) => {
+        if (!document.getElementById('portfolio-descricao').value.trim() && empresa && empresa.descricao_publica_empresa) {
+          document.getElementById('portfolio-descricao').value = empresa.descricao_publica_empresa.trim();
+        }
+      })
+      .catch(() => {
+        renderPreviewEmpresaPortfolio(null);
+      });
   }
 
   function fecharModalPortfolio() {
@@ -1631,13 +1733,16 @@
   
   function getPortfolioPayload() {
     const modo = typeof portfolioTabAtiva === 'function' ? portfolioTabAtiva() : 'categorias';
+    const temaSelecionado = (document.getElementById('portfolio-tema').value || 'classico').toLowerCase();
     const base = {
       titulo: document.getElementById('portfolio-titulo').value.trim() || 'Nosso Portfólio',
       descricao: document.getElementById('portfolio-descricao').value.trim() || null,
       exibir_preco_venda: document.getElementById('portfolio-exibir-preco-venda').checked,
       incluir_custo: document.getElementById('portfolio-incluir-custo').checked,
       incluir_apresentacao_primeira_folha: document.getElementById('portfolio-primeira-folha-apresentacao').checked,
-      tema: document.getElementById('portfolio-tema').value,
+      tema: temaSelecionado,
+      segmento_empresa: document.getElementById('portfolio-segmento').value || null,
+      tom_voz_capa: document.getElementById('portfolio-tom-voz').value || 'profissional',
     };
     if (modo === 'produtos' && window.PortfolioSelector) {
       base.servicos_ids = PortfolioSelector.getProdutosSelecionados();
@@ -1647,6 +1752,28 @@
       base.categorias_ids = cbs.length ? cbs.map(cb => parseInt(cb.value)) : null;
     }
     return base;
+  }
+
+  function getPortfolioPayloadIA() {
+    const modo = typeof portfolioTabAtiva === 'function' ? portfolioTabAtiva() : 'categorias';
+    const temaSelecionado = (document.getElementById('portfolio-tema').value || 'classico').toLowerCase();
+    const payload = {
+      titulo: document.getElementById('portfolio-titulo').value.trim() || 'Nosso Portfólio',
+      descricao: document.getElementById('portfolio-descricao').value.trim() || null,
+      exibir_preco_venda: document.getElementById('portfolio-exibir-preco-venda').checked,
+      incluir_custo: document.getElementById('portfolio-incluir-custo').checked,
+      tema: temaSelecionado,
+      segmento_empresa: document.getElementById('portfolio-segmento').value || null,
+      tom_voz_capa: document.getElementById('portfolio-tom-voz').value || 'profissional'
+    };
+    if (modo === 'produtos' && window.PortfolioSelector) {
+      payload.servicos_ids = PortfolioSelector.getProdutosSelecionados();
+      payload.categorias_ids = null;
+    } else {
+      const cbs = Array.from(document.querySelectorAll('.portfolio-cat-cb:checked'));
+      payload.categorias_ids = cbs.length ? cbs.map(cb => parseInt(cb.value)) : null;
+    }
+    return payload;
   }
 
   function validarPortfolioSelecao() {
@@ -1664,13 +1791,14 @@
   async function sugerirDescricaoPortfolioIA() {
     const btn = document.getElementById('btn-portfolio-ia');
     const oldText = btn.textContent;
-    btn.textContent = '⏳ Gerando...';
+    btn.textContent = 'Gerando...';
     btn.disabled = true;
     try {
-      const payload = getPortfolioPayload();
+      const payload = getPortfolioPayloadIA();
       const resp = await api.post('/catalogo/portfolio/sugerir-descricao-ia', payload);
       if (resp && resp.descricao) {
         document.getElementById('portfolio-descricao').value = resp.descricao;
+        showNotif('✅', 'Capa gerada com IA', 'Texto institucional aplicado na apresentação.');
       }
     } catch(e) {
       showNotif('❌', 'Erro na IA', e.message, 'error');
@@ -1717,17 +1845,7 @@
     setLoading(btn, true);
     try {
       const payload = getPortfolioPayload();
-      const resp = await fetch(API_URL + API_PREFIX + '/catalogo/portfolio/pdf', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + getToken()
-        },
-        body: JSON.stringify(payload)
-      });
-      if (!resp.ok) throw new Error('Erro ao gerar PDF');
-      
-      const blob = await resp.blob();
+      const blob = await api.post('/catalogo/portfolio/pdf', payload, { expectBinary: true });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;

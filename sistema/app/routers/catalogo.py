@@ -7,7 +7,7 @@ from collections import defaultdict
 from app.core.database import get_db
 from app.core.auth import exigir_permissao
 from app.core.tenant_context import set_tenant_context
-from app.models.models import Servico, Usuario, CategoriaCatalogo
+from app.models.models import Servico, Usuario, CategoriaCatalogo, Empresa
 from app.schemas.schemas import (
     ServicoCreate,
     ServicoUpdate,
@@ -498,18 +498,28 @@ def importar_lote(
         if not nome or nome.lower() in nomes_existentes:
             continue  # skip duplicatas
 
+        categoria_id = item_data.get("categoria_id")
+        if not categoria_id:
+            raise HTTPException(status_code=400, detail=f"O produto '{nome}' requer uma categoria. Seleção obrigatória.")
+
         try:
             preco = float(item_data.get("preco_padrao", 0.0))
         except (ValueError, TypeError):
             preco = 0.0
+
+        try:
+            preco_custo = float(item_data.get("preco_custo", 0.0)) if item_data.get("preco_custo") else None
+        except (ValueError, TypeError):
+            preco_custo = None
 
         servico = Servico(
             empresa_id=usuario.empresa_id,
             nome=nome,
             descricao=item_data.get("descricao"),
             preco_padrao=preco,
+            preco_custo=preco_custo,
             unidade=item_data.get("unidade", "un"),
-            categoria_id=item_data.get("categoria_id"),
+            categoria_id=categoria_id,
             ativo=True,
         )
         db.add(servico)
@@ -643,6 +653,56 @@ import json
 
 cache = CacheManager()
 
+_TEMAS_PORTFOLIO_VALIDOS = {"classico", "escuro", "corporativo", "elegante", "natureza", "sunset"}
+
+def _normalizar_tema_portfolio(tema: Optional[str]) -> str:
+    t = (tema or "").strip().lower()
+    if t in ("moderno", "dark"):
+        return "escuro"
+    if t in _TEMAS_PORTFOLIO_VALIDOS:
+        return t
+    return "classico"
+
+def _gerar_texto_capa_fallback(
+    empresa_dict: dict,
+    nomes_categorias: list[str],
+    tom_voz: str,
+    objetivo: str,
+) -> str:
+    inicio_por_tom = {
+        "consultivo": "Apresentamos um portfólio construído para apoiar decisões com clareza e resultado.",
+        "premium": "Apresentamos um portfólio com curadoria especializada, foco em excelência e alto padrão de entrega.",
+        "tecnico": "Apresentamos um portfólio estruturado com soluções objetivas, confiáveis e orientadas por desempenho.",
+        "acolhedor": "Apresentamos um portfólio pensado para oferecer atendimento próximo, confiança e qualidade em cada etapa.",
+        "profissional": "Apresentamos um portfólio com soluções selecionadas para gerar valor real ao seu negócio.",
+    }
+    inicio = inicio_por_tom.get((tom_voz or "profissional").strip().lower(), inicio_por_tom["profissional"])
+    nome_empresa = empresa_dict.get("nome") or "Nossa empresa"
+    categorias_txt = ", ".join([n for n in nomes_categorias if n]) or "diversas categorias"
+    objetivo_txt = f" {objetivo.strip()}" if (objetivo or "").strip() else ""
+    return (
+        f"{nome_empresa}: {inicio} "
+        f"Atuamos com {categorias_txt}, priorizando qualidade, agilidade e parceria comercial.{objetivo_txt}"
+    ).strip()
+
+def _empresa_para_portfolio_dict(empresa: Empresa) -> dict:
+    endereco_partes = [
+        (empresa.endereco_logradouro or "").strip(),
+        (empresa.endereco_numero or "").strip(),
+        (empresa.endereco_bairro or "").strip(),
+        (empresa.endereco_cidade or "").strip(),
+        (empresa.endereco_uf or "").strip(),
+    ]
+    endereco = ", ".join([p for p in endereco_partes if p])
+    return {
+        "nome": empresa.nome,
+        "logo_url": empresa.logo_url,
+        "telefone": empresa.telefone,
+        "email": empresa.email,
+        "descricao_publica_empresa": empresa.descricao_publica_empresa,
+        "endereco_apresentacao": endereco or None,
+    }
+
 def _build_portfolio_dict(db: Session, req: PortfolioGenerateRequest, empresa_id: int) -> dict:
     categorias: list = []
 
@@ -721,11 +781,14 @@ def _build_portfolio_dict(db: Session, req: PortfolioGenerateRequest, empresa_id
     return {
         "titulo": req.titulo,
         "descricao": req.descricao,
-        "tema": req.tema or "classico",
+        "tema": _normalizar_tema_portfolio(req.tema),
         "categorias": categorias,
         "exibir_preco_venda": req.exibir_preco_venda,
         "incluir_custo": req.incluir_custo,
         "incluir_apresentacao_primeira_folha": req.incluir_apresentacao_primeira_folha,
+        "segmento_empresa": req.segmento_empresa,
+        "tom_voz_capa": req.tom_voz_capa or "profissional",
+        "objetivo_capa": req.objetivo_capa,
     }
 
 @router.post("/portfolio/html")
@@ -734,8 +797,7 @@ def preview_portfolio_html(
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(exigir_permissao("catalogo", "leitura"))
 ):
-    empresa = usuario.empresa
-    empresa_dict = {"nome": empresa.nome, "logo_url": empresa.logo_url, "telefone": empresa.telefone, "email": empresa.email}
+    empresa_dict = _empresa_para_portfolio_dict(usuario.empresa)
     
     portfolio_dict = _build_portfolio_dict(db, req, usuario.empresa_id)
     html_str = gerar_html_portfolio(portfolio_dict, empresa_dict)
@@ -747,8 +809,7 @@ def download_portfolio_pdf(
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(exigir_permissao("catalogo", "leitura"))
 ):
-    empresa = usuario.empresa
-    empresa_dict = {"nome": empresa.nome, "logo_url": empresa.logo_url, "telefone": empresa.telefone, "email": empresa.email}
+    empresa_dict = _empresa_para_portfolio_dict(usuario.empresa)
     
     portfolio_dict = _build_portfolio_dict(db, req, usuario.empresa_id)
     pdf_bytes = gerar_pdf_portfolio(portfolio_dict, empresa_dict)
@@ -780,20 +841,49 @@ def sugerir_descricao_ia(
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(exigir_permissao("catalogo", "leitura"))
 ):
+    empresa_dict = _empresa_para_portfolio_dict(usuario.empresa)
     portfolio_dict = _build_portfolio_dict(db, req, usuario.empresa_id)
     
     nomes_categorias = [c["nome"] for c in portfolio_dict["categorias"]]
+    segmento = (req.segmento_empresa or "").strip() or "não informado"
+    tom_voz = (req.tom_voz_capa or "").strip() or "profissional"
+    objetivo = (req.objetivo_capa or "").strip()
+    dados_empresa = [
+        f"Empresa: {empresa_dict.get('nome') or 'não informado'}",
+        f"Telefone: {empresa_dict.get('telefone') or 'não informado'}",
+        f"E-mail: {empresa_dict.get('email') or 'não informado'}",
+        f"Endereço: {empresa_dict.get('endereco_apresentacao') or 'não informado'}",
+        f"Descrição institucional atual: {empresa_dict.get('descricao_publica_empresa') or 'não informado'}",
+    ]
+    objetivo_linha = f"Objetivo da capa: {objetivo}. " if objetivo else ""
     
     prompt = (
-        f"Crie um parágrafo introdutório persuasivo e atrativo (max 3 frases) para a capa de um portfólio de produtos/serviços. "
-        f"As categorias incluídas são: {', '.join(nomes_categorias)}. "
-        f"O tom deve ser profissional, convidativo e focado em valor. "
-        f"Apenas retorne o texto final."
+        "Crie um texto institucional curto para a capa de apresentação da empresa "
+        "em um portfólio comercial (máximo 3 frases, português do Brasil). "
+        f"Segmento da empresa: {segmento}. "
+        f"Tom de voz desejado: {tom_voz}. "
+        f"{objetivo_linha}"
+        f"Categorias incluídas no portfólio: {', '.join(nomes_categorias) or 'não informado'}. "
+        f"Dados da empresa para contexto: {' | '.join(dados_empresa)}. "
+        "Regras: texto objetivo, comercial, sem emoji, sem listas e sem marcadores. "
+        "Apenas retorne o texto final."
     )
     
-    resp = ia_service.chat_sync(messages=[{"role": "user", "content": prompt}])
-    
-    return {"descricao": resp.get("content", "").strip()}
+    try:
+        resp = ia_service.chat_sync(messages=[{"role": "user", "content": prompt}])
+        texto = (resp.get("content", "") if isinstance(resp, dict) else "").strip()
+    except Exception:
+        texto = ""
+
+    if not texto:
+        texto = _gerar_texto_capa_fallback(
+            empresa_dict=empresa_dict,
+            nomes_categorias=nomes_categorias,
+            tom_voz=tom_voz,
+            objetivo=objetivo,
+        )
+
+    return {"descricao": texto}
 
 @router.post("/portfolio/enviar")
 def enviar_portfolio(

@@ -456,11 +456,12 @@ CAIXA_FUTURO:"caixa futuro","previsão de caixa","fluxo de caixa","quanto vou re
 - Se o comando for de análise (finanças, conversão, negócio, caixa futuro), retorne acao correspondente e orcamento_id=null"""
 
 SYSTEM_PROMPT_TABELA_CATALOGO = """Analisa tabela de produtos/serviços e extrai dados estruturados. Retorne APENAS JSON válido com array:
-[{"nome":"Produto A","preco_padrao":100.5,"unidade":"un","descricao":null}]
+[{"nome":"Produto A","preco_padrao":100.5,"preco_custo":50.0,"unidade":"un","descricao":null}]
 Regras:
-- Identifique automaticamente qual coluna é nome, preço, unidade, descrição (em qualquer ordem)
+- Identifique automaticamente qual coluna é nome, preço, preço de custo, unidade, descrição (em qualquer ordem)
 - nome: string obrigatório
 - preco_padrao: número com ponto decimal; normalize "R$ 1.500,00", "1.500", "1500.00" → 1500.0
+- preco_custo: extrair o valor numérico (com ponto) de colunas relativas a custo (ex: "custo", "preço custo", "pcusto", "valor custo"); normalize da mesma forma que preco_padrao; caso não exista, retornar null
 - unidade: string com unidades comuns "un", "m²", "m", "hr", "kg", "lt", "srv"; se não identificado, use contexto (recomende "un" para produtos, "srv" para serviços)
 - descricao: string ou null
 - Ignore linhas vazias ou inválidas

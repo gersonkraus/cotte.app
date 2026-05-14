@@ -1117,7 +1117,7 @@ def visualizar_portfolio_publico(link_uuid: str, db: Session = Depends(get_db)):
         # Fallback for older cache format or just return 404
         raise HTTPException(status_code=404, detail="Este portfólio expirou ou não existe.")
     
-    from app.routers.catalogo import _build_portfolio_dict
+    from app.routers.catalogo import _build_portfolio_dict, _empresa_para_portfolio_dict
     
     req_data = data["req"]
     empresa_id = data.get("empresa_id")
@@ -1132,12 +1132,7 @@ def visualizar_portfolio_publico(link_uuid: str, db: Session = Depends(get_db)):
     if not empresa:
         raise HTTPException(status_code=404, detail="Empresa não encontrada.")
         
-    empresa_dict = {
-        "nome": empresa.nome, 
-        "logo_url": empresa.logo_url, 
-        "telefone": empresa.telefone, 
-        "email": empresa.email
-    }
+    empresa_dict = _empresa_para_portfolio_dict(empresa)
     
     portfolio_dict = _build_portfolio_dict(db, req, empresa_id)
     html_str = gerar_html_portfolio(portfolio_dict, empresa_dict)
