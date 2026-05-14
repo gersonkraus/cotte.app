@@ -11,17 +11,85 @@
         }
 
         :root {
-            --page-bg: {% if portfolio.tema == 'escuro' %}#0f172a{% else %}#f6f8fc{% endif %};
-            --paper-bg: {% if portfolio.tema == 'escuro' %}#111827{% else %}#ffffff{% endif %};
-            --card-bg: {% if portfolio.tema == 'escuro' %}#1f2937{% else %}#ffffff{% endif %};
-            --title: {% if portfolio.tema == 'escuro' %}#f8fafc{% else %}#0f172a{% endif %};
-            --text: {% if portfolio.tema == 'escuro' %}#d1d5db{% else %}#334155{% endif %};
-            --muted: {% if portfolio.tema == 'escuro' %}#94a3b8{% else %}#64748b{% endif %};
-            --border: {% if portfolio.tema == 'escuro' %}#334155{% else %}#e2e8f0{% endif %};
-            --accent: {% if portfolio.tema == 'escuro' %}#60a5fa{% else %}#1d4ed8{% endif %};
-            --accent-soft: {% if portfolio.tema == 'escuro' %}rgba(96, 165, 250, 0.18){% else %}rgba(29, 78, 216, 0.08){% endif %};
-            --cost-bg: {% if portfolio.tema == 'escuro' %}rgba(34, 197, 94, 0.12){% else %}rgba(22, 163, 74, 0.1){% endif %};
-            --shadow: {% if portfolio.tema == 'escuro' %}0 16px 30px rgba(2, 6, 23, 0.35){% else %}0 14px 30px rgba(15, 23, 42, 0.08){% endif %};
+            {% if portfolio.tema == 'escuro' %}
+            --page-bg: #0f172a;
+            --paper-bg: #111827;
+            --card-bg: #1f2937;
+            --title: #f8fafc;
+            --text: #d1d5db;
+            --muted: #94a3b8;
+            --border: #334155;
+            --accent: #60a5fa;
+            --accent-soft: rgba(96, 165, 250, 0.18);
+            --cost-bg: rgba(34, 197, 94, 0.12);
+            --shadow: 0 16px 30px rgba(2, 6, 23, 0.35);
+            --media-bg: #0b1220;
+            {% elif portfolio.tema == 'elegante' %}
+            --page-bg: #f6f5f2;
+            --paper-bg: #fffdf8;
+            --card-bg: #ffffff;
+            --title: #2f2a24;
+            --text: #4b4339;
+            --muted: #766b5d;
+            --border: #e8e1d8;
+            --accent: #a16207;
+            --accent-soft: rgba(161, 98, 7, 0.10);
+            --cost-bg: rgba(21, 128, 61, 0.10);
+            --shadow: 0 14px 30px rgba(68, 52, 33, 0.10);
+            --media-bg: #f6f1e8;
+            {% elif portfolio.tema == 'natureza' %}
+            --page-bg: #f3f8f6;
+            --paper-bg: #ffffff;
+            --card-bg: #ffffff;
+            --title: #134e4a;
+            --text: #1f3a36;
+            --muted: #4b6b65;
+            --border: #cfe4de;
+            --accent: #0f766e;
+            --accent-soft: rgba(15, 118, 110, 0.12);
+            --cost-bg: rgba(21, 128, 61, 0.10);
+            --shadow: 0 14px 28px rgba(17, 94, 89, 0.10);
+            --media-bg: #eaf4f1;
+            {% elif portfolio.tema == 'sunset' %}
+            --page-bg: #fff7f2;
+            --paper-bg: #ffffff;
+            --card-bg: #ffffff;
+            --title: #7c2d12;
+            --text: #5f2d1e;
+            --muted: #8f5f4d;
+            --border: #f1d3c4;
+            --accent: #ea580c;
+            --accent-soft: rgba(234, 88, 12, 0.11);
+            --cost-bg: rgba(21, 128, 61, 0.10);
+            --shadow: 0 14px 28px rgba(124, 45, 18, 0.10);
+            --media-bg: #fff0e8;
+            {% elif portfolio.tema == 'corporativo' %}
+            --page-bg: #f3f6fa;
+            --paper-bg: #ffffff;
+            --card-bg: #ffffff;
+            --title: #0f172a;
+            --text: #334155;
+            --muted: #64748b;
+            --border: #dbe5f0;
+            --accent: #0f4c81;
+            --accent-soft: rgba(15, 76, 129, 0.10);
+            --cost-bg: rgba(21, 128, 61, 0.10);
+            --shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+            --media-bg: #eff4fb;
+            {% else %}
+            --page-bg: #f6f8fc;
+            --paper-bg: #ffffff;
+            --card-bg: #ffffff;
+            --title: #0f172a;
+            --text: #334155;
+            --muted: #64748b;
+            --border: #e2e8f0;
+            --accent: #1d4ed8;
+            --accent-soft: rgba(29, 78, 216, 0.08);
+            --cost-bg: rgba(22, 163, 74, 0.1);
+            --shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+            --media-bg: #f8fafc;
+            {% endif %}
         }
 
         * {
@@ -53,6 +121,13 @@
             background:
                 radial-gradient(circle at 92% 8%, var(--accent-soft), transparent 46%),
                 linear-gradient(160deg, var(--paper-bg), transparent 62%);
+        }
+
+        .cover-first-page {
+            min-height: 250mm;
+            display: flex;
+            flex-direction: column;
+            page-break-after: always;
         }
 
         .cover-head {
@@ -106,6 +181,50 @@
             color: var(--muted);
         }
 
+        .presentation-card {
+            margin-top: 24px;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: var(--card-bg);
+            padding: 18px 20px;
+        }
+
+        .presentation-title {
+            margin: 0 0 10px;
+            font-size: 18px;
+            color: var(--title);
+        }
+
+        .presentation-text {
+            margin: 0;
+            font-size: 14px;
+            color: var(--text);
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+
+        .presentation-details {
+            margin-top: 16px;
+            display: grid;
+            gap: 5px;
+        }
+
+        .presentation-detail {
+            margin: 0;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .cover-spacer {
+            flex: 1;
+            min-height: 20px;
+        }
+
+        .content.page-break-before {
+            page-break-before: always;
+            break-before: page;
+        }
+
         .content {
             padding: 28px 30px 10px;
         }
@@ -156,7 +275,7 @@
         }
 
         .item-media {
-            background: {% if portfolio.tema == 'escuro' %}#0b1220{% else %}#f8fafc{% endif %};
+            background: var(--media-bg);
             border-right: 1px solid var(--border);
             display: flex;
             align-items: center;
@@ -348,7 +467,7 @@
 </head>
 <body>
     <div class="paper">
-        <header class="cover">
+        <header class="cover {% if portfolio.incluir_apresentacao_primeira_folha %}cover-first-page{% endif %}">
             <div class="cover-head">
                 {% if empresa.logo_url %}
                 <img src="{{ empresa.logo_url }}" alt="{{ empresa.nome }}" class="logo">
@@ -369,9 +488,31 @@
                 Catálogo sem exibição de valores comerciais.
                 {% endif %}
             </div>
+
+            {% if portfolio.incluir_apresentacao_primeira_folha %}
+            <div class="presentation-card">
+                <h2 class="presentation-title">Apresentação da empresa</h2>
+                <p class="presentation-text">
+                    {% if portfolio.descricao %}
+                    {{ portfolio.descricao }}
+                    {% else %}
+                    A {{ empresa.nome }} apresenta este portfólio com soluções selecionadas para apoiar seu negócio com qualidade, agilidade e atendimento especializado.
+                    {% endif %}
+                </p>
+                <div class="presentation-details">
+                    {% if empresa.telefone %}
+                    <p class="presentation-detail">Telefone: {{ empresa.telefone }}</p>
+                    {% endif %}
+                    {% if empresa.email %}
+                    <p class="presentation-detail">E-mail: {{ empresa.email }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="cover-spacer"></div>
+            {% endif %}
         </header>
 
-        <main class="content">
+        <main class="content {% if portfolio.incluir_apresentacao_primeira_folha %}page-break-before{% endif %}">
             {% for categoria in portfolio.categorias %}
             <section class="section">
                 <div class="section-head">

@@ -6,6 +6,7 @@
   var selecionados = new Set();
   var cache = [];
   var carregouGrade = false;
+  var carregando = false;
 
   function gridEl() {
     return document.getElementById('portfolio-produtos-grid');
@@ -22,9 +23,48 @@
     }
   }
 
+  function renderizarLoadingGrade() {
+    var container = gridEl();
+    if (!container) return;
+    var cards = '';
+    for (var i = 0; i < 8; i++) {
+      cards += '<div class="portfolio-loading-card" aria-hidden="true"></div>';
+    }
+    container.innerHTML = '<div class="portfolio-loading-grid" aria-hidden="true">' + cards + '</div>';
+  }
+
+  function toggleProdutoById(id) {
+    if (!id) return;
+    if (selecionados.has(id)) selecionados.delete(id);
+    else selecionados.add(id);
+    renderizarGrade();
+  }
+
+  function syncA11yPanels(tab) {
+    var wrapCat = document.getElementById('portfolio-wrap-categorias');
+    var wrapProd = document.getElementById('portfolio-wrap-produtos');
+    if (wrapCat) {
+      var catOn = tab === 'categorias';
+      wrapCat.classList.toggle('is-hidden', !catOn);
+      wrapCat.setAttribute('aria-hidden', catOn ? 'false' : 'true');
+      if ('hidden' in wrapCat) wrapCat.hidden = !catOn;
+    }
+    if (wrapProd) {
+      var prodOn = tab === 'produtos';
+      wrapProd.classList.toggle('is-visible', prodOn);
+      wrapProd.setAttribute('aria-hidden', prodOn ? 'false' : 'true');
+      if ('hidden' in wrapProd) wrapProd.hidden = !prodOn;
+    }
+  }
+
   function renderizarGrade() {
     var container = gridEl();
     if (!container) return;
+
+    if (carregando) {
+      renderizarLoadingGrade();
+      return;
+    }
 
     if (!cache.length) {
       container.innerHTML =
@@ -56,7 +96,9 @@
           p.id +
           '" role="checkbox" aria-checked="' +
           (sel ? 'true' : 'false') +
-          '">' +
+          '" tabindex="0" aria-label="' +
+          nome.replace(/"/g, '&quot;') +
+          ' - selecionar produto">' +
           '<div class="portfolio-produto-imagem">' +
           imgBlock +
           '<div class="portfolio-produto-check">✓</div></div>' +
@@ -74,10 +116,14 @@
     container.querySelectorAll('.portfolio-produto-card').forEach(function (card) {
       card.addEventListener('click', function () {
         var id = parseInt(card.getAttribute('data-pid'), 10);
-        if (!id) return;
-        if (selecionados.has(id)) selecionados.delete(id);
-        else selecionados.add(id);
-        renderizarGrade();
+        toggleProdutoById(id);
+      });
+      card.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          var id = parseInt(card.getAttribute('data-pid'), 10);
+          toggleProdutoById(id);
+        }
       });
     });
 
@@ -102,9 +148,15 @@
     if (categoriaId) params.set('categoria_id', String(categoriaId));
     var q = params.toString();
     var path = '/catalogo/portfolio/produtos' + (q ? '?' + q : '');
-    var data = await api.get(path);
-    cache = Array.isArray(data) ? data : [];
+    carregando = true;
     renderizarGrade();
+    try {
+      var data = await api.get(path);
+      cache = Array.isArray(data) ? data : [];
+    } finally {
+      carregando = false;
+      renderizarGrade();
+    }
   }
 
   function selecionarTodosVisiveis() {
@@ -145,21 +197,14 @@
 
   window.setPortfolioTab = function (tab, silent) {
     var botoes = document.querySelectorAll('.portfolio-tab-btn');
-    var wrapCat = document.getElementById('portfolio-wrap-categorias');
-    var wrapProd = document.getElementById('portfolio-wrap-produtos');
     botoes.forEach(function (btn) {
       var t = btn.getAttribute('data-tab');
       var on = t === tab;
       btn.classList.toggle('is-active', on);
       btn.setAttribute('aria-selected', on ? 'true' : 'false');
+      btn.setAttribute('tabindex', on ? '0' : '-1');
     });
-    if (wrapCat) {
-      wrapCat.classList.toggle('is-hidden', tab === 'produtos');
-    }
-    if (wrapProd) {
-      wrapProd.classList.toggle('is-visible', tab === 'produtos');
-      wrapProd.setAttribute('aria-hidden', tab === 'produtos' ? 'false' : 'true');
-    }
+    syncA11yPanels(tab);
     if (tab === 'produtos' && !carregouGrade) {
       carregouGrade = true;
       carregarProdutos(null).catch(function (e) {
@@ -189,5 +234,25 @@
         }
       });
     }
+  });
+
+  document.addEventListener('keydown', function (ev) {
+    var tab = ev.target;
+    if (!tab || !tab.classList || !tab.classList.contains('portfolio-tab-btn')) return;
+    var tabs = Array.prototype.slice.call(document.querySelectorAll('.portfolio-tab-btn'));
+    if (!tabs.length) return;
+    var idx = tabs.indexOf(tab);
+    if (idx < 0) return;
+    var next = idx;
+    if (ev.key === 'ArrowRight') next = (idx + 1) % tabs.length;
+    else if (ev.key === 'ArrowLeft') next = (idx - 1 + tabs.length) % tabs.length;
+    else if (ev.key === 'Home') next = 0;
+    else if (ev.key === 'End') next = tabs.length - 1;
+    else return;
+    ev.preventDefault();
+    var nextTab = tabs[next];
+    var name = nextTab.getAttribute('data-tab');
+    window.setPortfolioTab(name);
+    nextTab.focus();
   });
 })();

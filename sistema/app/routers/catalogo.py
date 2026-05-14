@@ -725,6 +725,7 @@ def _build_portfolio_dict(db: Session, req: PortfolioGenerateRequest, empresa_id
         "categorias": categorias,
         "exibir_preco_venda": req.exibir_preco_venda,
         "incluir_custo": req.incluir_custo,
+        "incluir_apresentacao_primeira_folha": req.incluir_apresentacao_primeira_folha,
     }
 
 @router.post("/portfolio/html")

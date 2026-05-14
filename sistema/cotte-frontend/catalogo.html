@@ -25,7 +25,7 @@
     </div>
     <div class="topbar-actions">
       <button class="btn btn-ghost" id="btn-templates" onclick="abrirModalTemplates()" style="display:none">📐 Modelos</button>
-      <button class="btn btn-ghost" id="btn-portfolio" onclick="abrirModalPortfolio()">🖨️ Gerar Portfólio</button>
+      <button class="btn btn-ghost" id="btn-portfolio" onclick="abrirModalPortfolio()">Gerar Portfólio</button>
         <button class="btn btn-ghost" id="btn-importar" onclick="abrirModalImportar()" style="display:none">📋 Importar</button>
       <button class="btn btn-primary" onclick="abrirModalNovo()">＋ Novo Item</button>
     </div>
@@ -408,12 +408,14 @@
 
 <!-- MODAL PORTFÓLIO -->
 <div class="modal-overlay" id="modal-portfolio">
-  <div class="modal" style="max-width:720px">
+  <div class="modal portfolio-modal">
     <div class="modal-header">
-      <div class="modal-title">🖨️ Gerar Portfólio</div>
-      <button class="modal-close" onclick="fecharModalPortfolio()">✕</button>
+      <div class="modal-title">Gerar Portfólio</div>
+      <button class="modal-close" onclick="fecharModalPortfolio()" aria-label="Fechar modal de portfólio">✕</button>
     </div>
-    <div class="modal-body" style="display:flex;flex-direction:column;gap:16px">
+    <div class="modal-body">
+      <div class="portfolio-section">
+        <h3 class="portfolio-section-title">1. Configuração</h3>
       <div class="form-group">
         <label>Título do Portfólio</label>
         <input type="text" id="portfolio-titulo" value="Nosso Portfólio">
@@ -424,6 +426,10 @@
         <select id="portfolio-tema">
           <option value="classico">Clássico (Claro)</option>
           <option value="escuro">Moderno (Escuro)</option>
+          <option value="corporativo">Corporativo (Azul sóbrio)</option>
+          <option value="elegante">Elegante (Bege premium)</option>
+          <option value="natureza">Natureza (Verde refinado)</option>
+          <option value="sunset">Sunset (Quente criativo)</option>
         </select>
       </div>
 
@@ -442,22 +448,34 @@
         </div>
       </div>
 
-      <div class="form-group" style="margin-bottom:4px">
-        <label style="margin-bottom:8px;display:block">Itens do portfólio</label>
-        <div class="portfolio-tabs" role="tablist">
-          <button type="button" class="btn btn-ghost portfolio-tab-btn is-active" data-tab="categorias" aria-selected="true" onclick="setPortfolioTab('categorias')">Por categoria</button>
-          <button type="button" class="btn btn-ghost portfolio-tab-btn" data-tab="produtos" aria-selected="false" onclick="setPortfolioTab('produtos')">Produtos (grade)</button>
+      <div class="form-group" style="display:flex;flex-direction:column;gap:8px">
+        <label style="margin:0">Estrutura do documento</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+          <input type="checkbox" id="portfolio-primeira-folha-apresentacao" style="width:auto">
+          Incluir apresentação da empresa como primeira folha
+        </label>
+        <div style="font-size:11px;color:var(--muted)">
+          Ative para gerar uma capa de apresentação antes da listagem de produtos.
         </div>
       </div>
+      </div>
 
-      <div class="form-group portfolio-categorias-wrap" id="portfolio-wrap-categorias">
+      <div class="portfolio-section">
+        <h3 class="portfolio-section-title">2. Itens do portfólio</h3>
+        <p class="portfolio-section-subtitle">Escolha por categoria ou selecione produtos individuais.</p>
+        <div class="portfolio-tabs" role="tablist" aria-label="Modo de seleção dos itens do portfólio">
+          <button type="button" id="portfolio-tab-categorias" class="btn btn-ghost portfolio-tab-btn is-active" data-tab="categorias" aria-selected="true" aria-controls="portfolio-wrap-categorias" role="tab" onclick="setPortfolioTab('categorias')">Por categoria</button>
+          <button type="button" id="portfolio-tab-produtos" class="btn btn-ghost portfolio-tab-btn" data-tab="produtos" aria-selected="false" aria-controls="portfolio-wrap-produtos" role="tab" onclick="setPortfolioTab('produtos')">Produtos (grade)</button>
+        </div>
+
+      <div class="form-group portfolio-categorias-wrap" id="portfolio-wrap-categorias" role="tabpanel" aria-labelledby="portfolio-tab-categorias">
         <label style="font-size:12px;color:var(--muted)">Categorias (vazio = todas)</label>
         <div id="portfolio-categorias-list" style="max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px;background:var(--surface2);margin-top:6px">
           <!-- Rendered by JS -->
         </div>
       </div>
 
-      <div class="portfolio-produtos-wrap" id="portfolio-wrap-produtos" aria-hidden="true">
+      <div class="portfolio-produtos-wrap" id="portfolio-wrap-produtos" role="tabpanel" aria-labelledby="portfolio-tab-produtos" aria-hidden="true" hidden>
         <div class="portfolio-filtros">
           <select id="portfolio-filtro-categoria" aria-label="Filtrar por categoria">
             <option value="">Todas as categorias</option>
@@ -470,20 +488,23 @@
           <span id="portfolio-contador">0 produto(s) selecionado(s)</span>
         </div>
       </div>
+      </div>
 
-      <div class="form-group">
+      <div class="portfolio-section">
+      <div class="form-group" style="margin-bottom:0">
         <label style="display:flex;justify-content:space-between;align-items:center">
           Mensagem de apresentação
-          <button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" id="btn-portfolio-ia" onclick="sugerirDescricaoPortfolioIA()">✨ Sugerir texto com IA</button>
+          <button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" id="btn-portfolio-ia" onclick="sugerirDescricaoPortfolioIA()">Sugerir com IA</button>
         </label>
         <textarea id="portfolio-descricao" rows="3" placeholder="Apresente sua empresa, diferenciais e condições comerciais..."></textarea>
       </div>
+      </div>
 
-      <div style="border-top:1px solid var(--border);margin:10px 0"></div>
+      <div class="portfolio-divider"></div>
 
       <!-- Área de Compartilhamento Direto (Mini-site) -->
-      <div style="background:var(--surface2);padding:14px;border-radius:8px;border:1px solid var(--border)">
-        <div style="font-weight:600;font-size:13px;margin-bottom:10px">🚀 Compartilhar via Link (Mini-site)</div>
+      <div class="portfolio-share-card">
+        <div class="portfolio-share-title">Compartilhar via link (mini-site)</div>
         <div class="form-group" style="margin-bottom:10px">
           <label>WhatsApp (DDD+Número)</label>
           <input type="text" id="portfolio-wpp" placeholder="Ex: 11999999999">
@@ -492,11 +513,13 @@
       </div>
 
     </div>
-    <div class="modal-footer" style="justify-content:space-between">
+    <div class="modal-footer portfolio-modal-footer">
       <button class="btn btn-ghost" onclick="fecharModalPortfolio()">Cancelar</button>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-ghost" id="btn-portfolio-preview" onclick="visualizarPortfolioHTML()">👁️ Ver HTML</button>
-        <button class="btn btn-ghost" id="btn-portfolio-pdf" onclick="baixarPortfolioPDF()">📥 Baixar PDF</button>
+      <div class="portfolio-actions-split">
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost" id="btn-portfolio-preview" onclick="visualizarPortfolioHTML()">Visualizar HTML</button>
+        </div>
+        <button class="btn btn-primary" id="btn-portfolio-pdf" onclick="baixarPortfolioPDF()">Baixar PDF</button>
       </div>
     </div>
   </div>
@@ -1583,6 +1606,7 @@
     document.getElementById('portfolio-wpp').value = '';
     document.getElementById('portfolio-exibir-preco-venda').checked = true;
     document.getElementById('portfolio-incluir-custo').checked = false;
+    document.getElementById('portfolio-primeira-folha-apresentacao').checked = false;
 
     if (window.PortfolioSelector && typeof PortfolioSelector.aoAbrirModal === 'function') {
       PortfolioSelector.aoAbrirModal(categoriasCache);
@@ -1612,6 +1636,7 @@
       descricao: document.getElementById('portfolio-descricao').value.trim() || null,
       exibir_preco_venda: document.getElementById('portfolio-exibir-preco-venda').checked,
       incluir_custo: document.getElementById('portfolio-incluir-custo').checked,
+      incluir_apresentacao_primeira_folha: document.getElementById('portfolio-primeira-folha-apresentacao').checked,
       tema: document.getElementById('portfolio-tema').value,
     };
     if (modo === 'produtos' && window.PortfolioSelector) {
@@ -1637,7 +1662,6 @@
   }
 
   async function sugerirDescricaoPortfolioIA() {
-    if (!validarPortfolioSelecao()) return;
     const btn = document.getElementById('btn-portfolio-ia');
     const oldText = btn.textContent;
     btn.textContent = '⏳ Gerando...';
@@ -1683,7 +1707,7 @@
       if (novaAba) novaAba.close();
       showNotif('❌', 'Erro', e.message, 'error');
     } finally {
-      setLoading(btn, false, '👁️ Ver HTML');
+      setLoading(btn, false, 'Visualizar HTML');
     }
   }
 
@@ -1707,7 +1731,9 @@
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = payload.titulo.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.pdf';
+      const nomeBase = (payload.titulo || 'portfolio').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      const temaBase = (payload.tema || 'classico').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      a.download = `${nomeBase}_${temaBase}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -1715,7 +1741,7 @@
     } catch(e) {
       showNotif('❌', 'Erro', e.message, 'error');
     } finally {
-      setLoading(btn, false, '📥 Baixar PDF');
+      setLoading(btn, false, 'Baixar PDF');
     }
   }
 
