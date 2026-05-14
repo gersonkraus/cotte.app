@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File
 from sqlalchemy.orm import Session, joinedload
-from typing import List
+from typing import List, Optional
 import os, shutil, uuid, csv, io, time
 from collections import defaultdict
 
@@ -144,6 +144,33 @@ def listar_catalogo(
         with open("/tmp/opencode/catalogo_500.txt", "w") as f:
             f.write(traceback.format_exc())
         raise
+
+
+@router.get("/portfolio/produtos", response_model=List[ServicoOut])
+def listar_produtos_para_portfolio(
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exigir_permissao("catalogo", "leitura")),
+    categoria_id: Optional[int] = None,
+    apenas_com_imagem: bool = False,
+    limit: int = Query(500, ge=1, le=500),
+):
+    """Lista produtos ativos para montagem visual do portfólio (grade de seleção)."""
+    query = (
+        db.query(Servico)
+        .options(joinedload(Servico.categoria))
+        .filter(
+            Servico.empresa_id == usuario.empresa_id,
+            Servico.ativo == True,
+        )
+    )
+    if categoria_id is not None:
+        query = query.filter(Servico.categoria_id == categoria_id)
+    if apenas_com_imagem:
+        query = query.filter(
+            Servico.imagem_url.isnot(None),
+            Servico.imagem_url != "",
+        )
+    return query.order_by(Servico.categoria_id, Servico.nome).limit(limit).all()
 
 
 @router.get("/{servico_id}", response_model=ServicoOut)
@@ -616,49 +643,88 @@ import json
 
 cache = CacheManager()
 
-def _build_portfolio_dict(db: Session, req: PortfolioGenerateRequest) -> dict:
-    query = db.query(CategoriaCatalogo)
-    if req.categorias_ids:
-        query = query.filter(CategoriaCatalogo.id.in_(req.categorias_ids))
-    categorias_db = query.options(joinedload(CategoriaCatalogo.servicos)).all()
-    
-    categorias = []
-    for c in categorias_db:
-        itens = []
-        for s in c.servicos:
-            # Pula inativos
-            if getattr(s, 'status', 'ativo') != 'ativo' or not getattr(s, 'ativo', True):
-                continue
-                
+def _build_portfolio_dict(db: Session, req: PortfolioGenerateRequest, empresa_id: int) -> dict:
+    categorias: list = []
+
+    if req.servicos_ids is not None:
+        ids_unicos = list(dict.fromkeys(req.servicos_ids))
+        servicos_db = (
+            db.query(Servico)
+            .options(joinedload(Servico.categoria))
+            .filter(
+                Servico.id.in_(ids_unicos),
+                Servico.empresa_id == empresa_id,
+                Servico.ativo == True,
+            )
+            .all()
+        )
+        id_map = {s.id: s for s in servicos_db}
+        servicos_ordenados = [id_map[i] for i in ids_unicos if i in id_map]
+
+        por_categoria: dict = {}
+        for s in servicos_ordenados:
+            cat_key = s.categoria_id if s.categoria_id is not None else -1
+            if cat_key not in por_categoria:
+                cat_nome = s.categoria.nome if s.categoria else "Sem categoria"
+                por_categoria[cat_key] = {
+                    "id": s.categoria_id,
+                    "nome": cat_nome,
+                    "itens": [],
+                }
             item_dict = {
                 "id": s.id,
                 "nome": s.nome,
                 "descricao": s.descricao or "",
                 "preco": float(s.preco_padrao),
-                "unidade": getattr(s, 'unidade', 'un') or 'un',
+                "unidade": (s.unidade or "un"),
                 "imagem_url": s.imagem_url,
                 "mostrar_preco_venda": req.exibir_preco_venda,
                 "mostrar_custo": req.incluir_custo,
             }
             if req.incluir_custo:
-                item_dict["custo"] = float(getattr(s, 'custo', 0) or 0)
-                
-            itens.append(item_dict)
-            
-        if itens:
-            categorias.append({
-                "id": c.id,
-                "nome": c.nome,
-                "itens": itens
-            })
-            
+                item_dict["custo"] = float(s.preco_custo or 0)
+            por_categoria[cat_key]["itens"].append(item_dict)
+
+        categorias = list(por_categoria.values())
+    else:
+        query = db.query(CategoriaCatalogo).filter(
+            CategoriaCatalogo.empresa_id == empresa_id
+        )
+        if req.categorias_ids:
+            query = query.filter(CategoriaCatalogo.id.in_(req.categorias_ids))
+        categorias_db = query.options(joinedload(CategoriaCatalogo.servicos)).all()
+
+        for c in categorias_db:
+            itens = []
+            for s in c.servicos:
+                if not s.ativo or s.empresa_id != empresa_id:
+                    continue
+
+                item_dict = {
+                    "id": s.id,
+                    "nome": s.nome,
+                    "descricao": s.descricao or "",
+                    "preco": float(s.preco_padrao),
+                    "unidade": (s.unidade or "un"),
+                    "imagem_url": s.imagem_url,
+                    "mostrar_preco_venda": req.exibir_preco_venda,
+                    "mostrar_custo": req.incluir_custo,
+                }
+                if req.incluir_custo:
+                    item_dict["custo"] = float(s.preco_custo or 0)
+
+                itens.append(item_dict)
+
+            if itens:
+                categorias.append({"id": c.id, "nome": c.nome, "itens": itens})
+
     return {
         "titulo": req.titulo,
         "descricao": req.descricao,
         "tema": req.tema or "classico",
         "categorias": categorias,
         "exibir_preco_venda": req.exibir_preco_venda,
-        "incluir_custo": req.incluir_custo
+        "incluir_custo": req.incluir_custo,
     }
 
 @router.post("/portfolio/html")
@@ -670,7 +736,7 @@ def preview_portfolio_html(
     empresa = usuario.empresa
     empresa_dict = {"nome": empresa.nome, "logo_url": empresa.logo_url, "telefone": empresa.telefone, "email": empresa.email}
     
-    portfolio_dict = _build_portfolio_dict(db, req)
+    portfolio_dict = _build_portfolio_dict(db, req, usuario.empresa_id)
     html_str = gerar_html_portfolio(portfolio_dict, empresa_dict)
     return HTMLResponse(content=html_str)
 
@@ -683,7 +749,7 @@ def download_portfolio_pdf(
     empresa = usuario.empresa
     empresa_dict = {"nome": empresa.nome, "logo_url": empresa.logo_url, "telefone": empresa.telefone, "email": empresa.email}
     
-    portfolio_dict = _build_portfolio_dict(db, req)
+    portfolio_dict = _build_portfolio_dict(db, req, usuario.empresa_id)
     pdf_bytes = gerar_pdf_portfolio(portfolio_dict, empresa_dict)
     
     return Response(
@@ -713,7 +779,7 @@ def sugerir_descricao_ia(
     db: Session = Depends(get_db),
     usuario: Usuario = Depends(exigir_permissao("catalogo", "leitura"))
 ):
-    portfolio_dict = _build_portfolio_dict(db, req)
+    portfolio_dict = _build_portfolio_dict(db, req, usuario.empresa_id)
     
     nomes_categorias = [c["nome"] for c in portfolio_dict["categorias"]]
     

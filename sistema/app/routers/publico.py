@@ -1139,7 +1139,7 @@ def visualizar_portfolio_publico(link_uuid: str, db: Session = Depends(get_db)):
         "email": empresa.email
     }
     
-    portfolio_dict = _build_portfolio_dict(db, req)
+    portfolio_dict = _build_portfolio_dict(db, req, empresa_id)
     html_str = gerar_html_portfolio(portfolio_dict, empresa_dict)
     
     return HTMLResponse(content=html_str)

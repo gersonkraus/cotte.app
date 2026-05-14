@@ -2303,11 +2303,12 @@ class NotaFiscalPrepararOut(BaseModel):
 
 class PortfolioGenerateRequest(BaseModel):
     categorias_ids: Optional[List[int]] = None
+    servicos_ids: Optional[List[int]] = None
     exibir_preco_venda: bool = True
     incluir_custo: bool = False
     titulo: str = "Nosso Portfólio"
     descricao: Optional[str] = None
-    tema: Optional[str] = "classico" # Para ideias inovadoras: classico, moderno, escuro
+    tema: Optional[str] = "classico"  # classico, escuro
 
 class PortfolioSendRequest(PortfolioGenerateRequest):
     telefone_whatsapp: Optional[str] = None

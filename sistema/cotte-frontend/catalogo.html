@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="css/style.css?v=3">
+  <link rel="stylesheet" href="css/catalogo-portfolio.css?v=1">
 </head>
 <body>
 
@@ -407,7 +408,7 @@
 
 <!-- MODAL PORTFÓLIO -->
 <div class="modal-overlay" id="modal-portfolio">
-  <div class="modal" style="max-width:550px">
+  <div class="modal" style="max-width:720px">
     <div class="modal-header">
       <div class="modal-title">🖨️ Gerar Portfólio</div>
       <button class="modal-close" onclick="fecharModalPortfolio()">✕</button>
@@ -441,10 +442,32 @@
         </div>
       </div>
 
-      <div class="form-group">
-        <label>Categorias a incluir (vazio = todas)</label>
-        <div id="portfolio-categorias-list" style="max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px;background:var(--surface2)">
+      <div class="form-group" style="margin-bottom:4px">
+        <label style="margin-bottom:8px;display:block">Itens do portfólio</label>
+        <div class="portfolio-tabs" role="tablist">
+          <button type="button" class="btn btn-ghost portfolio-tab-btn is-active" data-tab="categorias" aria-selected="true" onclick="setPortfolioTab('categorias')">Por categoria</button>
+          <button type="button" class="btn btn-ghost portfolio-tab-btn" data-tab="produtos" aria-selected="false" onclick="setPortfolioTab('produtos')">Produtos (grade)</button>
+        </div>
+      </div>
+
+      <div class="form-group portfolio-categorias-wrap" id="portfolio-wrap-categorias">
+        <label style="font-size:12px;color:var(--muted)">Categorias (vazio = todas)</label>
+        <div id="portfolio-categorias-list" style="max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px;background:var(--surface2);margin-top:6px">
           <!-- Rendered by JS -->
+        </div>
+      </div>
+
+      <div class="portfolio-produtos-wrap" id="portfolio-wrap-produtos" aria-hidden="true">
+        <div class="portfolio-filtros">
+          <select id="portfolio-filtro-categoria" aria-label="Filtrar por categoria">
+            <option value="">Todas as categorias</option>
+          </select>
+          <button type="button" class="btn btn-ghost" style="font-size:12px;padding:6px 10px;white-space:nowrap" onclick="PortfolioSelector.selecionarTodos()">Selecionar visíveis</button>
+          <button type="button" class="btn btn-ghost" style="font-size:12px;padding:6px 10px;white-space:nowrap" onclick="PortfolioSelector.limparSelecao()">Limpar seleção</button>
+        </div>
+        <div id="portfolio-produtos-grid" class="portfolio-produtos-grid"></div>
+        <div class="portfolio-produtos-rodape">
+          <span id="portfolio-contador">0 produto(s) selecionado(s)</span>
         </div>
       </div>
 
@@ -490,6 +513,7 @@
 
 <script src="js/utils.js?v=1"></script>
 <script src="js/api.js?v=17"></script>
+<script src="js/catalogo-portfolio.js?v=1"></script>
 <script src="js/layout.js?v=5"></script>
 <script>
   /** 
@@ -1559,6 +1583,10 @@
     document.getElementById('portfolio-wpp').value = '';
     document.getElementById('portfolio-exibir-preco-venda').checked = true;
     document.getElementById('portfolio-incluir-custo').checked = false;
+
+    if (window.PortfolioSelector && typeof PortfolioSelector.aoAbrirModal === 'function') {
+      PortfolioSelector.aoAbrirModal(categoriasCache);
+    }
     
     // Render categorias
     const listEl = document.getElementById('portfolio-categorias-list');
@@ -1578,19 +1606,38 @@
   }
   
   function getPortfolioPayload() {
-    const cbs = Array.from(document.querySelectorAll('.portfolio-cat-cb:checked'));
-    const categorias_ids = cbs.length ? cbs.map(cb => parseInt(cb.value)) : null;
-    return {
+    const modo = typeof portfolioTabAtiva === 'function' ? portfolioTabAtiva() : 'categorias';
+    const base = {
       titulo: document.getElementById('portfolio-titulo').value.trim() || 'Nosso Portfólio',
       descricao: document.getElementById('portfolio-descricao').value.trim() || null,
       exibir_preco_venda: document.getElementById('portfolio-exibir-preco-venda').checked,
       incluir_custo: document.getElementById('portfolio-incluir-custo').checked,
       tema: document.getElementById('portfolio-tema').value,
-      categorias_ids
     };
+    if (modo === 'produtos' && window.PortfolioSelector) {
+      base.servicos_ids = PortfolioSelector.getProdutosSelecionados();
+      base.categorias_ids = null;
+    } else {
+      const cbs = Array.from(document.querySelectorAll('.portfolio-cat-cb:checked'));
+      base.categorias_ids = cbs.length ? cbs.map(cb => parseInt(cb.value)) : null;
+    }
+    return base;
+  }
+
+  function validarPortfolioSelecao() {
+    const modo = typeof portfolioTabAtiva === 'function' ? portfolioTabAtiva() : 'categorias';
+    if (modo === 'produtos' && window.PortfolioSelector) {
+      const ids = PortfolioSelector.getProdutosSelecionados();
+      if (!ids.length) {
+        showNotif('⚠️', 'Seleção vazia', 'Escolha ao menos um produto na grade ou volte ao modo por categoria.', 'error');
+        return false;
+      }
+    }
+    return true;
   }
 
   async function sugerirDescricaoPortfolioIA() {
+    if (!validarPortfolioSelecao()) return;
     const btn = document.getElementById('btn-portfolio-ia');
     const oldText = btn.textContent;
     btn.textContent = '⏳ Gerando...';
@@ -1610,6 +1657,7 @@
   }
 
   async function visualizarPortfolioHTML() {
+    if (!validarPortfolioSelecao()) return;
     const btn = document.getElementById('btn-portfolio-preview');
     setLoading(btn, true);
     // Para evitar bloqueio de popup, abrimos uma aba em branco primeiro
@@ -1640,6 +1688,7 @@
   }
 
   async function baixarPortfolioPDF() {
+    if (!validarPortfolioSelecao()) return;
     const btn = document.getElementById('btn-portfolio-pdf');
     setLoading(btn, true);
     try {
@@ -1676,6 +1725,7 @@
       showNotif('⚠️', 'Aviso', 'Preencha o WhatsApp', 'error');
       return;
     }
+    if (!validarPortfolioSelecao()) return;
     const btn = document.getElementById('btn-portfolio-enviar');
     setLoading(btn, true);
     try {
