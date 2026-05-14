@@ -456,7 +456,7 @@ CAIXA_FUTURO:"caixa futuro","previsão de caixa","fluxo de caixa","quanto vou re
 - Se o comando for de análise (finanças, conversão, negócio, caixa futuro), retorne acao correspondente e orcamento_id=null"""
 
 SYSTEM_PROMPT_TABELA_CATALOGO = """Analisa tabela de produtos/serviços e extrai dados estruturados. Retorne APENAS JSON válido com array:
-[{"nome":"Produto A","preco_padrao":100.5,"preco_custo":50.0,"unidade":"un","descricao":null}]
+[{"nome":"Produto A","preco_padrao":100.5,"preco_custo":50.0,"unidade":"un","descricao":null,"categoria_sugerida":"Pintura"}]
 Regras:
 - Identifique automaticamente qual coluna é nome, preço, preço de custo, unidade, descrição (em qualquer ordem)
 - nome: string obrigatório
@@ -464,6 +464,7 @@ Regras:
 - preco_custo: extrair o valor numérico (com ponto) de colunas relativas a custo (ex: "custo", "preço custo", "pcusto", "valor custo"); normalize da mesma forma que preco_padrao; caso não exista, retornar null
 - unidade: string com unidades comuns "un", "m²", "m", "hr", "kg", "lt", "srv"; se não identificado, use contexto (recomende "un" para produtos, "srv" para serviços)
 - descricao: string ou null
+- categoria_sugerida: sugira UMA categoria curta e genérica com base no nome e descrição do produto (ex: "Pintura", "Elétrica", "Hidráulica", "Acabamento", "Estrutura", "Limpeza", "Ferramentas"). Use null apenas se for impossível inferir.
 - Ignore linhas vazias ou inválidas
 - Se não conseguir extrair, retorne array vazio []"""
 
@@ -546,6 +547,7 @@ async def interpretar_tabela_catalogo(texto: str) -> list[dict]:
     try:
         response = await ia_service.chat(
             messages=[
+                {"role": "system", "content": SYSTEM_PROMPT_TABELA_CATALOGO},
                 {"role": "user", "content": f"Analise a tabela abaixo:\n\n{texto}"}
             ],
             temperature=0.0,

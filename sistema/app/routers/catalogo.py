@@ -388,12 +388,24 @@ def _enriquecer_com_duplicatas(items: list[dict], db: Session, empresa_id: int) 
         s.nome.lower()
         for s in db.query(Servico.nome).filter(Servico.empresa_id == empresa_id).all()
     }
+    categorias = {
+        c.nome.lower(): c.id
+        for c in db.query(CategoriaCatalogo).filter(CategoriaCatalogo.empresa_id == empresa_id).all()
+    }
     items_com_status = []
     for item in items:
         duplicado = item["nome"].lower() in nomes_existentes
-        items_com_status.append(
-            {**item, "duplicado": duplicado, "selecionado": not duplicado}
-        )
+        sugestao = item.get("categoria_sugerida", "")
+        categoria_sugerida_id = None
+        if sugestao:
+            categoria_sugerida_id = categorias.get(sugestao.lower().strip())
+        items_com_status.append({
+            **item,
+            "duplicado": duplicado,
+            "selecionado": not duplicado,
+            "categoria_sugerida_id": categoria_sugerida_id,
+            "categoria_sugerida_nome": sugestao if sugestao else None,
+        })
     return {"items": items_com_status, "total": len(items_com_status)}
 
 

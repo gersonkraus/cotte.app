@@ -1418,6 +1418,7 @@
             <th style="padding:8px;text-align:right;width:80px">Preço</th>
             <th style="padding:8px;text-align:right;width:80px">Custo</th>
             <th style="padding:8px;text-align:center;width:60px">Unidade</th>
+            <th style="padding:8px;text-align:center;width:140px">Categoria</th>
             <th style="padding:8px;text-align:center;width:80px">Status</th>
           </tr>
         </thead>
@@ -1444,6 +1445,14 @@
               style="width:80px;text-align:right;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:4px 6px;color:var(--text);font-size:12px;font-family:inherit;outline:none">
           </td>
           <td style="padding:8px;text-align:center">${item.unidade}</td>
+          <td style="padding:4px;text-align:center">
+            <select onchange="atualizarCategoriaItem(${idx}, this.value)"
+              style="width:130px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:4px 6px;color:var(--text);font-size:12px;font-family:inherit;outline:none">
+              <option value="">—</option>
+              ${(categoriasCache||[]).map(c => `<option value="${c.id}" ${item.categoria_sugerida_id === c.id ? 'selected' : ''}>${c.nome}</option>`).join('')}
+            </select>
+            ${item.categoria_sugerida_id ? '<div style="font-size:10px;color:var(--muted);margin-top:2px">✨ Sugerido pela IA</div>' : (item.categoria_sugerida_nome ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">IA: '${item.categoria_sugerida_nome}' (criar?)</div>` : '')}
+          </td>
           <td style="padding:8px;text-align:center;color:${statusColor};font-weight:600">${statusText}</td>
         </tr>`;
     });
@@ -1463,6 +1472,10 @@
     importacaoItemsPreview[idx].preco_custo = !isNaN(v) && v > 0 ? v : null;
   }
 
+  function atualizarCategoriaItem(idx, valor) {
+    importacaoItemsPreview[idx]._categoria_id = valor ? parseInt(valor) : null;
+  }
+
   function toggleSelectItem(idx) {
     importacaoItemsPreview[idx].selecionado = !importacaoItemsPreview[idx].selecionado;
     const allCb = document.getElementById('select-all');
@@ -1476,21 +1489,26 @@
 
   async function confirmarImportacao() {
     const categoriaId = document.getElementById('import-categoria-select').value || null;
-    if (!categoriaId) {
-        showNotif('⚠️', 'Categoria obrigatória', 'Por favor, selecione uma categoria de destino antes de importar.', 'error');
-        return;
-    }
-    const items_para_salvar = importacaoItemsPreview.filter(i => i.selecionado).map(i => ({
-      nome: i.nome,
-      preco_padrao: i.preco_padrao,
-      preco_custo: i.preco_custo || null,
-      unidade: i.unidade,
-      descricao: i.descricao || null,
-      categoria_id: parseInt(categoriaId),
-    }));
+    const items_para_salvar = importacaoItemsPreview.filter(i => i.selecionado).map(i => {
+      const catId = i._categoria_id || (categoriaId ? parseInt(categoriaId) : null);
+      return {
+        nome: i.nome,
+        preco_padrao: i.preco_padrao,
+        preco_custo: i.preco_custo || null,
+        unidade: i.unidade,
+        descricao: i.descricao || null,
+        categoria_id: catId,
+      };
+    });
 
     if (!items_para_salvar.length) {
       showNotif('⚠️', 'Selecione ao menos 1 item', '', 'error');
+      return;
+    }
+
+    const semCategoria = items_para_salvar.some(i => !i.categoria_id);
+    if (semCategoria) {
+      showNotif('⚠️', 'Categoria obrigatória', 'Selecione uma categoria para todos os itens antes de importar.', 'error');
       return;
     }
 
