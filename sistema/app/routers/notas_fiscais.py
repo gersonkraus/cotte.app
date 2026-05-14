@@ -234,6 +234,13 @@ async def emitir_nota_fiscal(
     # Garante `criado_em` (server_default) e demais colunas persistidas no objeto ORM
     # antes do `response_model=NotaFiscalOut` — evita ResponseValidationError (criado_em=None).
     db.refresh(nota)
+    nfe_service.registrar_evento_nota_fiscal(
+        db,
+        nota,
+        f"Nota Fiscal {tipo.upper()} criada para emissão (série {serie_val})",
+        usuario_id=usuario.id,
+    )
+    db.commit()
     # BUG1-FIX: passa IDs em vez de objetos ORM — a session será fechada antes
     # da background task executar; emitir_nota_background cria session própria.
     background_tasks.add_task(nfe_service.emitir_nota_background, nota.id, empresa.id, payload)
@@ -558,22 +565,30 @@ async def receber_webhook_focus(
     if not nota:
         return {"ok": True}
 
+    status_antes = nota.status
     nfe_service._atualizar_nota_com_status_focus(nota, payload)
 
-    if nota.orcamento_id and nota.status in ("emitida", "cancelada", "erro"):
-        descricao = {
-            "emitida": f"Nota Fiscal {nota.tipo.upper()} {nota.numero or ''} emitida (via webhook Focus)",
-            "cancelada": f"Nota Fiscal {nota.tipo.upper()} {nota.numero or ''} cancelada",
-            "erro": f"Erro na emissão da Nota Fiscal: {nota.erro_mensagem or 'desconhecido'}",
-        }.get(nota.status, "")
-        if descricao:
-            historico = HistoricoEdicao(
-                orcamento_id=nota.orcamento_id,
-                editado_por_id=None,
-                descricao=descricao,
-                tipo="nota_fiscal",
-            )
-            db.add(historico)
+    if (
+        nota.orcamento_id
+        and nota.status in ("emitida", "cancelada", "erro")
+        and nota.status != status_antes
+    ):
+        tipo_u = (nota.tipo or "").upper() or "NF"
+        if nota.status == "emitida":
+            descricao = f"Nota Fiscal {tipo_u} nº {nota.numero or ''} emitida (via webhook Focus)"
+        elif nota.status == "cancelada":
+            descricao = f"Nota Fiscal {tipo_u} nº {nota.numero or ''} cancelada"
+        elif getattr(nota, "denegada", None):
+            descricao = f"Nota Fiscal {tipo_u} DENEGADA pela SEFAZ: {nota.erro_mensagem or 'desconhecido'}"
+        else:
+            descricao = f"Erro na emissão da Nota Fiscal: {nota.erro_mensagem or 'desconhecido'}"
+        historico = HistoricoEdicao(
+            orcamento_id=nota.orcamento_id,
+            editado_por_id=None,
+            descricao=descricao,
+            tipo="nota_fiscal",
+        )
+        db.add(historico)
 
     db.commit()
     return {"ok": True}
@@ -1077,6 +1092,18 @@ async def reemitir_nota_fiscal(
     except ValueError as e:
         raise HTTPException(422, str(e)) from e
 
+    nfe_service.registrar_evento_nota_fiscal(
+        db,
+        nova_nota,
+        f"Nova emissão solicitada para NF {(nota_original.tipo or '').upper()} (substituindo nota #{nota_id} com erro)",
+        usuario_id=usuario.id,
+    )
+    nfe_service.registrar_evento_nota_fiscal(
+        db,
+        nova_nota,
+        f"Nota Fiscal {(nova_nota.tipo or '').upper()} criada para emissão (série {nova_nota.serie or '1'})",
+        usuario_id=usuario.id,
+    )
     db.commit()
     db.refresh(nova_nota)
     background_tasks.add_task(nfe_service.emitir_nota_background, nova_nota.id, empresa.id, payload)
@@ -1102,6 +1129,16 @@ async def cancelar_nota_fiscal(
         raise HTTPException(400, f"Nota em status '{nota.status}' não pode ser cancelada")
 
     try:
-        return await nfe_service.cancelar_nota(db, nota, empresa, dados.motivo)
+        nota_cancelada = await nfe_service.cancelar_nota(db, nota, empresa, dados.motivo)
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
+    if nota_cancelada.orcamento_id:
+        motivo_txt = (dados.motivo or "").strip()
+        nfe_service.registrar_evento_nota_fiscal(
+            db,
+            nota_cancelada,
+            f"Nota Fiscal {(nota_cancelada.tipo or '').upper()} nº {nota_cancelada.numero or ''} cancelada: {motivo_txt}",
+            usuario_id=usuario.id,
+        )
+        db.commit()
+    return nota_cancelada

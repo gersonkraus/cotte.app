@@ -22,7 +22,7 @@ import httpx
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.models.models import Empresa, NotaFiscal, Orcamento, Cliente
+from app.models.models import Cliente, Empresa, HistoricoEdicao, NotaFiscal, Orcamento
 from app.core.database import SessionLocal
 from app.services.fiscal_ai_service import sugerir_dados_fiscais
 
@@ -1311,6 +1311,49 @@ def _montar_payload_nfse(
     }
 
 
+def registrar_evento_nota_fiscal(
+    db: Session,
+    nota: NotaFiscal,
+    descricao: str,
+    tipo_evento: str = "nota_fiscal",
+    usuario_id: Optional[int] = None,
+) -> None:
+    """Registra evento de NF na timeline do orçamento (HistoricoEdicao)."""
+    if not nota.orcamento_id or not (descricao or "").strip():
+        return
+    db.add(
+        HistoricoEdicao(
+            orcamento_id=nota.orcamento_id,
+            editado_por_id=usuario_id,
+            descricao=descricao.strip(),
+            tipo=tipo_evento,
+        )
+    )
+
+
+def _registrar_timeline_apos_resposta_focus(
+    db: Session,
+    nota_fiscal: NotaFiscal,
+    status_antes: str,
+) -> None:
+    """Regista transição para emitida/erro após resposta da Focus (evita duplicar se já terminal)."""
+    if not nota_fiscal.orcamento_id:
+        return
+    tipo_u = (nota_fiscal.tipo or "").upper() or "NF"
+    if nota_fiscal.status == "emitida" and status_antes != "emitida":
+        registrar_evento_nota_fiscal(
+            db,
+            nota_fiscal,
+            f"Nota Fiscal {tipo_u} nº {nota_fiscal.numero or ''} autorizada pela SEFAZ",
+        )
+    elif nota_fiscal.status == "erro" and status_antes != "erro":
+        if getattr(nota_fiscal, "denegada", None):
+            msg = f"Nota Fiscal {tipo_u} DENEGADA pela SEFAZ: {nota_fiscal.erro_mensagem or 'desconhecido'}"
+        else:
+            msg = f"Nota Fiscal {tipo_u} com erro na emissão: {nota_fiscal.erro_mensagem or 'desconhecido'}"
+        registrar_evento_nota_fiscal(db, nota_fiscal, msg)
+
+
 async def emitir_nota_background(nota_id: int, empresa_id: int, payload: dict) -> None:
     """Wrapper para rodar emitir_nota em BackgroundTask com session própria.
 
@@ -1331,6 +1374,12 @@ async def emitir_nota_background(nota_id: int, empresa_id: int, payload: dict) -
                 nota.status = "erro"
                 nota.erro_codigo = "BACKGROUND_ERROR"
                 nota.erro_mensagem = str(e)[:500]
+                if nota.orcamento_id:
+                    registrar_evento_nota_fiscal(
+                        db,
+                        nota,
+                        f"Erro no processamento da NF: {str(e)[:200]}",
+                    )
                 db.commit()
         except Exception:
             pass
@@ -1392,19 +1441,27 @@ async def emitir_nota(
     nota_fiscal.status = "processando"
     nota_fiscal.focus_ref = ref
     nota_fiscal.payload_enviado = payload
+    registrar_evento_nota_fiscal(
+        db,
+        nota_fiscal,
+        f"Nota Fiscal {(nota_fiscal.tipo or '').upper()} enviada para SEFAZ (aguardando autorização)",
+    )
     db.commit()
 
     async with _get_client(empresa) as client:
         try:
             resp = await client.post(f"{endpoint}?ref={ref}", json=payload)
         except httpx.RequestError as e:
+            prev = nota_fiscal.status
             nota_fiscal.status = "erro"
             nota_fiscal.erro_codigo = "REQUEST_ERROR"
             nota_fiscal.erro_mensagem = str(e)[:500]
+            _registrar_timeline_apos_resposta_focus(db, nota_fiscal, prev)
             db.commit()
             return nota_fiscal
 
         if resp.status_code == 401:
+            prev = nota_fiscal.status
             nota_fiscal.status = "erro"
             nota_fiscal.erro_codigo = "AUTH_ERROR"
             host_usado = _focus_base_url_for_empresa(empresa)
@@ -1427,10 +1484,12 @@ async def emitir_nota(
                 host_usado,
                 amb,
             )
+            _registrar_timeline_apos_resposta_focus(db, nota_fiscal, prev)
             db.commit()
             return nota_fiscal
 
         if resp.status_code >= 400:
+            prev = nota_fiscal.status
             nota_fiscal.status = "erro"
             nota_fiscal.erro_codigo = str(resp.status_code)
             try:
@@ -1438,6 +1497,7 @@ async def emitir_nota(
                 nota_fiscal.erro_mensagem = str(err_body.get("mensagem") or err_body)[:800]
             except Exception:
                 nota_fiscal.erro_mensagem = resp.text[:500]
+            _registrar_timeline_apos_resposta_focus(db, nota_fiscal, prev)
             db.commit()
             return nota_fiscal
 
@@ -1446,20 +1506,26 @@ async def emitir_nota(
             try:
                 status_data = resp.json()
             except Exception as e:
+                prev = nota_fiscal.status
                 nota_fiscal.status = "erro"
                 nota_fiscal.erro_codigo = "JSON_ERROR"
                 nota_fiscal.erro_mensagem = f"Resposta Focus inválida: {e}"[:500]
+                _registrar_timeline_apos_resposta_focus(db, nota_fiscal, prev)
                 db.commit()
                 return nota_fiscal
+            prev = nota_fiscal.status
             _atualizar_nota_com_status_focus(nota_fiscal, status_data)
+            _registrar_timeline_apos_resposta_focus(db, nota_fiscal, prev)
             db.commit()
             return nota_fiscal
 
         # 202 = processamento assíncrono (polling ou webhook)
         if resp.status_code != 202:
+            prev = nota_fiscal.status
             nota_fiscal.status = "erro"
             nota_fiscal.erro_codigo = str(resp.status_code)
             nota_fiscal.erro_mensagem = f"Resposta HTTP inesperada da Focus: {resp.status_code}"
+            _registrar_timeline_apos_resposta_focus(db, nota_fiscal, prev)
             db.commit()
             return nota_fiscal
 
@@ -1474,9 +1540,11 @@ async def emitir_nota(
             if status_resp.status_code == 404:
                 continue
             if status_resp.status_code >= 400:
+                prev = nota_fiscal.status
                 nota_fiscal.status = "erro"
                 nota_fiscal.erro_codigo = str(status_resp.status_code)
                 nota_fiscal.erro_mensagem = status_resp.text[:200]
+                _registrar_timeline_apos_resposta_focus(db, nota_fiscal, prev)
                 db.commit()
                 return nota_fiscal
 
@@ -1496,12 +1564,20 @@ async def emitir_nota(
             if current == "processando_autorizacao":
                 continue
 
+            prev = nota_fiscal.status
             _atualizar_nota_com_status_focus(nota_fiscal, status_data)
+            _registrar_timeline_apos_resposta_focus(db, nota_fiscal, prev)
             db.commit()
             return nota_fiscal
 
     nota_fiscal.status = "erro"
     nota_fiscal.erro_mensagem = "Timeout aguardando processamento da SEFAZ"
+    if nota_fiscal.orcamento_id:
+        registrar_evento_nota_fiscal(
+            db,
+            nota_fiscal,
+            f"Timeout aguardando autorização da SEFAZ para NF {(nota_fiscal.tipo or '').upper()}",
+        )
     db.commit()
     return nota_fiscal
 
