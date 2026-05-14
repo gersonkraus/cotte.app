@@ -637,6 +637,7 @@ const NFeService = (() => {
     const outroNat = document.getElementById('nfe-natureza-outro');
     if (outroNat) outroNat.value = '';
     _toggleCamposNfse();
+    modal.style.display = 'flex';
     modal.classList.add('open');
     modal.setAttribute('aria-hidden', 'false');
     _setNfePollUi(0, false);
@@ -649,6 +650,7 @@ const NFeService = (() => {
   function fecharModal() {
     const modal = document.getElementById('modal-nfe');
     if (modal) {
+      modal.style.display = 'none';
       modal.classList.remove('open');
       modal.setAttribute('aria-hidden', 'true');
     }
