@@ -621,9 +621,9 @@
     try {
       const [items] = await Promise.all([
         api.get('/catalogo/?apenas_ativos=false'),
-        carregarCategorias(),
       ]);
       catalogoCache = items || [];
+      await carregarCategorias();
       await carregarStatusIntegracaoML();
       await carregarVinculosMLCatalogo();
       document.getElementById('page-sub').textContent =
@@ -660,7 +660,8 @@
     let lista = catalogoCache;
     if (_filtroStatus === 'ativos') lista = lista.filter(i => i.ativo);
     else if (_filtroStatus === 'inativos') lista = lista.filter(i => !i.ativo);
-    if (catId) lista = lista.filter(i => String(i.categoria_id) === catId);
+    if (catId === '__sem_categoria__') lista = lista.filter(i => !i.categoria_id);
+    else if (catId) lista = lista.filter(i => String(i.categoria_id) === catId);
     if (busca) lista = lista.filter(i => i.nome.toLowerCase().includes(busca));
     renderizarGrid(lista);
   }
@@ -1097,6 +1098,10 @@
       const filtroAtual = filtro.value;
       filtro.innerHTML = '<option value="">Todas as categorias</option>' +
         categoriasCache.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+      const semCategoria = catalogoCache.filter(i => !i.categoria_id).length;
+      if (semCategoria > 0) {
+        filtro.innerHTML += `<option value="__sem_categoria__">Sem categoria (${semCategoria})</option>`;
+      }
       if (filtroAtual) filtro.value = filtroAtual;
     } catch(e) { /* silencioso */ }
   }
