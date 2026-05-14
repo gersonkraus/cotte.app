@@ -153,7 +153,7 @@ class TipoDocumentoEmpresa(str, enum.Enum):
     CONTRATO = "contrato"
     TERMO = "termo"
     DOCUMENTO_TECNICO = "documento_tecnico"
-    ANEXO = "anexo"
+    ANEXO = "OUTRO"
     OUTRO = "outro"
 
 
@@ -602,6 +602,7 @@ class Servico(TenantScopedMixin, Base):
     descricao = Column(Text)
     preco_padrao = Column(Numeric(10, 2), default=0.0)
     preco_custo = Column(Numeric(10, 2), nullable=True)
+    preco_mercado_livre = Column(Numeric(10, 2), nullable=True)
     unidade = Column(String(30), default="un")  # un, m², hora, etc.
     ativo = Column(Boolean, default=True)
     imagem_url = Column(String(300))

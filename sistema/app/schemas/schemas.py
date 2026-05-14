@@ -2300,3 +2300,18 @@ class NotaFiscalPrepararOut(BaseModel):
     checklist: List[dict] = []
     campos_autopreenchidos: List[str] = []
     auto_fill_aplicado: bool = False
+
+class PortfolioGenerateRequest(BaseModel):
+    categorias_ids: Optional[List[int]] = None
+    incluir_custo: bool = False
+    titulo: str = "Nosso Portfólio"
+    descricao: Optional[str] = None
+    tema: Optional[str] = "classico" # Para ideias inovadoras: classico, moderno, escuro
+
+class PortfolioSendRequest(PortfolioGenerateRequest):
+    telefone_whatsapp: Optional[str] = None
+    email_destinatario: Optional[str] = None
+
+class PortfolioLinkOut(BaseModel):
+    link: str
+    uuid: str

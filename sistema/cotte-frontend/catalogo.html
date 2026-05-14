@@ -24,7 +24,8 @@
     </div>
     <div class="topbar-actions">
       <button class="btn btn-ghost" id="btn-templates" onclick="abrirModalTemplates()" style="display:none">📐 Modelos</button>
-      <button class="btn btn-ghost" id="btn-importar" onclick="abrirModalImportar()" style="display:none">📋 Importar</button>
+      <button class="btn btn-ghost" id="btn-portfolio" onclick="abrirModalPortfolio()">🖨️ Gerar Portfólio</button>
+        <button class="btn btn-ghost" id="btn-importar" onclick="abrirModalImportar()" style="display:none">📋 Importar</button>
       <button class="btn btn-primary" onclick="abrirModalNovo()">＋ Novo Item</button>
     </div>
   </div>
@@ -221,6 +222,15 @@
           </div>
         </div>
 
+        <!-- Preço Mercado Livre -->
+        <div class="form-row">
+          <div class="form-group">
+            <label>Preço Mercado Livre (R$) <span style="color:var(--muted);font-size:11px">opcional</span></label>
+            <input type="number" id="item-preco-ml" placeholder="0,00" min="0" step="0.01">
+            <div style="font-size:10px; color:var(--muted); margin-top:4px">Preço específico para envio ao Mercado Livre</div>
+          </div>
+        </div>
+
         <!-- Imagem (novo e editar) -->
         <div class="form-group" id="grupo-imagem">
           <label>Imagem do produto</label>
@@ -390,6 +400,71 @@
       <button class="btn btn-ghost" id="ml-vinculo-remover-btn" onclick="removerVinculoML()" style="color:var(--red);display:none">Desvincular</button>
       <button class="btn btn-ghost" onclick="fecharModalMLVinculo()">Cancelar</button>
       <button class="btn btn-primary" id="ml-vinculo-salvar-btn" onclick="salvarVinculoML()">Salvar vínculo</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- MODAL PORTFÓLIO -->
+<div class="modal-overlay" id="modal-portfolio">
+  <div class="modal" style="max-width:550px">
+    <div class="modal-header">
+      <div class="modal-title">🖨️ Gerar Portfólio</div>
+      <button class="modal-close" onclick="fecharModalPortfolio()">✕</button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:16px">
+      <div class="form-group">
+        <label>Título do Portfólio</label>
+        <input type="text" id="portfolio-titulo" value="Nosso Portfólio">
+      </div>
+      
+      <div class="form-group">
+        <label>Tema Visual</label>
+        <select id="portfolio-tema">
+          <option value="classico">Clássico (Claro)</option>
+          <option value="escuro">Moderno (Escuro)</option>
+        </select>
+      </div>
+
+      <div class="form-group" style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="portfolio-incluir-custo" style="width:auto">
+        <label for="portfolio-incluir-custo" style="margin:0;cursor:pointer">Exibir preço de custo?</label>
+      </div>
+
+      <div class="form-group">
+        <label>Categorias a incluir (vazio = todas)</label>
+        <div id="portfolio-categorias-list" style="max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px;background:var(--surface2)">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label style="display:flex;justify-content:space-between;align-items:center">
+          Mensagem de Apresentação
+          <button class="btn btn-ghost" style="padding:2px 8px;font-size:11px" id="btn-portfolio-ia" onclick="sugerirDescricaoPortfolioIA()">✨ Sugerir texto com IA</button>
+        </label>
+        <textarea id="portfolio-descricao" rows="3" placeholder="Escreva uma breve introdução ou deixe a IA sugerir..."></textarea>
+      </div>
+
+      <div style="border-top:1px solid var(--border);margin:10px 0"></div>
+
+      <!-- Área de Compartilhamento Direto (Mini-site) -->
+      <div style="background:var(--surface2);padding:14px;border-radius:8px;border:1px solid var(--border)">
+        <div style="font-weight:600;font-size:13px;margin-bottom:10px">🚀 Compartilhar via Link (Mini-site)</div>
+        <div class="form-group" style="margin-bottom:10px">
+          <label>WhatsApp (DDD+Número)</label>
+          <input type="text" id="portfolio-wpp" placeholder="Ex: 11999999999">
+        </div>
+        <button class="btn btn-primary" id="btn-portfolio-enviar" style="width:100%" onclick="enviarPortfolio()">Enviar Portfólio p/ WhatsApp</button>
+      </div>
+
+    </div>
+    <div class="modal-footer" style="justify-content:space-between">
+      <button class="btn btn-ghost" onclick="fecharModalPortfolio()">Cancelar</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" id="btn-portfolio-preview" onclick="visualizarPortfolioHTML()">👁️ Ver HTML</button>
+        <button class="btn btn-ghost" id="btn-portfolio-pdf" onclick="baixarPortfolioPDF()">📥 Baixar PDF</button>
+      </div>
     </div>
   </div>
 </div>
@@ -680,6 +755,7 @@
     document.getElementById('item-categoria').value    = '';
     document.getElementById('item-custo').value        = '';
     document.getElementById('item-margem').value       = '';
+    document.getElementById('item-preco-ml').value     = '';
     document.getElementById('item-ncm').value = '';
     document.getElementById('item-cfop').value = '5102';
     document.getElementById('item-csosn').value = '400';
@@ -714,6 +790,7 @@
     document.getElementById('item-unidade').value      = item.unidade;
     document.getElementById('item-categoria').value    = item.categoria_id || '';
     document.getElementById('item-custo').value        = item.preco_custo || '';
+    document.getElementById('item-preco-ml').value     = item.preco_mercado_livre || '';
     if (item.preco_custo > 0 && item.preco_padrao > 0) {
       document.getElementById('item-margem').value = ((item.preco_padrao - item.preco_custo) / item.preco_padrao * 100).toFixed(1);
     }
@@ -1022,6 +1099,7 @@
     if (duplicado) { showNotif('⚠️', 'Nome já cadastrado', `"${duplicado.nome}" já existe no catálogo`, 'error'); return; }
 
     const custoVal = parseFloat(document.getElementById('item-custo').value);
+    const precoMlVal = parseFloat(document.getElementById('item-preco-ml').value);
     const catVal   = document.getElementById('item-categoria').value;
     const payload = {
       nome,
@@ -1030,6 +1108,7 @@
       unidade:      document.getElementById('item-unidade').value,
       categoria_id: catVal ? parseInt(catVal) : null,
       preco_custo:  !isNaN(custoVal) && custoVal > 0 ? custoVal : null,
+      preco_mercado_livre: !isNaN(precoMlVal) && precoMlVal > 0 ? precoMlVal : null,
     };
 
     const btn = document.getElementById('btn-salvar');
@@ -1461,6 +1540,145 @@
   }
 
   // ── INIT ─────────────────────────────────────────────────────────────
+  
+  // ── PORTFÓLIO ─────────────────────────────────────────────────────────
+  function abrirModalPortfolio() {
+    document.getElementById('modal-portfolio').classList.add('open');
+    document.getElementById('portfolio-titulo').value = 'Nosso Portfólio';
+    document.getElementById('portfolio-descricao').value = '';
+    document.getElementById('portfolio-wpp').value = '';
+    document.getElementById('portfolio-incluir-custo').checked = false;
+    
+    // Render categorias
+    const listEl = document.getElementById('portfolio-categorias-list');
+    if (!categoriasCache.length) {
+      listEl.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:10px">Nenhuma categoria encontrada</div>';
+    } else {
+      listEl.innerHTML = categoriasCache.map(c => `
+        <label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;cursor:pointer">
+          <input type="checkbox" class="portfolio-cat-cb" value="${c.id}"> ${c.nome}
+        </label>
+      `).join('');
+    }
+  }
+
+  function fecharModalPortfolio() {
+    document.getElementById('modal-portfolio').classList.remove('open');
+  }
+  
+  function getPortfolioPayload() {
+    const cbs = Array.from(document.querySelectorAll('.portfolio-cat-cb:checked'));
+    const categorias_ids = cbs.length ? cbs.map(cb => parseInt(cb.value)) : null;
+    return {
+      titulo: document.getElementById('portfolio-titulo').value.trim() || 'Nosso Portfólio',
+      descricao: document.getElementById('portfolio-descricao').value.trim() || null,
+      incluir_custo: document.getElementById('portfolio-incluir-custo').checked,
+      tema: document.getElementById('portfolio-tema').value,
+      categorias_ids
+    };
+  }
+
+  async function sugerirDescricaoPortfolioIA() {
+    const btn = document.getElementById('btn-portfolio-ia');
+    const oldText = btn.textContent;
+    btn.textContent = '⏳ Gerando...';
+    btn.disabled = true;
+    try {
+      const payload = getPortfolioPayload();
+      const resp = await api.post('/catalogo/portfolio/sugerir-descricao-ia', payload);
+      if (resp && resp.descricao) {
+        document.getElementById('portfolio-descricao').value = resp.descricao;
+      }
+    } catch(e) {
+      showNotif('❌', 'Erro na IA', e.message, 'error');
+    } finally {
+      btn.textContent = oldText;
+      btn.disabled = false;
+    }
+  }
+
+  async function visualizarPortfolioHTML() {
+    const btn = document.getElementById('btn-portfolio-preview');
+    setLoading(btn, true);
+    // Para evitar bloqueio de popup, abrimos uma aba em branco primeiro
+    const novaAba = window.open('about:blank', '_blank');
+    if (novaAba) {
+      novaAba.document.write('<h2>Gerando portfólio... aguarde.</h2>');
+    }
+    
+    try {
+      const payload = getPortfolioPayload();
+      // Não temos um endpoint raw HTML via api.js com raw response fácil se o parse falhar,
+      // Mas podemos pedir o link efêmero e redirecionar a aba para lá! Muito mais limpo!
+      const resp = await api.post('/catalogo/portfolio/link', payload);
+      if (resp && resp.link) {
+        if (novaAba) {
+          novaAba.location.href = API_URL + resp.link;
+        } else {
+          // Fallback se foi bloqueado
+          window.open(API_URL + resp.link, '_blank');
+        }
+      }
+    } catch(e) {
+      if (novaAba) novaAba.close();
+      showNotif('❌', 'Erro', e.message, 'error');
+    } finally {
+      setLoading(btn, false, '👁️ Ver HTML');
+    }
+  }
+
+  async function baixarPortfolioPDF() {
+    const btn = document.getElementById('btn-portfolio-pdf');
+    setLoading(btn, true);
+    try {
+      const payload = getPortfolioPayload();
+      const resp = await fetch(API_URL + API_PREFIX + '/catalogo/portfolio/pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + getToken()
+        },
+        body: JSON.stringify(payload)
+      });
+      if (!resp.ok) throw new Error('Erro ao gerar PDF');
+      
+      const blob = await resp.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = payload.titulo.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch(e) {
+      showNotif('❌', 'Erro', e.message, 'error');
+    } finally {
+      setLoading(btn, false, '📥 Baixar PDF');
+    }
+  }
+
+  async function enviarPortfolio() {
+    const wpp = document.getElementById('portfolio-wpp').value.trim();
+    if (!wpp) {
+      showNotif('⚠️', 'Aviso', 'Preencha o WhatsApp', 'error');
+      return;
+    }
+    const btn = document.getElementById('btn-portfolio-enviar');
+    setLoading(btn, true);
+    try {
+      const payload = getPortfolioPayload();
+      payload.telefone_whatsapp = wpp;
+      
+      const resp = await api.post('/catalogo/portfolio/enviar', payload);
+      showNotif('✅', 'Enviado!', 'O link do portfólio foi enviado via WhatsApp');
+    } catch(e) {
+      showNotif('❌', 'Erro no envio', e.message, 'error');
+    } finally {
+      setLoading(btn, false, 'Enviar Portfólio p/ WhatsApp');
+    }
+  }
+
   window.addEventListener('load', () => {
     carregarComSeguranca();
   });

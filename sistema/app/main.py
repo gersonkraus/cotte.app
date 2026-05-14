@@ -1,3 +1,5 @@
+from sqlalchemy.orm import Session
+from app.core.database import get_db
 from fastapi import FastAPI, Request, Response, HTTPException, Depends, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -248,6 +250,11 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 # Servir página pública de propostas
+@app.get("/p/cat-{link_uuid}")
+def visualizar_portfolio_publico_main(link_uuid: str, db: Session = Depends(get_db)):
+    from app.routers.publico import visualizar_portfolio_publico
+    return visualizar_portfolio_publico(link_uuid, db)
+
 @app.get("/p/{slug}")
 async def proposta_publica(slug: str):
     return FileResponse("app/p/proposta.html", media_type="text/html")

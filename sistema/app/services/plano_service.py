@@ -21,11 +21,11 @@ PLANO_CONFIG: Dict[str, Dict[str, Any]] = {
     "trial": {
         "nome_exibicao": "Avaliação",
         "limite_orcamentos_total": 50,
-        "limite_usuarios": 1,
+        "limite_usuarios": 3,
         "ia_automatica": True,
-        "lembretes_automaticos": False,
-        "relatorios": False,
-        "whatsapp_proprio": False,
+        "lembretes_automaticos": True,
+        "relatorios": True,
+        "whatsapp_proprio": True,
     },
     "starter": {
         "nome_exibicao": "Starter",
@@ -144,16 +144,19 @@ def ia_automatica_habilitada(empresa: Empresa) -> bool:
     if empresa.desativar_ia:
         return False
 
-    # Novo sistema: verifica via plano_id
-    if empresa.plano_id and empresa.pacote:
-        tem_modulo = any(m.slug == "ia" for m in empresa.pacote.modulos)
-        if not tem_modulo:
-            return False
-    else:
-        # Fallback legado
-        cfg = _config_for_empresa(empresa)
-        if not cfg.get("ia_automatica", False):
-            return False
+    is_trial = (empresa.plano or "trial").lower() == "trial"
+
+    if not is_trial:
+        # Novo sistema: verifica via plano_id
+        if empresa.plano_id and empresa.pacote:
+            tem_modulo = any(m.slug == "ia" for m in empresa.pacote.modulos)
+            if not tem_modulo:
+                return False
+        else:
+            # Fallback legado
+            cfg = _config_for_empresa(empresa)
+            if not cfg.get("ia_automatica", False):
+                return False
 
     if empresa.assinatura_valida_ate:
         agora = datetime.now(timezone.utc)
@@ -180,15 +183,18 @@ def lembretes_automaticos_habilitados(empresa: Empresa) -> bool:
     if empresa.desativar_lembretes:
         return False
 
-    # Novo sistema
-    if empresa.plano_id and empresa.pacote:
-        tem_modulo = any(m.slug == "lembretes" for m in empresa.pacote.modulos)
-        if not tem_modulo:
-            return False
-    else:
-        cfg = _config_for_empresa(empresa)
-        if not cfg.get("lembretes_automaticos", False):
-            return False
+    is_trial = (empresa.plano or "trial").lower() == "trial"
+
+    if not is_trial:
+        # Novo sistema
+        if empresa.plano_id and empresa.pacote:
+            tem_modulo = any(m.slug == "lembretes" for m in empresa.pacote.modulos)
+            if not tem_modulo:
+                return False
+        else:
+            cfg = _config_for_empresa(empresa)
+            if not cfg.get("lembretes_automaticos", False):
+                return False
 
     if empresa.lembrete_dias is None:
         return False
@@ -201,15 +207,18 @@ def relatorios_habilitados(empresa: Empresa) -> bool:
     if empresa.desativar_relatorios:
         return False
 
-    # Novo sistema
-    if empresa.plano_id and empresa.pacote:
-        tem_modulo = any(m.slug == "relatorios" for m in empresa.pacote.modulos)
-        if not tem_modulo:
-            return False
-    else:
-        cfg = _config_for_empresa(empresa)
-        if not cfg.get("relatorios", False):
-            return False
+    is_trial = (empresa.plano or "trial").lower() == "trial"
+
+    if not is_trial:
+        # Novo sistema
+        if empresa.plano_id and empresa.pacote:
+            tem_modulo = any(m.slug == "relatorios" for m in empresa.pacote.modulos)
+            if not tem_modulo:
+                return False
+        else:
+            cfg = _config_for_empresa(empresa)
+            if not cfg.get("relatorios", False):
+                return False
 
     if empresa.ativo is False:
         return False
@@ -226,15 +235,18 @@ def exigir_relatorios(empresa: Empresa) -> None:
 
 def whatsapp_proprio_habilitado(empresa: Empresa) -> bool:
     """Retorna True se o plano da empresa permite usar número WhatsApp próprio."""
-    # Novo sistema
-    if empresa.plano_id and empresa.pacote:
-        tem_modulo = any(m.slug == "whatsapp_proprio" for m in empresa.pacote.modulos)
-        if not tem_modulo:
-            return False
-    else:
-        cfg = _config_for_empresa(empresa)
-        if not cfg.get("whatsapp_proprio", False):
-            return False
+    is_trial = (empresa.plano or "trial").lower() == "trial"
+
+    if not is_trial:
+        # Novo sistema
+        if empresa.plano_id and empresa.pacote:
+            tem_modulo = any(m.slug == "whatsapp_proprio" for m in empresa.pacote.modulos)
+            if not tem_modulo:
+                return False
+        else:
+            cfg = _config_for_empresa(empresa)
+            if not cfg.get("whatsapp_proprio", False):
+                return False
 
     if empresa.ativo is False:
         return False
@@ -253,4 +265,3 @@ def exigir_whatsapp_proprio(empresa: Empresa) -> None:
             detail="WhatsApp próprio está disponível nos planos Pro e Business. "
                    "Faça upgrade para conectar o número da sua empresa.",
         )
-

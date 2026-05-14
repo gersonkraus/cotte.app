@@ -607,3 +607,81 @@ def salvar_pdf(pdf_bytes: bytes, numero: str) -> str:
     with open(path, "wb") as f:
         f.write(pdf_bytes)
     return path
+
+def _otimizar_imagem_portfolio(url: str, max_width=400) -> str:
+    """Baixa e redimensiona a imagem para base64 para uso inline no HTML/PDF, reduzindo peso e evitando bloqueios CORS."""
+    if not url or not str(url).startswith("http"):
+        return url
+    
+    try:
+        import requests
+        from PIL import Image
+        import io
+        import base64
+        
+        response = requests.get(url, timeout=5)
+        response.raise_for_status()
+        
+        img = Image.open(io.BytesIO(response.content))
+        # Convert to RGB to avoid alpha channel issues with JPEG
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+            
+        # Resize if width > max_width
+        if img.width > max_width:
+            ratio = max_width / float(img.width)
+            new_height = int((float(img.height) * float(ratio)))
+            img = img.resize((max_width, new_height), Image.Resampling.LANCZOS)
+            
+        buffered = io.BytesIO()
+        img.save(buffered, format="JPEG", quality=75)
+        img_str = base64.b64encode(buffered.getvalue()).decode()
+        return f"data:image/jpeg;base64,{img_str}"
+    except Exception as e:
+        logger.warning(f"Erro ao otimizar imagem {url}: {e}")
+        return url
+
+def gerar_html_portfolio(portfolio_dict: dict, empresa: dict) -> str:
+    """Gera o HTML do portfolio a partir do jinja2."""
+    from jinja2 import Environment, FileSystemLoader, select_autoescape
+    template_dir = os.path.join(os.path.dirname(__file__), "..", "templates")
+    env = Environment(
+        loader=FileSystemLoader(template_dir),
+        autoescape=select_autoescape(['html', 'xml'])
+    )
+    
+    # Custom filters
+    env.filters['brl'] = _brl
+    
+    # Otimizar imagens do portfolio
+    if "categorias" in portfolio_dict:
+        for cat in portfolio_dict["categorias"]:
+            for item in cat.get("itens", []):
+                if item.get("imagem_url"):
+                    item["imagem_url"] = _otimizar_imagem_portfolio(item["imagem_url"])
+                    
+    # Normalizar logo
+    empresa_norm = _normalizar_logo_url(empresa.copy())
+    
+    template = env.get_template("portfolio.html")
+    html_out = template.render(portfolio=portfolio_dict, empresa=empresa_norm)
+    return html_out
+
+def gerar_pdf_portfolio(portfolio_dict: dict, empresa: dict) -> bytes:
+    """Gera PDF do portfolio via weasyprint."""
+    try:
+        from weasyprint import HTML, CSS
+        html_str = gerar_html_portfolio(portfolio_dict, empresa)
+        
+        # Base url for local static assets
+        base_url = f"file://{os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..'))}/"
+        
+        pdf_bytes = HTML(string=html_str, base_url=base_url).write_pdf(
+            presentational_hints=True,
+            optimize_size=('fonts', 'images')
+        )
+        return pdf_bytes
+    except Exception as e:
+        logger.error(f"Erro ao gerar PDF do portfólio via weasyprint: {e}")
+        raise e
+

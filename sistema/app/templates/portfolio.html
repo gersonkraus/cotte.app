@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ portfolio.titulo }}</title>
+    <style>
+        :root {
+            --primary: {% if portfolio.tema == 'escuro' %}#ffffff{% else %}#1a202c{% endif %};
+            --bg: {% if portfolio.tema == 'escuro' %}#1a202c{% else %}#ffffff{% endif %};
+            --card-bg: {% if portfolio.tema == 'escuro' %}#2d3748{% else %}#f7fafc{% endif %};
+            --text: {% if portfolio.tema == 'escuro' %}#e2e8f0{% else %}#4a5568{% endif %};
+            --border: {% if portfolio.tema == 'escuro' %}#4a5568{% else %}#e2e8f0{% endif %};
+            --accent: #3182ce;
+            --success: #38a169;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 60px;
+            padding-bottom: 40px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            max-height: 80px;
+            max-width: 200px;
+            margin-bottom: 20px;
+            object-fit: contain;
+        }
+
+        h1 {
+            color: var(--primary);
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+        }
+
+        .intro {
+            font-size: 1.1rem;
+            max-width: 800px;
+            margin: 0 auto;
+            color: var(--text);
+            white-space: pre-wrap;
+        }
+
+        .category {
+            margin-bottom: 60px;
+            page-break-inside: avoid;
+        }
+
+        .category-title {
+            color: var(--primary);
+            font-size: 1.8rem;
+            margin-bottom: 30px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--accent);
+            display: inline-block;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 30px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            page-break-inside: avoid;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+        }
+
+        .card-img-wrapper {
+            width: 100%;
+            height: 220px;
+            background: #edf2f7;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .card-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .card-no-img {
+            color: #a0aec0;
+            font-size: 0.9rem;
+        }
+
+        .card-body {
+            padding: 20px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-title {
+            color: var(--primary);
+            font-size: 1.25rem;
+            margin: 0 0 10px 0;
+            font-weight: 600;
+        }
+
+        .card-desc {
+            font-size: 0.95rem;
+            color: var(--text);
+            margin-bottom: 20px;
+            flex-grow: 1;
+        }
+
+        .card-footer {
+            margin-top: auto;
+            padding-top: 15px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .price {
+            font-weight: 700;
+            font-size: 1.2rem;
+            color: var(--primary);
+        }
+
+        .cost {
+            font-size: 0.85rem;
+            color: var(--success);
+            background: rgba(56, 161, 105, 0.1);
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .contact-info {
+            text-align: center;
+            margin-top: 60px;
+            padding: 40px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .contact-info p {
+            margin: 5px 0;
+        }
+
+        @media print {
+            body {
+                background: white;
+            }
+            .container {
+                max-width: 100% !important;
+                padding: 0 !important;
+            }
+            .card {
+                box-shadow: none;
+                border: 1px solid #e2e8f0;
+            }
+            .grid {
+                display: block; /* Weasyprint handles block better sometimes, but grid works in modern weasyprint */
+            }
+            .card {
+                display: inline-block;
+                width: 31%;
+                margin: 1%;
+                vertical-align: top;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            {% if empresa.logo_url %}
+            <img src="{{ empresa.logo_url }}" alt="{{ empresa.nome }}" class="logo">
+            {% endif %}
+            
+            <h1>{{ portfolio.titulo }}</h1>
+            
+            {% if portfolio.descricao %}
+            <div class="intro">{{ portfolio.descricao }}</div>
+            {% endif %}
+        </header>
+
+        <main>
+            {% for categoria in portfolio.categorias %}
+            <section class="category">
+                <h2 class="category-title">{{ categoria.nome }}</h2>
+                <div class="grid">
+                    {% for item in categoria.itens %}
+                    <div class="card">
+                        <div class="card-img-wrapper">
+                            {% if item.imagem_url %}
+                            <img src="{{ item.imagem_url }}" alt="{{ item.nome }}" class="card-img">
+                            {% else %}
+                            <span class="card-no-img">Sem imagem</span>
+                            {% endif %}
+                        </div>
+                        <div class="card-body">
+                            <h3 class="card-title">{{ item.nome }}</h3>
+                            <div class="card-desc">{{ item.descricao }}</div>
+                            <div class="card-footer">
+                                <div class="price">R$ {{ "%.2f"|format(item.preco)|replace('.', ',') }}</div>
+                                {% if item.mostrar_custo and item.custo %}
+                                <div class="cost">Custo: R$ {{ "%.2f"|format(item.custo)|replace('.', ',') }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endfor %}
+        </main>
+
+        <footer class="contact-info">
+            <h3>{{ empresa.nome }}</h3>
+            {% if empresa.telefone %}
+            <p>📞 {{ empresa.telefone }}</p>
+            {% endif %}
+            {% if empresa.email %}
+            <p>✉️ {{ empresa.email }}</p>
+            {% endif %}
+        </footer>
+    </div>
+</body>
+</html>

@@ -122,23 +122,28 @@ def listar_catalogo(
     skip: int = 0,
     limit: int = 500,
 ):
-    """Lista serviços do catálogo da empresa com suporte a paginação e filtro."""
-    set_tenant_context(
-        db,
-        empresa_id=usuario.empresa_id,
-        usuario_id=usuario.id,
-        is_superadmin=usuario.is_superadmin,
-    )
-    query = (
-        db.query(Servico)
-        .options(joinedload(Servico.categoria))
-        .filter(Servico.empresa_id == usuario.empresa_id)
-    )
-    if apenas_ativos:
-        query = query.filter(Servico.ativo == True)
-    if categoria_id is not None:
-        query = query.filter(Servico.categoria_id == categoria_id)
-    return query.order_by(Servico.nome).offset(skip).limit(limit).all()
+    try:
+        set_tenant_context(
+            db,
+            empresa_id=usuario.empresa_id,
+            usuario_id=usuario.id,
+            is_superadmin=usuario.is_superadmin,
+        )
+        query = (
+            db.query(Servico)
+            .options(joinedload(Servico.categoria))
+            .filter(Servico.empresa_id == usuario.empresa_id)
+        )
+        if apenas_ativos:
+            query = query.filter(Servico.ativo == True)
+        if categoria_id is not None:
+            query = query.filter(Servico.categoria_id == categoria_id)
+        return query.order_by(Servico.nome).offset(skip).limit(limit).all()
+    except Exception as e:
+        import traceback
+        with open("/tmp/opencode/catalogo_500.txt", "w") as f:
+            f.write(traceback.format_exc())
+        raise
 
 
 @router.get("/{servico_id}", response_model=ServicoOut)
@@ -599,3 +604,159 @@ def salvar_fiscal_servico(
     db.commit()
     db.refresh(servico)
     return servico
+
+from app.schemas.schemas import PortfolioGenerateRequest, PortfolioSendRequest, PortfolioLinkOut
+from app.services.pdf_service import gerar_html_portfolio, gerar_pdf_portfolio
+from app.services.ia_service import ia_service
+from app.services.whatsapp_service import enviar_mensagem_texto
+from app.core.cache import CacheManager
+from fastapi.responses import HTMLResponse, Response
+from fastapi import BackgroundTasks
+import json
+
+cache = CacheManager()
+
+def _build_portfolio_dict(db: Session, req: PortfolioGenerateRequest) -> dict:
+    query = db.query(CategoriaCatalogo)
+    if req.categorias_ids:
+        query = query.filter(CategoriaCatalogo.id.in_(req.categorias_ids))
+    categorias_db = query.options(joinedload(CategoriaCatalogo.servicos)).all()
+    
+    categorias = []
+    for c in categorias_db:
+        itens = []
+        for s in c.servicos:
+            # Pula inativos
+            if getattr(s, 'status', 'ativo') != 'ativo' or not getattr(s, 'ativo', True):
+                continue
+                
+            item_dict = {
+                "id": s.id,
+                "nome": s.nome,
+                "descricao": s.descricao or "",
+                "preco": float(s.preco_padrao),
+                "unidade": getattr(s, 'unidade', 'un') or 'un',
+                "imagem_url": s.imagem_url,
+                "mostrar_custo": req.incluir_custo,
+            }
+            if req.incluir_custo:
+                item_dict["custo"] = float(getattr(s, 'custo', 0) or 0)
+                
+            itens.append(item_dict)
+            
+        if itens:
+            categorias.append({
+                "id": c.id,
+                "nome": c.nome,
+                "itens": itens
+            })
+            
+    return {
+        "titulo": req.titulo,
+        "descricao": req.descricao,
+        "tema": req.tema or "classico",
+        "categorias": categorias,
+        "incluir_custo": req.incluir_custo
+    }
+
+@router.post("/portfolio/html")
+def preview_portfolio_html(
+    req: PortfolioGenerateRequest,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exigir_permissao("catalogo", "leitura"))
+):
+    empresa = usuario.empresa
+    empresa_dict = {"nome": empresa.nome, "logo_url": empresa.logo_url, "telefone": empresa.telefone, "email": empresa.email}
+    
+    portfolio_dict = _build_portfolio_dict(db, req)
+    html_str = gerar_html_portfolio(portfolio_dict, empresa_dict)
+    return HTMLResponse(content=html_str)
+
+@router.post("/portfolio/pdf")
+def download_portfolio_pdf(
+    req: PortfolioGenerateRequest,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exigir_permissao("catalogo", "leitura"))
+):
+    empresa = usuario.empresa
+    empresa_dict = {"nome": empresa.nome, "logo_url": empresa.logo_url, "telefone": empresa.telefone, "email": empresa.email}
+    
+    portfolio_dict = _build_portfolio_dict(db, req)
+    pdf_bytes = gerar_pdf_portfolio(portfolio_dict, empresa_dict)
+    
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=portfolio.pdf"}
+    )
+
+@router.post("/portfolio/link", response_model=PortfolioLinkOut)
+def gerar_link_efemero_portfolio(
+    req: PortfolioGenerateRequest,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exigir_permissao("catalogo", "leitura"))
+):
+    """Gera um link público efêmero armazenando o state da geração no cache."""
+    import uuid
+    # Store config with 7 days TTL
+    link_uuid = str(uuid.uuid4())
+    cache.set(f"portfolio_link:{link_uuid}", {"req": req.model_dump(), "empresa_id": usuario.empresa_id}, ttl=86400 * 7)
+    
+    # Returning relative link. The frontend should prepend window.location.origin
+    return {"link": f"/p/cat-{link_uuid}", "uuid": link_uuid}
+
+@router.post("/portfolio/sugerir-descricao-ia")
+def sugerir_descricao_ia(
+    req: PortfolioGenerateRequest,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exigir_permissao("catalogo", "leitura"))
+):
+    portfolio_dict = _build_portfolio_dict(db, req)
+    
+    nomes_categorias = [c["nome"] for c in portfolio_dict["categorias"]]
+    
+    prompt = (
+        f"Crie um parágrafo introdutório persuasivo e atrativo (max 3 frases) para a capa de um portfólio de produtos/serviços. "
+        f"As categorias incluídas são: {', '.join(nomes_categorias)}. "
+        f"O tom deve ser profissional, convidativo e focado em valor. "
+        f"Apenas retorne o texto final."
+    )
+    
+    resp = ia_service.chat_sync(messages=[{"role": "user", "content": prompt}])
+    
+    return {"descricao": resp.get("content", "").strip()}
+
+@router.post("/portfolio/enviar")
+def enviar_portfolio(
+    req: PortfolioSendRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exigir_permissao("catalogo", "leitura"))
+):
+    import uuid
+    import os
+    # To send a mini-site link we need to generate one
+    link_uuid = str(uuid.uuid4())
+    cache.set(f"portfolio_link:{link_uuid}", {"req": req.model_dump(), "empresa_id": usuario.empresa_id}, ttl=86400 * 7)
+    
+    from app.models.models import Empresa
+    from sqlalchemy.orm import joinedload
+    empresa = db.query(Empresa).options(
+        joinedload(Empresa.pacote).joinedload("modulos")
+    ).filter(Empresa.id == usuario.empresa_id).first()
+    
+    if req.telefone_whatsapp:
+        # Background task para enviar PDF ou link pelo wpp
+        # Enviaremos link efêmero preferencialmente. Se quiser PDF, precisará mudar ou adicionar opção no modal.
+        # Aqui enviamos o link.
+        msg = f"Olá! Veja nosso portfólio atualizado: {req.titulo}\nAcesse o link: {os.getenv('APP_URL', 'https://cotte.app')}/p/cat-{link_uuid}"
+        
+        # Call whatsapp_service
+        background_tasks.add_task(
+            whatsapp_service.enviar_mensagem_texto,
+            req.telefone_whatsapp,
+            msg,
+            empresa=empresa
+        )
+        
+    return {"sucesso": True, "link": f"/p/cat-{link_uuid}"}

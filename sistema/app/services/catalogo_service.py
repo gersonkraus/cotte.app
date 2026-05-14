@@ -36,12 +36,14 @@ SERVICOS_DEMONSTRACAO = [
         nome="Cliente Teste",
         descricao="Serviço de exemplo para demonstração do sistema.",
         preco_padrao=0,
+        preco_mercado_livre=0,
         unidade="un",
     ),
     dict(
         nome="Material Teste",
         descricao="Material de exemplo para demonstração do sistema.",
         preco_padrao=0,
+        preco_mercado_livre=0,
         unidade="un",
     ),
 ]

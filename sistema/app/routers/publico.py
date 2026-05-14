@@ -1102,3 +1102,45 @@ async def escolher_opcao_agendamento(
         logger.exception("Falha ao enviar confirmação de agendamento para cliente")
 
     return {"mensagem": "Opção escolhida com sucesso!", "agendamento_id": ag.id}
+
+from app.core.cache import CacheManager
+from app.schemas.schemas import PortfolioGenerateRequest
+from app.services.pdf_service import gerar_html_portfolio
+
+cache = CacheManager()
+
+@router.get("/cat-{link_uuid}", response_class=HTMLResponse)
+def visualizar_portfolio_publico(link_uuid: str, db: Session = Depends(get_db)):
+    """Renderiza um portfólio efêmero."""
+    data = cache.get(f"portfolio_link:{link_uuid}")
+    if not data or "req" not in data:
+        # Fallback for older cache format or just return 404
+        raise HTTPException(status_code=404, detail="Este portfólio expirou ou não existe.")
+    
+    from app.routers.catalogo import _build_portfolio_dict
+    
+    req_data = data["req"]
+    empresa_id = data.get("empresa_id")
+    
+    req = PortfolioGenerateRequest(**req_data)
+    
+    # Set tenant context
+    from app.core.tenant_context import set_tenant_context
+    set_tenant_context(db, empresa_id=empresa_id)
+    
+    empresa = db.query(Empresa).filter(Empresa.id == empresa_id).first()
+    if not empresa:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada.")
+        
+    empresa_dict = {
+        "nome": empresa.nome, 
+        "logo_url": empresa.logo_url, 
+        "telefone": empresa.telefone, 
+        "email": empresa.email
+    }
+    
+    portfolio_dict = _build_portfolio_dict(db, req)
+    html_str = gerar_html_portfolio(portfolio_dict, empresa_dict)
+    
+    return HTMLResponse(content=html_str)
+
