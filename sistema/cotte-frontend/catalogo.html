@@ -57,8 +57,8 @@
         Todos
       </button>
       <button type="button" onclick="abrirModalCategorias()" title="Gerenciar categorias" aria-label="Gerenciar categorias"
-        style="padding:9px 12px;border:none;border-left:1px solid var(--border);font-size:14px;font-family:inherit;cursor:pointer;background:var(--surface2);color:var(--muted);transition:background 0.15s">
-        ⚙
+        style="padding:9px 12px;border:none;border-left:1px solid var(--border);font-size:14px;font-family:inherit;cursor:pointer;background:var(--surface2);color:var(--muted);transition:background 0.15s;display:flex;align-items:center;justify-content:center">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
       </button>
     </div>
   </div>
@@ -203,7 +203,10 @@
         <div class="form-group">
           <label style="display:flex;justify-content:space-between;align-items:center">
             Categoria
-            <button type="button" class="btn btn-ghost" style="padding:2px 8px;font-size:11px" onclick="abrirModalCategorias()">⚙ Gerenciar</button>
+            <button type="button" class="btn btn-ghost" style="padding:2px 8px;font-size:11px;display:inline-flex;align-items:center;gap:4px" onclick="abrirModalCategorias()" title="Gerenciar categorias">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+              Gerenciar
+            </button>
           </label>
           <select id="item-categoria">
             <option value="">— Sem categoria —</option>
@@ -236,7 +239,7 @@
         <div class="form-group" id="grupo-imagem">
           <label>Imagem do produto</label>
           <div id="preview-imagem" style="display:none;margin-bottom:8px;position:relative;width:100%;max-height:180px;overflow:hidden;border-radius:10px">
-            <img id="img-preview" src="" alt="" style="width:100%;max-height:180px;object-fit:cover;border-radius:10px">
+            <img id="img-preview" src="" alt="" style="width:100%;max-height:180px;object-fit:cover;border-radius:10px" onerror="_onErroPreviewImagemCatalogo()">
             <button onclick="removerImagem()" type="button"
               style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.6);color:white;border:none;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer">
               🗑 Remover
@@ -300,11 +303,14 @@
   </div>
 </div>
 
-<!-- MODAL GERENCIAR CATEGORIAS -->
-<div class="modal-overlay" id="modal-categorias">
+<!-- MODAL GERENCIAR CATEGORIAS (z-index acima do modal de item para empilhar corretamente) -->
+<div class="modal-overlay" id="modal-categorias" style="z-index:260">
   <div class="modal" style="max-width:380px">
     <div class="modal-header">
-      <div class="modal-title">🏷 Categorias</div>
+      <div class="modal-title" style="display:flex;align-items:center;gap:8px">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z"/><path d="M6 6h.01v.01H6V6z"/></svg>
+        <span>Categorias</span>
+      </div>
       <button class="modal-close" onclick="fecharModalCategorias()">✕</button>
     </div>
     <div class="modal-body">
@@ -954,7 +960,24 @@
     } else {
       preview.style.display = 'none';
       area.style.display = '';
-      img.src = '';
+      img.removeAttribute('src');
+    }
+  }
+
+  /** Evita ícone de imagem quebrada quando a URL do R2/CDN falha ou expira. */
+  function _onErroPreviewImagemCatalogo() {
+    const img = document.getElementById('img-preview');
+    if (img) {
+      img.onerror = null;
+      img.removeAttribute('src');
+    }
+    const preview = document.getElementById('preview-imagem');
+    const area = document.getElementById('area-upload');
+    if (preview) preview.style.display = 'none';
+    if (area) area.style.display = '';
+    if (editandoId) {
+      const idx = catalogoCache.findIndex(i => i.id === editandoId);
+      if (idx >= 0) catalogoCache[idx].imagem_url = null;
     }
   }
 
