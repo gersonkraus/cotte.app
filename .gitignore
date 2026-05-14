@@ -134,3 +134,16 @@ graphify-out/
 todo-pro/
 Controle-Pessoal-Pro.html
 
+# Scripts temporários na raiz (fix_, patch_, test_, compress_)
+/fix_*.py
+/patch_*.py
+/test_*.py
+/compress_*.py
+
+# Planos e artefatos temporários
+projetos-prontos-ToDo/
+
+# Uploads avulsos de teste
+sistema/test_*.py
+!sistema/tests/
+
