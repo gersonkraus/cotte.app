@@ -3,9 +3,10 @@ Seed idempotente: popula módulos, planos padrão e papéis por empresa.
 Pode rodar N vezes sem duplicar dados.
 """
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models.models import Empresa, ModuloSistema, Papel, Plano, PlanoModulo, Usuario
+from app.models.models import Empresa, ModuloSistema, Papel, Plano, Usuario
 
 # ── Módulos canônicos do sistema ────────────────────────────────────────────
 
@@ -92,8 +93,12 @@ MODULOS_SEED = [
 
 # Módulos por plano (slugs)
 PLANOS_SEED = {
+    # Trial com os mesmos módulos dos planos pagos (limites de uso continuam no plano/empresa).
     "trial": [
         "orcamentos", "clientes", "catalogo", "documentos", "configuracoes",
+        "relatorios", "financeiro", "equipe", "lembretes",
+        "agendamentos", "comercial",
+        "ia", "whatsapp_proprio",
     ],
     "starter": [
         "orcamentos", "clientes", "catalogo", "documentos", "configuracoes",
@@ -179,6 +184,22 @@ def _upsert_modulos(db: Session) -> dict[str, ModuloSistema]:
         result[dados["slug"]] = modulo
     db.flush()
     return result
+
+
+def _garantir_modulos_plano_trial_completo(
+    db: Session, modulos_por_slug: dict[str, ModuloSistema]
+) -> None:
+    """Em bases já seedadas, garante que o plano 'trial' tenha todos os módulos de PLANOS_SEED['trial']."""
+    plano = db.query(Plano).filter(func.lower(Plano.nome) == "trial").first()
+    if plano is None:
+        return
+    for slug in PLANOS_SEED.get("trial", []):
+        mod = modulos_por_slug.get(slug)
+        if mod is None:
+            continue
+        if mod not in plano.modulos:
+            plano.modulos.append(mod)
+    db.flush()
 
 
 def _garantir_modulo_comercial_planos_existentes(
@@ -343,6 +364,7 @@ def seed_modulos_e_planos_padrao(db: Session) -> None:
     try:
         modulos_por_slug = _upsert_modulos(db)
         _upsert_planos(db, modulos_por_slug)
+        _garantir_modulos_plano_trial_completo(db, modulos_por_slug)
         _garantir_modulo_comercial_planos_existentes(db, modulos_por_slug)
 
         empresas = db.query(Empresa).filter(Empresa.ativo == True).all()
