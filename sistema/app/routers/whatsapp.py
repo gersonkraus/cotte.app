@@ -120,7 +120,11 @@ def _validar_autenticacao_webhook(
     raw_body: dict | None = None,
 ) -> None:
     if provider == "evolution":
-        secret = (getattr(settings, "EVOLUTION_API_KEY", "") or "").strip()
+        # EVOLUTION_WEBHOOK_SECRET é a chave que a Evolution envia nos headers do webhook.
+        # Se não configurada, usa EVOLUTION_API_KEY como fallback.
+        webhook_secret = (getattr(settings, "EVOLUTION_WEBHOOK_SECRET", "") or "").strip()
+        api_key = (getattr(settings, "EVOLUTION_API_KEY", "") or "").strip()
+        secret = webhook_secret or api_key
         if not secret:
             raise HTTPException(status_code=503, detail="Webhook Evolution nao configurado")
         token = _extrair_token_evolution_webhook(request, raw_body=raw_body)
@@ -133,8 +137,10 @@ def _validar_autenticacao_webhook(
             raise HTTPException(status_code=401, detail="Webhook nao autorizado")
         if not secrets.compare_digest(token, secret):
             logger.warning(
-                "[WA Webhook] 401: token recebido nao confere com EVOLUTION_API_KEY do servidor "
-                "(alinhar a mesma chave na Evolution e no Railway / .env do COTTE)"
+                "[WA Webhook] 401: token recebido=%r nao confere com o secret configurado. "
+                "Verifique EVOLUTION_WEBHOOK_SECRET (ou EVOLUTION_API_KEY) no Railway "
+                "e a chave configurada no painel da Evolution para este webhook.",
+                token[:8] + "***" if len(token) > 8 else "***",
             )
             raise HTTPException(status_code=401, detail="Webhook nao autorizado")
         return
@@ -384,8 +390,10 @@ async def webhook_comercial(
     except Exception:
         return {"status": "invalid_json"}
 
-    # Valida autenticação pelo EVOLUTION_API_KEY (mesma chave da instância comercial)
-    secret = (getattr(settings, "EVOLUTION_API_KEY", "") or "").strip()
+    # Valida autenticação usando EVOLUTION_WEBHOOK_SECRET ou EVOLUTION_API_KEY como fallback
+    webhook_secret = (getattr(settings, "EVOLUTION_WEBHOOK_SECRET", "") or "").strip()
+    api_key = (getattr(settings, "EVOLUTION_API_KEY", "") or "").strip()
+    secret = webhook_secret or api_key
     if secret:
         token = _extrair_token_evolution_webhook(request, raw_body=raw_body)
         if not token or not secrets.compare_digest(token, secret):

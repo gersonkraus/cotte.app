@@ -104,6 +104,9 @@ class Settings(BaseSettings):
     # Evolution API — usado quando WHATSAPP_PROVIDER=evolution
     EVOLUTION_API_URL: str = "http://localhost:8080"
     EVOLUTION_API_KEY: str = ""
+    # Chave enviada pela Evolution nos headers do webhook (pode ser igual à API key).
+    # Se não configurada, usa EVOLUTION_API_KEY como fallback.
+    EVOLUTION_WEBHOOK_SECRET: str = ""
     EVOLUTION_INSTANCE: str = "cotte"
     EVOLUTION_INSTANCE_COMERCIAL: str = "cotte-comercial"
 

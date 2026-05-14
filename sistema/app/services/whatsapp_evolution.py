@@ -102,10 +102,27 @@ class EvolutionProvider(WhatsAppProvider):
             )
             if resp.status_code == 200:
                 data = resp.json()
-                # Evolution retorna { "instance": { "state": "open" } }
-                state = data.get("instance", {}).get("state", "")
-                return {"connected": state == "open", "state": state, "raw": data}
-            return {"connected": False, "error": resp.text}
+                # Evolution v2: { "instance": { "state": "open" } }
+                # Algumas versões retornam sem o wrapper ou com "status" em vez de "state"
+                inner = data.get("instance") or data
+                state = (
+                    inner.get("state")
+                    or inner.get("connectionStatus")
+                    or inner.get("status")
+                    or ""
+                )
+                connected = state == "open"
+                if not connected:
+                    logger.warning(
+                        "[WA Status] instance=%s resposta Evolution: status=%d body=%s",
+                        self._instance, resp.status_code, str(data)[:300],
+                    )
+                return {"connected": connected, "state": state, "raw": data}
+            logger.error(
+                "[WA Status] instance=%s HTTP %d — body=%s",
+                self._instance, resp.status_code, resp.text[:300],
+            )
+            return {"connected": False, "error": resp.text, "http_status": resp.status_code}
 
     async def get_qrcode(self) -> dict:
         """GET /instance/connect/{instance}  — retorna QR Code para parear."""
