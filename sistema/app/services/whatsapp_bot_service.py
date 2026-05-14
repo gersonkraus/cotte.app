@@ -131,7 +131,9 @@ async def processar_mensagem(
             await _processar_codigo_empresa(telefone, int(match.group(1)), mensagem, db)
             return
 
-        empresa_operador = empresa_contexto or _empresa_por_operador(telefone, db)
+        # empresa_operador só deve ser definido por telefones registrados como operador.
+        # empresa_contexto é o contexto do tenant mas NÃO ativa o assistente gestor.
+        empresa_operador = _empresa_por_operador(telefone, db)
         if empresa_operador:
             try:
                 from app.services.ai_intention_classifier import (
