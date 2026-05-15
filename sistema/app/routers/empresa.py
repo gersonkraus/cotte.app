@@ -368,7 +368,10 @@ def remover_capa_portfolio(
     if not empresa:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
     if empresa.capa_portfolio_url:
-        r2_service.delete_file(empresa.capa_portfolio_url)
+        try:
+            r2_service.delete_file(empresa.capa_portfolio_url)
+        except Exception:
+            pass  # arquivo já deletado ou armazenamento não disponível
         empresa.capa_portfolio_url = None
         db.commit()
         db.refresh(empresa)

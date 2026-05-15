@@ -2046,7 +2046,7 @@
     setLoading(btn, true);
     try {
       if (portfolioEmpresaCache && portfolioEmpresaCache.capa_portfolio_url) {
-        await api.delete('/empresa/capa-portfolio');
+        try { await api.delete('/empresa/capa-portfolio'); } catch (_) { /* R2 pode não estar disponível */ }
       }
       const data = await api.post('/empresa/capa-template', {
         template_id: portfolioTemplateSelecionado.id,
