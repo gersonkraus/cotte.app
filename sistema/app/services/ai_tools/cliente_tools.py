@@ -21,7 +21,7 @@ class ListarClientesInput(BaseModel):
     cursor: Optional[str] = Field(
         default=None, description="Ponteiro para a próxima página (vindo de uma listagem anterior)."
     )
-    limit: int = Field(default=10, ge=1, le=50)
+    limit: int = Field(default=30, ge=1, le=50)
 
 
 async def _listar_clientes(

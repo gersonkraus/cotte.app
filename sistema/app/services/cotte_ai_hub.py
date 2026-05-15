@@ -2274,8 +2274,11 @@ async def assistente_unificado(
             except (KeyError, ValueError):
                 status_value = None
 
+        # Se o usuário pedir "todos", aumentamos a janela para 10 anos (3650 dias)
+        dias_valor = 3650 if "todos" in mensagem.lower() or "toda a lista" in mensagem.lower() else 365
+
         # Simula a chamada da tool diretamente
-        inp = GerarRelatorioOrcamentosInput(status=status_value)
+        inp = GerarRelatorioOrcamentosInput(status=status_value, dias=dias_valor)
         dados = await _gerar_relatorio_orcamentos(inp, db=db, current_user=current_user)
         
         # Adapta a resposta para o formato AIResponse
@@ -2304,7 +2307,10 @@ async def assistente_unificado(
         except (KeyError, ValueError):
             status_value = None # Fallback to default if status is invalid
 
-        inp = ListarOrcamentosInput(status=status_value)
+        # Se o usuário pedir "todos", aumentamos a janela para 10 anos (3650 dias)
+        dias_valor = 3650 if "todos" in mensagem.lower() or "toda a lista" in mensagem.lower() else 365
+        
+        inp = ListarOrcamentosInput(status=status_value, dias=dias_valor)
         dados = await _listar_orcamentos(inp, db=db, current_user=current_user)
 
         return AIResponse(
@@ -2321,7 +2327,7 @@ async def assistente_unificado(
 
     if intencao == "LISTAR_CLIENTES":
         from app.services.ai_tools.cliente_tools import _listar_clientes, ListarClientesInput
-        inp = ListarClientesInput(limit=20)
+        inp = ListarClientesInput(limit=30)
         dados = await _listar_clientes(inp, db=db, current_user=current_user)
         return AIResponse(
             sucesso=True,

@@ -48,7 +48,7 @@ def _sql_customer_ranking_month_over_month() -> str:
         "FROM curr "
         "LEFT JOIN prev ON prev.cliente_id = curr.cliente_id "
         "ORDER BY curr.faturamento_mes_atual DESC "
-        "LIMIT 10"
+        "LIMIT 30"
     )
 
 

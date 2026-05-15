@@ -18,7 +18,7 @@ class ListarMateriaisInput(BaseModel):
     busca: Optional[str] = Field(
         default=None, description="Filtro parcial por nome ou descrição."
     )
-    limit: int = Field(default=20, ge=1, le=100)
+    limit: int = Field(default=30, ge=1, le=100)
 
 
 async def _listar_materiais(

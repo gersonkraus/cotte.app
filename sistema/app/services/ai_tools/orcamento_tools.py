@@ -32,8 +32,8 @@ class ListarOrcamentosInput(BaseModel):
         description="Status do orçamento (ex: RASCUNHO, ENVIADO, APROVADO, RECUSADO).",
     )
     cliente_id: Optional[int] = None
-    dias: int = Field(default=30, ge=1, le=365)
-    limit: int = Field(default=10, ge=1, le=50)
+    dias: int = Field(default=365, ge=1, le=3650)
+    limit: int = Field(default=30, ge=1, le=50)
     aprovado_em_de: Optional[date] = Field(
         default=None,
         description=(
@@ -313,7 +313,7 @@ class GerarRelatorioOrcamentosInput(BaseModel):
         description="Status do orçamento para o relatório (ex: RASCUNHO, ENVIADO, APROVADO, RECUSADO).",
     )
     cliente_id: Optional[int] = None
-    dias: int = Field(default=90, ge=1, le=730, description="Janela de dias para o relatório, baseado na data de criação.")
+    dias: int = Field(default=365, ge=1, le=3650, description="Janela de dias para o relatório, baseado na data de criação.")
     aprovado_em_de: Optional[date] = Field(
         default=None,
         description="Início do intervalo por data de aprovação (campo aprovado_em).",

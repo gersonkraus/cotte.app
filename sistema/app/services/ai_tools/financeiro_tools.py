@@ -55,9 +55,9 @@ class ListarMovimentacoesInput(BaseModel):
         default=None, description="'entrada' ou 'saida'. Omitir para listar ambos."
     )
     dias: int = Field(
-        default=30, ge=1, le=365, description="Janela em dias retroativos."
+        default=60, ge=1, le=365, description="Janela em dias retroativos."
     )
-    limit: int = Field(default=20, ge=1, le=100)
+    limit: int = Field(default=30, ge=1, le=100)
 
 
 async def _listar_movimentacoes(
@@ -256,7 +256,7 @@ class ListarDespesasInput(BaseModel):
     dias: int = Field(
         default=60, ge=1, le=365, description="Janela (dias) em torno do vencimento."
     )
-    limit: int = Field(default=20, ge=1, le=100)
+    limit: int = Field(default=30, ge=1, le=100)
 
 
 async def _listar_despesas(
@@ -551,7 +551,7 @@ criar_parcelamento = ToolSpec(
 # ── gerar_relatorio_vendas ───────────────────────────────────────────────────
 class GerarRelatorioVendasInput(BaseModel):
     periodo_dias: int = Field(
-        default=30, ge=1, le=365, description="Janela em dias retroativos para o relatório."
+        default=90, ge=1, le=3650, description="Janela em dias retroativos para o relatório."
     )
     agrupar_por: Optional[str] = Field(
         default=None, description="Agrupar resultados por 'cliente' ou 'servico'."

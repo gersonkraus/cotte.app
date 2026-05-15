@@ -1075,7 +1075,7 @@ class GerarRelatorioDinamicoInput(BaseModel):
         description="Tipo de gráfico: 'bar', 'line', 'pie', 'doughnut'. Omitir para automático.",
     )
     limite: int = Field(
-        default=20, ge=1, le=100,
+        default=30, ge=1, le=100,
         description="Máximo de linhas a retornar.",
     )
     metrica: Optional[str] = Field(

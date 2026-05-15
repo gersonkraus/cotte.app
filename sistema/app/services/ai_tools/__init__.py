@@ -53,6 +53,7 @@ from .orcamento_tools import (
     editar_orcamento,
     enviar_orcamento_email,
     enviar_orcamento_whatsapp,
+    gerar_relatorio_orcamentos,
     listar_orcamentos,
     obter_orcamento,
     recusar_orcamento,
@@ -61,6 +62,7 @@ from .orcamento_tools import (
 TOOL_DOMAIN_MAP: dict[str, str] = {
     # orcamentos
     "listar_orcamentos": "orcamentos",
+    "gerar_relatorio_orcamentos": "orcamentos",
     "obter_orcamento": "orcamentos",
     "criar_orcamento": "orcamentos",
     "duplicar_orcamento": "orcamentos",
@@ -123,6 +125,7 @@ _ALL_TOOLS: list[ToolSpec] = [
     gerar_relatorio_contas_a_receber,
     gerar_relatorio_ranking_clientes,
     listar_orcamentos,
+    gerar_relatorio_orcamentos,
     obter_orcamento,
     listar_clientes,
     listar_materiais,

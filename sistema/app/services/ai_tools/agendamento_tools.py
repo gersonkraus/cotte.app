@@ -83,7 +83,7 @@ class ListarAgendamentosInput(BaseModel):
         le=365,
         description="Janela em dias (de hoje-dias até hoje+dias).",
     )
-    limit: int = Field(default=20, ge=1, le=100)
+    limit: int = Field(default=30, ge=1, le=100)
 
 
 async def _listar_agendamentos(

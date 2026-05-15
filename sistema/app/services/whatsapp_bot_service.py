@@ -343,10 +343,55 @@ async def _processar_assistente_gestor(
             permissoes=usuario.permissoes if usuario else {},  # T3.3
             is_gestor=usuario.is_gestor if usuario else False,  # T3.3
         )
-        texto = (
-            ai_resp.resposta or ""
-        ).strip() or "Nao consegui processar sua mensagem."
-    except Exception:
+        
+        # ── Formatação especial para WhatsApp baseada no tipo de resposta ──
+        texto = (ai_resp.resposta or "").strip()
+        
+        if ai_resp.tipo_resposta == "lista_orcamentos" and ai_resp.dados:
+            frontend_data = ai_resp.dados.get("_meta_frontend_data") or {}
+            lista = frontend_data.get("orcamentos", [])
+            if lista:
+                linhas = [f"*{texto}*\n"]
+                for o in lista[:15]: # Limite razoável para WPP
+                    valor = _brl_fmt(o.get("total", 0))
+                    status = (o.get("status") or "").upper()
+                    cliente = o.get("cliente_nome") or "Cliente não informado"
+                    numero = o.get("numero") or f"#{o.get('id')}"
+                    linhas.append(f"• *{numero}* - {cliente}\n  Valor: {valor} | Status: {status}")
+                
+                if len(lista) > 15:
+                    linhas.append(f"\n_Exibindo 15 de {len(lista)} orçamentos. Veja a lista completa no painel._")
+                
+                texto = "\n".join(linhas)
+            elif not texto:
+                texto = "Nenhum orçamento encontrado com esses critérios."
+
+        elif ai_resp.tipo_resposta == "relatorio_dinamico" and ai_resp.dados:
+            # Para relatórios, extraímos o resumo se disponível
+            frontend_data = ai_resp.dados.get("_meta_frontend_data") or {}
+            lista = frontend_data.get("orcamentos", [])
+            if lista:
+                resumo = [f"*{texto}*\n"]
+                total_geral = 0
+                for o in lista[:20]:
+                    valor = o.get("total", 0)
+                    total_geral += valor
+                    status = (o.get("status") or "").upper()
+                    cliente = o.get("cliente_nome") or "Cliente"
+                    numero = o.get("numero") or f"#{o.get('id')}"
+                    resumo.append(f"• {numero}: {cliente} - {_brl_fmt(valor)} ({status})")
+                
+                resumo.append(f"\n*Total do período: {_brl_fmt(total_geral)}*")
+                if len(lista) > 20:
+                    resumo.append(f"\n_Relatório limitado aos primeiros 20 itens no WhatsApp._")
+                
+                texto = "\n".join(resumo)
+
+        if not texto:
+            texto = "Nao consegui processar sua mensagem."
+            
+    except Exception as e:
+        logger.error(f"Erro no assistente gestor WPP: {e}")
         texto = "Ocorreu um erro ao processar sua mensagem. Tente novamente."
 
     await enviar_mensagem_texto(telefone, texto, empresa=empresa)
