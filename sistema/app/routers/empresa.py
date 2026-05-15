@@ -22,6 +22,7 @@ from app.schemas.schemas import (
     BancoPIXOut,
     BancoPIXCreate,
     BancoPIXUpdate,
+    CapaTemplateRequest,
 )
 from app.services.plano_service import (
     checar_limite_usuarios,
@@ -350,6 +351,8 @@ async def upload_capa_portfolio(
         content_type=mime_type,
     )
     empresa.capa_portfolio_url = file_url
+    empresa.capa_template_id = None   # upload substitui template
+    empresa.capa_slogan = None
     db.commit()
     db.refresh(empresa)
     return empresa
@@ -369,6 +372,42 @@ def remover_capa_portfolio(
         empresa.capa_portfolio_url = None
         db.commit()
         db.refresh(empresa)
+    return empresa
+
+
+@router.post("/capa-template", response_model=EmpresaOut)
+def salvar_capa_template(
+    req: CapaTemplateRequest,
+    usuario: Usuario = Depends(exigir_permissao("configuracoes", "escrita")),
+    db: Session = Depends(get_db),
+):
+    """Salva o template de capa escolhido e a tagline editada."""
+    SLUGS_VALIDOS = {"corporativo", "clean", "impacto", "premium"}
+    if req.template_id not in SLUGS_VALIDOS:
+        raise HTTPException(status_code=422, detail=f"template_id inválido: {req.template_id}")
+    empresa = db.query(Empresa).filter(Empresa.id == usuario.empresa_id).first()
+    if not empresa:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+    empresa.capa_template_id = req.template_id
+    empresa.capa_slogan = (req.slogan or "").strip()[:120]
+    db.commit()
+    db.refresh(empresa)
+    return empresa
+
+
+@router.delete("/capa-template", response_model=EmpresaOut)
+def remover_capa_template(
+    usuario: Usuario = Depends(exigir_permissao("configuracoes", "escrita")),
+    db: Session = Depends(get_db),
+):
+    """Remove o template de capa ativo."""
+    empresa = db.query(Empresa).filter(Empresa.id == usuario.empresa_id).first()
+    if not empresa:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+    empresa.capa_template_id = None
+    empresa.capa_slogan = None
+    db.commit()
+    db.refresh(empresa)
     return empresa
 
 
