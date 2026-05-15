@@ -743,12 +743,6 @@ async function carregarEmpresa() {
       atualizarPreview();
     }
 
-    if (emp.capa_portfolio_url) {
-      mostrarCapaPortfolio(emp.capa_portfolio_url);
-    } else {
-      ocultarCapaPortfolio();
-    }
-
     const isAdmin = localStorage.getItem('cotte_role') === 'admin' || localStorage.getItem('cotte_is_admin') === 'true';
     if (isAdmin) {
       const navAdmin = document.getElementById('nav-admin-link');
@@ -1416,85 +1410,6 @@ async function removerLogo() {
     if (btn) {
       btn.disabled = false;
     }
-  }
-}
-
-// ── CAPA DO PORTFÓLIO ───────────────────────────────────────────────
-function mostrarCapaPortfolio(url) {
-  const img = document.getElementById('capa-img');
-  const placeholder = document.getElementById('capa-placeholder');
-  const btnRemover = document.getElementById('btn-remover-capa-portfolio');
-  if (!img || !placeholder) return;
-  const src = api.resolveUrl(url);
-  img.src = src;
-  img.style.display = 'block';
-  placeholder.style.display = 'none';
-  if (btnRemover) btnRemover.style.display = 'flex';
-}
-
-function ocultarCapaPortfolio() {
-  const img = document.getElementById('capa-img');
-  const placeholder = document.getElementById('capa-placeholder');
-  const btnRemover = document.getElementById('btn-remover-capa-portfolio');
-  if (img) {
-    img.style.display = 'none';
-    img.src = '';
-    img.removeAttribute('src');
-  }
-  if (placeholder) placeholder.style.display = 'flex';
-  if (btnRemover) btnRemover.style.display = 'none';
-}
-
-async function uploadCapaPortfolio(input) {
-  if (!input.files.length) return;
-  const file = input.files[0];
-  if (file.size > 5 * 1024 * 1024) {
-    showNotif('❌', 'Arquivo grande demais', 'O limite é 5 MB.', 'error');
-    input.value = '';
-    return;
-  }
-  const btn = document.getElementById('btn-upload-capa-portfolio');
-  const svc = typeof ApiService !== 'undefined' ? ApiService : (typeof window !== 'undefined' && window.ApiService);
-  if (!svc || typeof svc.post !== 'function') {
-    showNotif('❌', 'Erro', 'Serviço de API indisponível.', 'error');
-    input.value = '';
-    return;
-  }
-  setLoading(btn, true);
-  const formData = new FormData();
-  formData.append('file', file);
-  try {
-    const data = await svc.post('/empresa/capa-portfolio', formData, { forceNative: true });
-    if (data && data.capa_portfolio_url) {
-      mostrarCapaPortfolio(data.capa_portfolio_url);
-    }
-    showNotif('✅', 'Capa enviada', 'Aparecerá no portfólio e no link público do orçamento.');
-  } catch (err) {
-    showNotif('❌', 'Erro', err.message, 'error');
-  } finally {
-    setLoading(btn, false, 'Enviar nova capa');
-    input.value = '';
-  }
-}
-
-async function removerCapaPortfolio() {
-  const btn = document.getElementById('btn-remover-capa-portfolio');
-  const btnUp = document.getElementById('btn-upload-capa-portfolio');
-  try {
-    if (btn) btn.disabled = true;
-    if (btnUp) btnUp.disabled = true;
-    const svc = typeof ApiService !== 'undefined' ? ApiService : (typeof window !== 'undefined' && window.ApiService);
-    if (!svc || typeof svc.delete !== 'function') {
-      throw new Error('Serviço de API indisponível.');
-    }
-    await svc.delete('/empresa/capa-portfolio');
-    ocultarCapaPortfolio();
-    showNotif('✅', 'Capa removida', 'O portfólio voltará ao layout padrão sem banner.');
-  } catch (err) {
-    showNotif('❌', 'Erro', err.message, 'error');
-  } finally {
-    if (btn) btn.disabled = false;
-    if (btnUp) btnUp.disabled = false;
   }
 }
 
