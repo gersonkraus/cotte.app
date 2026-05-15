@@ -323,3 +323,31 @@
     transition: none !important;
   }
 }
+
+/* ── Template gallery cards ─────────────────────────────────────────── */
+.portfolio-template-card {
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color .15s, transform .15s;
+}
+.portfolio-template-card:hover {
+  border-color: var(--primary, #4f46e5);
+  transform: translateY(-1px);
+}
+.portfolio-template-card.is-active {
+  border-color: var(--success, #22c55e);
+}
+.portfolio-template-card-label {
+  padding: 4px 8px;
+  background: var(--surface2);
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.portfolio-template-card.is-active .portfolio-template-card-label {
+  color: var(--success, #22c55e);
+}

@@ -467,7 +467,84 @@
       </div>
 
       <div class="portfolio-section">
-        <h3 class="portfolio-section-title">2. Itens do portfólio</h3>
+        <h3 class="portfolio-section-title">2. Imagem de capa (opcional)</h3>
+        <p class="portfolio-section-subtitle">Banner no topo do portfólio. JPEG, PNG ou WEBP · até 5 MB · proporção larga (ex.: 1200×400).</p>
+        <div id="portfolio-capa-preview-wrap"
+             onclick="document.getElementById('portfolio-input-capa').click()"
+             style="cursor:pointer;border:2px dashed var(--border);border-radius:10px;min-height:80px;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;background:var(--surface2)">
+          <div id="portfolio-capa-placeholder" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px;text-align:center">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:.5">
+              <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+            <span style="font-size:12.5px;font-weight:500">Clique para enviar a capa</span>
+          </div>
+          <img id="portfolio-capa-img" style="display:none;width:100%;max-height:120px;object-fit:cover" alt="Pré-visualização da capa">
+          <button type="button" id="btn-remover-capa-portfolio-modal"
+                  style="display:none;position:absolute;top:6px;right:6px;background:var(--surface);border:1px solid var(--border);border-radius:50%;width:24px;height:24px;cursor:pointer;align-items:center;justify-content:center"
+                  onclick="event.stopPropagation();removerCapaPortfolioModal()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+        <input type="file" id="portfolio-input-capa" accept=".png,.jpg,.jpeg,.webp" style="display:none" onchange="uploadCapaPortfolioModal(this)">
+        <div id="portfolio-capa-status" style="font-size:11px;color:var(--muted);margin-top:6px"></div>
+
+      <!-- Divider upload / templates -->
+      <div id="portfolio-capa-divider" style="display:flex;align-items:center;gap:8px;margin:10px 0">
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+        <span style="font-size:11px;color:var(--muted)">ou escolha um template</span>
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+      </div>
+
+      <!-- Grid 2×2 dos templates (renderizado por JS) -->
+      <div id="portfolio-templates-gallery" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"></div>
+
+      <!-- Seção template ativo (oculta por padrão) -->
+      <div id="portfolio-template-ativo" style="display:none;margin-top:10px">
+        <div id="portfolio-template-preview" style="border-radius:8px;overflow:hidden;margin-bottom:8px;border:1.5px solid var(--success, #22c55e)"></div>
+        <div style="margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <span style="font-size:12px;color:var(--muted)">Tagline</span>
+            <button type="button" id="btn-sugerir-slogan-ia" onclick="sugerirSloganIA()"
+                    style="background:none;border:none;color:var(--primary,#818cf8);font-size:11px;cursor:pointer;padding:0">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:3px;vertical-align:middle"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              Sugerir com IA
+            </button>
+          </div>
+          <input type="text" id="portfolio-template-slogan" maxlength="120"
+                 placeholder="Uma frase sobre a empresa..."
+                 oninput="atualizarPreviewTemplateLive()"
+                 style="width:100%;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px">
+        </div>
+        <div style="display:flex;gap:6px">
+          <button type="button" onclick="trocarTemplateGaleria()"
+                  style="flex:1;padding:6px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;font-size:12px;color:var(--muted);cursor:pointer">
+            Trocar template
+          </button>
+          <button type="button" id="btn-salvar-template" onclick="salvarTemplate()"
+                  style="flex:1;padding:6px 10px;background:var(--primary,#4f46e5);border:none;border-radius:6px;font-size:12px;color:#fff;font-weight:600;cursor:pointer">
+            Salvar
+          </button>
+          <button type="button" onclick="removerTemplate()" title="Remover template"
+                  style="padding:6px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;font-size:12px;color:var(--danger,#ef4444);cursor:pointer">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Upload como alternativa (visível apenas quando template ativo) -->
+      <div id="portfolio-upload-alt" style="display:none;margin-top:8px">
+        <div onclick="document.getElementById('portfolio-input-capa').click()"
+             style="border:1px dashed var(--border);border-radius:6px;padding:8px;text-align:center;font-size:11px;color:var(--muted);cursor:pointer;transition:border-color .15s">
+          Ou enviar imagem própria (substitui o template)
+        </div>
+      </div>
+      </div>
+
+      <div class="portfolio-section">
+        <h3 class="portfolio-section-title">3. Itens do portfólio</h3>
         <p class="portfolio-section-subtitle">Escolha por categoria ou selecione produtos individuais.</p>
         <div class="portfolio-tabs" role="tablist" aria-label="Modo de seleção dos itens do portfólio">
           <button type="button" id="portfolio-tab-categorias" class="btn btn-ghost portfolio-tab-btn is-active" data-tab="categorias" aria-selected="true" aria-controls="portfolio-wrap-categorias" role="tab" onclick="setPortfolioTab('categorias')">Por categoria</button>
@@ -1723,9 +1800,6 @@
       `Telefone: ${empresa.telefone || 'Não informado'}`,
       `E-mail: ${empresa.email || 'Não informado'}`,
       `Endereço: ${montarEnderecoEmpresaPortfolio(empresa) || 'Não informado'}`,
-      empresa.capa_portfolio_url
-        ? 'Capa do portfólio: configurada (aparece no topo do PDF/HTML)'
-        : 'Capa do portfólio: não configurada (defina em Configurações → Empresa)'
     ];
     el.textContent = linhas.join(' | ');
   }
@@ -1781,10 +1855,78 @@
         if (!document.getElementById('portfolio-descricao').value.trim() && empresa && empresa.descricao_publica_empresa) {
           document.getElementById('portfolio-descricao').value = empresa.descricao_publica_empresa.trim();
         }
+        if (empresa && empresa.capa_portfolio_url) {
+          mostrarCapaPortfolioModal(empresa.capa_portfolio_url);
+        } else {
+          ocultarCapaPortfolioModal();
+        }
       })
       .catch(() => {
         renderPreviewEmpresaPortfolio(null);
+        ocultarCapaPortfolioModal();
       });
+  }
+
+  function mostrarCapaPortfolioModal(url) {
+    const img = document.getElementById('portfolio-capa-img');
+    const placeholder = document.getElementById('portfolio-capa-placeholder');
+    const btnRem = document.getElementById('btn-remover-capa-portfolio-modal');
+    if (!img) return;
+    img.src = (typeof api !== 'undefined' && api.resolveUrl) ? api.resolveUrl(url) : url;
+    img.style.display = 'block';
+    if (placeholder) placeholder.style.display = 'none';
+    if (btnRem) btnRem.style.display = 'flex';
+    const st = document.getElementById('portfolio-capa-status');
+    if (st) st.textContent = 'Capa configurada ✓';
+  }
+
+  function ocultarCapaPortfolioModal() {
+    const img = document.getElementById('portfolio-capa-img');
+    const placeholder = document.getElementById('portfolio-capa-placeholder');
+    const btnRem = document.getElementById('btn-remover-capa-portfolio-modal');
+    if (img) { img.style.display = 'none'; img.src = ''; img.removeAttribute('src'); }
+    if (placeholder) placeholder.style.display = 'flex';
+    if (btnRem) btnRem.style.display = 'none';
+    const st = document.getElementById('portfolio-capa-status');
+    if (st) st.textContent = '';
+  }
+
+  async function uploadCapaPortfolioModal(input) {
+    if (!input.files.length) return;
+    const file = input.files[0];
+    if (file.size > 5 * 1024 * 1024) {
+      showNotif('❌', 'Arquivo grande demais', 'O limite é 5 MB.', 'error');
+      input.value = '';
+      return;
+    }
+    const st = document.getElementById('portfolio-capa-status');
+    if (st) st.textContent = 'Enviando...';
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const data = await api.post('/empresa/capa-portfolio', formData, { forceNative: true });
+      if (data && data.capa_portfolio_url) {
+        mostrarCapaPortfolioModal(data.capa_portfolio_url);
+        portfolioEmpresaCache = null; // força reload no próximo acesso
+      }
+      showNotif('✅', 'Capa enviada', 'Aparecerá no portfólio gerado.');
+    } catch (err) {
+      showNotif('❌', 'Erro no upload', err.message, 'error');
+      if (st) st.textContent = '';
+    } finally {
+      input.value = '';
+    }
+  }
+
+  async function removerCapaPortfolioModal() {
+    try {
+      await api.delete('/empresa/capa-portfolio');
+      ocultarCapaPortfolioModal();
+      portfolioEmpresaCache = null;
+      showNotif('✅', 'Capa removida', 'O portfólio usará layout padrão.');
+    } catch (err) {
+      showNotif('❌', 'Erro', err.message, 'error');
+    }
   }
 
   function fecharModalPortfolio() {
