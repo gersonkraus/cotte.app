@@ -73,6 +73,9 @@ def get_empresa_dict_for_pdf(empresa: Empresa) -> dict:
         "telefone": str(empresa.telefone if empresa else ""),
         "email": str(empresa.email if empresa else ""),
         "logo_url": getattr(empresa, "logo_url", None) if empresa else None,
+        "capa_portfolio_url": getattr(empresa, "capa_portfolio_url", None)
+        if empresa
+        else None,
         "cor_primaria": str(empresa.cor_primaria if empresa else "#00e5a0"),
         "template_orcamento": str(
             getattr(empresa, "template_orcamento", "classico")

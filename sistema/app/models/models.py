@@ -197,6 +197,7 @@ class Empresa(Base):
     )  # número do WhatsApp que cria orçamentos
     email = Column(String(100))
     logo_url = Column(String(300))
+    capa_portfolio_url = Column(String(500), nullable=True)
     cor_primaria = Column(String(7), default="#00e5a0")  # hex
     ativo = Column(Boolean, default=True)
     criado_em = Column(DateTime(timezone=True), server_default=func.now())

@@ -396,6 +396,17 @@ function renderizarTemplateModerno(orc, token, API) {
     logoSobreHtml = '<img src="' + escHtml(logoUrlSobre) + '" alt="' + escHtml(emp.nome || 'Logo') + '" style="width:64px;height:64px;object-fit:contain;border-radius:12px;border:1px solid #f1f5f9;flex-shrink:0" onerror="this.style.display=\'none\'">';
   }
 
+  var capaUrlTopo = (typeof api !== 'undefined' && emp.capa_portfolio_url)
+    ? api.resolveUrl(emp.capa_portfolio_url)
+    : (emp.capa_portfolio_url || '');
+  var capaBannerTopoHtml = '';
+  if (capaUrlTopo) {
+    capaBannerTopoHtml =
+      '<div style="margin:-16px -16px 20px -16px;border-radius:0 0 16px 16px;overflow:hidden;max-height:200px;background:#e2e8f0">' +
+        '<img src="' + escHtml(capaUrlTopo) + '" alt="" style="width:100%;height:200px;object-fit:cover;display:block" onerror="this.parentElement.style.display=\'none\'">' +
+      '</div>';
+  }
+
   // Assinatura
   var labelAssinatura = (emp.texto_assinatura_proposta && emp.texto_assinatura_proposta.trim())
     ? emp.texto_assinatura_proposta.trim()
@@ -527,7 +538,7 @@ function renderizarTemplateModerno(orc, token, API) {
         '.moderno-actions button,.moderno-actions a{font-size:14px !important;padding:12px !important}' +
       '}' +
     '</style>' +
-    '<div style="max-width:900px;margin:0 auto;padding:16px">' +
+    '<div style="max-width:900px;margin:0 auto;padding:16px">' + capaBannerTopoHtml +
 
       // Header
       '<header style="background:white;padding:24px 20px;border-radius:16px;box-shadow:0 4px 15px rgba(0,0,0,0.08);margin-bottom:24px;text-align:center">' +

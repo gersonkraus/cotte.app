@@ -709,6 +709,7 @@ def _empresa_para_portfolio_dict(empresa: Empresa) -> dict:
     return {
         "nome": empresa.nome,
         "logo_url": empresa.logo_url,
+        "capa_portfolio_url": getattr(empresa, "capa_portfolio_url", None),
         "telefone": empresa.telefone,
         "email": empresa.email,
         "descricao_publica_empresa": empresa.descricao_publica_empresa,

@@ -94,6 +94,7 @@ async def visualizar_proposta_publica(
         empresa_data = {
             "nome": empresa.nome,
             "logo_url": empresa.logo_url,
+            "capa_portfolio_url": getattr(empresa, "capa_portfolio_url", None),
             "cor_primaria": empresa.cor_primaria or "#00e5a0"
         }
     

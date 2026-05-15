@@ -50,6 +50,21 @@
   
   .brand { flex: 1; }
   .logo-img { max-height: 50px; margin-bottom: 10px; }
+
+  .doc-banner {
+    width: 100%;
+    max-height: 160px;
+    overflow: hidden;
+    margin-bottom: 16px;
+    border-radius: 4px;
+  }
+  .doc-banner img {
+    width: 100%;
+    max-height: 160px;
+    object-fit: cover;
+    display: block;
+  }
+
   .empresa-nome { font-size: 18px; font-weight: 700; color: {{ empresa.cor_primaria or '#00a372' }}; margin-bottom: 4px; }
   .empresa-info { font-size: 10px; color: #666; }
 
@@ -142,6 +157,12 @@
 </head>
 <body>
 <div class="container">
+
+  {% if empresa.capa_portfolio_url %}
+  <div class="doc-banner">
+    <img src="{{ empresa.capa_portfolio_url }}" alt="">
+  </div>
+  {% endif %}
 
   <!-- HEADER -->
   <header class="header">

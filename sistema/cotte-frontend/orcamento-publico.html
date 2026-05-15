@@ -157,6 +157,12 @@
   <!-- Conteúdo -->
   <div id="conteudo" class="hidden">
 
+    <div id="empresa-capa-wrap" class="hidden w-full bg-gray-100">
+      <div class="max-w-lg mx-auto overflow-hidden">
+        <img id="empresa-capa-img" src="" alt="" class="w-full max-h-48 object-cover block" width="1200" height="400" loading="lazy" decoding="async">
+      </div>
+    </div>
+
     <!-- Topo colorido com logo/nome da empresa -->
     <div class="topo-bar text-white">
       <div class="max-w-lg mx-auto px-4 py-5 flex items-center gap-4">
@@ -922,6 +928,23 @@
       const contato = [emp.telefone, emp.email].filter(Boolean).join(' · ');
       const elContato = document.getElementById('empresa-contato');
       if (contato) elContato.textContent = contato; else elContato.remove();
+
+      const capaWrap = document.getElementById('empresa-capa-wrap');
+      const capaImg = document.getElementById('empresa-capa-img');
+      if (capaWrap && capaImg) {
+        capaWrap.classList.add('hidden');
+        capaImg.removeAttribute('src');
+        if (emp.capa_portfolio_url) {
+          capaImg.alt = '';
+          capaImg.onerror = function() {
+            capaWrap.classList.add('hidden');
+          };
+          capaImg.onload = function() {
+            capaWrap.classList.remove('hidden');
+          };
+          capaImg.src = resolveMediaUrl(emp.capa_portfolio_url);
+        }
+      }
 
       const logoEl = document.getElementById('empresa-logo');
       if (emp.logo_url) {

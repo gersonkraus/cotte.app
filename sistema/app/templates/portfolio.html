@@ -123,6 +123,27 @@
                 linear-gradient(160deg, var(--paper-bg), transparent 62%);
         }
 
+        .cover-banner {
+            width: calc(100% + 68px);
+            margin: -34px -34px 22px -34px;
+            max-height: 240px;
+            overflow: hidden;
+            border-radius: 0;
+        }
+
+        .cover-banner img {
+            display: block;
+            width: 100%;
+            height: 220px;
+            object-fit: cover;
+        }
+
+        @media print {
+            .cover-banner img {
+                max-height: 180px;
+            }
+        }
+
         .cover-first-page {
             min-height: 250mm;
             display: flex;
@@ -468,6 +489,11 @@
 <body>
     <div class="paper">
         <header class="cover {% if portfolio.incluir_apresentacao_primeira_folha %}cover-first-page{% endif %}">
+            {% if empresa.capa_portfolio_url %}
+            <div class="cover-banner" aria-hidden="true">
+                <img src="{{ empresa.capa_portfolio_url }}" alt="">
+            </div>
+            {% endif %}
             <div class="cover-head">
                 {% if empresa.logo_url %}
                 <img src="{{ empresa.logo_url }}" alt="{{ empresa.nome }}" class="logo">

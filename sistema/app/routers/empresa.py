@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func, func as _func
-from typing import List
+from typing import List, Tuple
 import os, shutil, uuid, logging
+from io import BytesIO
 
 from app.core.database import get_db
 from app.core.auth import get_usuario_atual, hash_senha, exigir_permissao
@@ -39,6 +40,37 @@ LOGO_DIR = "static/logos"
 os.makedirs(LOGO_DIR, exist_ok=True)
 
 EXTENSOES_PERMITIDAS = {".png", ".jpg", ".jpeg", ".webp"}
+MAX_CAPA_PORTFOLIO_BYTES = 5 * 1024 * 1024
+
+
+async def _ler_arquivo_imagem_limitado(
+    file: UploadFile, max_bytes: int
+) -> Tuple[BytesIO, str, str]:
+    """Lê o upload em blocos, valida extensão e tamanho máximo."""
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in EXTENSOES_PERMITIDAS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Formato não permitido. Use: {', '.join(sorted(EXTENSOES_PERMITIDAS))}",
+        )
+    total = 0
+    chunks: list[bytes] = []
+    while True:
+        chunk = await file.read(65536)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > max_bytes:
+            raise HTTPException(
+                status_code=413,
+                detail="Arquivo excede o limite de 5 MB.",
+            )
+        chunks.append(chunk)
+    data = b"".join(chunks)
+    if not data:
+        raise HTTPException(status_code=400, detail="Arquivo vazio.")
+    mime_type = file.content_type or "application/octet-stream"
+    return BytesIO(data), ext, mime_type
 
 
 def _erro_instancia_inexistente(error_text: str | None) -> bool:
@@ -288,6 +320,53 @@ def remover_logo(
     if empresa.logo_url:
         r2_service.delete_file(empresa.logo_url)
         empresa.logo_url = None
+        db.commit()
+        db.refresh(empresa)
+    return empresa
+
+
+@router.post("/capa-portfolio", response_model=EmpresaOut)
+async def upload_capa_portfolio(
+    file: UploadFile = File(...),
+    usuario: Usuario = Depends(exigir_permissao("configuracoes", "escrita")),
+    db: Session = Depends(get_db),
+):
+    """Upload da imagem de capa do portfólio/catálogo (JPEG, PNG ou WEBP, até 5 MB)."""
+    buf, ext, mime_type = await _ler_arquivo_imagem_limitado(
+        file, MAX_CAPA_PORTFOLIO_BYTES
+    )
+    empresa = db.query(Empresa).filter(Empresa.id == usuario.empresa_id).first()
+    if not empresa:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+
+    if empresa.capa_portfolio_url:
+        r2_service.delete_file(empresa.capa_portfolio_url)
+
+    file_url = r2_service.upload_file(
+        file_obj=buf,
+        empresa_id=usuario.empresa_id,
+        tipo="portfolio_capas",
+        extensao=ext,
+        content_type=mime_type,
+    )
+    empresa.capa_portfolio_url = file_url
+    db.commit()
+    db.refresh(empresa)
+    return empresa
+
+
+@router.delete("/capa-portfolio", response_model=EmpresaOut)
+def remover_capa_portfolio(
+    usuario: Usuario = Depends(exigir_permissao("configuracoes", "escrita")),
+    db: Session = Depends(get_db),
+):
+    """Remove a capa do portfólio e apaga o arquivo no R2."""
+    empresa = db.query(Empresa).filter(Empresa.id == usuario.empresa_id).first()
+    if not empresa:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+    if empresa.capa_portfolio_url:
+        r2_service.delete_file(empresa.capa_portfolio_url)
+        empresa.capa_portfolio_url = None
         db.commit()
         db.refresh(empresa)
     return empresa

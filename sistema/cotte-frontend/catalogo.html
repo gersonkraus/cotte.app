@@ -1722,7 +1722,10 @@
       `Nome: ${empresa.nome || 'Não informado'}`,
       `Telefone: ${empresa.telefone || 'Não informado'}`,
       `E-mail: ${empresa.email || 'Não informado'}`,
-      `Endereço: ${montarEnderecoEmpresaPortfolio(empresa) || 'Não informado'}`
+      `Endereço: ${montarEnderecoEmpresaPortfolio(empresa) || 'Não informado'}`,
+      empresa.capa_portfolio_url
+        ? 'Capa do portfólio: configurada (aparece no topo do PDF/HTML)'
+        : 'Capa do portfólio: não configurada (defina em Configurações → Empresa)'
     ];
     el.textContent = linhas.join(' | ');
   }

@@ -241,6 +241,7 @@ class EmpresaPublicoOut(BaseModel):
     )
     email: Optional[str] = None
     logo_url: Optional[str] = None
+    capa_portfolio_url: Optional[str] = None
     cor_primaria: Optional[str] = None
     # Comunicação na página pública do orçamento
     descricao_publica_empresa: Optional[str] = None
@@ -964,6 +965,7 @@ class EmpresaOut(BaseModel):
     telefone_operador: Optional[str]
     email: Optional[str]
     logo_url: Optional[str]
+    capa_portfolio_url: Optional[str] = None
     cor_primaria: Optional[str]
     validade_padrao_dias: Optional[int] = 7  # #10
     agendamento_modo_padrao: ModoAgendamentoOrcamento = ModoAgendamentoOrcamento.NAO_USA
@@ -1046,6 +1048,7 @@ class EmpresaSidebarOut(BaseModel):
     id: int
     nome: str
     logo_url: Optional[str] = None
+    capa_portfolio_url: Optional[str] = None
     plano: str = "trial"
 
     class Config:

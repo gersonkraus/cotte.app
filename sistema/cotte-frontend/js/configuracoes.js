@@ -160,7 +160,9 @@ function gerarSearchTerms(texto) {
     'proposta': ['orçamento', 'orcamento'],
     'agendamento': ['agenda', 'marcar', 'horario'],
     'pagamento': ['pagar', 'parcela', 'cobrança'],
-    'logo': ['marca', 'imagem', 'icone']
+    'logo': ['marca', 'imagem', 'icone'],
+    'portfólio': ['portfolio', 'capa', 'catalogo', 'banner'],
+    'portfolio': ['portfólio', 'capa', 'catalogo', 'banner']
   };
   
   // Adicionar sinônimos
@@ -433,7 +435,7 @@ if (document.readyState === 'loading') {
  * Extraído do inline para arquivo separado.
  */
 
-/* global api, apiRequest, getToken, API_URL, setLoading, showNotif, Financeiro */
+/* global api, apiRequest, getToken, API_URL, setLoading, showNotif, Financeiro, ApiService */
 
 inicializarLayout('configuracoes');
 
@@ -739,6 +741,12 @@ async function carregarEmpresa() {
       mostrarLogo(emp.logo_url);
     } else {
       atualizarPreview();
+    }
+
+    if (emp.capa_portfolio_url) {
+      mostrarCapaPortfolio(emp.capa_portfolio_url);
+    } else {
+      ocultarCapaPortfolio();
     }
 
     const isAdmin = localStorage.getItem('cotte_role') === 'admin' || localStorage.getItem('cotte_is_admin') === 'true';
@@ -1369,15 +1377,14 @@ async function uploadLogo(input) {
   formData.append('file', input.files[0]);
 
   try {
-    const token = getToken();
-    const res   = await fetch(API_URL + API_PREFIX + '/empresa/logo', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` },
-      body: formData,
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Erro no upload');
-    mostrarLogo(data.logo_url);
+    const svc = typeof ApiService !== 'undefined' ? ApiService : (typeof window !== 'undefined' && window.ApiService);
+    if (!svc || typeof svc.post !== 'function') {
+      throw new Error('Serviço de API indisponível.');
+    }
+    const data = await svc.post('/empresa/logo', formData, { forceNative: true });
+    if (data && data.logo_url) {
+      mostrarLogo(data.logo_url);
+    }
     showNotif('✅', 'Logo enviada!', 'Será exibida nos orçamentos.');
     if (typeof carregarSidebar === 'function') carregarSidebar();
     const u = typeof getUsuario === 'function' ? getUsuario() : null;
@@ -1395,12 +1402,99 @@ async function uploadLogo(input) {
 }
 
 async function removerLogo() {
+  const btn = document.getElementById('btn-remover-logo');
   try {
+    if (btn) {
+      btn.disabled = true;
+    }
     await api.delete('/empresa/logo');
     ocultarLogo();
     showNotif('✅', 'Logo removida', '');
   } catch (err) {
     showNotif('❌', 'Erro', err.message, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+    }
+  }
+}
+
+// ── CAPA DO PORTFÓLIO ───────────────────────────────────────────────
+function mostrarCapaPortfolio(url) {
+  const img = document.getElementById('capa-img');
+  const placeholder = document.getElementById('capa-placeholder');
+  const btnRemover = document.getElementById('btn-remover-capa-portfolio');
+  if (!img || !placeholder) return;
+  const src = api.resolveUrl(url);
+  img.src = src;
+  img.style.display = 'block';
+  placeholder.style.display = 'none';
+  if (btnRemover) btnRemover.style.display = 'flex';
+}
+
+function ocultarCapaPortfolio() {
+  const img = document.getElementById('capa-img');
+  const placeholder = document.getElementById('capa-placeholder');
+  const btnRemover = document.getElementById('btn-remover-capa-portfolio');
+  if (img) {
+    img.style.display = 'none';
+    img.src = '';
+    img.removeAttribute('src');
+  }
+  if (placeholder) placeholder.style.display = 'flex';
+  if (btnRemover) btnRemover.style.display = 'none';
+}
+
+async function uploadCapaPortfolio(input) {
+  if (!input.files.length) return;
+  const file = input.files[0];
+  if (file.size > 5 * 1024 * 1024) {
+    showNotif('❌', 'Arquivo grande demais', 'O limite é 5 MB.', 'error');
+    input.value = '';
+    return;
+  }
+  const btn = document.getElementById('btn-upload-capa-portfolio');
+  const svc = typeof ApiService !== 'undefined' ? ApiService : (typeof window !== 'undefined' && window.ApiService);
+  if (!svc || typeof svc.post !== 'function') {
+    showNotif('❌', 'Erro', 'Serviço de API indisponível.', 'error');
+    input.value = '';
+    return;
+  }
+  setLoading(btn, true);
+  const formData = new FormData();
+  formData.append('file', file);
+  try {
+    const data = await svc.post('/empresa/capa-portfolio', formData, { forceNative: true });
+    if (data && data.capa_portfolio_url) {
+      mostrarCapaPortfolio(data.capa_portfolio_url);
+    }
+    showNotif('✅', 'Capa enviada', 'Aparecerá no portfólio e no link público do orçamento.');
+  } catch (err) {
+    showNotif('❌', 'Erro', err.message, 'error');
+  } finally {
+    setLoading(btn, false, 'Enviar nova capa');
+    input.value = '';
+  }
+}
+
+async function removerCapaPortfolio() {
+  const btn = document.getElementById('btn-remover-capa-portfolio');
+  const btnUp = document.getElementById('btn-upload-capa-portfolio');
+  try {
+    if (btn) btn.disabled = true;
+    if (btnUp) btnUp.disabled = true;
+    const svc = typeof ApiService !== 'undefined' ? ApiService : (typeof window !== 'undefined' && window.ApiService);
+    if (!svc || typeof svc.delete !== 'function') {
+      throw new Error('Serviço de API indisponível.');
+    }
+    await svc.delete('/empresa/capa-portfolio');
+    ocultarCapaPortfolio();
+    showNotif('✅', 'Capa removida', 'O portfólio voltará ao layout padrão sem banner.');
+  } catch (err) {
+    showNotif('❌', 'Erro', err.message, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+    if (btnUp) btnUp.disabled = false;
   }
 }
 

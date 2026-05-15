@@ -46,6 +46,7 @@ from app.services.whatsapp_service import (
     enviar_orcamento_completo,
 )
 from app.services.pdf_service import gerar_pdf_orcamento
+from app.utils.pdf_utils import get_empresa_dict_for_pdf
 from app.services.quote_notification_service import (
     ensure_quote_approval_metadata,
     handle_quote_status_changed,
@@ -862,12 +863,7 @@ def _regenerar_pdf(orc: Orcamento, db: Session):
             for i in orc.itens
         ],
     }
-    empresa_dict = {
-        "nome": empresa.nome,
-        "telefone": empresa.telefone,
-        "cor_primaria": empresa.cor_primaria,
-        "logo_url": empresa.logo_url,
-    }
+    empresa_dict = get_empresa_dict_for_pdf(empresa)
     pdf_bytes = gerar_pdf_orcamento(orc_dict, empresa_dict)
     orc.pdf_url = f"/o/{orc.link_publico}/pdf"
     db.commit()
@@ -1238,12 +1234,7 @@ async def _enviar_orcamento_para_cliente(
         return {"status": "sem_telefone"}
 
     empresa = orcamento.empresa
-    empresa_dict = {
-        "nome": empresa.nome,
-        "telefone": empresa.telefone,
-        "cor_primaria": empresa.cor_primaria,
-        "logo_url": empresa.logo_url,
-    }
+    empresa_dict = get_empresa_dict_for_pdf(empresa)
     itens = [
         {
             "descricao": it.descricao,
@@ -1438,11 +1429,7 @@ async def _criar_orcamento_via_bot(
     numero = orcamento.numero
     descricao_item = servico_match.nome if servico_match else interpretado.servico
 
-    empresa_dict = {
-        "nome": empresa.nome,
-        "telefone": empresa.telefone,
-        "cor_primaria": empresa.cor_primaria,
-    }
+    empresa_dict = get_empresa_dict_for_pdf(empresa)
     orc_dict = {
         "numero": numero,
         "total": float(orcamento.total or 0),

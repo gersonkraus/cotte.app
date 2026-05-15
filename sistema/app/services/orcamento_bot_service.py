@@ -22,6 +22,7 @@ from app.models.models import (
 )
 from app.services.whatsapp_service import enviar_orcamento_completo
 from app.services.pdf_service import gerar_pdf_orcamento
+from app.utils.pdf_utils import get_empresa_dict_for_pdf
 from app.services.plano_service import exigir_ia_dashboard
 from app.services.ia_service import interpretar_mensagem, interpretar_comando_operador
 from app.services import financeiro_service
@@ -475,11 +476,7 @@ async def _acao_enviar(orc_id: int, usuario, db: Session, empresa_id: int) -> di
             "resposta": f"Cliente {orc.cliente.nome} não tem telefone cadastrado. Cadastre o WhatsApp do cliente para enviar.",
         }
 
-    empresa_dict = {
-        "nome": orc.empresa.nome,
-        "telefone": orc.empresa.telefone,
-        "cor_primaria": orc.empresa.cor_primaria,
-    }
+    empresa_dict = get_empresa_dict_for_pdf(orc.empresa)
     subtotal_env = sum(i.total for i in orc.itens)
     docs_vinc = (
         db.query(OrcamentoDocumento)
