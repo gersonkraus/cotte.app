@@ -160,7 +160,11 @@ async def processar_mensagem(
                 "ONBOARDING",
                 "AJUDA_SISTEMA",
                 "CONVERSACAO",
+                "LISTAR_ORCAMENTOS",
+                "LISTAR_CLIENTES",
+                "GERAR_RELATORIO",
             }
+
             if _intencao_gestor in _INTENCOES_ASSISTENTE_GESTOR:
                 await _processar_assistente_gestor(
                     telefone, mensagem, empresa_operador, db
@@ -352,15 +356,15 @@ async def _processar_assistente_gestor(
             lista = frontend_data.get("orcamentos", [])
             if lista:
                 linhas = [f"*{texto}*\n"]
-                for o in lista[:15]: # Limite razoável para WPP
+                for o in lista[:30]: # Limite razoável para WPP
                     valor = _brl_fmt(o.get("total", 0))
                     status = (o.get("status") or "").upper()
                     cliente = o.get("cliente_nome") or "Cliente não informado"
                     numero = o.get("numero") or f"#{o.get('id')}"
                     linhas.append(f"• *{numero}* - {cliente}\n  Valor: {valor} | Status: {status}")
                 
-                if len(lista) > 15:
-                    linhas.append(f"\n_Exibindo 15 de {len(lista)} orçamentos. Veja a lista completa no painel._")
+                if len(lista) > 30:
+                    linhas.append(f"\n_Exibindo 30 de {len(lista)} orçamentos. Veja a lista completa no painel._")
                 
                 texto = "\n".join(linhas)
             elif not texto:

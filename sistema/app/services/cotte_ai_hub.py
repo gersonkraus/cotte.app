@@ -2319,6 +2319,8 @@ async def assistente_unificado(
             tipo_resposta="lista_orcamentos",
             dados={
                 "_meta_frontend_data": dados.get("_meta_frontend_data"),
+                "orcamentos": dados.get("_meta_frontend_data", {}).get("orcamentos", []),
+                "total": dados.get("total", 0),
                 "is_list": True
             },
             confianca=0.99,
@@ -3245,10 +3247,10 @@ async def _v2_build_listar_orcamentos_fastpath_response(
     cursor_val = cursor_match.group(1) if cursor_match else None
 
     dias_match = re.search(r'dias (\d+)', mensagem.lower())
-    dias_val = int(dias_match.group(1)) if dias_match else 30
+    dias_val = int(dias_match.group(1)) if dias_match else 365
 
     limite_match = re.search(r'limit(?:e)? (\d+)', mensagem.lower())
-    limite_val = int(limite_match.group(1)) if limite_match else 10
+    limite_val = int(limite_match.group(1)) if limite_match else 30
     
     cliente_id_val = None
     cliente_match = re.search(r'(?:cliente|id|código|codigo)\s*(\d+)', mensagem.lower())
@@ -4718,6 +4720,7 @@ async def assistente_v2_stream_core(
                 "metadata": {
                     "final_text": final_text,
                     "tipo": ai_response.tipo_resposta or "geral",
+                    "tipo_resposta": ai_response.tipo_resposta or "geral",
                     "dados": dados_out,
                     "grafico": grafico_meta,
                     "pending_action": ai_response.pending_action,
