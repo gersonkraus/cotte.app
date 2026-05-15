@@ -134,7 +134,7 @@
         .cover-banner img {
             display: block;
             width: 100%;
-            height: 220px;
+            height: 200px;
             object-fit: cover;
         }
 
@@ -146,8 +146,7 @@
 
         /* ── Templates de capa HTML/CSS ── */
         .cover-template {
-            width: 100%;
-            height: 180px;
+            height: 200px;
             display: flex;
             align-items: center;
             overflow: hidden;
@@ -171,6 +170,7 @@
         }
         .cover-template-corporativo .ct-slogan {
             font-size: 13px; font-style: italic;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px;
         }
         .cover-template-corporativo .ct-label {
             color: rgba(255,255,255,0.35); font-size: 10px;
@@ -193,7 +193,10 @@
         .cover-template-clean .ct-nome {
             color: #0f172a; font-weight: 700; font-size: 18px; margin-bottom: 4px;
         }
-        .cover-template-clean .ct-slogan { color: #475569; font-size: 13px; }
+        .cover-template-clean .ct-slogan {
+            color: #475569; font-size: 13px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px;
+        }
         .cover-template-clean .ct-badges {
             display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;
         }
@@ -220,6 +223,7 @@
         }
         .cover-template-impacto .ct-slogan {
             color: rgba(255,255,255,0.88); font-size: 13px;
+            overflow: hidden; max-height: 2.8em;
         }
         .cover-template-impacto .ct-line {
             width: 50px; height: 3px; border-radius: 2px;
@@ -255,7 +259,10 @@
         .cover-template-premium .ct-nome {
             color: #fff; font-weight: 700; font-size: 16px; letter-spacing: 0.5px;
         }
-        .cover-template-premium .ct-slogan { font-size: 12px; font-style: italic; margin-top: 4px; }
+        .cover-template-premium .ct-slogan {
+            font-size: 12px; font-style: italic; margin-top: 4px;
+            overflow: hidden; max-height: 2.8em;
+        }
 
         .cover-first-page {
             min-height: 250mm;
@@ -453,6 +460,7 @@
             -webkit-line-clamp: 4;
             -webkit-box-orient: vertical;
             overflow: hidden;
+            max-height: 5.6em; /* fallback para WeasyPrint: 4 linhas × 1.4 */
         }
 
         .item-desc-empty {
@@ -596,6 +604,19 @@
             .item {
                 break-inside: avoid-page;
             }
+
+            h1 {
+                font-size: 30px;
+            }
+
+            .cover-banner img {
+                height: 160px;
+                max-height: 160px;
+            }
+
+            .cover-template {
+                height: 160px;
+            }
         }
     </style>
 </head>
@@ -616,7 +637,7 @@
                 <div class="ct-initial" style="background:{{ cor }}">{{ inicial }}</div>
                 <div>
                   <div class="ct-nome">{{ empresa.nome }}</div>
-                  <div class="ct-slogan" style="color:{{ cor }}">{{ empresa.capa_slogan }}</div>
+                  {% if empresa.capa_slogan %}<div class="ct-slogan" style="color:{{ cor }}">{{ empresa.capa_slogan }}</div>{% endif %}
                   {% if empresa.endereco_apresentacao %}
                   <div class="ct-label" style="margin-top:8px">{{ empresa.endereco_apresentacao }}</div>
                   {% endif %}
@@ -629,7 +650,7 @@
                 <div class="ct-circle" style="background:{{ cor }}">{{ inicial }}</div>
                 <div>
                   <div class="ct-nome">{{ empresa.nome }}</div>
-                  <div class="ct-slogan">{{ empresa.capa_slogan }}</div>
+                  {% if empresa.capa_slogan %}<div class="ct-slogan">{{ empresa.capa_slogan }}</div>{% endif %}
                   <div class="ct-badges">
                     <span class="ct-badge" style="background:{{ cor }}22;color:{{ cor }}">✓ Qualidade</span>
                     <span class="ct-badge" style="background:{{ cor }}22;color:{{ cor }}">✓ Agilidade</span>
@@ -640,7 +661,7 @@
               {% elif empresa.capa_template_id == 'impacto' %}
                 <div>
                   <div class="ct-nome">{{ empresa.nome }}</div>
-                  <div class="ct-slogan">{{ empresa.capa_slogan }}</div>
+                  {% if empresa.capa_slogan %}<div class="ct-slogan">{{ empresa.capa_slogan }}</div>{% endif %}
                   <div class="ct-line"></div>
                 </div>
 
@@ -653,7 +674,7 @@
                 <div class="ct-info">
                   <div class="ct-label">Portfólio de Produtos</div>
                   <div class="ct-nome">{{ empresa.nome }}</div>
-                  <div class="ct-slogan" style="color:{{ cor }}">{{ empresa.capa_slogan }}</div>
+                  {% if empresa.capa_slogan %}<div class="ct-slogan" style="color:{{ cor }}">{{ empresa.capa_slogan }}</div>{% endif %}
                 </div>
               {% endif %}
             </div>

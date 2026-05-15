@@ -87,7 +87,7 @@
             String(imgUrl).replace(/"/g, '&quot;') +
             '" alt="' +
             nome.replace(/"/g, '&quot;') +
-            '" loading="lazy" decoding="async">'
+            '" decoding="async">'
           : '<div class="portfolio-produto-sem-imagem">Sem foto</div>';
         return (
           '<div class="portfolio-produto-card' +

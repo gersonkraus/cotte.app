@@ -151,15 +151,16 @@
   width: 100%;
   height: 96px;
   background: var(--surface2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  overflow: hidden;
 }
 
 .portfolio-produto-imagem img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
 .portfolio-produto-sem-imagem {
