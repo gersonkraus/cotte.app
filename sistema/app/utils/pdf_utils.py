@@ -51,6 +51,7 @@ def get_orcamento_dict_for_pdf(orc: Orcamento, db: Session) -> dict:
                 "quantidade": float(i.quantidade or 0),
                 "valor_unit": float(i.valor_unit or 0),
                 "total": float(i.total or 0),
+                "imagem_url": str(i.imagem_url) if i.imagem_url else None
             }
             for i in orc.itens
         ],

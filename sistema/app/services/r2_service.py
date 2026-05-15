@@ -58,7 +58,7 @@ class R2Service:
         content_type: str = "application/octet-stream",
     ) -> str:
         """
-        Faz upload de um arquivo para o R2.
+        Faz upload de um arquivo para o R2, ou fallback local se R2 não estiver configurado.
 
         Args:
             file_obj: Objeto de arquivo binário
@@ -70,9 +70,25 @@ class R2Service:
         Returns:
             URL pública do arquivo
         """
-        self._check_configured()
+        import os
+        import shutil
 
         filename = f"{uuid.uuid4().hex}{extensao}"
+
+        if not self.client:
+            # Fallback local
+            local_dir = f"static/images/empresas/{empresa_id}/{tipo}"
+            os.makedirs(local_dir, exist_ok=True)
+            local_path = os.path.join(local_dir, filename)
+            
+            with open(local_path, "wb") as out_file:
+                file_obj.seek(0)
+                shutil.copyfileobj(file_obj, out_file)
+                
+            url = f"/static/images/empresas/{empresa_id}/{tipo}/{filename}"
+            logger.info("Upload (fallback local) concluído com sucesso: %s", url)
+            return url
+
         key = f"empresas/{empresa_id}/{tipo}/{filename}"
 
         try:
@@ -126,7 +142,7 @@ class R2Service:
 
     def delete_file(self, file_url: str) -> bool:
         """
-        Deleta um arquivo do R2 a partir da URL pública.
+        Deleta um arquivo do R2 a partir da URL pública, ou localmente se for fallback.
 
         Args:
             file_url: URL pública do arquivo
@@ -134,6 +150,21 @@ class R2Service:
         Returns:
             True se deletado com sucesso, False caso contrário
         """
+        if not file_url:
+            return False
+
+        if file_url.startswith("/static/"):
+            import os
+            local_path = file_url.lstrip("/")
+            if os.path.exists(local_path):
+                try:
+                    os.remove(local_path)
+                    logger.info("Arquivo fallback deletado: %s", local_path)
+                    return True
+                except Exception as e:
+                    logger.error("Erro ao deletar fallback: %s", e)
+            return False
+
         self._check_configured()
 
         try:
