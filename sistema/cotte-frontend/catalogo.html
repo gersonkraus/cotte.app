@@ -1823,6 +1823,10 @@
     }
   }
 
+  function _escHTML(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
   function _renderTemplateMiniHTML(templateId, nome, slogan, cor) {
     const ini = (nome || 'E')[0].toUpperCase();
     const ini2 = (nome || 'EM').substring(0, 2).toUpperCase();
@@ -1833,8 +1837,8 @@
         <div style="background:linear-gradient(135deg,#0f172a 55%,#1e3a5f);height:64px;display:flex;align-items:center;padding:0 12px;gap:10px;overflow:hidden">
           <div style="width:28px;height:28px;border-radius:5px;background:${cor2};display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:#0f172a;flex-shrink:0">${ini}</div>
           <div style="min-width:0">
-            <div style="color:#fff;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nome}</div>
-            <div style="color:${cor2};font-size:9px;font-style:italic;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${slogan || 'Tagline aparece aqui'}</div>
+            <div style="color:#fff;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_escHTML(nome)}</div>
+            <div style="color:${cor2};font-size:9px;font-style:italic;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_escHTML(slogan) || 'Tagline aparece aqui'}</div>
           </div>
         </div>`;
     }
@@ -1845,8 +1849,8 @@
           <div style="padding:8px 10px;display:flex;align-items:center;gap:8px">
             <div style="width:28px;height:28px;border-radius:50%;background:${cor2};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;color:#fff;flex-shrink:0">${ini}</div>
             <div style="min-width:0">
-              <div style="color:#0f172a;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nome}</div>
-              <div style="color:#64748b;font-size:9px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${slogan || 'Tagline aparece aqui'}</div>
+              <div style="color:#0f172a;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_escHTML(nome)}</div>
+              <div style="color:#64748b;font-size:9px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_escHTML(slogan) || 'Tagline aparece aqui'}</div>
             </div>
           </div>
         </div>`;
@@ -1856,8 +1860,8 @@
         <div style="background:linear-gradient(120deg,${cor2},${cor2}99);height:64px;display:flex;align-items:center;padding:0 12px;overflow:hidden;position:relative">
           <div style="position:absolute;right:-10px;bottom:-10px;width:60px;height:60px;border-radius:50%;background:rgba(255,255,255,0.1)"></div>
           <div style="min-width:0">
-            <div style="color:#fff;font-weight:900;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nome}</div>
-            <div style="color:rgba(255,255,255,0.85);font-size:9px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${slogan || 'Tagline aparece aqui'}</div>
+            <div style="color:#fff;font-weight:900;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_escHTML(nome)}</div>
+            <div style="color:rgba(255,255,255,0.85);font-size:9px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_escHTML(slogan) || 'Tagline aparece aqui'}</div>
           </div>
         </div>`;
     }
@@ -1868,8 +1872,8 @@
             <div style="color:${cor2};font-size:14px;font-weight:900;letter-spacing:-1px">${ini2}</div>
           </div>
           <div style="min-width:0">
-            <div style="color:#fff;font-size:11px;font-weight:700;letter-spacing:0.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nome}</div>
-            <div style="color:${cor2};font-size:9px;font-style:italic;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${slogan || 'Tagline aparece aqui'}</div>
+            <div style="color:#fff;font-size:11px;font-weight:700;letter-spacing:0.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_escHTML(nome)}</div>
+            <div style="color:${cor2};font-size:9px;font-style:italic;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_escHTML(slogan) || 'Tagline aparece aqui'}</div>
           </div>
         </div>`;
     }
@@ -1887,8 +1891,8 @@
           <div style="position:absolute;right:-12px;top:-12px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,0.06)"></div>
           <div style="width:40px;height:40px;border-radius:8px;background:${cor2};display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;color:#0f172a;flex-shrink:0">${ini}</div>
           <div>
-            <div style="color:#fff;font-size:15px;font-weight:700">${nome}</div>
-            <div style="color:${cor2};font-size:11px;font-style:italic;margin-top:3px">${slogan || ''}</div>
+            <div style="color:#fff;font-size:15px;font-weight:700">${_escHTML(nome)}</div>
+            <div style="color:${cor2};font-size:11px;font-style:italic;margin-top:3px">${_escHTML(slogan) || ''}</div>
           </div>
           <div style="margin-left:auto;text-align:right;opacity:0.3">
             <div style="color:#fff;font-size:9px;letter-spacing:2px;text-transform:uppercase">Portfólio</div>
@@ -1902,8 +1906,8 @@
           <div style="padding:12px 16px;display:flex;align-items:center;gap:14px">
             <div style="width:44px;height:44px;border-radius:50%;background:${cor2};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:#fff;flex-shrink:0">${ini}</div>
             <div>
-              <div style="color:#0f172a;font-size:15px;font-weight:700">${nome}</div>
-              <div style="color:#64748b;font-size:11px;margin-top:3px">${slogan || ''}</div>
+              <div style="color:#0f172a;font-size:15px;font-weight:700">${_escHTML(nome)}</div>
+              <div style="color:#64748b;font-size:11px;margin-top:3px">${_escHTML(slogan) || ''}</div>
               <div style="display:flex;gap:8px;margin-top:8px">
                 <span style="background:${cor2}22;color:${cor2};font-size:9px;font-weight:600;padding:2px 8px;border-radius:20px">✓ Qualidade</span>
                 <span style="background:${cor2}22;color:${cor2};font-size:9px;font-weight:600;padding:2px 8px;border-radius:20px">✓ Agilidade</span>
@@ -1917,8 +1921,8 @@
         <div style="background:linear-gradient(120deg,${cor2},${cor2}99);height:100px;display:flex;align-items:center;padding:0 24px;overflow:hidden;position:relative">
           <div style="position:absolute;right:-20px;bottom:-20px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,0.08)"></div>
           <div>
-            <div style="color:#fff;font-weight:900;font-size:20px;letter-spacing:-0.5px;text-shadow:0 2px 6px rgba(0,0,0,0.2)">${nome}</div>
-            <div style="color:rgba(255,255,255,0.88);font-size:12px;margin-top:5px">${slogan || ''}</div>
+            <div style="color:#fff;font-weight:900;font-size:20px;letter-spacing:-0.5px;text-shadow:0 2px 6px rgba(0,0,0,0.2)">${_escHTML(nome)}</div>
+            <div style="color:rgba(255,255,255,0.88);font-size:12px;margin-top:5px">${_escHTML(slogan) || ''}</div>
             <div style="width:40px;height:2px;border-radius:2px;background:rgba(255,255,255,0.45);margin-top:10px"></div>
           </div>
         </div>`;
@@ -1932,8 +1936,8 @@
           </div>
           <div style="position:relative;z-index:1">
             <div style="color:rgba(255,255,255,0.35);font-size:9px;letter-spacing:3px;text-transform:uppercase;margin-bottom:5px">Portfólio</div>
-            <div style="color:#fff;font-weight:700;font-size:14px;letter-spacing:0.5px">${nome}</div>
-            <div style="color:${cor2};font-size:11px;font-style:italic;margin-top:3px">${slogan || ''}</div>
+            <div style="color:#fff;font-weight:700;font-size:14px;letter-spacing:0.5px">${_escHTML(nome)}</div>
+            <div style="color:${cor2};font-size:11px;font-style:italic;margin-top:3px">${_escHTML(slogan) || ''}</div>
           </div>
         </div>`;
     }
@@ -1955,11 +1959,11 @@
     const sloganAtivo = empresa.capa_slogan || '';
     container.innerHTML = templates.map(t => {
       const isAtivo = ativo === t.id;
-      const sloganArg = isAtivo ? sloganAtivo.replace(/'/g, "\\'") : '';
       return `
       <div class="portfolio-template-card${isAtivo ? ' is-active' : ''}"
            data-template-id="${t.id}"
-           onclick="selecionarTemplate('${t.id}', '${sloganArg}', ${isAtivo})"
+           data-slogan="${_escHTML(isAtivo ? sloganAtivo : '')}"
+           onclick="selecionarTemplate(this.dataset.templateId, this.dataset.slogan, ${isAtivo})"
            style="cursor:pointer">
         ${_renderTemplateMiniHTML(t.id, nome, isAtivo ? sloganAtivo : '', cor)}
         <div class="portfolio-template-card-label">
@@ -2048,9 +2052,9 @@
         template_id: portfolioTemplateSelecionado.id,
         slogan,
       });
-      portfolioEmpresaCache = null;
       portfolioTemplateSelecionado = { ...portfolioTemplateSelecionado, jaPersistido: true };
       if (data && data.capa_template_id) {
+        portfolioEmpresaCache = data; // atualiza cache com dados frescos ao invés de anular
         const preview = document.getElementById('portfolio-template-preview');
         if (preview) preview.innerHTML = _renderTemplatePreviewGrande(
           data.capa_template_id,
@@ -2058,6 +2062,8 @@
           data.capa_slogan || '',
           data.cor_primaria || '#00e5a0'
         );
+      } else {
+        portfolioEmpresaCache = null; // força reload se dados incompletos
       }
       showNotif('✅', 'Template salvo', 'Aparecerá no portfólio gerado.');
     } catch (err) {
@@ -2068,6 +2074,8 @@
   }
 
   async function removerTemplate() {
+    if (removerTemplate._loading) return;
+    removerTemplate._loading = true;
     try {
       await api.delete('/empresa/capa-template');
       portfolioEmpresaCache = null;
@@ -2084,6 +2092,8 @@
       showNotif('✅', 'Template removido', 'O portfólio usará layout padrão.');
     } catch (err) {
       showNotif('❌', 'Erro', err.message, 'error');
+    } finally {
+      removerTemplate._loading = false;
     }
   }
 
@@ -2175,6 +2185,7 @@
     formData.append('file', file);
     try {
       const data = await api.post('/empresa/capa-portfolio', formData, { forceNative: true });
+      if (st) st.textContent = ''; // limpa "Enviando..." independente do resultado
       if (data && data.capa_portfolio_url) {
         mostrarCapaPortfolioModal(data.capa_portfolio_url);
         portfolioTemplateSelecionado = null;
