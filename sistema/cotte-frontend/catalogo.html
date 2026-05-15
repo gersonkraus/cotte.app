@@ -690,6 +690,7 @@
   let imagemFileNovo = null;  // arquivo selecionado ao criar novo item (enviado após salvar)
   let previewUrlNovo = null;   // object URL para preview no novo item
   let portfolioEmpresaCache = null;
+  let portfolioTemplateSelecionado = null; // { id, jaPersistido }
 
   function temPermCatalogo() {
     return Permissoes.pode('catalogo', 'escrita');
@@ -1822,6 +1823,270 @@
     }
   }
 
+  function _renderTemplateMiniHTML(templateId, nome, slogan, cor) {
+    const ini = (nome || 'E')[0].toUpperCase();
+    const ini2 = (nome || 'EM').substring(0, 2).toUpperCase();
+    const cor2 = cor || '#00e5a0';
+
+    if (templateId === 'corporativo') {
+      return `
+        <div style="background:linear-gradient(135deg,#0f172a 55%,#1e3a5f);height:64px;display:flex;align-items:center;padding:0 12px;gap:10px;overflow:hidden">
+          <div style="width:28px;height:28px;border-radius:5px;background:${cor2};display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:#0f172a;flex-shrink:0">${ini}</div>
+          <div style="min-width:0">
+            <div style="color:#fff;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nome}</div>
+            <div style="color:${cor2};font-size:9px;font-style:italic;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${slogan || 'Tagline aparece aqui'}</div>
+          </div>
+        </div>`;
+    }
+    if (templateId === 'clean') {
+      return `
+        <div style="background:#fff;height:64px;display:flex;align-items:stretch;overflow:hidden">
+          <div style="width:5px;background:${cor2};flex-shrink:0"></div>
+          <div style="padding:8px 10px;display:flex;align-items:center;gap:8px">
+            <div style="width:28px;height:28px;border-radius:50%;background:${cor2};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;color:#fff;flex-shrink:0">${ini}</div>
+            <div style="min-width:0">
+              <div style="color:#0f172a;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nome}</div>
+              <div style="color:#64748b;font-size:9px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${slogan || 'Tagline aparece aqui'}</div>
+            </div>
+          </div>
+        </div>`;
+    }
+    if (templateId === 'impacto') {
+      return `
+        <div style="background:linear-gradient(120deg,${cor2},${cor2}99);height:64px;display:flex;align-items:center;padding:0 12px;overflow:hidden;position:relative">
+          <div style="position:absolute;right:-10px;bottom:-10px;width:60px;height:60px;border-radius:50%;background:rgba(255,255,255,0.1)"></div>
+          <div style="min-width:0">
+            <div style="color:#fff;font-weight:900;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nome}</div>
+            <div style="color:rgba(255,255,255,0.85);font-size:9px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${slogan || 'Tagline aparece aqui'}</div>
+          </div>
+        </div>`;
+    }
+    if (templateId === 'premium') {
+      return `
+        <div style="background:#1c1917;height:64px;display:flex;align-items:center;padding:0 10px;gap:0;overflow:hidden">
+          <div style="border-right:1px solid ${cor2};padding-right:10px;margin-right:10px;flex-shrink:0">
+            <div style="color:${cor2};font-size:14px;font-weight:900;letter-spacing:-1px">${ini2}</div>
+          </div>
+          <div style="min-width:0">
+            <div style="color:#fff;font-size:11px;font-weight:700;letter-spacing:0.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nome}</div>
+            <div style="color:${cor2};font-size:9px;font-style:italic;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${slogan || 'Tagline aparece aqui'}</div>
+          </div>
+        </div>`;
+    }
+    return '';
+  }
+
+  function _renderTemplatePreviewGrande(templateId, nome, slogan, cor) {
+    const ini = (nome || 'E')[0].toUpperCase();
+    const ini2 = (nome || 'EM').substring(0, 2).toUpperCase();
+    const cor2 = cor || '#00e5a0';
+
+    if (templateId === 'corporativo') {
+      return `
+        <div style="background:linear-gradient(135deg,#0f172a 55%,#1e3a5f);height:100px;display:flex;align-items:center;padding:0 20px;gap:14px;position:relative;overflow:hidden">
+          <div style="position:absolute;right:-12px;top:-12px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,0.06)"></div>
+          <div style="width:40px;height:40px;border-radius:8px;background:${cor2};display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;color:#0f172a;flex-shrink:0">${ini}</div>
+          <div>
+            <div style="color:#fff;font-size:15px;font-weight:700">${nome}</div>
+            <div style="color:${cor2};font-size:11px;font-style:italic;margin-top:3px">${slogan || ''}</div>
+          </div>
+          <div style="margin-left:auto;text-align:right;opacity:0.3">
+            <div style="color:#fff;font-size:9px;letter-spacing:2px;text-transform:uppercase">Portfólio</div>
+          </div>
+        </div>`;
+    }
+    if (templateId === 'clean') {
+      return `
+        <div style="background:#fff;height:100px;display:flex;align-items:stretch;overflow:hidden">
+          <div style="width:6px;background:${cor2};flex-shrink:0"></div>
+          <div style="padding:12px 16px;display:flex;align-items:center;gap:14px">
+            <div style="width:44px;height:44px;border-radius:50%;background:${cor2};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:#fff;flex-shrink:0">${ini}</div>
+            <div>
+              <div style="color:#0f172a;font-size:15px;font-weight:700">${nome}</div>
+              <div style="color:#64748b;font-size:11px;margin-top:3px">${slogan || ''}</div>
+              <div style="display:flex;gap:8px;margin-top:8px">
+                <span style="background:${cor2}22;color:${cor2};font-size:9px;font-weight:600;padding:2px 8px;border-radius:20px">✓ Qualidade</span>
+                <span style="background:${cor2}22;color:${cor2};font-size:9px;font-weight:600;padding:2px 8px;border-radius:20px">✓ Agilidade</span>
+              </div>
+            </div>
+          </div>
+        </div>`;
+    }
+    if (templateId === 'impacto') {
+      return `
+        <div style="background:linear-gradient(120deg,${cor2},${cor2}99);height:100px;display:flex;align-items:center;padding:0 24px;overflow:hidden;position:relative">
+          <div style="position:absolute;right:-20px;bottom:-20px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,0.08)"></div>
+          <div>
+            <div style="color:#fff;font-weight:900;font-size:20px;letter-spacing:-0.5px;text-shadow:0 2px 6px rgba(0,0,0,0.2)">${nome}</div>
+            <div style="color:rgba(255,255,255,0.88);font-size:12px;margin-top:5px">${slogan || ''}</div>
+            <div style="width:40px;height:2px;border-radius:2px;background:rgba(255,255,255,0.45);margin-top:10px"></div>
+          </div>
+        </div>`;
+    }
+    if (templateId === 'premium') {
+      return `
+        <div style="background:#1c1917;height:100px;display:flex;align-items:center;padding:0 24px;gap:0;overflow:hidden;position:relative">
+          <div style="position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(255,255,255,0.015) 0px,rgba(255,255,255,0.015) 1px,transparent 1px,transparent 12px)"></div>
+          <div style="border-right:1px solid ${cor2};padding-right:18px;margin-right:18px;text-align:center;flex-shrink:0;position:relative;z-index:1">
+            <div style="color:${cor2};font-size:22px;font-weight:900;letter-spacing:-1px">${ini2}</div>
+          </div>
+          <div style="position:relative;z-index:1">
+            <div style="color:rgba(255,255,255,0.35);font-size:9px;letter-spacing:3px;text-transform:uppercase;margin-bottom:5px">Portfólio</div>
+            <div style="color:#fff;font-weight:700;font-size:14px;letter-spacing:0.5px">${nome}</div>
+            <div style="color:${cor2};font-size:11px;font-style:italic;margin-top:3px">${slogan || ''}</div>
+          </div>
+        </div>`;
+    }
+    return '';
+  }
+
+  function renderGaleriaTemplates(empresa) {
+    const container = document.getElementById('portfolio-templates-gallery');
+    if (!container) return;
+    const nome = empresa.nome || 'Empresa';
+    const cor = empresa.cor_primaria || '#00e5a0';
+    const ativo = empresa.capa_template_id || null;
+    const templates = [
+      { id: 'corporativo', label: 'Corporativo' },
+      { id: 'clean',       label: 'Clean' },
+      { id: 'impacto',     label: 'Impacto' },
+      { id: 'premium',     label: 'Premium' },
+    ];
+    const sloganAtivo = empresa.capa_slogan || '';
+    container.innerHTML = templates.map(t => {
+      const isAtivo = ativo === t.id;
+      const sloganArg = isAtivo ? sloganAtivo.replace(/'/g, "\\'") : '';
+      return `
+      <div class="portfolio-template-card${isAtivo ? ' is-active' : ''}"
+           data-template-id="${t.id}"
+           onclick="selecionarTemplate('${t.id}', '${sloganArg}', ${isAtivo})"
+           style="cursor:pointer">
+        ${_renderTemplateMiniHTML(t.id, nome, isAtivo ? sloganAtivo : '', cor)}
+        <div class="portfolio-template-card-label">
+          <span>${t.label}</span>
+          ${isAtivo ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+        </div>
+      </div>
+    `}).join('');
+  }
+
+  function selecionarTemplate(templateId, slogan, jaPersistido) {
+    const empresa = portfolioEmpresaCache;
+    const nome = empresa ? (empresa.nome || 'Empresa') : 'Empresa';
+    const cor = empresa ? (empresa.cor_primaria || '#00e5a0') : '#00e5a0';
+
+    document.querySelectorAll('.portfolio-template-card').forEach(el => {
+      el.classList.toggle('is-active', el.dataset.templateId === templateId);
+    });
+
+    portfolioTemplateSelecionado = { id: templateId, jaPersistido };
+
+    const inputSlogan = document.getElementById('portfolio-template-slogan');
+    if (inputSlogan) inputSlogan.value = slogan || '';
+
+    const preview = document.getElementById('portfolio-template-preview');
+    if (preview) preview.innerHTML = _renderTemplatePreviewGrande(templateId, nome, slogan || '', cor);
+
+    document.getElementById('portfolio-template-ativo').style.display = 'block';
+    document.getElementById('portfolio-upload-alt').style.display = 'block';
+    document.getElementById('portfolio-capa-preview-wrap').style.display = 'none';
+    document.getElementById('portfolio-capa-status').style.display = 'none';
+    const divider = document.getElementById('portfolio-capa-divider');
+    if (divider) divider.style.display = 'none';
+  }
+
+  function atualizarPreviewTemplateLive() {
+    if (!portfolioTemplateSelecionado) return;
+    const slogan = (document.getElementById('portfolio-template-slogan')?.value || '');
+    const empresa = portfolioEmpresaCache;
+    const nome = empresa ? (empresa.nome || 'Empresa') : 'Empresa';
+    const cor = empresa ? (empresa.cor_primaria || '#00e5a0') : '#00e5a0';
+    const preview = document.getElementById('portfolio-template-preview');
+    if (preview) preview.innerHTML = _renderTemplatePreviewGrande(portfolioTemplateSelecionado.id, nome, slogan, cor);
+  }
+
+  function trocarTemplateGaleria() {
+    document.getElementById('portfolio-template-ativo').style.display = 'none';
+    document.getElementById('portfolio-upload-alt').style.display = 'none';
+    document.getElementById('portfolio-capa-preview-wrap').style.display = 'flex';
+    document.getElementById('portfolio-capa-status').style.display = 'block';
+    const divider = document.getElementById('portfolio-capa-divider');
+    if (divider) divider.style.display = 'flex';
+    portfolioTemplateSelecionado = null;
+    const empresaSemTemplate = Object.assign({}, portfolioEmpresaCache, { capa_template_id: null, capa_slogan: null });
+    renderGaleriaTemplates(empresaSemTemplate);
+  }
+
+  async function sugerirSloganIA() {
+    const btn = document.getElementById('btn-sugerir-slogan-ia');
+    const oldHTML = btn ? btn.innerHTML : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Gerando...'; }
+    try {
+      const segmento = document.getElementById('portfolio-segmento')?.value || '';
+      const resp = await api.post('/catalogo/portfolio/sugerir-slogan-ia', { segmento });
+      if (resp && resp.slogan) {
+        const input = document.getElementById('portfolio-template-slogan');
+        if (input) { input.value = resp.slogan; atualizarPreviewTemplateLive(); }
+      }
+    } catch (err) {
+      showNotif('❌', 'Erro', err.message, 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = oldHTML; }
+    }
+  }
+
+  async function salvarTemplate() {
+    if (!portfolioTemplateSelecionado) return;
+    const btn = document.getElementById('btn-salvar-template');
+    const slogan = (document.getElementById('portfolio-template-slogan')?.value || '').trim();
+    setLoading(btn, true);
+    try {
+      if (portfolioEmpresaCache && portfolioEmpresaCache.capa_portfolio_url) {
+        await api.delete('/empresa/capa-portfolio');
+      }
+      const data = await api.post('/empresa/capa-template', {
+        template_id: portfolioTemplateSelecionado.id,
+        slogan,
+      });
+      portfolioEmpresaCache = null;
+      portfolioTemplateSelecionado = { ...portfolioTemplateSelecionado, jaPersistido: true };
+      if (data && data.capa_template_id) {
+        const preview = document.getElementById('portfolio-template-preview');
+        if (preview) preview.innerHTML = _renderTemplatePreviewGrande(
+          data.capa_template_id,
+          data.nome || 'Empresa',
+          data.capa_slogan || '',
+          data.cor_primaria || '#00e5a0'
+        );
+      }
+      showNotif('✅', 'Template salvo', 'Aparecerá no portfólio gerado.');
+    } catch (err) {
+      showNotif('❌', 'Erro', err.message, 'error');
+    } finally {
+      setLoading(btn, false, 'Salvar');
+    }
+  }
+
+  async function removerTemplate() {
+    try {
+      await api.delete('/empresa/capa-template');
+      portfolioEmpresaCache = null;
+      portfolioTemplateSelecionado = null;
+      ocultarCapaPortfolioModal();
+      document.getElementById('portfolio-template-ativo').style.display = 'none';
+      document.getElementById('portfolio-upload-alt').style.display = 'none';
+      document.getElementById('portfolio-capa-preview-wrap').style.display = 'flex';
+      document.getElementById('portfolio-capa-status').style.display = 'block';
+      const divider = document.getElementById('portfolio-capa-divider');
+      if (divider) divider.style.display = 'flex';
+      const empresa = await carregarDadosEmpresaPortfolio(true);
+      renderGaleriaTemplates(empresa || { nome: '', cor_primaria: '#00e5a0' });
+      showNotif('✅', 'Template removido', 'O portfólio usará layout padrão.');
+    } catch (err) {
+      showNotif('❌', 'Erro', err.message, 'error');
+    }
+  }
+
   function abrirModalPortfolio() {
     document.getElementById('modal-portfolio').classList.add('open');
     document.getElementById('portfolio-titulo').value = 'Nosso Portfólio';
@@ -1855,10 +2120,15 @@
         if (!document.getElementById('portfolio-descricao').value.trim() && empresa && empresa.descricao_publica_empresa) {
           document.getElementById('portfolio-descricao').value = empresa.descricao_publica_empresa.trim();
         }
-        if (empresa && empresa.capa_portfolio_url) {
+        if (empresa && empresa.capa_template_id) {
+          renderGaleriaTemplates(empresa);
+          selecionarTemplate(empresa.capa_template_id, empresa.capa_slogan || '', true);
+        } else if (empresa && empresa.capa_portfolio_url) {
           mostrarCapaPortfolioModal(empresa.capa_portfolio_url);
+          renderGaleriaTemplates(empresa);
         } else {
           ocultarCapaPortfolioModal();
+          renderGaleriaTemplates(empresa || { nome: '', cor_primaria: '#00e5a0' });
         }
       })
       .catch(() => {
@@ -1907,7 +2177,13 @@
       const data = await api.post('/empresa/capa-portfolio', formData, { forceNative: true });
       if (data && data.capa_portfolio_url) {
         mostrarCapaPortfolioModal(data.capa_portfolio_url);
-        portfolioEmpresaCache = null; // força reload no próximo acesso
+        portfolioTemplateSelecionado = null;
+        portfolioEmpresaCache = null;
+        document.getElementById('portfolio-template-ativo').style.display = 'none';
+        document.getElementById('portfolio-upload-alt').style.display = 'none';
+        document.getElementById('portfolio-capa-preview-wrap').style.display = 'flex';
+        const divider = document.getElementById('portfolio-capa-divider');
+        if (divider) divider.style.display = 'flex';
       }
       showNotif('✅', 'Capa enviada', 'Aparecerá no portfólio gerado.');
     } catch (err) {
