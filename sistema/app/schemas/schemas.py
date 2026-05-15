@@ -966,6 +966,8 @@ class EmpresaOut(BaseModel):
     email: Optional[str]
     logo_url: Optional[str]
     capa_portfolio_url: Optional[str] = None
+    capa_template_id: Optional[str] = None
+    capa_slogan: Optional[str] = None
     cor_primaria: Optional[str]
     validade_padrao_dias: Optional[int] = 7  # #10
     agendamento_modo_padrao: ModoAgendamentoOrcamento = ModoAgendamentoOrcamento.NAO_USA
@@ -2324,3 +2326,12 @@ class PortfolioSendRequest(PortfolioGenerateRequest):
 class PortfolioLinkOut(BaseModel):
     link: str
     uuid: str
+
+
+class CapaTemplateRequest(BaseModel):
+    template_id: str
+    slogan: str = ""
+
+
+class SloganIARequest(BaseModel):
+    segmento: Optional[str] = None
