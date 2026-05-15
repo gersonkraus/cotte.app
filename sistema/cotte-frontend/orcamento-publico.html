@@ -248,6 +248,13 @@
         <div id="documentos-container" class="space-y-3"></div>
       </div>
 
+      <!-- Modal para exibir documentos PDF -->
+      <div id="modal-pdf" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 100;">
+        <button onclick="fecharModalPdf()" class="absolute top-4 right-4 text-white text-4xl font-bold" style="z-index: 101;">&times;</button>
+        <iframe id="pdf-iframe" class="w-full h-full border-0" src=""></iframe>
+      </div>
+
+
       <!-- Mensagem de confiança (configurável; antes dos botões de ação) -->
       <div id="card-mensagem-confianca" class="hidden rounded-2xl border-2 px-5 py-4 flex items-start gap-4" style="background: rgba(0,229,160,0.08); border-color: rgba(0,229,160,0.35);">
         <span class="text-2xl flex-shrink-0" aria-hidden="true">🛡️</span>
@@ -979,8 +986,8 @@
           const qtd = formatQuantidadeItem(item.quantidade);
           const imgUrl = resolveMediaUrl(item.imagem_url);
           const thumbHtml = imgUrl
-            ? `<img src="${imgUrl}" alt="${escHtml(item.descricao)}" class="w-12 h-12 object-cover rounded flex-shrink-0" onerror="this.style.display='none'; this.nextElementSibling && this.nextElementSibling.classList.remove('hidden');"><div class="w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-gray-400 text-xs flex-shrink-0 hidden" aria-hidden="true">IMG</div>`
-            : '<div class="w-12 h-12 rounded bg-gray-200 flex items-center justify-center text-gray-400 text-xs flex-shrink-0" aria-hidden="true">IMG</div>';
+            ? `<img src="${imgUrl}" alt="${escHtml(item.descricao)}" class="w-16 h-16 object-cover rounded flex-shrink-0" onerror="this.style.display='none'; this.nextElementSibling && this.nextElementSibling.classList.remove('hidden');"><div class="w-16 h-16 rounded bg-gray-200 flex items-center justify-center text-gray-400 text-xs flex-shrink-0 hidden" aria-hidden="true">IMG</div>`
+            : '<div class="w-16 h-16 rounded bg-gray-200 flex items-center justify-center text-gray-400 text-xs flex-shrink-0" aria-hidden="true">IMG</div>';
           return `
             <div class="flex justify-between items-start gap-3 py-3 border-b border-gray-50 last:border-0">
               <div class="flex items-start gap-3 flex-1 min-w-0">
@@ -1037,14 +1044,14 @@
               <span class="text-xs text-gray-600 font-medium">Li e aceito este documento</span>
             </label>` : '';
           return `
-            <div class="p-4 rounded-2xl border border-gray-100" style="background: rgba(0,0,0,0.015);">
+            <div class="rounded-2xl border border-gray-100" style="background: rgba(0,0,0,0.015);">
               <div class="flex items-start justify-between gap-4">
                 <div class="min-w-0">
                   <p class="font-semibold text-gray-800 text-sm leading-snug">${escHtml(nome)}${badgeObrig}</p>
                   <p class="text-gray-400 text-xs mt-1">${escHtml(meta || '—')}</p>
                 </div>
                 <div class="flex flex-col gap-2 flex-shrink-0">
-                  <a class="px-4 py-2 rounded-xl text-sm font-bold text-white text-center transition active:scale-95" style="background-color: var(--cor);" href="${link}" target="_blank" rel="noopener">Abrir</a>
+                  <a class="px-4 py-2 rounded-xl text-sm font-bold text-white text-center transition active:scale-95" style="background-color: var(--cor);" href="javascript:void(0)" onclick="abrirModalPdf('${link}')">Abrir</a>
                   ${d.permite_download ? `<a class="px-4 py-2 rounded-xl text-xs font-semibold text-gray-700 text-center border border-gray-200 bg-white hover:bg-gray-50 transition active:scale-95" href="${linkDownload}" target="_blank" rel="noopener">Baixar</a>` : `<div class="px-4 py-2 rounded-xl text-xs font-semibold text-gray-400 text-center border border-gray-200 bg-white" title="Download desabilitado">Download desativado</div>`}
                 </div>
               </div>
@@ -1980,6 +1987,22 @@
       document.getElementById('loading').classList.add('hidden');
       document.getElementById('erro').classList.remove('hidden');
       document.getElementById('erro-msg').textContent = msg;
+    }
+
+    function fecharModalPdf() {
+      const modal = document.getElementById('modal-pdf');
+      const iframe = document.getElementById('pdf-iframe');
+      if (modal) modal.classList.add('hidden');
+      if (iframe) iframe.src = '';
+    }
+
+    function abrirModalPdf(url) {
+      const modal = document.getElementById('modal-pdf');
+      const iframe = document.getElementById('pdf-iframe');
+      if (modal && iframe) {
+        iframe.src = url + '#view=FitH';
+        modal.classList.remove('hidden');
+      }
     }
 
     function escHtml(str) {

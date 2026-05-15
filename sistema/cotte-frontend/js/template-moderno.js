@@ -321,8 +321,37 @@ function renderizarTemplateModerno(orc, token, API) {
   if (orc.observacoes) {
     obsHtml =
       '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:18px;margin-bottom:24px">' +
-        '<h3 style="font-size:14px;color:#92400e;margin-bottom:6px;font-weight:700">Observa\u00e7\u00f5es</h3>' +
+        '<h3 style="font-size:14px;color:#92400e;margin-bottom:6px;font-weight:700">Observações</h3>' +
         '<p style="color:#78350f;font-size:14px;line-height:1.6">' + escHtml(orc.observacoes) + '</p>' +
+      '</div>';
+  }
+
+  var docs = orc.documentos || [];
+  var documentosHtml = '';
+  if (Array.isArray(docs) && docs.length > 0) {
+    var docsItemsHtml = docs.map(function(d) {
+      var nome = d.documento_nome || 'Documento';
+      var meta = [d.documento_tipo || '', d.documento_versao ? ('v' + d.documento_versao) : ''].filter(Boolean).join(' · ');
+      var link = API + '/api/v1/o/' + token + '/documentos/' + d.id;
+      var linkDownload = link + '?download=1';
+      return (
+        '<div style="background:white;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,0.05);padding:16px;display:flex;align-items:center;justify-content:space-between;gap:16px;">' +
+          '<div style="min-width:0;">' +
+            '<p style="font-weight:600;color:#374151;font-size:15px;">' + escHtml(nome) + '</p>' +
+            '<p style="font-size:12px;color:#6b7280;margin-top:2px;">' + escHtml(meta || '—') + '</p>' +
+          '</div>' +
+          '<div style="display:flex;gap:8px;flex-shrink:0;">' +
+            '<a href="javascript:void(0)" onclick="abrirModalPdf(\'' + link + '#view=FitH\')" style="background:'+ cor +';color:white;padding:8px 16px;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;">Abrir</a>' +
+            (d.permite_download ? '<a href="' + linkDownload + '" target="_blank" rel="noopener" style="background:#f1f5f9;color:#374151;padding:8px 16px;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;">Baixar</a>' : '') +
+          '</div>' +
+        '</div>'
+      );
+    }).join('<div style="height:12px"></div>');
+
+    documentosHtml = 
+      '<div style="margin-bottom:24px;">' +
+        '<h3 style="font-size:14px;color:#64748b;margin-bottom:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">Documentos da Proposta</h3>' +
+        docsItemsHtml +
       '</div>';
   }
 
@@ -544,8 +573,8 @@ function renderizarTemplateModerno(orc, token, API) {
 
   var conteudo =
     '<style>' +
-      '.item-image-wrapper { width: 52px; height: 52px; flex-shrink: 0; }' +
-      '.item-image { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; transition: transform 0.2s ease-in-out; }' +
+      '.item-image-wrapper { width: 128px; height: 128px; flex-shrink: 0; }' +
+      '.item-image { width: 100%; height: 100%; object-fit: contain; border-radius: 8px; transition: transform 0.2s ease-in-out; }' +
       '.item-image:hover { transform: scale(1.05); }' +
       '.item-description { font-weight: 500; }' +
       '@media(max-width:600px){' +
@@ -613,6 +642,9 @@ function renderizarTemplateModerno(orc, token, API) {
 
       // Observações
       obsHtml +
+
+      // Documentos
+      documentosHtml +
 
       // Aceite / Recusa / Expirado
       aceiteHtml + recusaHtml + expiradoHtml +

@@ -96,6 +96,11 @@ def _enriquecer_orcamento(orc: dict) -> dict:
             else:
                 item["total"] = float(item["total"])
 
+            img_url = item.get("imagem_url")
+            if img_url:
+                item["imagem_url"] = _otimizar_imagem_portfolio(img_url, max_width=150)
+
+
         subtotal = orc.get("subtotal")
         if subtotal is None:
             subtotal = sum(i["total"] for i in itens)
@@ -131,40 +136,41 @@ def _enriquecer_orcamento(orc: dict) -> dict:
 
 
 def _normalizar_logo_url(empresa: dict) -> dict:
-    """Ajusta o logo_url para ser um caminho local absoluto ou relativo ao template_dir."""
+    """Ajusta o logo_url e capa_portfolio_url para caminhos locais absolutos ou relativos ao template_dir."""
     try:
-        logo = empresa.get("logo_url")
-        if not logo:
-            return empresa
-        
-        logo_str = str(logo).strip()
-        if not logo_str or logo_str.startswith("http"):
-            return empresa
-        
-        # Se já for um caminho absoluto que existe, não mexe
-        if os.path.isabs(logo_str) and os.path.exists(logo_str):
-            empresa["_logo_path_completo"] = logo_str
-            return empresa
+        for campo in ["logo_url", "capa_portfolio_url"]:
+            img_url = empresa.get(campo)
+            if not img_url:
+                continue
             
-        # Base do projeto (onde está o static/)
-        # Em produção (Railway), os arquivos estão em /app
-        # pdf_service.py está em /app/app/services/pdf_service.py
-        base_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."))
-        
-        # Tenta localizar o arquivo no disco
-        # Remove barra inicial se houver para não quebrar o join
-        rel_path = logo_str.lstrip("/")
-        full_path = os.path.join(base_dir, rel_path)
-        
-        if os.path.exists(full_path):
-            # Para o WeasyPrint com base_url=template_dir (/app/app/templates), 
-            # o caminho de 'static' é '../../static'
-            empresa["logo_url"] = os.path.join("..", "..", rel_path)
-            empresa["_logo_path_completo"] = full_path
+            img_str = str(img_url).strip()
+            if not img_str or img_str.startswith("http"):
+                continue
+            
+            # Se já for um caminho absoluto que existe, não mexe
+            if os.path.isabs(img_str) and os.path.exists(img_str):
+                empresa[f"_{campo}_path_completo"] = img_str
+                continue
+                
+            # Base do projeto (onde está o static/)
+            # Em produção (Railway), os arquivos estão em /app
+            # pdf_service.py está em /app/app/services/pdf_service.py
+            base_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."))
+            
+            # Tenta localizar o arquivo no disco
+            # Remove barra inicial se houver para não quebrar o join
+            rel_path = img_str.lstrip("/")
+            full_path = os.path.join(base_dir, rel_path)
+            
+            if os.path.exists(full_path):
+                # Para o WeasyPrint com base_url=template_dir (/app/app/templates), 
+                # o caminho de 'static' é '../../static'
+                empresa[campo] = os.path.join("..", "..", rel_path)
+                empresa[f"_{campo}_path_completo"] = full_path
         
         return empresa
     except Exception as e:
-        logger.error(f"Erro ao normalizar logo_url: {e}")
+        logger.error(f"Erro ao normalizar imagens da empresa: {e}")
         return empresa
 
 
@@ -252,16 +258,43 @@ def gerar_pdf_fpdf2(orcamento: dict, empresa: dict) -> bytes:
     # ── 1. CABEÇALHO ─────────────────────────────────────────────────────────
     #    Logo + nome/info  (esq)  |  "Orçamento" + número + datas  (dir)
 
-    logo_path = empresa.get("_logo_path_completo") or (empresa.get("logo_url") or "").lstrip("/")
+    logo_url = empresa.get("logo_url")
     logo_w = 0
-    if logo_path and os.path.exists(logo_path):
+    if logo_url:
         try:
-            pdf.image(logo_path, x=M, y=M, h=14)
-            logo_w = 18     # espaço reservado à direita da logo
-        except Exception:
+            image_data = None
+            # Primeiro, tenta o caminho local completo, se existir
+            logo_path_completo = empresa.get("_logo_url_path_completo")
+            if logo_path_completo and os.path.exists(logo_path_completo):
+                with open(logo_path_completo, "rb") as f:
+                    image_data = f.read()
+            # Senão, se for uma URL HTTP, baixa a imagem
+            elif str(logo_url).startswith("http"):
+                import requests
+                response = requests.get(logo_url, timeout=5)
+                response.raise_for_status()
+                image_data = response.content
+
+            if image_data:
+                import io
+                from PIL import Image
+
+                img = Image.open(io.BytesIO(image_data))
+                img_w, img_h = img.size
+                
+                # Calcula a largura proporcional para uma altura fixa de 14
+                aspect_ratio = img_w / img_h
+                logo_render_h = 14
+                logo_render_w = aspect_ratio * logo_render_h
+                
+                pdf.image(io.BytesIO(image_data), x=M, y=M, h=logo_render_h)
+                logo_w = logo_render_w  # Usa a largura real calculada
+
+        except Exception as e:
+            logger.warning(f"FPDF2: Falha ao carregar o logo '{logo_url}': {e}")
             logo_w = 0
 
-    nome_x = M + logo_w + (3 if logo_w else 0)
+    nome_x = M + logo_w + (4 if logo_w else 0)
 
     # Nome da empresa em cor_primaria
     pdf.set_xy(nome_x, M)
@@ -417,14 +450,72 @@ def gerar_pdf_fpdf2(orcamento: dict, empresa: dict) -> bytes:
 
         qtd = item.get("quantidade") or 1
         qtd_s = str(int(qtd)) if qtd == int(qtd) else f"{qtd:.1f}"
-        desc  = _sanitize(item.get("descricao") or "")[:58]
+        
+        has_image = bool(item.get("imagem_url"))
+        desc_limit = 45 if has_image else 58
+        desc  = _sanitize(item.get("descricao") or "")[:desc_limit]
+
+        
+        imagem_url = item.get("imagem_url")
+        linha_h = 28 if imagem_url else 7  # Aumenta a altura da linha para a imagem
+        offset_x = 28 if imagem_url else 0 # Aumenta o espaço para a imagem
 
         pdf.set_x(M)
-        pdf.cell(C_DESC, 7, f"  {desc}", fill=True, ln=False)
-        pdf.cell(C_QTD,  7, qtd_s, align="C", fill=True, ln=False)
-        pdf.cell(C_UNIT, 7, _brl(item.get("valor_unit") or 0), align="R", fill=True, ln=False)
+        pdf.cell(C_DESC, linha_h, "", fill=True, ln=False)
+        pdf.set_xy(M, pdf.get_y()) # Reset Y
+
+        if imagem_url:
+            try:
+                import base64
+                import io
+                from PIL import Image
+
+                # Lógica para tratar base64 ou baixar de URL
+                image_data = None
+                if str(imagem_url).startswith('data:image'):
+                    header, encoded = imagem_url.split(",", 1)
+                    image_data = base64.b64decode(encoded)
+                    img_format = header.split('/')[1].split(';')[0].upper()
+                elif str(imagem_url).startswith('http'):
+                    import requests
+                    response = requests.get(imagem_url, timeout=5)
+                    response.raise_for_status()
+                    image_data = response.content
+                    img_format = Image.open(io.BytesIO(image_data)).format.upper()
+
+                if image_data:
+                    img = Image.open(io.BytesIO(image_data))
+                    img_w, img_h = img.size
+                    
+                    # Calcula dimensões proporcionais para caber em 24x24 (contain)
+                    max_w, max_h = 24, 24
+                    ratio = min(max_w / img_w, max_h / img_h)
+                    render_w, render_h = img_w * ratio, img_h * ratio
+                    
+                    # Centraliza a imagem no espaço de 28x28
+                    pos_x = M + 2 + (max_w - render_w) / 2
+                    pos_y = pdf.get_y() + 2 + (max_h - render_h) / 2
+
+                    pdf.image(
+                        io.BytesIO(image_data),
+                        x=pos_x,
+                        y=pos_y,
+                        w=render_w,
+                        h=render_h,
+                        type=img_format if img_format in ['JPG', 'JPEG', 'PNG'] else 'JPEG'
+                    )
+            except Exception as e:
+                logger.warning(f"FPDF2: Falha ao renderizar imagem do item: {e}")
+        
+        pdf.set_xy(M + offset_x, pdf.get_y())
+        pdf.cell(C_DESC - offset_x, linha_h, f"  {desc}", fill=False, ln=False) # fill=False para não cobrir imagem
+        
+        pdf.set_xy(M + C_DESC, pdf.get_y())
+        pdf.cell(C_QTD,  linha_h, qtd_s, align="C", fill=True, ln=False)
+        pdf.cell(C_UNIT, linha_h, _brl(item.get("valor_unit") or 0), align="R", fill=True, ln=False)
         pdf.set_font(_FONT, "B", 9)
-        pdf.cell(C_TOT,  7, _brl(item.get("total") or 0), align="R", fill=True, ln=True)
+        pdf.cell(C_TOT,  linha_h, _brl(item.get("total") or 0), align="R", fill=True, ln=True)
+
         pdf.set_font(_FONT, "", 9)
 
     pdf.ln(2)
@@ -664,8 +755,14 @@ def gerar_html_portfolio(portfolio_dict: dict, empresa: dict) -> str:
                         item["imagem_url"], max_width=max_img_w
                     )
                     
-    # Normalizar logo
+    # Normalizar logo e capa
     empresa_norm = _normalizar_logo_url(empresa.copy())
+    
+    if empresa_norm.get("logo_url") and str(empresa_norm["logo_url"]).startswith("http"):
+        empresa_norm["logo_url"] = _otimizar_imagem_portfolio(empresa_norm["logo_url"], max_width=400)
+        
+    if empresa_norm.get("capa_portfolio_url") and str(empresa_norm["capa_portfolio_url"]).startswith("http"):
+        empresa_norm["capa_portfolio_url"] = _otimizar_imagem_portfolio(empresa_norm["capa_portfolio_url"], max_width=1200)
     
     template = env.get_template("portfolio.html")
     html_out = template.render(portfolio=portfolio_dict, empresa=empresa_norm)
