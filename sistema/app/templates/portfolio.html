@@ -4,10 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ portfolio.titulo }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         @page {
             size: A4;
-            margin: 12mm;
+            margin: 0;
         }
 
         :root {
@@ -101,8 +104,13 @@
             padding: 20px;
             background: var(--page-bg);
             color: var(--text);
-            font-family: "Segoe UI", "Arial", sans-serif;
-            line-height: 1.45;
+            font-family: 'Manrope', "Segoe UI", "Arial", sans-serif;
+            line-height: 1.5;
+        }
+
+        h1, h2, h3, .presentation-title, .section-title, .item-name {
+            font-family: 'DM Serif Display', serif;
+            font-weight: 400;
         }
 
         .paper {
@@ -116,17 +124,27 @@
         }
 
         .cover {
-            padding: 34px 34px 26px;
+            padding: 40px 40px 30px;
             border-bottom: 1px solid var(--border);
             background:
                 radial-gradient(circle at 92% 8%, var(--accent-soft), transparent 46%),
                 linear-gradient(160deg, var(--paper-bg), transparent 62%);
+            position: relative;
+        }
+
+        .cover::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            opacity: 0.15;
         }
 
         .cover-banner {
-            width: calc(100% + 68px);
-            margin: -34px -34px 22px -34px;
-            max-height: 240px;
+            width: calc(100% + 80px);
+            margin: -40px -40px 30px -40px;
+            height: 240px;
             overflow: hidden;
             border-radius: 0;
         }
@@ -134,19 +152,15 @@
         .cover-banner img {
             display: block;
             width: 100%;
-            height: 200px;
+            height: 100%;
             object-fit: cover;
         }
 
-        @media print {
-            .cover-banner img {
-                max-height: 180px;
-            }
-        }
+        /* Removido @media print para manter a exibição igual ao html */
 
         /* ── Templates de capa HTML/CSS ── */
         .cover-template {
-            height: 200px;
+            height: 240px;
             display: flex;
             align-items: center;
             overflow: hidden;
@@ -303,9 +317,9 @@
         h1 {
             margin: 0;
             color: var(--title);
-            font-size: 38px;
-            line-height: 1.08;
-            letter-spacing: -0.02em;
+            font-size: 42px;
+            line-height: 1.1;
+            letter-spacing: -0.01em;
         }
 
         .intro {
@@ -323,16 +337,27 @@
         }
 
         .presentation-card {
-            margin-top: 24px;
+            margin-top: 32px;
             border: 1px solid var(--border);
-            border-radius: 14px;
+            border-radius: 16px;
             background: var(--card-bg);
-            padding: 18px 20px;
+            padding: 24px 28px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .presentation-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; bottom: 0;
+            width: 4px;
+            background: var(--accent);
         }
 
         .presentation-title {
-            margin: 0 0 10px;
-            font-size: 18px;
+            margin: 0 0 12px;
+            font-size: 22px;
             color: var(--title);
         }
 
@@ -380,16 +405,26 @@
             justify-content: space-between;
             align-items: baseline;
             gap: 10px;
-            margin-bottom: 14px;
+            margin-bottom: 20px;
             border-bottom: 1px solid var(--border);
-            padding-bottom: 10px;
+            padding-bottom: 12px;
+            position: relative;
+        }
+
+        .section-head::after {
+            content: '';
+            position: absolute;
+            bottom: -1px; left: 0;
+            width: 60px;
+            height: 2px;
+            background: var(--accent);
         }
 
         .section-title {
             margin: 0;
             color: var(--title);
-            font-size: 23px;
-            letter-spacing: -0.01em;
+            font-size: 28px;
+            letter-spacing: 0;
         }
 
         .section-count {
@@ -404,15 +439,108 @@
             gap: 14px;
         }
 
+        /* Layout galeria: empilhado (imagem acima, texto abaixo) — base compatível com WeasyPrint/PDF */
+        .grid-galeria {
+            display: block;
+        }
+
+        .grid-galeria > .item.item-galeria {
+            display: block;
+            margin-bottom: 32px;
+            page-break-inside: avoid;
+            break-inside: avoid-page;
+            border: none;
+            border-bottom: 1px solid var(--border);
+            border-radius: 0;
+            background: transparent;
+            padding-bottom: 24px;
+            box-shadow: none;
+        }
+
+        .grid-galeria > .item.item-galeria:last-child {
+            border-bottom: none;
+        }
+
+        .grid-galeria > .item.item-galeria .item-media.item-media-galeria {
+            display: block;
+            width: 100%;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(0,0,0,0.04);
+            margin-bottom: 20px;
+        }
+
+        .grid-galeria > .item.item-galeria .item-media.item-media-galeria,
+        .grid-galeria > .item.item-galeria .item-media.item-media-galeria img {
+            height: 320px;
+            min-height: 320px;
+            max-height: 320px;
+            width: 100%;
+            object-fit: cover;
+        }
+
+        .grid-galeria > .item.item-galeria .item-body.item-body-galeria {
+            display: block;
+            padding: 0 8px;
+            min-width: 0;
+        }
+
+        .grid-galeria > .item.item-galeria .item-name {
+            font-size: 26px;
+            margin-bottom: 10px;
+            color: var(--title);
+        }
+
+        .grid-galeria > .item.item-galeria .item-desc {
+            font-size: 14px;
+            line-height: 1.6;
+            color: var(--text);
+            -webkit-line-clamp: none;
+            max-height: none;
+        }
+
+        .grid-galeria > .item.item-galeria .item-meta {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .grid-galeria > .item.item-galeria .item-price {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        @media screen {
+            .grid-galeria > .item.item-galeria .item-media.item-media-galeria,
+            .grid-galeria > .item.item-galeria .item-media.item-media-galeria img {
+                height: auto;
+                min-height: 240px;
+                max-height: 480px;
+                aspect-ratio: 16 / 9;
+            }
+        }
+
         .item {
             display: grid;
-            grid-template-columns: 132px 1fr;
-            min-height: 156px;
+            grid-template-columns: 140px 1fr;
+            min-height: 160px;
             border: 1px solid var(--border);
-            border-radius: 14px;
+            border-radius: 16px;
             overflow: hidden;
             background: var(--card-bg);
             page-break-inside: avoid;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        @media screen {
+            .item:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+            }
         }
 
         .item-media {
@@ -435,38 +563,40 @@
             color: var(--muted);
             text-transform: uppercase;
             letter-spacing: 0.06em;
+            font-family: 'Manrope', sans-serif;
+            font-weight: 600;
         }
 
         .item-body {
             display: flex;
             flex-direction: column;
-            padding: 12px 12px 10px;
+            padding: 16px 16px 14px;
             min-width: 0;
         }
 
         .item-name {
             margin: 0;
             color: var(--title);
-            font-size: 16px;
-            line-height: 1.25;
+            font-size: 20px;
+            line-height: 1.2;
         }
 
         .item-desc {
-            margin-top: 6px;
-            font-size: 12px;
+            margin-top: 8px;
+            font-size: 13px;
             color: var(--text);
-            line-height: 1.4;
+            line-height: 1.5;
             display: -webkit-box;
             -webkit-line-clamp: 4;
             -webkit-box-orient: vertical;
             overflow: hidden;
-            max-height: 5.6em; /* fallback para WeasyPrint: 4 linhas × 1.4 */
+            max-height: 6em; /* fallback para WeasyPrint: 4 linhas × 1.5 */
         }
 
         .item-desc-empty {
             margin-top: 8px;
             color: var(--muted);
-            font-size: 11px;
+            font-size: 12px;
             font-style: italic;
         }
 
@@ -476,7 +606,7 @@
             justify-content: space-between;
             align-items: flex-end;
             gap: 8px;
-            padding-top: 10px;
+            padding-top: 12px;
             border-top: 1px dashed var(--border);
         }
 
@@ -484,14 +614,15 @@
             font-size: 11px;
             color: var(--muted);
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.08em;
+            font-weight: 600;
         }
 
         .item-price {
             text-align: right;
             font-weight: 700;
             color: var(--title);
-            font-size: 18px;
+            font-size: 20px;
             line-height: 1.1;
         }
 
@@ -501,8 +632,8 @@
             font-size: 10px;
             color: var(--muted);
             text-transform: uppercase;
-            letter-spacing: 0.06em;
-            font-weight: 500;
+            letter-spacing: 0.08em;
+            font-weight: 600;
         }
 
         .item-cost {
@@ -525,19 +656,22 @@
         }
 
         .contact {
-            margin: 6px 30px 28px;
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            background: var(--card-bg);
-            padding: 16px 18px;
+            margin: 20px 30px 30px;
+            border: none;
+            border-top: 1px solid var(--border);
+            border-radius: 0;
+            background: transparent;
+            padding: 24px 0 0;
             display: grid;
             gap: 6px;
+            text-align: center;
         }
 
         .contact-title {
-            margin: 0 0 4px;
+            margin: 0 0 8px;
             color: var(--title);
-            font-size: 16px;
+            font-size: 20px;
+            font-family: 'DM Serif Display', serif;
         }
 
         .contact-line {
@@ -570,11 +704,11 @@
                 font-size: 30px;
             }
 
-            .grid {
+            .grid:not(.grid-galeria) {
                 grid-template-columns: 1fr;
             }
 
-            .item {
+            .item:not(.item-galeria) {
                 grid-template-columns: 110px 1fr;
             }
 
@@ -586,7 +720,7 @@
 
         @media print {
             body {
-                background: #fff;
+                background: var(--page-bg);
                 padding: 0;
             }
 
@@ -595,6 +729,7 @@
                 border-radius: 0;
                 box-shadow: none;
                 max-width: none;
+                margin: 0;
             }
 
             .section {
@@ -603,19 +738,6 @@
 
             .item {
                 break-inside: avoid-page;
-            }
-
-            h1 {
-                font-size: 30px;
-            }
-
-            .cover-banner img {
-                height: 160px;
-                max-height: 160px;
-            }
-
-            .cover-template {
-                height: 160px;
             }
         }
     </style>
@@ -742,17 +864,17 @@
                     <h2 class="section-title">{{ categoria.nome }}</h2>
                     <span class="section-count">{{ categoria.itens|length }} item(ns)</span>
                 </div>
-                <div class="grid">
+                <div class="grid {% if portfolio.layout == 'galeria' %}grid-galeria{% endif %}">
                     {% for item in categoria.itens %}
-                    <article class="item">
-                        <div class="item-media">
+                    <article class="item {% if portfolio.layout == 'galeria' %}item-galeria{% endif %}">
+                        <div class="item-media {% if portfolio.layout == 'galeria' %}item-media-galeria{% endif %}">
                             {% if item.imagem_url %}
                             <img src="{{ item.imagem_url }}" alt="{{ item.nome }}">
                             {% else %}
                             <span class="item-no-image">Sem imagem</span>
                             {% endif %}
                         </div>
-                        <div class="item-body">
+                        <div class="item-body {% if portfolio.layout == 'galeria' %}item-body-galeria{% endif %}">
                             <h3 class="item-name">{{ item.nome }}</h3>
                             {% if item.descricao %}
                             <div class="item-desc">{{ item.descricao }}</div>
