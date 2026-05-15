@@ -795,10 +795,15 @@ def _build_portfolio_dict(db: Session, req: PortfolioGenerateRequest, empresa_id
             if itens:
                 categorias.append({"id": c.id, "nome": c.nome, "itens": itens})
 
+    layout = (getattr(req, "layout", None) or "compacto").strip().lower()
+    if layout not in ("compacto", "galeria"):
+        layout = "compacto"
+
     return {
         "titulo": req.titulo,
         "descricao": req.descricao,
         "tema": _normalizar_tema_portfolio(req.tema),
+        "layout": layout,
         "categorias": categorias,
         "exibir_preco_venda": req.exibir_preco_venda,
         "incluir_custo": req.incluir_custo,
@@ -815,8 +820,9 @@ def preview_portfolio_html(
     usuario: Usuario = Depends(exigir_permissao("catalogo", "leitura"))
 ):
     empresa_dict = _empresa_para_portfolio_dict(usuario.empresa)
-    
+
     portfolio_dict = _build_portfolio_dict(db, req, usuario.empresa_id)
+    portfolio_dict["layout"] = req.layout
     html_str = gerar_html_portfolio(portfolio_dict, empresa_dict)
     return HTMLResponse(content=html_str)
 
@@ -827,8 +833,9 @@ def download_portfolio_pdf(
     usuario: Usuario = Depends(exigir_permissao("catalogo", "leitura"))
 ):
     empresa_dict = _empresa_para_portfolio_dict(usuario.empresa)
-    
+
     portfolio_dict = _build_portfolio_dict(db, req, usuario.empresa_id)
+    portfolio_dict["layout"] = req.layout
     pdf_bytes = gerar_pdf_portfolio(portfolio_dict, empresa_dict)
     
     return Response(

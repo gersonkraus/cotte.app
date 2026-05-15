@@ -1135,6 +1135,7 @@ def visualizar_portfolio_publico(link_uuid: str, db: Session = Depends(get_db)):
     empresa_dict = _empresa_para_portfolio_dict(empresa)
     
     portfolio_dict = _build_portfolio_dict(db, req, empresa_id)
+    portfolio_dict["layout"] = req.layout
     html_str = gerar_html_portfolio(portfolio_dict, empresa_dict)
     
     return HTMLResponse(content=html_str)

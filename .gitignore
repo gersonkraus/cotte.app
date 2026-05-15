@@ -147,3 +147,10 @@ projetos-prontos-ToDo/
 sistema/test_*.py
 !sistema/tests/
 
+
+# Local artifacts and worktrees
+graphify-out/
+.iii/
+config.yaml
+workers/
+.worktrees/

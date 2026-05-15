@@ -2315,6 +2315,7 @@ class PortfolioGenerateRequest(BaseModel):
     titulo: str = "Nosso Portfólio"
     descricao: Optional[str] = None
     tema: Optional[str] = "classico"  # classico, escuro, corporativo, elegante, natureza, sunset
+    layout: str = "compacto"
     segmento_empresa: Optional[str] = None
     tom_voz_capa: Optional[str] = "profissional"
     objetivo_capa: Optional[str] = None

@@ -513,6 +513,14 @@
         </select>
       </div>
 
+      <div class="form-group">
+        <label for="portfolio-layout">Layout dos produtos</label>
+        <select id="portfolio-layout">
+          <option value="compacto" selected>Compacto (imagem ao lado)</option>
+          <option value="galeria">Galeria (imagem em destaque)</option>
+        </select>
+      </div>
+
       <div class="form-group" style="display:flex;flex-direction:column;gap:10px">
         <label style="margin:0">Exibição de valores</label>
         <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
@@ -859,7 +867,7 @@
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
             <div class="catalogo-card-info" style="min-width:0">
               <div class="catalogo-card-nome" style="font-weight:600;font-size:15px;color:var(--text)">${item.nome}</div>
-              ${item.descricao ? `<div class="catalogo-card-desc" style="font-size:12px;color:var(--muted);margin-top:4px">${item.descricao}</div>` : ''}
+              ${item.descricao ? `<div class="catalogo-card-desc" style="font-size:12px;color:var(--muted);margin-top:4px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;" title="${String(item.descricao).replace(/"/g, '&quot;')}">${item.descricao}</div>` : ''}
               ${badgeML}
             </div>
             ${!item.ativo ? '<span class="catalogo-card-badge" style="font-size:11px;background:#ef444420;color:#ef4444;border-radius:6px;padding:2px 8px;white-space:nowrap;flex-shrink:0">Inativo</span>' : ''}
@@ -2330,6 +2338,7 @@
     const base = {
       titulo: document.getElementById('portfolio-titulo').value.trim() || 'Nosso Portfólio',
       descricao: document.getElementById('portfolio-descricao').value.trim() || null,
+      layout: document.getElementById('portfolio-layout').value || 'compacto',
       exibir_preco_venda: document.getElementById('portfolio-exibir-preco-venda').checked,
       incluir_custo: document.getElementById('portfolio-incluir-custo').checked,
       incluir_apresentacao_primeira_folha: document.getElementById('portfolio-primeira-folha-apresentacao').checked,

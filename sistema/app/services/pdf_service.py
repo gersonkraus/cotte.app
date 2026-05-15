@@ -653,12 +653,16 @@ def gerar_html_portfolio(portfolio_dict: dict, empresa: dict) -> str:
     # Custom filters
     env.filters['brl'] = _brl
     
-    # Otimizar imagens do portfolio
+    # Otimizar imagens do portfolio (galeria usa largura maior para destaque no PDF)
+    layout = (portfolio_dict.get("layout") or "compacto").strip().lower()
+    max_img_w = 720 if layout == "galeria" else 400
     if "categorias" in portfolio_dict:
         for cat in portfolio_dict["categorias"]:
             for item in cat.get("itens", []):
                 if item.get("imagem_url"):
-                    item["imagem_url"] = _otimizar_imagem_portfolio(item["imagem_url"])
+                    item["imagem_url"] = _otimizar_imagem_portfolio(
+                        item["imagem_url"], max_width=max_img_w
+                    )
                     
     # Normalizar logo
     empresa_norm = _normalizar_logo_url(empresa.copy())
