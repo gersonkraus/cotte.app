@@ -966,7 +966,6 @@ class EmpresaOut(BaseModel):
     email: Optional[str]
     logo_url: Optional[str]
     capa_portfolio_url: Optional[str] = None
-    capa_template_id: Optional[str] = None
     capa_slogan: Optional[str] = None
     cor_primaria: Optional[str]
     validade_padrao_dias: Optional[int] = 7  # #10
@@ -2312,9 +2311,12 @@ class PortfolioGenerateRequest(BaseModel):
     exibir_preco_venda: bool = True
     incluir_custo: bool = False
     incluir_apresentacao_primeira_folha: bool = False
+    exibir_categorias: bool = True
+    exibir_logo: bool = True
+    dados_empresa_personalizados: Optional[str] = None
     titulo: str = "Nosso Portfólio"
     descricao: Optional[str] = None
-    tema: Optional[str] = "classico"  # classico, escuro, corporativo, elegante, natureza, sunset
+    tema: Optional[str] = "classico"  # classico, escuro, corporativo, elegante, natureza, sunset, grafite, meia-noite, minimalista
     layout: str = "compacto"
     segmento_empresa: Optional[str] = None
     tom_voz_capa: Optional[str] = "profissional"
@@ -2329,8 +2331,7 @@ class PortfolioLinkOut(BaseModel):
     uuid: str
 
 
-class CapaTemplateRequest(BaseModel):
-    template_id: str
+class CapaSloganRequest(BaseModel):
     slogan: str = ""
 
 

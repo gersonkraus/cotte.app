@@ -666,7 +666,7 @@ import json
 
 cache = CacheManager()
 
-_TEMAS_PORTFOLIO_VALIDOS = {"classico", "escuro", "corporativo", "elegante", "natureza", "sunset"}
+_TEMAS_PORTFOLIO_VALIDOS = {"classico", "escuro", "corporativo", "elegante", "natureza", "sunset", "grafite", "meia-noite", "minimalista"}
 
 def _normalizar_tema_portfolio(tema: Optional[str]) -> str:
     t = (tema or "").strip().lower()
@@ -711,7 +711,6 @@ def _empresa_para_portfolio_dict(empresa: Empresa) -> dict:
         "nome": empresa.nome,
         "logo_url": empresa.logo_url,
         "capa_portfolio_url": getattr(empresa, "capa_portfolio_url", None),
-        "capa_template_id": getattr(empresa, "capa_template_id", None),
         "capa_slogan": getattr(empresa, "capa_slogan", None) or "",
         "cor_primaria": getattr(empresa, "cor_primaria", None) or "#00e5a0",
         "telefone": empresa.telefone,
@@ -808,6 +807,9 @@ def _build_portfolio_dict(db: Session, req: PortfolioGenerateRequest, empresa_id
         "exibir_preco_venda": req.exibir_preco_venda,
         "incluir_custo": req.incluir_custo,
         "incluir_apresentacao_primeira_folha": req.incluir_apresentacao_primeira_folha,
+        "exibir_categorias": req.exibir_categorias,
+        "exibir_logo": req.exibir_logo,
+        "dados_empresa_personalizados": req.dados_empresa_personalizados,
         "segmento_empresa": req.segmento_empresa,
         "tom_voz_capa": req.tom_voz_capa or "profissional",
         "objetivo_capa": req.objetivo_capa,
