@@ -5416,7 +5416,7 @@ async def assistente_v2_stream_core(
                 messages=_v2_apply_prompt_caching(messages),
                 tools=tools_payload,
                 temperature=0.3,
-                max_tokens=1024,
+                max_tokens=3000,
                 model_override=modelo_injetado,
             )
         except Exception as e:
@@ -5489,7 +5489,7 @@ async def assistente_v2_stream_core(
                             messages=_v2_apply_prompt_caching(messages),
                             tools=full_tools_payload,
                             temperature=0.3,
-                            max_tokens=1024,
+                            max_tokens=3000,
                             model_override=modelo_injetado,
                         )
                         usage_retry = (
