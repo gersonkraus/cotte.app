@@ -304,19 +304,93 @@
 </div>
 
 <!-- MODAL GERENCIAR CATEGORIAS (z-index acima do modal de item para empilhar corretamente) -->
+<style>
+  #modal-categorias .category-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding: 4px;
+    min-height: 80px;
+    background-color: var(--surface1);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+  }
+
+  .category-tag {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 25px;
+    background-color: var(--surface2);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+    font-weight: 500;
+    border: 1px solid transparent;
+  }
+
+  .category-tag:hover {
+    background-color: var(--surface3);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  }
+
+  .category-tag.selected {
+    background-color: var(--accent-subtle);
+    color: var(--accent);
+    font-weight: 600;
+    border-color: var(--accent);
+  }
+  
+  .category-tag.selected:hover {
+    background-color: var(--accent-subtle);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.15);
+  }
+
+  .delete-category-btn {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background-color: var(--muted-subtle);
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    opacity: 0.7;
+  }
+
+  .category-tag:hover .delete-category-btn {
+    opacity: 1;
+  }
+
+  .delete-category-btn:hover {
+    background-color: #ef4444; /* red-500 */
+    color: white;
+    transform: scale(1.1);
+  }
+</style>
 <div class="modal-overlay" id="modal-categorias" style="z-index:260">
-  <div class="modal" style="max-width:380px">
+  <div class="modal" style="max-width:420px">
     <div class="modal-header">
       <div class="modal-title" style="display:flex;align-items:center;gap:8px">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z"/><path d="M6 6h.01v.01H6V6z"/></svg>
-        <span>Categorias</span>
+        <span>Gerenciar Categorias</span>
       </div>
       <button class="modal-close" onclick="fecharModalCategorias()">✕</button>
     </div>
     <div class="modal-body">
-      <div id="lista-categorias" style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px;min-height:40px"></div>
-      <div style="display:flex;gap:8px">
-        <input type="text" id="input-nova-categoria" placeholder="Nova categoria..." style="flex:1"
+      <p style="font-size:13px; color:var(--muted); margin-bottom:16px; margin-top: 0;">Selecione as categorias para este item ou adicione novas.</p>
+      <div id="lista-categorias" class="category-grid"></div>
+      <div style="display:flex;gap:8px; margin-top:16px;">
+        <input type="text" id="input-nova-categoria" placeholder="Adicionar nova categoria..." style="flex:1"
           onkeydown="if(event.key==='Enter') adicionarCategoria()">
         <button class="btn btn-primary" style="padding:8px 14px;white-space:nowrap" onclick="adicionarCategoria()">+ Adicionar</button>
       </div>
@@ -1222,15 +1296,35 @@
 
   function _renderListaCategorias() {
     const el = document.getElementById('lista-categorias');
+    const categoriaSelecionadaId = document.getElementById('item-categoria').value;
+
     if (!categoriasCache.length) {
-      el.innerHTML = '<div style="color:var(--muted);font-size:13px">Nenhuma categoria cadastrada.</div>';
+      el.innerHTML = '<div style="color:var(--muted);font-size:13px; text-align:center; padding: 20px 0;">Nenhuma categoria cadastrada.</div>';
       return;
     }
-    el.innerHTML = categoriasCache.map(c => `
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--surface2);border-radius:8px">
-        <span style="font-size:13px">${c.nome}</span>
-        ${temPermAdminCatalogo() ? `<button class="btn btn-ghost" style="padding:2px 8px;font-size:11px;color:#ef4444" onclick="excluirCategoria(${c.id})">Excluir</button>` : ''}
-      </div>`).join('');
+    
+    el.innerHTML = categoriasCache.map(c => {
+      const isSelected = c.id == categoriaSelecionadaId;
+      return `
+        <div 
+          class="category-tag ${isSelected ? 'selected' : ''}" 
+          onclick="selecionarCategoria(${c.id})"
+          data-categoria-id="${c.id}"
+        >
+          <span>${c.nome}</span>
+          ${temPermAdminCatalogo() ? `<div class="delete-category-btn" onclick="event.stopPropagation(); excluirCategoria(${c.id})">✕</div>` : ''}
+        </div>
+      `;
+    }).join('');
+  }
+
+  function selecionarCategoria(id) {
+    // Atualiza o select principal no modal de item
+    document.getElementById('item-categoria').value = id;
+    // Re-renderiza a lista para mostrar a seleção
+    _renderListaCategorias();
+    // Opcional: fechar o modal de categorias após a seleção
+    setTimeout(fecharModalCategorias, 200);
   }
 
   async function adicionarCategoria() {
@@ -1238,9 +1332,14 @@
     const nome = input.value.trim();
     if (!nome) return;
     try {
-      await api.post('/catalogo/categorias', { nome });
+      const novaCategoria = await api.post('/catalogo/categorias', { nome });
       input.value = '';
-      await carregarCategorias();
+      await carregarCategorias(); // Recarrega o cache
+      
+      // Seleciona a nova categoria automaticamente
+      selecionarCategoria(novaCategoria.id);
+      
+      // Re-renderiza a lista para incluir a nova categoria e a seleção
       _renderListaCategorias();
     } catch(e) {
       showNotif('❌', 'Erro', e.message, 'error');
@@ -1249,10 +1348,14 @@
 
   async function excluirCategoria(id) {
     const cat = categoriasCache.find(c => c.id === id);
-    if (!confirm(`Excluir categoria "${cat?.nome}"?`)) return;
+    if (!confirm(`Excluir categoria "${cat?.nome}"? Isso removerá a categoria de todos os itens associados.`)) return;
     try {
       await api.delete(`/catalogo/categorias/${id}`);
       await carregarCategorias();
+      // Se a categoria excluída era a selecionada, limpa a seleção
+      if (document.getElementById('item-categoria').value == id) {
+        document.getElementById('item-categoria').value = '';
+      }
       _renderListaCategorias();
     } catch(e) {
       showNotif('❌', 'Erro', e.message, 'error');
@@ -2119,8 +2222,9 @@
       listEl.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:10px">Nenhuma categoria encontrada</div>';
     } else {
       listEl.innerHTML = categoriasCache.map(c => `
-        <label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;cursor:pointer">
-          <input type="checkbox" class="portfolio-cat-cb" value="${c.id}"> ${c.nome}
+        <label style="display: flex; align-items: center; gap: 8px; padding: 6px 4px; font-size: 14px; cursor: pointer; border-radius: 6px; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='var(--surface3)'" onmouseout="this.style.backgroundColor='transparent'">
+          <input type="checkbox" class="portfolio-cat-cb" value="${c.id}" style="width: 16px; height: 16px; flex-shrink: 0; margin-top: -1px;">
+          <span style="line-height: 1.2;">${c.nome}</span>
         </label>
       `).join('');
     }
