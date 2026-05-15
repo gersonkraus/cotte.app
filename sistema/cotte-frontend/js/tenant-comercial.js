@@ -2793,7 +2793,7 @@ function renderCampanhas(campanhas) {
     em_andamento: 'Em Andamento',
     pausada: 'Pausada',
     concluida: 'Concluída',
-    cancelada: 'Cancelada'
+    cancelada: 'Desativada'
   };
 
   const statusIcons = {
@@ -2881,7 +2881,7 @@ function renderCampanhas(campanhas) {
             ${isScheduled || isPaused ? `<button class="btn btn-sm btn-ghost" onclick="editarCampanha(${c.id})" title="Editar configurações e lista de contatos">✏️ Editar</button>` : ''}
             ${(isRunning || isScheduled) ? `<button class="btn btn-sm btn-warning" onclick="pausarCampanha(${c.id}, this)" title="Pausar disparos (pode ser retomado depois)">⏸ Pausar</button>` : ''}
             ${isPaused ? `<button class="btn btn-sm btn-success" onclick="retomarCampanha(${c.id}, this)" title="Retomar disparos ou reativar agendamento">▶️ Retomar</button>` : ''}
-            ${(isRunning || isPaused || isScheduled) ? `<button class="btn btn-sm btn-ghost" style="color:var(--red)" onclick="cancelarCampanha(${c.id}, this)" title="Suspender e cancelar esta campanha permanentemente">⏹ Cancelar</button>` : ''}
+            ${(isRunning || isPaused || isScheduled) ? `<button class="btn btn-sm btn-ghost" style="color:var(--red)" onclick="cancelarCampanha(${c.id}, this)" title="Desativar esta campanha permanentemente">⏹ Desativar</button>` : ''}
             <button class="btn btn-sm btn-ghost" style="color:var(--red)" onclick="excluirCampanha(${c.id}, this)" title="Excluir campanha e todo o seu histórico">🗑️ Excluir</button>
           </div>
         </div>
@@ -3392,19 +3392,19 @@ function confirmarAcaoDestrutiva(titulo, mensagem, textoBotao = 'Confirmar Açã
 
 async function cancelarCampanha(id, btn) {
   var confirmado = await confirmarAcaoDestrutiva(
-    'Suspender Campanha',
-    'Deseja realmente suspender esta campanha? Os agendamentos futuros serão removidos e os envios atuais parados.',
-    'Sim, Suspender'
+    'Desativar Campanha',
+    'Deseja realmente desativar esta campanha? Os agendamentos futuros serão removidos e os envios atuais parados.',
+    'Sim, Desativar'
   );
   if (!confirmado) return;
 
   if (btn) btn.classList.add('loading');
   try {
     await api.post('/tenant/comercial/campaigns/' + id + '/cancelar');
-    showToast('Campanha suspensa permanentemente', 'success');
+    showToast('Campanha desativada permanentemente', 'success');
     carregarCampanhas();
   } catch (e) {
-    showToast('Erro ao cancelar campanha', 'error');
+    showToast('Erro ao desativar campanha', 'error');
     if (btn) btn.classList.remove('loading');
   }
 }
