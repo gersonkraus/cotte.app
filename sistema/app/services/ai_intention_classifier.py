@@ -315,23 +315,19 @@ class IntentionClassifier:
     ]
 
     LISTAR_ORCAMENTOS_KEYWORDS = [
-        r'\b(quais|liste|lista|ver|mostrar|mostre)\s+(mais\s+)?((os|meus)\s+)?or[çc]amentos?\b',
-        r'\b(ultimos?|[úu]ltimos?|recentes?)\s+or[çc]amentos?\b',
-        r'\bor[çc]amentos?\s+(pendentes?|aprovados?|recusados?|enviados?|em\s+aberto|rascunhos?)\b',
-        r'\b(quais|ver|listar|liste|lista|meus|mostrar)\b.*\bor[çc]ament',
+        r'\b(quais|liste|lista|ver|mostrar|mostre)\s+(mais\s+)?((os|meus)\s+)?or[çc]amentos?\s*$', # Fim de linha ou simples
+        r'\b(ultimos?|[úu]ltimos?|recentes?)\s+or[çc]amentos?\s*$',
+        r'\bor[çc]amentos?\s+(pendentes?|aprovados?|recusados?|enviados?|em\s+aberto|rascunhos?)\s*$',
         # Intenção de ter "todos" (listagem global)
-        r'\btodos?\s+(os\s+)?or[çc]amentos?\b',
-        r'\blista\s+completa\s+de\s+or[çc]amentos?\b',
-        # Pega a intenção nua de plural ("orçamentos do joão"), enquanto singular cai na criação ("orçamento do joão")
-        r'^or[çc]amentos\s+(da|do|de|para|cliente)\b'
+        r'^\s*todos?\s+(os\s+)?or[çc]amentos?\s*$',
+        r'^\s*lista\s+completa\s+de\s+or[çc]amentos?\s*$',
     ]
 
     LISTAR_CLIENTES_KEYWORDS = [
-        r'\b(quais|liste|lista|ver|mostrar|mostre)\s+(mais\s+)?((os|meus)\s+)?clientes?\b',
-        r'\b(ultimos?|[úu]ltimos?|recentes?)\s+clientes?\b',
-        r'\b(quais|ver|listar|liste|lista|meus|mostrar)\b.*\bcliente',
-        r'\btodos?\s+(os\s+)?clientes?\b',
-        r'\blista\s+completa\s+de\s+clientes?\b',
+        r'\b(quais|liste|lista|ver|mostrar|mostre)\s+(mais\s+)?((os|meus)\s+)?clientes?\s*$',
+        r'\b(ultimos?|[úu]ltimos?|recentes?)\s+clientes?\s*$',
+        r'^\s*todos?\s+(os\s+)?clientes?\s*$',
+        r'^\s*lista\s+completa\s+de\s+clientes?\s*$',
     ]
 
     # I) OPERADOR — comandos de execução em orçamentos existentes
@@ -341,33 +337,14 @@ class IntentionClassifier:
         r'^or[çc]amentos?\s+(?:n[oó]mero|n[oó]|num|#)?\s*(?:[A-Za-z]+-)?\d+$',
         r'^orc\s+(?:n[oó]mero|n[oó]|num|#)?\s*(?:[A-Za-z]+-)?\d+$',
         r'^[A-Za-z]+-\d+$',
-        r'\baprovar?\b',
-        r'\brecusar?\b',
+        r'^\s*aprovar?\s+(?:[A-Za-z]+-)?\d+\s*$',
+        r'^\s*recusar?\s+(?:[A-Za-z]+-)?\d+\s*$',
         r'\benviar?\s+(?:[A-Za-z]+-\d+|\d+)\b',
-        r'\benviar?\s+(or[çc]amento|orc|\d)',
+        r'\benviar?\s+(or[çc]amento|orc)\b',
         r'\bmand(a|ar)\s+(or[çc]amento|orc)\b',
-        r'\bver\s+(o\s+)?(or[çc]amento|orc[-\s]?\d+)\b',
-        r'\bmostrar?\s+(or[çc]amento|orc)\b',
-        r'\bdetalhes?\s+(do\s+)?(or[çc]amento|orc)\b',
         # Consulta de status ou valor de orçamento existente
         r'\bstatus\s+(do\s+)?(or[çc]amento|orc)?\s*(?:[A-Za-z]+-)?\d+\b',
-        r'\b(status|valor|total)\s+(d[oa]\s+)?(or[çc]amento|orc)\b',
-        # Palavra de consulta + código de orçamento (ex: "valor do O-170", "dados do O-5")
-        r'\b(?:valor|total|status|dados?|resumo|info)\b.{0,30}\b[A-Za-z]+-\d+\b',
-        # Referência direta a orçamento por código (ex: "orçamento O-170 qual o valor?")
-        r'\b(or[çc]amento|orc)\s+(?:[A-Za-z]+-\d+|\d{3,})\b',
-        r'\b(abrir|acessar|carregar)\s+(or[çc]amento|orc|\d)\b',
-        r'^or[çc]amentos?\s+(?:n[oó]mero|n[oó]|num|#)?\s*\d+$',
-        r'^orc\s+(?:n[oó]mero|n[oó]|num|#)?\s*\d+$',
-        r'\bdesconto\s+(de\s+)?\d',
-        r'\b\d+\s*%\s*(no|do|n[ao])\s+\d+\b',
-        r'\badicionar?\s+item\b',
-        r'\bremover?\s+item\b',
-        r'\bremove\s+item\b',
-        r'\badiciona\s+',
-        # Edição de valor/total em orçamento existente (ex: "alterar o valor para 5", "arredondar para 10")
-        r'\b(alterar?|mudar?|arredondar?|editar?|modificar?|atualizar?|ajustar?|corrigir?|trocar?)\s+(o\s+)?(valor|total|pre[çc]o|desconto)\b',
-        r'\b(alterar?|mudar?|arredondar?|editar?|modificar?|atualizar?)\b.{0,30}\b(or[çc]amento|orc)\b',
+        r'\b(status|valor|total)\s+(d[oa]\s+)?(or[çc]amento|orc)\s+(?:[A-Za-z]+-)?\d+\b',
     ]
 
     # J) ONBOARDING — configuração inicial / primeiro uso
@@ -398,24 +375,10 @@ class IntentionClassifier:
 
     # K) AJUDA_SISTEMA — dúvidas sobre como usar funcionalidades do sistema
     AJUDA_SISTEMA_KEYWORDS = [
-        r'como\s+(eu\s+)?(crio?|criar?|fa[çc]o|fazer|mont[ao]|montar|envio?|enviar|conect[ao]|conectar|uso?|usar|vejo?|ver|ativio?|ativar|acesso?|acessar|cancel[ao]|cancelar)\b',
-        r'como\s+(funciona|funcionar)\b',
-        r'como\s+(registro?|registrar|importo?|importar|exporto?|exportar|duplico?|duplicar|parcel[ao]|parcelar|aprovo?|aprovar)\b',
-        r'o\s+que\s+[ée]\s+(o|a|um|uma)?\s*(or[çc]amento|cliente|cat[áa]logo|pipeline|lead|financeiro|caixa|whatsapp|bot|documento)',
-        r'para\s+que\s+serve\b',
-        r'como\s+fa[çc]o\s+para\b',
-        r'como\s+posso\b',
-        r'onde\s+(fico?|acho?|encontro?|vejo?)\b',
-        r'n[ãa]o\s+(sei|consigo|encontro?)\s+(como|onde)',
-        r'passo\s+a\s+passo',
-        r'instru[çc][õo]es?\b',
-        r'tutorial\b',
-        r'(tem|h[áa])\s+como\s+',
-        r'[ée]\s+poss[íi]vel\s+(criar|enviar|fazer|duplicar|importar)',
-        r'como\s+conecto?\b',
-        r'como\s+link[ao]\b',
-        r'como\s+cadastr[ao]\b',
-        r'como\s+add\b',
+        r'^\s*como\s+uso?\s+(o|a)?\s*sistema\s*$',
+        r'^\s*tutorial\s*$',
+        r'^\s*ajuda\s*$',
+        r'^\s*instru[çc][õo]es?\s*$',
     ]
 
     # L) AGENDAMENTOS
@@ -535,16 +498,42 @@ class IntentionClassifier:
             if os.getenv("AI_PROVIDER") == "openrouter" and not model.startswith("openrouter/"):
                 model = f"openrouter/{model}"
                 
-            intents = [i.name for i in IntencaoUsuario if i.name not in ("CONVERSACAO", "AJUDA_SISTEMA", "ONBOARDING")]
+            intents_desc = {
+                "SALDO_RAPIDO": "Consulta rápida de dinheiro em caixa/saldo atual.",
+                "FATURAMENTO": "Total de vendas, quanto faturou, quanto vendeu.",
+                "CONTAS_RECEBER": "Valores que ainda vai receber de clientes.",
+                "CONTAS_PAGAR": "Dívidas, boletos e compromissos a pagar.",
+                "DASHBOARD": "Visão geral da empresa, resumo financeiro, 'como estão as coisas'.",
+                "PREVISAO": "Fluxo de caixa futuro, projeções, quanto vou ter semana que vem.",
+                "INADIMPLENCIA": "Clientes devendo, contas atrasadas, quem não pagou.",
+                "ANALISE": "Análise financeira profunda, explicações de resultados, tendências.",
+                "CONVERSAO": "Taxas de aprovação, ticket médio, produto/serviço mais vendido.",
+                "NEGOCIO": "Sugestões para melhorar, estratégias de crescimento, revisão de preços.",
+                "CRIAR_ORCAMENTO": "Fazer um novo orçamento, orçar serviço para alguém.",
+                "OPERADOR": "Ações em orçamentos específicos (ID, número), enviar, aprovar, dar desconto.",
+                "GERAR_RELATORIO": "Gerar listas, relatórios PDF/Excel, rankings de clientes, cruzamento de dados.",
+                "LISTAR_ORCAMENTOS": "Ver lista de orçamentos pendentes, aprovados ou recentes.",
+                "LISTAR_CLIENTES": "Ver lista de clientes cadastrados ou inativos.",
+                "AGENDAMENTO_CRIAR": "Marcar novo compromisso, visita ou serviço na agenda.",
+                "AGENDAMENTO_LISTAR": "Ver compromissos agendados para hoje ou semana.",
+            }
+            
             prompt = (
-                "Classifique a intenção da mensagem do usuário em APENAS UMA das categorias abaixo:\n"
-                f"{', '.join(intents)}\n\n"
-
-                "Regras:\n"
-                "1. Responda APENAS com o nome da categoria exata. Sem aspas, sem pontuação.\n"
-                "2. Se não for nenhuma dessas, ou se for um bate-papo informal (como 'bom dia', 'oi', 'obrigado', ou conversa aberta), responda: CONVERSACAO.\n\n"
-
-                f"Mensagem do usuário: '{mensagem}'"
+                "Você é o roteador de intenções do COTTE. Classifique a mensagem em UMA categoria.\n\n"
+                "CARDÁPIO DE INTENÇÕES:\n" + 
+                "\n".join([f"- {k}: {v}" for k, v in intents_desc.items()]) +
+                "\n\nEXEMPLOS:\n"
+                "- 'Quais os maiores clientes desse mês?' -> GERAR_RELATORIO\n"
+                "- 'Como andam as vendas?' -> FATURAMENTO\n"
+                "- 'O que eu faço pra vender mais?' -> NEGOCIO\n"
+                "- 'Aprova o orçamento 105' -> OPERADOR\n"
+                "- 'Qual meu ticket médio?' -> CONVERSAO\n"
+                "- 'Faz uma análise do meu caixa futuro' -> PREVISAO\n"
+                "- 'Quero ver a lista de clientes inativos' -> GERAR_RELATORIO\n\n"
+                "REGRAS:\n"
+                "1. Responda APENAS o nome da categoria (ex: GERAR_RELATORIO).\n"
+                "2. Se for conversa informal (oi, bom dia, obrigado), responda: CONVERSACAO.\n\n"
+                f"MENSAGEM: '{mensagem}'"
             )
             
             response = await acompletion(
