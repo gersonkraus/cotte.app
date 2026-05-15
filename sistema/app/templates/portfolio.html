@@ -144,6 +144,119 @@
             }
         }
 
+        /* ── Templates de capa HTML/CSS ── */
+        .cover-template {
+            width: 100%;
+            height: 180px;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Corporativo */
+        .cover-template-corporativo {
+            background: linear-gradient(135deg, #0f172a 55%, #1e3a5f 100%);
+            padding: 0 32px;
+            gap: 18px;
+        }
+        .cover-template-corporativo .ct-initial {
+            width: 48px; height: 48px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 900; font-size: 22px; color: #0f172a;
+            flex-shrink: 0;
+        }
+        .cover-template-corporativo .ct-nome {
+            color: #fff; font-weight: 700; font-size: 18px; margin-bottom: 4px;
+        }
+        .cover-template-corporativo .ct-slogan {
+            font-size: 13px; font-style: italic;
+        }
+        .cover-template-corporativo .ct-label {
+            color: rgba(255,255,255,0.35); font-size: 10px;
+            letter-spacing: 2px; text-transform: uppercase;
+        }
+
+        /* Clean */
+        .cover-template-clean {
+            background: #ffffff;
+            border-left: 8px solid;
+            padding: 0 28px;
+            gap: 18px;
+        }
+        .cover-template-clean .ct-circle {
+            width: 52px; height: 52px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 22px; color: #fff;
+            flex-shrink: 0;
+        }
+        .cover-template-clean .ct-nome {
+            color: #0f172a; font-weight: 700; font-size: 18px; margin-bottom: 4px;
+        }
+        .cover-template-clean .ct-slogan { color: #475569; font-size: 13px; }
+        .cover-template-clean .ct-badges {
+            display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;
+        }
+        .cover-template-clean .ct-badge {
+            font-size: 11px; font-weight: 600; padding: 3px 10px;
+            border-radius: 20px;
+        }
+
+        /* Impacto */
+        .cover-template-impacto {
+            padding: 0 36px;
+            position: relative; overflow: hidden;
+        }
+        .cover-template-impacto::before {
+            content: ''; position: absolute;
+            right: -30px; bottom: -30px;
+            width: 160px; height: 160px;
+            border-radius: 50%; background: rgba(255,255,255,0.08);
+        }
+        .cover-template-impacto .ct-nome {
+            color: #fff; font-weight: 900; font-size: 24px;
+            letter-spacing: -0.5px; margin-bottom: 8px;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.25);
+        }
+        .cover-template-impacto .ct-slogan {
+            color: rgba(255,255,255,0.88); font-size: 13px;
+        }
+        .cover-template-impacto .ct-line {
+            width: 50px; height: 3px; border-radius: 2px;
+            background: rgba(255,255,255,0.5); margin-top: 14px;
+        }
+
+        /* Premium */
+        .cover-template-premium {
+            background: #1c1917; padding: 0 32px; gap: 0;
+        }
+        .cover-template-premium::before {
+            content: '';
+            position: absolute; inset: 0;
+            background: repeating-linear-gradient(
+                45deg,
+                rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px,
+                transparent 1px, transparent 12px
+            );
+        }
+        .cover-template-premium .ct-divider {
+            padding-right: 24px; margin-right: 24px;
+            border-right: 1px solid; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; position: relative; z-index: 1;
+        }
+        .cover-template-premium .ct-initials {
+            font-size: 28px; font-weight: 900; letter-spacing: -1px; line-height: 1;
+        }
+        .cover-template-premium .ct-info { position: relative; z-index: 1; }
+        .cover-template-premium .ct-label {
+            font-size: 9px; letter-spacing: 3px; text-transform: uppercase;
+            color: rgba(255,255,255,0.35); margin-bottom: 6px;
+        }
+        .cover-template-premium .ct-nome {
+            color: #fff; font-weight: 700; font-size: 16px; letter-spacing: 0.5px;
+        }
+        .cover-template-premium .ct-slogan { font-size: 12px; font-style: italic; margin-top: 4px; }
+
         .cover-first-page {
             min-height: 250mm;
             display: flex;
@@ -489,7 +602,63 @@
 <body>
     <div class="paper">
         <header class="cover {% if portfolio.incluir_apresentacao_primeira_folha %}cover-first-page{% endif %}">
-            {% if empresa.capa_portfolio_url %}
+            {% if empresa.capa_template_id %}
+            <div class="cover-banner cover-template cover-template-{{ empresa.capa_template_id }}" aria-hidden="true"
+                 {% if empresa.capa_template_id == 'impacto' %}
+                 style="background:linear-gradient(120deg,{{ empresa.cor_primaria }},{{ empresa.cor_primaria }}99)"
+                 {% elif empresa.capa_template_id == 'clean' %}
+                 style="border-left-color:{{ empresa.cor_primaria }}"
+                 {% endif %}>
+              {% set inicial = empresa.nome[0] | upper %}
+              {% set cor = empresa.cor_primaria or '#00e5a0' %}
+
+              {% if empresa.capa_template_id == 'corporativo' %}
+                <div class="ct-initial" style="background:{{ cor }}">{{ inicial }}</div>
+                <div>
+                  <div class="ct-nome">{{ empresa.nome }}</div>
+                  <div class="ct-slogan" style="color:{{ cor }}">{{ empresa.capa_slogan }}</div>
+                  {% if empresa.endereco_apresentacao %}
+                  <div class="ct-label" style="margin-top:8px">{{ empresa.endereco_apresentacao }}</div>
+                  {% endif %}
+                </div>
+                <div style="margin-left:auto;text-align:right;opacity:0.35">
+                  <div style="color:#fff;font-size:9px;letter-spacing:2px;text-transform:uppercase">Portfólio</div>
+                </div>
+
+              {% elif empresa.capa_template_id == 'clean' %}
+                <div class="ct-circle" style="background:{{ cor }}">{{ inicial }}</div>
+                <div>
+                  <div class="ct-nome">{{ empresa.nome }}</div>
+                  <div class="ct-slogan">{{ empresa.capa_slogan }}</div>
+                  <div class="ct-badges">
+                    <span class="ct-badge" style="background:{{ cor }}22;color:{{ cor }}">✓ Qualidade</span>
+                    <span class="ct-badge" style="background:{{ cor }}22;color:{{ cor }}">✓ Agilidade</span>
+                    <span class="ct-badge" style="background:{{ cor }}22;color:{{ cor }}">✓ Confiança</span>
+                  </div>
+                </div>
+
+              {% elif empresa.capa_template_id == 'impacto' %}
+                <div>
+                  <div class="ct-nome">{{ empresa.nome }}</div>
+                  <div class="ct-slogan">{{ empresa.capa_slogan }}</div>
+                  <div class="ct-line"></div>
+                </div>
+
+              {% elif empresa.capa_template_id == 'premium' %}
+                <div class="ct-divider" style="border-right-color:{{ cor }}">
+                  <div class="ct-initials" style="color:{{ cor }}">
+                    {{ empresa.nome[:2] | upper }}
+                  </div>
+                </div>
+                <div class="ct-info">
+                  <div class="ct-label">Portfólio de Produtos</div>
+                  <div class="ct-nome">{{ empresa.nome }}</div>
+                  <div class="ct-slogan" style="color:{{ cor }}">{{ empresa.capa_slogan }}</div>
+                </div>
+              {% endif %}
+            </div>
+
+            {% elif empresa.capa_portfolio_url %}
             <div class="cover-banner" aria-hidden="true">
                 <img src="{{ empresa.capa_portfolio_url }}" alt="">
             </div>
