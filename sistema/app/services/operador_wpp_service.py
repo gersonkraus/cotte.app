@@ -468,6 +468,30 @@ async def _enviar_resposta(
             await enviar_mensagem_texto(telefone, texto, empresa=empresa)
         return
 
+    # Caso 3b: Relatório de orçamentos — lista legível no WhatsApp
+    if ai_resp.tipo_resposta == "relatorio_orcamentos":
+        dados = ai_resp.dados or {}
+        frontend_data = dados.get("_meta_frontend_data") or {}
+        orcamentos = frontend_data.get("orcamentos") or []
+        if orcamentos:
+            linhas = ["📋 *Relatório de Orçamentos*\n"]
+            for o in orcamentos[:30]:  # Limite legível no WhatsApp
+                status_label = (o.get("status") or "?").upper()
+                numero = o.get("numero", "?")
+                cliente = o.get("cliente_nome") or "—"
+                total = float(o.get("total") or 0)
+                linhas.append(f"• *{numero}* | {cliente} | R$ {total:,.2f} | {status_label}")
+            total_geral = float(dados.get("valor_total_relatorio") or sum(float(o.get("total", 0)) for o in orcamentos))
+            linhas.append(f"\n💰 *Total:* R$ {total_geral:,.2f}")
+            linhas.append(f"📊 *Itens:* {len(orcamentos)}")
+            if frontend_data.get("limite_excedido"):
+                linhas.append(f"_Exibindo os {frontend_data.get('limite_maximo', 1000)} mais recentes._")
+            texto = "\n".join(linhas)
+        else:
+            texto = "📋 Nenhum orçamento encontrado para os filtros informados."
+        await enviar_mensagem_texto(telefone, texto, empresa=empresa)
+        return
+
     # Caso 4: resposta genérica — limpa markdown para WhatsApp
     texto = (ai_resp.resposta or "Sem resposta.").strip()
     texto = sanitizar_para_whatsapp(texto)

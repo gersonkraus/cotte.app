@@ -4797,6 +4797,45 @@ async def assistente_v2_stream_core(
         return
 
     if intent_str in _V2_RELATORIO_INTENTS:
+        # Interceptação: "relatório de orçamentos [status]" → listagem, não analytics
+        msg_low_v2 = mensagem.lower()
+        if "orçament" in msg_low_v2:
+            from app.services.ai_tools.orcamento_tools import (
+                _gerar_relatorio_orcamentos,
+                GerarRelatorioOrcamentosInput,
+                _resolver_status_orcamento_listar,
+            )
+            status_match = re.search(r"\b(pendentes?|enviados?|aprovados?|recusados?|rascunho)\b", msg_low_v2)
+            status_str = status_match.group(0) if status_match else None
+            status_value = None
+            if status_str:
+                try:
+                    status_enum = _resolver_status_orcamento_listar(status_str)
+                    status_value = status_enum.value
+                except (KeyError, ValueError):
+                    status_value = None
+            inp = GerarRelatorioOrcamentosInput(status=status_value)
+            dados_rel = await _gerar_relatorio_orcamentos(inp, db=db, current_user=current_user)
+            if isinstance(dados_rel, dict) and not dados_rel.get("error"):
+                resposta_rel = AIResponse(
+                    sucesso=True,
+                    resposta="Aqui está o relatório de orçamentos que você pediu:",
+                    tipo_resposta="relatorio_orcamentos",
+                    confianca=0.99,
+                    modulo_origem="assistente_v2_fastpath",
+                    tool_trace=[{"tool": "gerar_relatorio_orcamentos", "status": "ok", "latencia_ms": 0}],
+                    dados={
+                        "_meta_frontend_data": dados_rel.get("_meta_frontend_data"),
+                        "is_report": True,
+                        "report_type": "orcamentos",
+                        **{k: v for k, v in dados_rel.items() if k not in ("_meta_frontend_data",)},
+                    },
+                )
+                async for event in _emit_fastpath_ai_response(resposta_rel):
+                    yield event
+                return
+            # Fallback: se falhou, segue para relatório dinâmico
+
         resposta_rel = await _v2_build_relatorio_fastpath_response(
             mensagem=mensagem,
             db=db,
