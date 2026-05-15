@@ -492,6 +492,31 @@ async def _enviar_resposta(
         await enviar_mensagem_texto(telefone, texto, empresa=empresa)
         return
 
+    # Caso 3c: Lista de orçamentos (fastpath) — formata para WhatsApp
+    if ai_resp.tipo_resposta == "lista_orcamentos":
+        dados = ai_resp.dados or {}
+        orcamentos = dados.get("orcamentos") or (dados.get("_meta_frontend_data") or {}).get("orcamentos") or []
+        if orcamentos:
+            linhas = ["📋 *Orçamentos encontrados*\n"]
+            for o in orcamentos[:30]:
+                status_label = (o.get("status") or "?").upper()
+                numero = o.get("numero", "?")
+                cliente = o.get("cliente_nome") or "—"
+                total = float(o.get("total") or 0)
+                linhas.append(f"• *{numero}* | {cliente} | R$ {total:,.2f} | {status_label}")
+            total_count = dados.get("total", len(orcamentos))
+            exibidos = min(len(orcamentos), 30)
+            linhas.append(f"\n📊 *Total:* {total_count} orçamento(s)")
+            if total_count > exibidos:
+                linhas.append(f"_Exibindo {exibidos} de {total_count}._")
+            if dados.get("has_more"):
+                linhas.append("_Digite \"mais orçamentos\" para ver a próxima página._")
+            texto = "\n".join(linhas)
+        else:
+            texto = "📋 Nenhum orçamento encontrado para os filtros informados."
+        await enviar_mensagem_texto(telefone, texto, empresa=empresa)
+        return
+
     # Caso 4: resposta genérica — limpa markdown para WhatsApp
     texto = (ai_resp.resposta or "Sem resposta.").strip()
     texto = sanitizar_para_whatsapp(texto)
