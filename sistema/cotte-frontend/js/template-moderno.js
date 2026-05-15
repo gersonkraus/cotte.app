@@ -11,6 +11,9 @@ function renderizarTemplateModerno(orc, token, API) {
   const subtotal = itens.reduce((s, i) => s + (i.total || 0), 0);
   const aceiteJaRegistrado = Boolean(orc.aceite_nome && orc.aceite_em);
 
+  const logoUrl = (typeof api !== 'undefined' && emp.logo_url) ? api.resolveUrl(emp.logo_url) : (emp.logo_url || '');
+  const logoHtml = logoUrl ? '<img src="' + escHtml(logoUrl) + '" alt="Logo" style="height:48px;width:auto;max-width:180px;object-fit:contain;border-radius:8px;">' : '';
+
   function fmtMoeda(v) {
     return 'R$ ' + Number(v || 0).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   }
@@ -275,8 +278,25 @@ function renderizarTemplateModerno(orc, token, API) {
       var qNum = Number(item.quantidade);
       var qtd = (Number.isFinite(qNum) && qNum === Math.floor(qNum)) ? String(Math.floor(qNum)) : (Number.isFinite(qNum) ? qNum.toFixed(2) : '0');
       var bg = idx % 2 === 0 ? '#ffffff' : '#fafbfc';
+
+      var imgUrl = (typeof api !== 'undefined' && typeof api.resolveUrl === 'function' && item.imagem_url)
+        ? api.resolveUrl(item.imagem_url)
+        : (item.imagem_url || '');
+
+      var imgHtml = '';
+      if (imgUrl) {
+        imgHtml = '<div class="item-image-wrapper">' +
+          '<img src="' + escHtml(imgUrl) + '" alt="' + escHtml(item.descricao) + '" class="item-image" onerror="this.style.display=\'none\'">' +
+        '</div>';
+      }
+
       return '<tr style="background:' + bg + '">' +
-        '<td style="padding:14px 20px;border-bottom:1px solid #f1f5f9">' + escHtml(item.descricao) + '</td>' +
+        '<td style="padding:14px 20px;border-bottom:1px solid #f1f5f9;">' +
+          '<div style="display:flex;align-items:center;gap:12px;">' +
+            imgHtml +
+            '<div class="item-description">' + escHtml(item.descricao) + '</div>' +
+          '</div>' +
+        '</td>' +
         '<td style="padding:14px 20px;border-bottom:1px solid #f1f5f9;text-align:center">' + qtd + '</td>' +
         '<td style="padding:14px 20px;border-bottom:1px solid #f1f5f9">' + fmtMoeda(item.valor_unit) + '</td>' +
         '<td style="padding:14px 20px;border-bottom:1px solid #f1f5f9;font-weight:600">' + fmtMoeda(item.total) + '</td>' +
@@ -396,16 +416,7 @@ function renderizarTemplateModerno(orc, token, API) {
     logoSobreHtml = '<img src="' + escHtml(logoUrlSobre) + '" alt="' + escHtml(emp.nome || 'Logo') + '" style="width:64px;height:64px;object-fit:contain;border-radius:12px;border:1px solid #f1f5f9;flex-shrink:0" onerror="this.style.display=\'none\'">';
   }
 
-  var capaUrlTopo = (typeof api !== 'undefined' && emp.capa_portfolio_url)
-    ? api.resolveUrl(emp.capa_portfolio_url)
-    : (emp.capa_portfolio_url || '');
   var capaBannerTopoHtml = '';
-  if (capaUrlTopo) {
-    capaBannerTopoHtml =
-      '<div style="margin:-16px -16px 20px -16px;border-radius:0 0 16px 16px;overflow:hidden;max-height:200px;background:#e2e8f0">' +
-        '<img src="' + escHtml(capaUrlTopo) + '" alt="" style="width:100%;height:200px;object-fit:cover;display:block" onerror="this.parentElement.style.display=\'none\'">' +
-      '</div>';
-  }
 
   // Assinatura
   var labelAssinatura = (emp.texto_assinatura_proposta && emp.texto_assinatura_proposta.trim())
@@ -533,22 +544,35 @@ function renderizarTemplateModerno(orc, token, API) {
 
   var conteudo =
     '<style>' +
+      '.item-image-wrapper { width: 52px; height: 52px; flex-shrink: 0; }' +
+      '.item-image { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; transition: transform 0.2s ease-in-out; }' +
+      '.item-image:hover { transform: scale(1.05); }' +
+      '.item-description { font-weight: 500; }' +
       '@media(max-width:600px){' +
         '.info-grid-mp{grid-template-columns:1fr !important}' +
         '.moderno-actions button,.moderno-actions a{font-size:14px !important;padding:12px !important}' +
+        '.item-image-wrapper { width: 40px; height: 40px; }' +
       '}' +
     '</style>' +
     '<div style="max-width:900px;margin:0 auto;padding:16px">' + capaBannerTopoHtml +
 
       // Header
-      '<header style="background:white;padding:24px 20px;border-radius:16px;box-shadow:0 4px 15px rgba(0,0,0,0.08);margin-bottom:24px;text-align:center">' +
-        '<div style="font-size:32px;font-weight:700;color:' + cor + ';margin-bottom:8px">' + escHtml(emp.nome || 'Empresa') + '</div>' +
-        '<h1 style="font-size:18px;color:#334155;margin:8px 0">Or\u00e7amento N\u00BA ' + escHtml(orc.numero || '\u2014') + '</h1>' +
-        '<div id="badge-status" style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:9999px;font-weight:600;margin:12px 0;font-size:15px;background:' + badge.bg + ';color:' + badge.color + '">' +
-          badge.icone + ' ' + badge.texto +
+      '<header style="background:white;padding:24px;border-radius:16px;box-shadow:0 4px 15px rgba(0,0,0,0.08);margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;gap:20px;">' +
+        (logoHtml ? '<div style="flex-shrink:0;">' + logoHtml + '</div>' : '') +
+        '<div style="text-align:right;flex-grow:1;">' +
+          '<div style="font-size:22px;font-weight:700;color:' + cor + ';margin-bottom:4px;line-height:1.2;">' + escHtml(emp.nome || 'Empresa') + '</div>' +
+          '<h1 style="font-size:16px;color:#334155;margin:0 0 8px 0;">Orçamento Nº ' + escHtml(orc.numero || '—') + '</h1>' +
+          '<div id="badge-status" style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:9999px;font-weight:600;margin-top:4px;font-size:13px;background:' + badge.bg + ';color:' + badge.color + '">' +
+            badge.icone + ' ' + badge.texto +
+          '</div>' +
         '</div>' +
-        '<p style="color:#64748b;font-size:14px"><strong>Cliente:</strong> ' + escHtml((orc.cliente && orc.cliente.nome) || '\u2014') + '</p>' +
       '</header>' +
+
+      // Cliente
+      '<div style="background:white;padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);margin-bottom:24px;">' +
+        '<p style="color:#64748b;font-size:14px"><strong>Cliente:</strong> ' + escHtml((orc.cliente && orc.cliente.nome) || '—') + '</p>' +
+      '</div>' +
+
 
       // Info cards
       '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:32px" class="info-grid-mp">' +
