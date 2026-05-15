@@ -87,7 +87,9 @@
             String(imgUrl).replace(/"/g, '&quot;') +
             '" alt="' +
             nome.replace(/"/g, '&quot;') +
-            '" decoding="async">'
+            '" decoding="async"' +
+            ' style="width:100%;height:100%;object-fit:cover;display:block"' +
+            ' onerror="this.replaceWith(Object.assign(document.createElement(\'div\'),{className:\'portfolio-produto-sem-imagem\',textContent:\'Sem foto\'}))">'
           : '<div class="portfolio-produto-sem-imagem">Sem foto</div>';
         return (
           '<div class="portfolio-produto-card' +
