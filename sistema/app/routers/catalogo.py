@@ -16,6 +16,7 @@ from app.schemas.schemas import (
     CategoriaCatalogoCreate,
     FiscalSugestaoOut,
     FiscalUpdateRequest,
+    SloganIARequest,
 )
 from app.services.ia_service import interpretar_tabela_catalogo
 from app.services.fiscal_ai_service import sugerir_dados_fiscais
@@ -710,6 +711,9 @@ def _empresa_para_portfolio_dict(empresa: Empresa) -> dict:
         "nome": empresa.nome,
         "logo_url": empresa.logo_url,
         "capa_portfolio_url": getattr(empresa, "capa_portfolio_url", None),
+        "capa_template_id": getattr(empresa, "capa_template_id", None),
+        "capa_slogan": getattr(empresa, "capa_slogan", None) or "",
+        "cor_primaria": getattr(empresa, "cor_primaria", None) or "#00e5a0",
         "telefone": empresa.telefone,
         "email": empresa.email,
         "descricao_publica_empresa": empresa.descricao_publica_empresa,
@@ -897,6 +901,39 @@ def sugerir_descricao_ia(
         )
 
     return {"descricao": texto}
+
+@router.post("/portfolio/sugerir-slogan-ia")
+def sugerir_slogan_ia(
+    req: SloganIARequest,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(exigir_permissao("catalogo", "leitura")),
+):
+    """Gera uma tagline curta (1 linha, máx 80 chars) para o banner de capa."""
+    empresa = usuario.empresa
+    segmento = (req.segmento or "").strip() or "não informado"
+    nome = empresa.nome or "Empresa"
+    descricao = (empresa.descricao_publica_empresa or "").strip()
+
+    prompt = (
+        "Crie uma tagline comercial curta para o banner de capa de um portfólio de produtos. "
+        f"Empresa: {nome}. Segmento: {segmento}. "
+        f"{'Descrição: ' + descricao + '. ' if descricao else ''}"
+        "Regras: máximo 80 caracteres, português do Brasil, sem emoji, "
+        "sem aspas, sem ponto final obrigatório, tom profissional e direto. "
+        "Retorne APENAS a tagline, sem explicações."
+    )
+
+    try:
+        resp = ia_service.chat_sync(messages=[{"role": "user", "content": prompt}])
+        slogan = (resp.get("content", "") if isinstance(resp, dict) else "").strip()
+        slogan = slogan.strip('"\'').strip()[:80]
+    except Exception:
+        slogan = ""
+
+    if not slogan:
+        slogan = f"{nome} — qualidade e confiança."
+
+    return {"slogan": slogan}
 
 @router.post("/portfolio/enviar")
 def enviar_portfolio(
