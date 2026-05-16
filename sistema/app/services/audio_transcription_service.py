@@ -39,6 +39,8 @@ async def transcrever_audio_wpp(
     Returns:
         Texto transcrito ou None se não foi possível transcrever.
     """
+    logger.info("[AudioTranscrição] Iniciando processo de transcrição. AI_API_KEY presente: %s", bool(settings.AI_API_KEY))
+    
     if not settings.AI_API_KEY:
         logger.warning("[AudioTranscrição] AI_API_KEY não configurado — transcrição de voz desabilitada")
         return None
@@ -46,11 +48,14 @@ async def transcrever_audio_wpp(
     # 1. Baixar áudio da Evolution API
     audio_bytes = await _baixar_audio_evolution(message_data, instancia)
     if not audio_bytes:
+        logger.warning("[AudioTranscrição] Falha ao baixar bytes do áudio")
         return None
 
     if len(audio_bytes) > MAX_AUDIO_BYTES:
         logger.warning("[AudioTranscrição] Áudio muito grande: %d bytes", len(audio_bytes))
         return None
+
+    logger.info("[AudioTranscrição] Áudio baixado com sucesso (%d bytes). Enviando para transcrição...", len(audio_bytes))
 
     # 2. Transcrever via Whisper
     return await _transcrever_whisper(audio_bytes)
