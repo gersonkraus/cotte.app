@@ -92,8 +92,13 @@ async def _baixar_audio_evolution(
 
 
 async def _transcrever_whisper(audio_bytes: bytes) -> str | None:
-    """Envia áudio para a API Whisper (OpenAI) e retorna a transcrição."""
-    url = "https://api.openai.com/v1/audio/transcriptions"
+    """Envia áudio para a API Whisper (OpenAI ou OpenRouter) e retorna a transcrição."""
+    
+    # Se o provider for OpenRouter, tentamos usar o endpoint deles primeiro
+    if settings.AI_PROVIDER == "openrouter" and settings.AI_API_KEY:
+        url = "https://openrouter.ai/api/v1/audio/transcriptions"
+    else:
+        url = "https://api.openai.com/v1/audio/transcriptions"
 
     # Whisper aceita ogg, mp3, wav, mp4, webm etc. — Evolution envia ogg/opus
     audio_file = io.BytesIO(audio_bytes)
@@ -101,14 +106,25 @@ async def _transcrever_whisper(audio_bytes: bytes) -> str | None:
 
     try:
         async with httpx.AsyncClient(timeout=30) as client:
+            headers = {"Authorization": f"Bearer {settings.AI_API_KEY}"}
+            
+            # OpenRouter exige que passemos o modelo no corpo mas como multipart/form-data
+            files = {"file": ("audio.ogg", audio_file, "audio/ogg")}
+            data = {"model": "openai/whisper-1", "language": "pt"}
+            
             r = await client.post(
                 url,
-                headers={"Authorization": f"Bearer {settings.AI_API_KEY}"},
-                files={"file": ("audio.ogg", audio_file, "audio/ogg")},
-                data={"model": "whisper-1", "language": "pt"},
+                headers=headers,
+                files=files,
+                data=data,
             )
+            
             if r.status_code != 200:
-                logger.warning("[AudioTranscrição] Whisper retornou HTTP %s: %s", r.status_code, r.text[:200])
+                logger.warning("[AudioTranscrição] API de Voz (%s) retornou HTTP %s: %s", 
+                               "OpenRouter" if "openrouter" in url else "OpenAI", 
+                               r.status_code, r.text[:200])
+                
+                # Se falhou no OpenRouter, não tentamos OpenAI pois a chave provavelmente é OpenRouter
                 return None
 
             resultado = r.json()
@@ -117,7 +133,7 @@ async def _transcrever_whisper(audio_bytes: bytes) -> str | None:
                 logger.info("[AudioTranscrição] Transcrição OK: %d chars", len(texto))
             return texto or None
     except Exception as e:
-        logger.error("[AudioTranscrição] Erro ao chamar Whisper: %s", e)
+        logger.error("[AudioTranscrição] Erro ao chamar API de Voz: %s", e)
         return None
 
 
