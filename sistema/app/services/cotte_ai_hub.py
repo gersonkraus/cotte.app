@@ -3472,6 +3472,9 @@ async def _v2_build_operador_fastpath_response(
     cmd = FallbackManual.extrair_comando(mensagem, contexto_operacional)
     acao = cmd.get("acao")
     orcamento_id = cmd.get("orcamento_id")
+    
+    logger.info(f"[Fastpath V2] Mensagem: '{mensagem}' -> Acao: {acao}, ID: {orcamento_id}")
+    
     if not orcamento_id:
         return None
 
