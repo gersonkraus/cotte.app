@@ -97,48 +97,41 @@ async def _baixar_audio_evolution(
 
 
 async def _transcrever_whisper(audio_bytes: bytes) -> str | None:
-    """Envia áudio para a API Whisper (OpenAI ou OpenRouter) e retorna a transcrição."""
+    """Envia áudio para a API Whisper via LiteLLM (compatível com OpenAI e OpenRouter)."""
+    import litellm
+    from litellm import atranscription
     
-    # Se o provider for OpenRouter, tentamos usar o endpoint deles primeiro
-    if settings.AI_PROVIDER == "openrouter" and settings.AI_API_KEY:
-        url = "https://openrouter.ai/api/v1/audio/transcriptions"
-    else:
-        url = "https://api.openai.com/v1/audio/transcriptions"
-
     # Whisper aceita ogg, mp3, wav, mp4, webm etc. — Evolution envia ogg/opus
     audio_file = io.BytesIO(audio_bytes)
     audio_file.name = "audio.ogg"
 
-    try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            headers = {"Authorization": f"Bearer {settings.AI_API_KEY}"}
-            
-            # OpenRouter exige que passemos o modelo no corpo mas como multipart/form-data
-            files = {"file": ("audio.ogg", audio_file, "audio/ogg")}
-            data = {"model": "openai/whisper-1", "language": "pt"}
-            
-            r = await client.post(
-                url,
-                headers=headers,
-                files=files,
-                data=data,
-            )
-            
-            if r.status_code != 200:
-                logger.warning("[AudioTranscrição] API de Voz (%s) retornou HTTP %s: %s", 
-                               "OpenRouter" if "openrouter" in url else "OpenAI", 
-                               r.status_code, r.text[:200])
-                
-                # Se falhou no OpenRouter, não tentamos OpenAI pois a chave provavelmente é OpenRouter
-                return None
+    # Configuração dinâmica baseada no provedor
+    model = "whisper-1"
+    kwargs = {
+        "model": model,
+        "file": audio_file,
+        "api_key": settings.AI_API_KEY,
+    }
 
-            resultado = r.json()
-            texto = (resultado.get("text") or "").strip()
-            if texto:
-                logger.info("[AudioTranscrição] Transcrição OK: %d chars", len(texto))
-            return texto or None
+    if settings.AI_PROVIDER == "openrouter":
+        # Para OpenRouter, LiteLLM precisa do base_url e muitas vezes do prefixo openai/
+        kwargs["base_url"] = "https://openrouter.ai/api/v1"
+        kwargs["model"] = "openai/whisper-1"
+        # Garante que LiteLLM não tente usar a biblioteca nativa da OpenAI com chave do OpenRouter
+        kwargs["custom_llm_provider"] = "openai"
+
+    try:
+        logger.info("[AudioTranscrição] Enviando para LiteLLM (%s)...", kwargs["model"])
+        response = await atranscription(**kwargs)
+        
+        # LiteLLM retorna um objeto similar ao da OpenAI
+        texto = getattr(response, "text", "").strip()
+        if texto:
+            logger.info("[AudioTranscrição] Transcrição OK: %d chars", len(texto))
+        return texto or None
+
     except Exception as e:
-        logger.error("[AudioTranscrição] Erro ao chamar API de Voz: %s", e)
+        logger.error("[AudioTranscrição] Erro ao transcrever via LiteLLM: %s", e)
         return None
 
 
