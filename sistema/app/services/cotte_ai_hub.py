@@ -469,8 +469,81 @@ def _texto_exibicao_para_modulo(modulo: str, dados: dict) -> str:
         tipo_s = dados.get("tipo_sugestao")
         if tipo_s and not parts3:
             parts3.append(f"Sugestão ({tipo_s})")
-        out3 = "\n\n".join(p for p in parts3 if p).strip()
+        out3 = "\n\n".join(p for p in parts if p).strip()
         return out3 or "Sugestão de negócio gerada."
+
+    if modulo == "operador":
+        acao = dados.get("acao")
+        if acao == "VER" and dados.get("numero"):
+            numero = dados.get("numero")
+            cliente_nome = (dados.get("cliente") or {}).get("nome") or "—"
+            total = float(dados.get("total") or 0)
+            status = str(dados.get("status") or "").upper()
+
+            # Formata itens
+            itens = dados.get("itens") or []
+            itens_linhas = []
+            for i, item in enumerate(itens, 1):
+                desc = item.get("descricao") or "?"
+                v_total = float(item.get("total") or 0)
+                qtd = item.get("quantidade") or 1
+                try:
+                    if float(qtd) == int(float(qtd)):
+                        qtd = int(float(qtd))
+                except (ValueError, TypeError):
+                    pass
+
+                linha = f"{i}. {desc} -- {_fmt_brl(v_total)}"
+                if qtd != 1:
+                    linha += f" (x{qtd})"
+                itens_linhas.append(linha)
+
+            itens_txt = "\n".join(itens_linhas)
+
+            desc_val = float(dados.get("desconto") or 0)
+            desc_txt = ""
+            if desc_val > 0:
+                tipo = dados.get("desconto_tipo") or "percentual"
+                label = (
+                    f"{desc_val:.0f}%"
+                    if tipo == "percentual"
+                    else _fmt_brl(desc_val)
+                )
+                desc_txt = f"Desconto: {label}\n"
+
+            orc_id_ref = dados.get("id") or numero
+
+            return (
+                f"*{numero}* -- {cliente_nome}\n\n"
+                f"{itens_txt}\n\n"
+                f"{desc_txt}"
+                f"Total: {_fmt_brl(total)}\n"
+                f"Status: {status}\n\n"
+                f"*ADICIONAR {orc_id_ref} [descricao] [valor]*\n"
+                f"*REMOVER {orc_id_ref} [n item]*\n"
+                f"*DESCONTO {orc_id_ref} [valor]*\n"
+                f"*ENVIAR {orc_id_ref}*"
+            )
+
+    if modulo == "orcamento_simulacao":
+        num = dados.get("numero") or "?"
+        cli = (dados.get("cliente") or {}).get("nome") or "—"
+        orig = dados.get("total_original_fmt") or ""
+        desc = dados.get("desconto_pct") or 0
+        eco = dados.get("economia_fmt") or ""
+        total = dados.get("total_com_desconto_fmt") or ""
+
+        return (
+            f"📊 *Simulação de Desconto*\n\n"
+            f"Orçamento: *{num}*\n"
+            f"Cliente: {cli}\n\n"
+            f"Valor Original: {orig}\n"
+            f"Desconto: {desc:.0f}%\n"
+            f"Economia: {eco}\n"
+            f"-------------------\n"
+            f"*Novo Total: {total}*\n\n"
+            f"Deseja aplicar esse desconto? Responda *SIM*."
+        )
 
     return ""
 
@@ -3457,7 +3530,7 @@ async def _v2_build_operador_fastpath_response(
             resposta="",
             tipo_resposta="operador_resultado",
             confianca=0.95,
-            modulo_origem="assistente_v2",
+            modulo_origem="operador",
             tool_trace=[{
                 "tool": tool_name,
                 "status": "ok",
@@ -3531,7 +3604,7 @@ async def _v2_build_simular_desconto_response(
         resposta="",
         tipo_resposta="orcamento_simulacao",
         confianca=0.99,
-        modulo_origem="assistente_v2",
+        modulo_origem="orcamento_simulacao",
         dados={
             "acao": "SIMULAR_DESCONTO",
             "id": orc.get("id"),
