@@ -450,7 +450,7 @@ ANALISE_FINANCEIRA:"Como estão as finanças?","Analisar financeiro","Quanto fat
 ANALISE_CONVERSAO:"Qual meu ticket médio?","Analisar conversão","Serviço mais vendido"
 SUGESTOES_NEGOCIO:"Como aumentar vendas?","Quais clientes devendo?","Sugestões de negócio"
 CAIXA_FUTURO:"caixa futuro","previsão de caixa","fluxo de caixa","quanto vou receber","projeção financeira"
-- Padrões de ID aceitos: "ver 5","ver o 5","ver orc 5","ver orçamento 5","#5","id 5","orc 5", "O-103", "ORC-103" — o número adjacent à palavra é o ID, extraia apenas os numerais, ex: "O-103" -> 103.
+- Padrões de ID aceitos: "ver 5","ver o 5","ver orc 5","ver orçamento 5","#5","id 5","orc 5", "O-103", "ORC-103", "0-131" — o número adjacente à palavra é o ID, extraia apenas os numerais ignorando prefixos como O- ou 0-, ex: "O-103" -> 103, "0-131" -> 131.
 - "aprovar" sozinho ou "aprovar orçamento" (sem número) → orcamento_id=null (NUNCA criar; pedir o número)
 - valor: ponto decimal | desconto_tipo:"percentual"(%) ou "fixo"(reais)
 - Se o comando for de análise (finanças, conversão, negócio, caixa futuro), retorne acao correspondente e orcamento_id=null"""

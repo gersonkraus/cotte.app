@@ -333,7 +333,7 @@ class IntentionClassifier:
     # I) OPERADOR — comandos de execução em orçamentos existentes
     OPERADOR_KEYWORDS = [
         r'\b(duplicar?|copiar?|clonar?|clone)\s+(?:[A-Za-z]+-\d+|\d+)\b',
-        r'\b(ver|mostrar?|abrir|acessar|carregar|detalhes?)\s*(?:do\s+|o\s+)?(?:or[çc]amento|orc)?\s*(?:n[oó]mero|n[oó]|num|#)?\s*(?:[A-Za-z]+-)?\d+\b',
+        r'\b(ver|mostrar?|abrir|acessar|carregar|detalhes?)\s*(?:do\s+|o\s+)?(?:or[çc]amento|orc)?\s*(?:n[oó]mero|n[oó]|num|#)?\s*(?:[A-Za-z0-9]+-)?\d+\b',
         r'^or[çc]amentos?\s+(?:n[oó]mero|n[oó]|num|#)?\s*(?:[A-Za-z]+-)?\d+$',
         r'^orc\s+(?:n[oó]mero|n[oó]|num|#)?\s*(?:[A-Za-z]+-)?\d+$',
         r'^[A-Za-z]+-\d+$',

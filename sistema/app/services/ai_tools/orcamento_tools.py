@@ -452,7 +452,7 @@ gerar_relatorio_orcamentos = ToolSpec(
 # ── obter_orcamento ────────────────────────────────────────────────────────
 class ObterOrcamentoInput(BaseModel):
     id: int | str = Field(
-        description="ID NÚMERICO ou NÚMERO do orçamento (ex: 104 ou 'O-104')."
+        description="ID NÚMERICO ou NÚMERO do orçamento (ex: 104, 'O-104' ou '0-104')."
     )
 
 
@@ -857,7 +857,8 @@ def _get_orcamento_da_empresa(
     from sqlalchemy import or_
     import re
 
-    val_str = str(orcamento_id).strip()
+    val_str = str(orcamento_id).strip().upper()
+    val_str = re.sub(r"^[O0]-", "", val_str)
 
     q = (
         db.query(Orcamento)
@@ -1064,7 +1065,7 @@ recusar_orcamento = ToolSpec(
 # ── enviar_orcamento_whatsapp (DESTRUTIVA) ────────────────────────────────
 class EnviarOrcamentoWhatsappInput(BaseModel):
     orcamento_id: int | str = Field(
-        description="ID NÚMERICO ou NÚMERO do orçamento a enviar (ex: 104 ou 'O-104')."
+        description="ID NÚMERICO ou NÚMERO do orçamento a enviar (ex: 104, 'O-104' ou '0-104')."
     )
 
 
@@ -1144,7 +1145,7 @@ enviar_orcamento_whatsapp = ToolSpec(
 # ── enviar_orcamento_email (DESTRUTIVA) ───────────────────────────────────
 class EnviarOrcamentoEmailInput(BaseModel):
     orcamento_id: int | str = Field(
-        description="ID NÚMERICO ou NÚMERO do orçamento a enviar (ex: 104 ou 'O-104')."
+        description="ID NÚMERICO ou NÚMERO do orçamento a enviar (ex: 104, 'O-104' ou '0-104')."
     )
 
 
@@ -1250,7 +1251,7 @@ enviar_orcamento_email = ToolSpec(
 # ── duplicar_orcamento (DESTRUTIVA) ────────────────────────────────────────
 class DuplicarOrcamentoInput(BaseModel):
     orcamento_id: int | str = Field(
-        description="ID NÚMERICO ou NÚMERO do orçamento (ex: 104 ou 'O-104')."
+        description="ID NÚMERICO ou NÚMERO do orçamento (ex: 104, 'O-104' ou '0-104')."
     )
 
 
@@ -1370,7 +1371,7 @@ duplicar_orcamento = ToolSpec(
 # ── editar_orcamento (DESTRUTIVA, só em RASCUNHO) ──────────────────────────
 class EditarOrcamentoInput(BaseModel):
     orcamento_id: int | str = Field(
-        description="ID NÚMERICO ou NÚMERO do orçamento (ex: 104 ou 'O-104')."
+        description="ID NÚMERICO ou NÚMERO do orçamento (ex: 104, 'O-104' ou '0-104')."
     )
     observacoes: Optional[str] = Field(default=None, max_length=2000)
     desconto: Optional[Decimal] = Field(default=None, ge=0)
@@ -1471,7 +1472,7 @@ editar_orcamento = ToolSpec(
 # ── editar_item_orcamento (DESTRUTIVA) ────────────────────────────────────
 class EditarItemOrcamentoInput(BaseModel):
     orcamento_id: int | str = Field(
-        description="ID numérico ou número do orçamento (ex: 104 ou 'O-104')."
+        description="ID numérico ou número do orçamento (ex: 104, 'O-104' ou '0-104')."
     )
     num_item: int = Field(
         ge=1, description="Número do item (1 = primeiro, 2 = segundo, etc.)."
