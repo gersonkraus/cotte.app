@@ -878,15 +878,42 @@ def _listar_itens_txt(orc: Orcamento) -> str:
 
 
 def _buscar_orcamento(
-    orc_id: int, db: Session, empresa_id: int | None = None
+    orc_id: int | str, db: Session, empresa_id: int | None = None
 ) -> "Orcamento | None":
+    from sqlalchemy import or_
+    import re
+
+    val_str = str(orc_id).strip().upper()
+    val_str = re.sub(r"^[O0]-", "", val_str)
+
     q = db.query(Orcamento)
     if empresa_id:
         q = q.filter(Orcamento.empresa_id == empresa_id)
-    orc = q.filter(Orcamento.numero.like(f"ORC-{orc_id}-%")).first()
-    if not orc:
-        orc = q.filter(Orcamento.id == orc_id).first()
-    return orc
+
+    # 1. Tenta número exato (ex: O-131 ou 131)
+    exact = q.filter(Orcamento.numero == val_str).first()
+    if not exact:
+        exact = q.filter(Orcamento.numero == f"O-{val_str}").first()
+    if exact:
+        return exact
+
+    # 2. Tenta por sequencial ou ID
+    match = re.search(r"\d+", val_str)
+    if match:
+        val_int = int(match.group())
+        candidatos = q.filter(
+            or_(Orcamento.id == val_int, Orcamento.sequencial_numero == val_int)
+        ).all()
+        if not candidatos:
+            return None
+
+        # Prioriza o sequencial (o que o usuário vê)
+        for c in candidatos:
+            if c.sequencial_numero == val_int:
+                return c
+        return candidatos[0]
+
+    return None
 
 
 def _regenerar_pdf(orc: Orcamento, db: Session):
