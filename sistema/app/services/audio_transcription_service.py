@@ -57,8 +57,8 @@ async def transcrever_audio_wpp(
 
     logger.info("[AudioTranscrição] Áudio baixado com sucesso (%d bytes). Enviando para transcrição...", len(audio_bytes))
 
-    # 2. Transcrever via Whisper
-    return await _transcrever_whisper(audio_bytes)
+    # 2. Transcrever via LLM Multimodal (mais robusto que Whisper via Proxy)
+    return await _transcrever_via_llm(audio_bytes)
 
 
 async def _baixar_audio_evolution(
@@ -96,42 +96,60 @@ async def _baixar_audio_evolution(
         return None
 
 
-async def _transcrever_whisper(audio_bytes: bytes) -> str | None:
-    """Envia áudio para a API Whisper via LiteLLM (compatível com OpenAI e OpenRouter)."""
-    import litellm
-    from litellm import atranscription
+async def _transcrever_via_llm(audio_bytes: bytes) -> str | None:
+    """Transcreve áudio usando o motor multimodal do Gemini (via LiteLLM/OpenRouter)."""
+    import base64
+    from app.services.ia_service import ia_service
     
-    # Whisper aceita ogg, mp3, wav, mp4, webm etc. — Evolution envia ogg/opus
-    audio_file = io.BytesIO(audio_bytes)
-    audio_file.name = "audio.ogg"
+    b64_audio = base64.b64encode(audio_bytes).decode("utf-8")
 
-    # Configuração dinâmica baseada no provedor
-    model = "whisper-1"
-    kwargs = {
-        "model": model,
-        "file": audio_file,
-        "api_key": settings.AI_API_KEY,
-    }
+    # Prompt instruindo a IA a ser apenas um transcritor
+    transcription_prompt = (
+        "Você é um transcritor de áudio profissional. "
+        "Transcreva o áudio em anexo exatamente como falado, sem adicionar comentários ou saudações. "
+        "Se o áudio estiver vazio ou incompreensível, retorne apenas uma string vazia."
+    )
 
-    if settings.AI_PROVIDER == "openrouter":
-        # Para OpenRouter, LiteLLM precisa do base_url e muitas vezes do prefixo openai/
-        kwargs["base_url"] = "https://openrouter.ai/api/v1"
-        kwargs["model"] = "openai/whisper-1"
-        # Garante que LiteLLM não tente usar a biblioteca nativa da OpenAI com chave do OpenRouter
-        kwargs["custom_llm_provider"] = "openai"
+    # Formato multimodal compatível com LiteLLM (que traduz para Gemini inline_data)
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": transcription_prompt},
+                {
+                    "type": "input_audio",
+                    "input_audio": {
+                        "data": b64_audio,
+                        "format": "ogg"
+                    }
+                }
+            ]
+        }
+    ]
 
     try:
-        logger.info("[AudioTranscrição] Enviando para LiteLLM (%s)...", kwargs["model"])
-        response = await atranscription(**kwargs)
+        logger.info("[AudioTranscrição] Enviando para Transcritor Gemini...")
         
-        # LiteLLM retorna um objeto similar ao da OpenAI
-        texto = getattr(response, "text", "").strip()
+        # Usamos o modelo padrão (Gemini Flash) que é excelente para isso
+        response = await ia_service.chat(
+            messages=messages, 
+            max_tokens=500,
+            temperature=0.0
+        )
+        
+        if not response or "choices" not in response:
+            return None
+            
+        texto = response["choices"][0]["message"]["content"].strip()
+        
         if texto:
             logger.info("[AudioTranscrição] Transcrição OK: %d chars", len(texto))
-        return texto or None
+            return texto
+            
+        return None
 
     except Exception as e:
-        logger.error("[AudioTranscrição] Erro ao transcrever via LiteLLM: %s", e)
+        logger.error("[AudioTranscrição] Erro ao transcrever via LLM: %s", e)
         return None
 
 
