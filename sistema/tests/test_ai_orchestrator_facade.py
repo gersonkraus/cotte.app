@@ -193,3 +193,32 @@ async def test_assistant_orchestrator_run_stream_uses_legacy_stream_when_direct_
         chunks.append(chunk)
         
     assert chunks == ["legacy stream: teste stream"]
+
+@pytest.mark.asyncio
+async def test_assistant_orchestrator_run_stream_uses_direct_langgraph_stream_when_enabled(monkeypatch):
+    monkeypatch.setenv("V2_LANGGRAPH_DIRECT_AGENTS", "1")
+    monkeypatch.setenv("V2_LANGGRAPH_ORCHESTRATION", "1")
+
+    async def mock_langgraph_stream(*args, **kwargs):
+        yield {"final_text": "langgraph stream"}
+
+    import sys
+    from unittest.mock import MagicMock
+    mock_module = MagicMock()
+    mock_module.langgraph_enabled.return_value = True
+    mock_module.run_assistant_v2_graph_stream = mock_langgraph_stream
+    monkeypatch.setitem(sys.modules, "app.ai.graph.assistant", mock_module)
+
+    import app.ai.orchestrator.service
+
+    orchestrator = AssistantOrchestrator(
+        legacy_runner=lambda p: None,
+        legacy_stream_runner=lambda p: None
+    )
+    message = ChannelMessage(channel="web", text="teste stream", empresa_id=1, usuario_id=1, sessao_id="123")
+    
+    chunks = []
+    async for chunk in orchestrator.run_stream(message):
+        chunks.append(chunk)
+        
+    assert chunks == [{"final_text": "langgraph stream"}]

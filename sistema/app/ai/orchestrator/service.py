@@ -35,16 +35,30 @@ class AssistantOrchestrator:
         except ImportError:
             is_langgraph = False
 
+        payload = self._legacy_payload(message)
+
         if direct_agents_enabled() and is_langgraph:
-            if self.legacy_stream_runner:
-                async for chunk in self.legacy_stream_runner(self._legacy_payload(message)):
-                    yield chunk
+            try:
+                # Graph stream execution
+                from app.ai.graph.assistant import run_assistant_v2_graph_stream
+                async for event in run_assistant_v2_graph_stream(
+                    message=message.text,
+                    empresa_id=message.empresa_id,
+                    usuario_id=message.usuario_id,
+                    thread_id=message.sessao_id,
+                    payload=payload
+                ):
+                    yield event
+                return
+            except Exception:
+                # Fallback on error
+                pass
+
+        if self.legacy_stream_runner:
+            async for chunk in self.legacy_stream_runner(payload):
+                yield chunk
         else:
-            if self.legacy_stream_runner:
-                async for chunk in self.legacy_stream_runner(self._legacy_payload(message)):
-                    yield chunk
-            else:
-                yield "Streaming not supported by legacy runner configuration."
+            yield "Streaming not supported by legacy runner configuration."
 
     def _legacy_payload(self, message: ChannelMessage) -> dict[str, Any]:
         return {
