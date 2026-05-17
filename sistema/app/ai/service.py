@@ -321,6 +321,7 @@ class IAService:
         max_tokens: int = 4000,
         stream: bool = False,
         model_override: Optional[str] = None,
+        **kwargs,
     ) -> Dict[str, Any]:
         """Chat unificado com suporte completo a Tool Use / Function Calling"""
         try:
@@ -335,6 +336,7 @@ class IAService:
                 temperature=temperature,
                 max_tokens=max_tokens,
                 **litellm_kwargs,
+                **kwargs,
             )
 
             # 4. Monitoramento de Lucratividade: Cálculo de Custo Real
@@ -387,6 +389,7 @@ class IAService:
         temperature: float = 0.3,
         max_tokens: int = 2048,
         model_override: Optional[str] = None,
+        **kwargs,
     ):
         """Streaming real de tokens (sem tool calling).
 
@@ -404,6 +407,7 @@ class IAService:
                 temperature=temperature,
                 max_tokens=max_tokens,
                 **litellm_kwargs,
+                **kwargs,
             )
             async for chunk in response:
                 delta = None

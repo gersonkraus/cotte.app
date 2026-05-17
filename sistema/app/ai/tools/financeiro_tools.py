@@ -634,18 +634,21 @@ class GerarRelatorioContasAReceberInput(BaseModel):
     agrupar_por: Optional[str] = Field(
         default=None, description="Agrupar resultados por 'cliente'."
     )
+    busca: Optional[str] = Field(
+        default=None, description="Busca parcial por nome do cliente ou descrição da conta."
+    )
     limit: int = Field(default=50, ge=1, le=200)
 
 
 async def _gerar_relatorio_contas_a_receber(
     inp: GerarRelatorioContasAReceberInput, *, db: Session, current_user: Usuario
 ) -> dict[str, Any]:
-    from app.models.models import ContaFinanceira, StatusConta, Cliente
-    from sqlalchemy import func, and_
+    from app.models.models import ContaFinanceira, StatusConta, Cliente, Orcamento
+    from sqlalchemy import func, and_, or_
 
     query = db.query(
         ContaFinanceira
-    ).filter(
+    ).outerjoin(Orcamento, ContaFinanceira.orcamento_id == Orcamento.id).outerjoin(Cliente, Orcamento.cliente_id == Cliente.id).filter(
         ContaFinanceira.empresa_id == current_user.empresa_id,
         ContaFinanceira.tipo == 'receber',
         ContaFinanceira.status.in_([StatusConta.PENDENTE, StatusConta.VENCIDO])
@@ -654,9 +657,15 @@ async def _gerar_relatorio_contas_a_receber(
     if inp.apenas_vencidas:
         query = query.filter(ContaFinanceira.data_vencimento < date.today())
 
+    if inp.busca:
+        query = query.filter(
+            or_(
+                ContaFinanceira.descricao.ilike(f"%{inp.busca}%"),
+                Cliente.nome.ilike(f"%{inp.busca}%")
+            )
+        )
+
     if inp.agrupar_por == 'cliente':
-        from app.models.models import Orcamento
-        
         results = db.query(
             func.coalesce(Cliente.nome, "N/A").label("agrupador"),
             func.sum(ContaFinanceira.valor - func.coalesce(ContaFinanceira.valor_pago, 0)).label("total_devido"),
@@ -669,6 +678,14 @@ async def _gerar_relatorio_contas_a_receber(
         if inp.apenas_vencidas:
             results = results.filter(ContaFinanceira.data_vencimento < date.today())
             
+        if inp.busca:
+            results = results.filter(
+                or_(
+                    ContaFinanceira.descricao.ilike(f"%{inp.busca}%"),
+                    Cliente.nome.ilike(f"%{inp.busca}%")
+                )
+            )
+
         results = results.group_by(Cliente.nome).order_by(func.sum(ContaFinanceira.valor - func.coalesce(ContaFinanceira.valor_pago, 0)).desc()).limit(inp.limit).all()
         
         detalhes = [

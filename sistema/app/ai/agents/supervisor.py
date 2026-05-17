@@ -9,7 +9,7 @@ from app.ai.agents.base import BaseAgent, AgentResponse
 
 class SupervisorOutput(BaseModel):
     """Output schema for the Supervisor Agent."""
-    next_agent: Literal["FinanceAgent", "SalesAgent", "InventoryAgent", "SupportAgent", "OperadorAgent", "ConversationalAgent", "FINISH"]
+    next_agent: Literal["FinanceAgent", "SalesAgent", "InventoryAgent", "SupportAgent", "OperadorAgent", "DataAgent", "ConversationalAgent", "FINISH"]
     reasoning: str = Field(description="Brief explanation of why this agent was chosen.")
 
 class SupervisorAgent(BaseAgent):
@@ -24,6 +24,7 @@ class SupervisorAgent(BaseAgent):
             "- InventoryAgent: Especialista no catálogo de produtos e serviços.\n"
             "- SupportAgent: Especialista em dúvidas sobre como o sistema funciona (documentação).\n"
             "- OperadorAgent: Especialista em comandos diretos de ação (ex: 'aprovar orçamento 5', 'enviar 103').\n"
+            "- DataAgent: Especialista em análise de dados complexos, relatórios customizados e queries SQL.\n"
             "- ConversationalAgent: Para saudações, conversa fiada ou se o usuário estiver apenas batendo papo.\n"
             "- FINISH: Use se a conversa foi concluída ou se você já tem a resposta final.\n\n"
             "REGRAS:\n"
