@@ -1087,8 +1087,13 @@ async def assistente_universal_stream(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
 ):
-    from app.services.cotte_ai_hub import assistente_unificado_stream
+    from app.services.cotte_ai_hub import assistente_unificado_stream, assistente_unificado_v2
     from fastapi.responses import StreamingResponse
+    from app.ai.channels.web import from_web_payload
+    from app.ai.orchestrator.service import AssistantOrchestrator
+    import json
+    from app.services.assistant_engine_registry import resolve_engine, is_engine_available_for_user, ENGINE_INTERNAL_COPILOT
+    from fastapi import HTTPException
 
     if current_user.empresa:
         current_user.empresa.total_mensagens_ia = (
@@ -1112,19 +1117,31 @@ async def assistente_universal_stream(
             detail="Engine solicitada indisponível para este usuário/ambiente.",
         )
 
-    return StreamingResponse(
-        assistente_unificado_stream(
-            mensagem=request.mensagem,
-            sessao_id=request.sessao_id,
-            db=db,
-            current_user=current_user,
-            engine=engine,
-            request_id=_request_id_from_http(http_request),
-            confirmation_token=getattr(request, "confirmation_token", None),
-            override_args=getattr(request, "override_args", None),
-        ),
-        media_type="text/event-stream"
+    payload_dict = request.model_dump()
+    payload_dict["empresa_id"] = current_user.empresa_id if hasattr(current_user, "empresa_id") and current_user.empresa_id else getattr(current_user.empresa, "id", 0)
+    payload_dict["usuario_id"] = current_user.id
+    channel_msg = from_web_payload(payload_dict)
+    
+    channel_msg.metadata["db"] = db
+    channel_msg.metadata["current_user"] = current_user
+    channel_msg.metadata["engine"] = engine
+    channel_msg.metadata["request_id"] = _request_id_from_http(http_request)
+    channel_msg.metadata["confirmation_token"] = getattr(request, "confirmation_token", None)
+    channel_msg.metadata["override_args"] = getattr(request, "override_args", None)
+
+    orchestrator = AssistantOrchestrator(
+        legacy_runner=assistente_unificado_v2,
+        legacy_stream_runner=assistente_unificado_stream
     )
+
+    async def _stream_generator():
+        async for chunk in orchestrator.run_stream(channel_msg):
+            if isinstance(chunk, dict):
+                 yield f"data: {json.dumps(chunk, ensure_ascii=False, default=str)}\n\n"
+            else:
+                 yield chunk
+
+    return StreamingResponse(_stream_generator(), media_type="text/event-stream")
 
 
 @router.post("/assistente", response_model=AIResponse)
@@ -1134,18 +1151,11 @@ async def assistente_universal(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
 ):
-    """
-    Endpoint universal do assistente COTTE.
-
-    Único ponto de entrada para todas as perguntas do chat:
-    - Mantém histórico de conversa por sessao_id (in-memory, TTL 60min)
-    - Classifica intenção automaticamente por regras determinísticas
-    - Injeta contexto de dados relevante (financeiro, orçamentos, clientes, leads)
-    - Retorna JSON estruturado com resposta, tipo, dados e sugestões de follow-up
-    """
     import os
+    from app.services.cotte_ai_hub import assistente_unificado_stream, assistente_unificado_v2
+    from app.ai.channels.web import from_web_payload
+    from app.ai.orchestrator.service import AssistantOrchestrator
 
-    # Incrementar contador de mensagens IA da empresa
     if current_user.empresa:
         current_user.empresa.total_mensagens_ia = (
             current_user.empresa.total_mensagens_ia or 0
@@ -1154,10 +1164,61 @@ async def assistente_universal(
 
     engine = resolve_engine(request.engine)
     if engine == ENGINE_INTERNAL_COPILOT:
-        raise HTTPException(
-            status_code=400,
-            detail="Use o endpoint /ai/copiloto-interno para o copiloto técnico.",
+        raise HTTPException(status_code=400, detail="Use o endpoint /ai/copiloto-interno.")
+    if not is_engine_available_for_user(engine, is_superadmin=bool(getattr(current_user, "is_superadmin", False)), is_gestor=bool(getattr(current_user, "is_gestor", False))):
+        raise HTTPException(status_code=403, detail="Engine solicitada indisponível.")
+
+    if os.getenv("USE_TOOL_CALLING", "true").lower() == "false":
+        # Legacy old engine compatibility kept intact if flag is off
+        from app.services.cotte_ai_hub import assistente_unificado_core
+        return await assistente_unificado_core(
+            mensagem=request.mensagem,
+            sessao_id=request.sessao_id,
+            db=db,
+            current_user=current_user,
+            engine=engine,
+            request_id=_request_id_from_http(http_request),
         )
+        
+    payload_dict = request.model_dump()
+    payload_dict["empresa_id"] = current_user.empresa_id if hasattr(current_user, "empresa_id") and current_user.empresa_id else getattr(current_user.empresa, "id", 0)
+    payload_dict["usuario_id"] = current_user.id
+    channel_msg = from_web_payload(payload_dict)
+    
+    channel_msg.metadata["db"] = db
+    channel_msg.metadata["current_user"] = current_user
+    channel_msg.metadata["engine"] = engine
+    channel_msg.metadata["request_id"] = _request_id_from_http(http_request)
+
+    # Legacy runner mapping handling logic inside the wrapper
+    async def legacy_runner_wrapper(payload):
+         return await assistente_unificado_v2(
+             mensagem=payload["mensagem"],
+             sessao_id=payload["sessao_id"],
+             db=payload["metadata"]["db"],
+             current_user=payload["metadata"]["current_user"],
+             engine=payload["metadata"].get("engine", engine),
+             request_id=payload["metadata"].get("request_id")
+         )
+
+    orchestrator = AssistantOrchestrator(
+        legacy_runner=legacy_runner_wrapper,
+        legacy_stream_runner=assistente_unificado_stream
+    )
+
+    response = await orchestrator.run(channel_msg)
+    
+    return AIResponse(
+        resposta=response.text,
+        tipo_resposta=response.metadata.get("tipo_resposta", "assistente_v2"),
+        dados=response.metadata.get("dados", response.metadata),
+        sucesso=response.metadata.get("sucesso", True),
+        confianca=response.metadata.get("confianca", 0.99),
+        modulo_origem=response.metadata.get("modulo_origem", "orchestrator"),
+        acao_sugerida=response.metadata.get("acao_sugerida"),
+        erros=response.metadata.get("erros", []),
+        fallback_utilizado=response.metadata.get("fallback_utilizado", False)
+    )
     if not is_engine_available_for_user(
         engine,
         is_superadmin=bool(getattr(current_user, "is_superadmin", False)),
