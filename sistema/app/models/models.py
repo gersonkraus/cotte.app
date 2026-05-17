@@ -15,6 +15,11 @@ from sqlalchemy import (
     JSON,
     text,
 )
+try:
+    from pgvector.sqlalchemy import Vector
+except ImportError:
+    Vector = None
+
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from typing import List, Optional
 from datetime import datetime
@@ -2837,3 +2842,40 @@ class SessaoWhatsapp(Base):
     atualizado_em = Column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+# ── RAG E INDEXAÇÃO (Fase 2) ────────────────────────────────────────────────
+
+
+class AIDocumentoConhecimento(Base):
+    """Base de conhecimento vetorial por empresa (multi-tenant)."""
+
+    __tablename__ = "ai_documentos_conhecimento"
+
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(
+        Integer, ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    conteudo = Column(Text, nullable=False)
+    embedding = Column(Vector(1536)) if Vector else Column(JSON)
+    fonte = Column(String(200))
+    metadata_json = Column(JSON, nullable=False, server_default="{}")
+    criado_em = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    empresa = relationship("Empresa")
+
+
+class AIDatabaseSchemaIndex(Base):
+    """Índice semântico do esquema do banco de dados para os agentes."""
+
+    __tablename__ = "ai_database_schema_index"
+
+    id = Column(Integer, primary_key=True, index=True)
+    table_name = Column(String(100), nullable=False, unique=True, index=True)
+    description = Column(Text)
+    embedding = Column(Vector(1536)) if Vector else Column(JSON)
+    schema_json = Column(JSON, nullable=False, server_default="{}")
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+

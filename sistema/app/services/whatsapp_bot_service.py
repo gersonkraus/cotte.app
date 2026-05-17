@@ -350,23 +350,61 @@ async def _processar_assistente_gestor(
         
         # ── Formatação especial para WhatsApp baseada no tipo de resposta ──
         texto = (ai_resp.resposta or "").strip()
-        
-        if ai_resp.tipo_resposta == "lista_orcamentos" and ai_resp.dados:
-            frontend_data = ai_resp.dados.get("_meta_frontend_data") or {}
-            lista = frontend_data.get("orcamentos", [])
+
+        if ai_resp.tipo_resposta == "orcamento_preview" and ai_resp.dados:
+            d = ai_resp.dados
+            itens_preview = []
+            servico_principal = d.get("servico")
+            valor_principal = d.get("valor") or 0.0
+
+            if servico_principal:
+                itens_preview.append(f"• {servico_principal}: {_brl_fmt(valor_principal)}")
+
+            # Se houver lista de itens detalhada
+            for it in d.get("itens", []):
+                itens_preview.append(f"• {it.get('descricao')}: {_brl_fmt(it.get('valor_unit', 0))}")
+
+            corpo = (
+                f"📋 *PREVIEW DO ORÇAMENTO*\n\n"
+                f"👤 Cliente: *{d.get('cliente_nome', 'A definir')}*\n"
+                f"{chr(10).join(itens_preview)}\n"
+                f"💰 *Total estimado: {_brl_fmt(d.get('total') or valor_principal)}*\n\n"
+                f"Para confirmar e gerar o link, responda com *SIM*."
+            )
+            texto = f"{texto}\n\n{corpo}"
+
+        elif ai_resp.tipo_resposta == "clientes_lista" and ai_resp.dados:
+            d = ai_resp.dados
+            frontend_data = d.get("_meta_frontend_data") or d
+            lista = frontend_data.get("clientes") or d.get("clientes") or []
             if lista:
                 linhas = [f"*{texto}*\n"]
-                for o in lista[:30]: # Limite razoável para WPP
+                for c in lista[:20]:
+                    tel = c.get("telefone") or "Sem telefone"
+                    linhas.append(f"• *{c.get('nome')}* ({tel})")
+
+                if len(lista) > 20:
+                    linhas.append(f"\n_Exibindo 20 de {len(lista)}. Veja todos no painel._")
+                texto = "\n".join(linhas)
+
+        elif ai_resp.tipo_resposta == "lista_orcamentos" and ai_resp.dados:
+            d = ai_resp.dados
+            frontend_data = d.get("_meta_frontend_data") or d
+            lista = frontend_data.get("orcamentos") or d.get("orcamentos") or []
+
+            if lista:
+                linhas = [f"*{texto}*\n"]
+                for o in lista[:30]:
                     valor = _brl_fmt(o.get("total", 0))
-                    status = (o.get("status") or "").upper()
-                    cliente = o.get("cliente_nome") or "Cliente não informado"
+                    status = (str(o.get("status") or "")).upper()
+                    cliente = o.get("cliente_nome") or "Cliente"
                     numero = o.get("numero") or f"#{o.get('id')}"
                     linhas.append(f"• *{numero}* - {cliente}\n  Valor: {valor} | Status: {status}")
-                
+
                 if len(lista) > 30:
-                    linhas.append(f"\n_Exibindo 30 de {len(lista)} orçamentos. Veja a lista completa no painel._")
-                
+                    linhas.append(f"\n_Exibindo 30 de {len(lista)} orçamentos._")
                 texto = "\n".join(linhas)
+
             elif not texto:
                 texto = "Nenhum orçamento encontrado com esses critérios."
 
@@ -1090,17 +1128,21 @@ async def _ver_orcamento(
         )
         desc_txt = f"Desconto: {desc_label}\n"
 
+    # Extrai apenas os números do identificador para os comandos (mais amigável)
+    num_match = re.search(r"\d+", str(orc.numero))
+    orc_id_ref = num_match.group() if num_match else orc_id
+
     await enviar_mensagem_texto(
         telefone,
         f"*{orc.numero}* -- {orc.cliente.nome}\n\n"
         f"{itens_txt}\n\n"
         f"{desc_txt}"
         f"Total: {_brl_fmt(orc.total)}\n"
-        f"Status: {orc.status}\n\n"
-        f"*ADICIONAR {orc_id} [descricao] [valor]*\n"
-        f"*REMOVER {orc_id} [n item]*\n"
-        f"*DESCONTO {orc_id} [valor]%* ou *[valor] REAIS*\n"
-        f"*ENVIAR {orc_id}* -- enviar ao cliente",
+        f"Status: {orc.status.value if hasattr(orc.status, 'value') else orc.status}\n\n"
+        f"*ADICIONAR {orc_id_ref} [descricao] [valor]*\n"
+        f"*REMOVER {orc_id_ref} [n item]*\n"
+        f"*DESCONTO {orc_id_ref} [valor]%* ou *[valor] REAIS*\n"
+        f"*ENVIAR {orc_id_ref}* -- enviar ao cliente",
         empresa=empresa,
     )
 

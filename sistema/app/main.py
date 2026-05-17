@@ -75,6 +75,7 @@ from app.routers.docs import router as docs_router
 from app.routers.documentos import router as documentos_router
 from app.routers.financeiro import router as financeiro_router
 from app.routers.ai_hub import router as ai_hub_router
+from app.routers.ai_rag import router as ai_rag_router
 from app.routers.admin_planos import router as admin_planos_router
 from app.routers.papeis import router as papeis_router
 from app.routers.agendamentos import router as agendamentos_router
@@ -314,6 +315,7 @@ def include_routers(app: FastAPI):
         (financeiro_router, "/api/v1"),
         (docs_router, "/api/v1"),
         (ai_hub_router, "/api/v1"),
+        (ai_rag_router, "/api/v1"),
         (admin_planos_router, "/api/v1"),
         (papeis_router, "/api/v1"),
         (agendamentos_router, "/api/v1"),

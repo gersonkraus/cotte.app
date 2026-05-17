@@ -1,0 +1,113 @@
+/* ── AI v2.1 Enhancements ── */
+
+/* RAG / Knowledge Base */
+.rag-upload-zone {
+    border: 2px dashed var(--ai-border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    transition: all 0.2s ease;
+    background: color-mix(in srgb, var(--ai-bg) 40%, transparent);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.rag-upload-zone:hover, .rag-upload-zone.drag-over {
+    border-color: var(--ai-accent);
+    background: color-mix(in srgb, var(--ai-accent) 5%, transparent);
+}
+
+.rag-document-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--ai-card);
+    border: 1px solid var(--ai-border);
+    border-radius: 10px;
+    margin-bottom: 6px;
+}
+
+.rag-document-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.rag-document-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--ai-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.rag-document-meta {
+    font-size: 0.68rem;
+    color: var(--ai-muted);
+}
+
+.rag-document-actions {
+    display: flex;
+    gap: 4px;
+}
+
+/* Voice Visualizer (Waveform) */
+.voice-visualizer-container {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    display: none;
+    align-items: center;
+    gap: 3px;
+    height: 32px;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.btn-voice[aria-pressed="true"] .voice-visualizer-container {
+    display: flex;
+}
+
+.btn-voice[aria-pressed="true"] > svg {
+    opacity: 0.15;
+}
+
+.v-bar {
+    width: 3px;
+    height: 4px;
+    background: #fff;
+    border-radius: 4px;
+    transition: height 0.05s ease;
+}
+
+/* Thinking Steps / Breadcrumbs Improvements */
+.thinking-step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: var(--ai-bg);
+    border-radius: 999px;
+    font-size: 0.78rem;
+    color: var(--ai-muted);
+    border: 1px solid var(--ai-border);
+    margin-bottom: 12px;
+    width: fit-content;
+    animation: fadeIn 0.3s ease;
+}
+
+.thinking-step-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ai-accent);
+    animation: status-pulse 1.5s infinite;
+}

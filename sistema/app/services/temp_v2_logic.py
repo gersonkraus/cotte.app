@@ -1002,7 +1002,7 @@ async def assistente_v2_stream_core(
                     pending_action = result.pending_action
                     if isinstance(pending_action, dict) and not pending_action.get("extras"):
                         try:
-                            from app.services.ai_tools.destructive_preview import (
+                            from app.ai.tools.destructive_preview import (
                                 build_destructive_extras,
                             )
 

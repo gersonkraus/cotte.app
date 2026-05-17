@@ -1,4 +1,4 @@
-from app.services.assistant_langgraph import langgraph_enabled
+from app.ai.graph.assistant import langgraph_enabled
 
 
 def test_langgraph_enabled_por_flag_v2(monkeypatch):

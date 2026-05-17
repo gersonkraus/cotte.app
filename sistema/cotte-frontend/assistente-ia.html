@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="css/style.css?v=7">
     <link rel="stylesheet" href="css/assistente-ia.css?v=18">
     <link rel="stylesheet" href="css/assistente-ia-mobile.css?v=5">
+    <link rel="stylesheet" href="css/ai-v2-1.css?v=1">
     <style>
         /* 1. Regras Globais (Desktop e Mobile) para preenchimento total */
         /* --assistente-vv-height é definido em assistente-ia-input.js (visualViewport) no mobile */
@@ -271,6 +272,17 @@
                     </div>
 
                     <div class="pref-section-card">
+                        <p class="pref-section-card-title">Multimodalidade</p>
+                        <label class="assistente-preferencias-field">
+                            <span>Saída de Voz (TTS)</span>
+                            <select id="assistenteAudioOutputSelect">
+                                <option value="auto">Automático (recomendado)</option>
+                                <option value="off">Apenas texto</option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <div class="pref-section-card">
                         <p class="pref-section-card-title">Instruções da Empresa</p>
                         <label class="assistente-preferencias-field">
                             <span>Regras e guardrails para o assistente seguir</span>
@@ -378,6 +390,22 @@
                         <p class="pref-section-card-title">Engine Ativa</p>
                         <p class="pref-hint" id="prefEngineLabel">—</p>
                         <p class="pref-hint" style="margin-top:4px;font-size:0.7rem;">A engine é definida automaticamente pelo contexto da conversa.</p>
+                    </div>
+
+                    <div class="pref-section-card">
+                        <p class="pref-section-card-title">Base de Conhecimento (RAG)</p>
+                        <p class="pref-hint">Suba manuais (PDF/TXT) para treinar o assistente com informações da sua empresa</p>
+                        <div class="rag-upload-zone" id="ragUploadZone">
+                            <input type="file" id="ragFileInput" accept=".pdf,.txt" hidden>
+                            <button type="button" class="btn btn-secondary btn-sm" id="btnRagUpload">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                Subir Documento
+                            </button>
+                            <div id="ragUploadStatus" class="pref-hint"></div>
+                        </div>
+                        <div class="rag-documents-list" id="ragDocumentsList">
+                            <!-- Preenchido pelo JS -->
+                        </div>
                     </div>
 
                     <div class="assistente-preferencias-actions">
@@ -501,6 +529,13 @@
                             
                             <div class="input-actions-right">
                                 <button type="button" id="voiceButton" title="Ditar por voz (clique para gravar)" class="chat-input-btn btn-voice" aria-pressed="false">
+                                    <div class="voice-visualizer-container" id="voiceVisualizer">
+                                        <div class="v-bar"></div>
+                                        <div class="v-bar"></div>
+                                        <div class="v-bar"></div>
+                                        <div class="v-bar"></div>
+                                        <div class="v-bar"></div>
+                                    </div>
                                     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
                                 </button>
                                 <button type="button" id="sendButton" title="Enviar mensagem (Enter)" class="chat-input-btn btn-send">
@@ -538,6 +573,8 @@
     <script src="js/api.js?v=17"></script>
     <script src="js/layout.js?v=5"></script>
     <script src="js/services/ApiService.js?v=2"></script>
+    <script src="js/voice/VoiceProcessor.js?v=1"></script>
+    <script src="js/rag/KnowledgeBaseManager.js?v=1"></script>
     <script src="js/services/CapabilityFlagsService.js?v=1"></script>
     <script>
       if (new URLSearchParams(location.search).get('embed') === '1') {

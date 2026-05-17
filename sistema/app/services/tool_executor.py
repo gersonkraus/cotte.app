@@ -32,7 +32,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import exigir_permissao
 from app.models.models import ToolCallLog, Usuario
-from app.services.ai_tools import REGISTRY
+from app.ai.tools import REGISTRY
 from app.services.assistant_engine_registry import get_engine_policy
 from app.services.tenant_guard import ensure_scoped_empresa_id
 
@@ -66,6 +66,31 @@ def _normalize_tool_args(tool_name: str, args: dict[str, Any]) -> dict[str, Any]
     if not isinstance(args, dict):
         return {}
     normalized = dict(args)
+
+    if tool_name == "criar_orcamento":
+        # Normalização de valores monetários e quantidades que podem vir como string com vírgula do LLM
+        itens = normalized.get("itens")
+        if isinstance(itens, list):
+            for it in itens:
+                if not isinstance(it, dict): continue
+                for num_key in ("valor_unit", "quantidade"):
+                    val = it.get(num_key)
+                    if isinstance(val, str):
+                        try:
+                            # Remove R$, espaços e converte vírgula em ponto
+                            clean_val = val.replace("R$", "").replace(" ", "").replace(",", ".").strip()
+                            it[num_key] = float(clean_val)
+                        except (ValueError, TypeError):
+                            pass
+        
+        # Desconto também pode vir sujo
+        desc = normalized.get("desconto")
+        if isinstance(desc, str):
+            try:
+                clean_desc = desc.replace("%", "").replace("R$", "").replace(" ", "").replace(",", ".").strip()
+                normalized["desconto"] = float(clean_desc)
+            except (ValueError, TypeError):
+                pass
 
     if tool_name == "listar_orcamentos":
         status_raw = normalized.get("status")
@@ -689,7 +714,7 @@ async def execute(
 
             extras: dict = {}
             try:
-                from app.services.ai_tools.destructive_preview import (
+                from app.ai.tools.destructive_preview import (
                     build_destructive_extras,
                 )
 

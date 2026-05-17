@@ -4,118 +4,69 @@
  * Entrada do usuário, atalhos, voz e bootstrap da página do assistente.
  */
 
-function initSpeechRecognition() {
-  const SpeechRecognition =
-    window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    console.warn("Speech Recognition API não suportada neste navegador.");
-    const btn = document.getElementById("voiceButton");
-    if (btn) {
-      btn.style.opacity = "0.5";
-      btn.title = "Entrada por voz não suportada nativamente neste navegador";
-    }
+async function toggleSpeechRecognition() {
+  const voiceBtn = document.getElementById("voiceButton");
+  const input = document.getElementById("messageInput");
+
+  if (!window.VoiceProcessor) {
+    console.error("VoiceProcessor não carregado.");
     return;
   }
 
-  speechRecognition = new SpeechRecognition();
-  speechRecognition.continuous = false;
-  speechRecognition.interimResults = false;
-  speechRecognition.lang = "pt-BR";
+  if (window.VoiceProcessor.isRecording()) {
+    // Parar gravação e processar
+    voiceBtn.classList.remove("is-recording");
+    voiceBtn.setAttribute("aria-pressed", "false");
+    voiceBtn.title = "Ditar por voz";
+    
+    if (input) input.placeholder = "Processando áudio...";
 
-  speechRecognition.onstart = function () {
-    isRecording = true;
-    const btn = document.getElementById("voiceButton");
-    if (btn) {
-      btn.setAttribute("aria-pressed", "true");
-      btn.title = "Gravando... Clique para parar.";
+    const audioBlob = await window.VoiceProcessor.stopRecording();
+    if (audioBlob) {
+        await processAudioInput(audioBlob);
     }
-    const ta = document.getElementById("messageInput");
-    if (ta && !ta.value.trim()) {
-      ta.placeholder = "Ouvindo...";
-    }
-  };
-
-  speechRecognition.onresult = function (event) {
-    let transcript = "";
-    let isFinal = false;
-    for (let i = event.resultIndex; i < event.results.length; ++i) {
-      transcript += event.results[i][0].transcript;
-      if (event.results[i].isFinal) {
-        isFinal = true;
-      }
-    }
-
-    const ta = document.getElementById("messageInput");
-    if (ta) {
-      const currentVal = ta.value;
-      if (currentVal && !currentVal.endsWith(" ")) {
-        ta.value = currentVal + " " + transcript;
-      } else {
-        ta.value = currentVal + transcript;
-      }
-      resizeMessageInput();
-      _updateVoiceSendToggle(ta);
-      ta.focus();
-
-      if (isFinal) {
-        setTimeout(() => {
-          if (ta.value.trim() !== "") {
-            sendMessage();
-          }
-        }, 300);
-      }
-    }
-  };
-
-  speechRecognition.onerror = function (event) {
-    console.error("Erro no Speech Recognition:", event.error);
-    stopSpeechRecognition();
-  };
-
-  speechRecognition.onend = function () {
-    stopSpeechRecognition();
-  };
-}
-
-function toggleSpeechRecognition() {
-  if (!speechRecognition) {
-    if (typeof showNotif === "function") {
-      showNotif(
-        "⚠️",
-        "Sem Suporte",
-        "Navegador não possui recurso nativo de voz. Tente Chrome ou Edge.",
-        "error",
-      );
-    } else {
-      alert(
-        "Seu navegador não suporta reconhecimento de voz nativo. Tente usar o Google Chrome ou Edge.",
-      );
-    }
-    return;
-  }
-
-  if (isRecording) {
-    speechRecognition.stop();
   } else {
-    try {
-      speechRecognition.start();
-    } catch (e) {
-      console.error("Erro ao iniciar gravação:", e);
+    // Iniciar gravação
+    const started = await window.VoiceProcessor.startRecording();
+    if (started) {
+      voiceBtn.classList.add("is-recording");
+      voiceBtn.setAttribute("aria-pressed", "true");
+      voiceBtn.title = "Gravando... Clique para parar.";
+      if (input) input.placeholder = "Ouvindo...";
+    } else {
+      if (typeof showNotif === "function") {
+        showNotif("⚠️", "Microfone", "Não foi possível acessar o microfone.", "error");
+      }
     }
   }
 }
 
-function stopSpeechRecognition() {
-  isRecording = false;
-  const btn = document.getElementById("voiceButton");
-  if (btn) {
-    btn.setAttribute("aria-pressed", "false");
-    btn.title = "Ditar por voz";
-  }
-  const ta = document.getElementById("messageInput");
-  if (ta) {
-    ta.placeholder = getAdaptiveMessagePlaceholder();
-  }
+async function processAudioInput(blob) {
+    const input = document.getElementById("messageInput");
+    const b64 = await window.VoiceProcessor.blobToBase64(blob);
+    
+    try {
+        const response = await window.ApiService.post('/ai/audio/transcrever', {
+            audio_base64: b64,
+            formato: 'webm'
+        });
+
+        if (response.success && response.texto) {
+            input.value = response.texto;
+            resizeMessageInput();
+            _updateVoiceSendToggle(input);
+            input.focus();
+            
+            // Auto-envio se a transcrição for clara
+            if (response.texto.length > 5) {
+                setTimeout(() => sendMessage(), 500);
+            }
+        }
+    } catch (err) {
+        console.error("Erro ao transcrever áudio:", err);
+    } finally {
+        if (input) input.placeholder = getAdaptiveMessagePlaceholder();
+    }
 }
 
 function initSlashCommands() {
@@ -461,7 +412,6 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  initSpeechRecognition();
   initSlashCommands();
   loadAssistentePreferences();
 

@@ -206,7 +206,7 @@ async def processar_operador_wpp(
             if pending.get("acao") == "CRIAR_ORCAMENTO" and not pending.get(
                 "confirmation_token"
             ):
-                from app.services.ai_tools.orcamento_tools import (
+                from app.ai.tools.orcamento_tools import (
                     CriarOrcamentoInput,
                     _criar_orcamento,
                 )

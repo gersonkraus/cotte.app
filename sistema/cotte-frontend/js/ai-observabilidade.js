@@ -17,6 +17,7 @@
     monitor: "#f59e0b",
     analytics: "#8b5cf6",
     documental: "#ec4899",
+    langgraph_v2: "#8b5cf6", // Roxo vibrante para grafos
     unknown: "#9ca3af",
   };
 
@@ -33,7 +34,10 @@
 
   function renderTokenChart(daily, engines) {
     var canvas = document.getElementById("obs-token-chart");
-    if (!canvas || typeof Chart === "undefined") return;
+    if (!canvas || typeof Chart === "undefined") {
+        console.warn("[obs] Chart.js não carregado ou canvas não encontrado.");
+        return;
+    }
 
     var allEngines = Array.from(
       new Set(daily.flatMap(function (d) { return Object.keys(d).filter(function (k) { return k !== "date"; }); }))
@@ -78,21 +82,30 @@
     if (!client || typeof client.get !== "function") return;
     var hours = hoursEl && hoursEl.value ? hoursEl.value : "24";
     try {
+      console.log("[obs] Carregando stats de tokens...");
       var resp = await client.get("/superadmin/monitor-ai/stats?hours=" + hours);
-      var payload = resp && resp.data ? resp.data : resp;
-      var data = payload && payload.data ? payload.data : payload;
+      // ApiService normaliza para .data, mas verificamos ambos
+      var data = resp && resp.data ? resp.data : resp;
+      if (data && data.data) data = data.data; // Desaninhar se necessário
+      
+      console.log("[obs] Token stats recebidos:", data);
       if (!data) return;
 
       var tokEl = document.getElementById("obs-kpi-tokens");
       var costEl = document.getElementById("obs-kpi-cost");
       if (tokEl) tokEl.textContent = formatTokens(data.total_tokens || 0);
-      if (costEl) costEl.textContent = "$" + (data.cost_usd || 0).toFixed(4);
+      if (costEl) {
+          // Exibe custo com 6 casas decimais para capturar custos pequenos (ex: gpt-4o-mini)
+          var cost = Number(data.cost_usd || 0);
+          costEl.textContent = "$" + cost.toFixed(6);
+          costEl.title = "Custo total real + estimado para o período";
+      }
 
       if (Array.isArray(data.daily) && data.daily.length > 0) {
         renderTokenChart(data.daily, data.by_engine || {});
       }
     } catch (err) {
-      console.warn("[obs] Falha ao carregar token stats:", err && err.message);
+      console.error("[obs] Falha ao carregar token stats:", err);
     }
   }
 
@@ -102,13 +115,15 @@
 
   function isSuperadmin() {
     var user = (typeof getUsuario === "function" && getUsuario()) || null;
-    return !!(user && user.is_superadmin);
+    return !!(user && (user.is_superadmin || user.is_gestor_sistema));
   }
 
   function setAlert(message, isError) {
     if (!alertEl) return;
     alertEl.textContent = message || "";
     alertEl.className = isError ? "obs-alert error" : "obs-alert";
+    if (message) alertEl.style.display = "block";
+    else alertEl.style.display = "none";
   }
 
   function healthBadge(health) {
@@ -195,6 +210,7 @@
     if (loading) return;
     var client = getClient();
     if (!client || typeof client.get !== "function") {
+      console.error("[obs] Cliente de API não encontrado.");
       setAlert("Cliente de API indisponivel.", true);
       return;
     }
@@ -203,17 +219,29 @@
     setLoadingState(true);
     try {
       var query = buildQuery();
+      console.log("[obs] Carregando resumo operacional: /ai/observabilidade/resumo?" + query);
       var resp = await client.get("/ai/observabilidade/resumo?" + query);
-      var payload = resp && resp.data ? resp.data : resp;
-      renderOverview(payload && payload.overview);
-      renderEngines(payload && payload.engines);
+      // ApiService normaliza para .data, mas verificamos ambos
+      var data = resp && resp.data ? resp.data : resp;
+      if (data && data.data) data = data.data; // Desaninhar se necessário
+      
+      console.log("[obs] Resumo recebido:", data);
+      if (!data) {
+          setAlert("Resposta da API vazia.", true);
+          return;
+      }
+
+      renderOverview(data.overview);
+      renderEngines(data.engines);
+      
       if (metaEl) {
-        var ts = payload && payload.generated_at ? payload.generated_at : null;
+        var ts = data.generated_at ? data.generated_at : null;
         metaEl.textContent = ts
           ? "Atualizado em " + new Date(ts).toLocaleString("pt-BR")
           : "";
       }
     } catch (err) {
+      console.error("[obs] Falha ao carregar observabilidade:", err);
       setAlert((err && err.message) || "Falha ao carregar observabilidade.", true);
     } finally {
       setLoadingState(false);

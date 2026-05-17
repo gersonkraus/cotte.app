@@ -70,8 +70,10 @@ from app.services.semantic_report_service import (
     render_semantic_report_pdf,
 )
 from app.services.insight_engine import InsightEngine
+from app.ai.audio.service import AudioService
 
 router = APIRouter(prefix="/ai", tags=["AI"], dependencies=[Depends(exigir_modulo("ia"))])
+
 
 
 def _request_id_from_http(request: Request) -> str | None:
@@ -513,7 +515,7 @@ async def confirmar_orcamento_ia(
     Confirma e cria o orçamento no banco a partir dos dados extraídos pela IA.
     Chamado pelo frontend após o usuário revisar a prévia do orçamento.
     """
-    from app.services.ai_tools.orcamento_tools import (
+    from app.ai.tools.orcamento_tools import (
         CriarOrcamentoInput,
         _criar_orcamento,
     )
@@ -1998,6 +2000,46 @@ class AIPreferenciasAssistenteOut(BaseModel):
 class AIPromptEmpresaCreateRequest(BaseModel):
     titulo: str = Field(..., min_length=3, max_length=120)
     conteudo_prompt: str = Field(..., min_length=5, max_length=4000)
+
+
+class AIAudioTranscreverRequest(BaseModel):
+    audio_base64: str
+    formato: str = "webm"
+
+
+class AIAudioFalarRequest(BaseModel):
+    texto: str
+    provedor: str = "openai"
+
+
+@router.post("/audio/transcrever")
+async def transcrever_audio(
+    request: AIAudioTranscreverRequest,
+    current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
+):
+    """Transcreve um áudio enviado em base64."""
+    try:
+        audio_bytes = base64.b64decode(request.audio_base64)
+        texto = await AudioService.transcribe_blob(audio_bytes, format=request.formato)
+        return {"success": True, "texto": texto}
+    except Exception as e:
+        logger.error(f"Erro na transcrição: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@router.post("/audio/falar")
+async def sintetizar_voz(
+    request: AIAudioFalarRequest,
+    current_user: Usuario = Depends(exigir_permissao("ia", "leitura")),
+):
+    """Converte texto em fala e retorna base64."""
+    try:
+        audio_b64 = await AudioService.text_to_speech(request.texto, provider=request.provedor)
+        return {"success": True, "audio_base64": audio_b64}
+    except Exception as e:
+        logger.error(f"Erro no TTS: {e}")
+        return {"success": False, "error": str(e)}
+
     categoria: str = Field(
         ...,
         pattern="^(ranking|comissao|inadimplencia|comparativo_mensal)$",

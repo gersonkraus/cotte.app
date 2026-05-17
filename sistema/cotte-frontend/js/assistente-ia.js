@@ -476,6 +476,7 @@ function renderAssistentePreferencesCard(prefData) {
     const resumo = document.getElementById('assistentePreferenciasResumo');
     const setorTag = document.getElementById('assistenteSetorTag');
     const select = document.getElementById('assistenteFormatoSelect');
+    const audioSelect = document.getElementById('assistenteAudioOutputSelect');
     const btn = document.getElementById('btnSalvarPreferenciasAssistente');
     if (!resumo || !setorTag || !select || !btn) return;
 
@@ -483,12 +484,14 @@ function renderAssistentePreferencesCard(prefData) {
     const playbook = prefData?.playbook_setor || {};
     const setor = playbook?.setor || 'geral';
     const formato = pref?.formato_preferido || 'auto';
+    const audio = pref?.audio_output || 'auto';
 
     _assistentePrefsCache = prefData || null;
     setorTag.textContent = `Setor: ${setor}`;
     resumo.textContent = `Formato atual: ${formato}. Playbook ativo com janelas 7/30/90 dias.`;
 
     select.value = ['auto', 'resumo', 'tabela'].includes(formato) ? formato : 'auto';
+    if (audioSelect) audioSelect.value = audio;
     btn.disabled = false;
     syncAssistenteGearSavedBadge(prefData || {});
     syncAssistentePromptEditorVisibility();
@@ -537,10 +540,12 @@ async function loadAssistentePreferences() {
 async function saveAssistentePreferences() {
     if (!hasHttpClient() || typeof httpClient.patch !== 'function') return;
     const select = document.getElementById('assistenteFormatoSelect');
+    const audioSelect = document.getElementById('assistenteAudioOutputSelect');
     const btn = document.getElementById('btnSalvarPreferenciasAssistente');
     if (!select || !btn) return;
     const payload = {
         formato_preferido: select.value || 'auto',
+        audio_output: audioSelect ? audioSelect.value : 'auto',
         dominio: 'geral',
     };
     btn.disabled = true;
@@ -854,7 +859,7 @@ async function sendMessage() {
                                 debugStreamEvents.push(snap);
                             }
 
-                            // ── Evento de fase (thinking / tool_running) ──────
+                            // ── Evento de fase (thinking / tool_running / langgraph_step) ──────
                             if (dataObj.phase === 'tool_running' && dataObj.tool) {
                                 _prepareBubble(); // limpa dots ao primeiro evento real
                                 // Criar/atualizar badge animado no bubble
@@ -866,6 +871,33 @@ async function sendMessage() {
                                     }
                                     const toolLabel = dataObj.tool.replace(/_/g, ' ');
                                     toolBadge.innerHTML = `<span class="tool-running-dot" aria-hidden="true"></span> Consultando: <em>${escapeHtml(toolLabel)}</em>`;
+                                }
+                            }
+
+                            // 📦 Novo: Breadcrumbs do LangGraph (v2.1)
+                            if (dataObj.phase === 'langgraph_step') {
+                                _prepareBubble();
+                                if (bubbleNode) {
+                                    if (!toolBadge) {
+                                        toolBadge = document.createElement('div');
+                                        toolBadge.className = 'langgraph-step-badge';
+                                        bubbleNode.appendChild(toolBadge);
+                                    } else {
+                                        toolBadge.className = 'langgraph-step-badge'; // muda estilo se era tool
+                                    }
+                                    
+                                    const labelMap = {
+                                        'supervisor': 'Analisando pedido...',
+                                        'FinanceAgent': 'Consultando financeiro...',
+                                        'SalesAgent': 'Verificando vendas...',
+                                        'InventoryAgent': 'Consultando catálogo...',
+                                        'SupportAgent': 'Buscando documentação...',
+                                        'OperadorAgent': 'Executando ação...',
+                                        'DataAgent': 'Analisando dados...',
+                                        'ConversationalAgent': 'Preparando resposta...'
+                                    };
+                                    const label = dataObj.step_label || labelMap[dataObj.node] || 'Trabalhando...';
+                                    toolBadge.innerHTML = `<span class="langgraph-step-dot" aria-hidden="true"></span> <span>${escapeHtml(label)}</span>`;
                                 }
                             }
 
@@ -898,6 +930,15 @@ async function sendMessage() {
                                 _prepareBubble(); // garante que dots são removidos
                                 if (toolBadge) { toolBadge.remove(); toolBadge = null; }
                                 metadata = dataObj.metadata || {};
+                                
+                                // 📦 Novo: Badge de Cache (v2.1)
+                                if (metadata.cache_hit && bubbleNode) {
+                                    const cacheBadge = document.createElement('div');
+                                    cacheBadge.className = 'ai-cache-badge';
+                                    cacheBadge.title = 'Esta resposta foi recuperada instantaneamente do cache para economizar tempo e tokens.';
+                                    cacheBadge.innerHTML = '<i class="fas fa-bolt"></i> Resposta Instantânea';
+                                    bubbleNode.appendChild(cacheBadge);
+                                }
                             }
                         } catch (e) {
                             if (e.message && e.message.includes('JSON')) {} else { throw e; }
@@ -1006,6 +1047,11 @@ async function sendMessage() {
             // Por exemplo: renderOrcamentosTabelaPaginada(listData);
             // Como essa função não existe, vamos apenas logar por enquanto
             console.log("Recebidos dados para lista paginada:", listData);
+        }
+
+        // 🎤 Inovação: Síntese de voz automática (TTS) para a resposta final
+        if (finalData.resposta && !isConfirmacaoSilenciosa) {
+            triggerAutoTTS(finalData.resposta);
         }
 
         processAIResponse(finalData, loadingMessage, true);
@@ -1216,4 +1262,32 @@ function exportReportToCSV() {
 
 document.addEventListener('DOMContentLoaded', () => {
     hydrateAssistenteShortcutContent();
+    if (window.KnowledgeBaseManager) window.KnowledgeBaseManager.init();
 });
+
+/**
+ * 🎤 Síntese de voz automática (TTS)
+ */
+async function triggerAutoTTS(text) {
+    if (!text || !window.VoiceProcessor) return;
+    
+    // Opcional: verificar se o usuário deseja áudio
+    const config = JSON.parse(localStorage.getItem('assistente_preferencias_usuario') || '{}');
+    if (config.audio_output === 'off') return;
+
+    try {
+        // Limpa Markdown básico para não ler asteriscos/hashtags
+        const cleanText = text.replace(/[*#_\[\]()]/g, '').replace(/<[^>]*>?/gm, '');
+        
+        const response = await window.ApiService.post('/ai/audio/falar', {
+            texto: cleanText,
+            provedor: 'openai'
+        });
+
+        if (response.success && response.audio_base64) {
+            window.VoiceProcessor.playBase64Audio(response.audio_base64);
+        }
+    } catch (err) {
+        console.error("[TTS] Erro na síntese automática:", err);
+    }
+}

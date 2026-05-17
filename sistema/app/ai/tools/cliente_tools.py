@@ -139,6 +139,39 @@ criar_cliente = ToolSpec(
 )
 
 
+# ── obter_cliente ──────────────────────────────────────────────────────────
+class ObterClienteInput(BaseModel):
+    cliente_id: int = Field(gt=0, description="ID do cliente.")
+
+
+async def _obter_cliente(
+    inp: ObterClienteInput, *, db: Session, current_user: Usuario
+) -> dict[str, Any]:
+    service = ClienteService(db)
+    c = service.obter_cliente(inp.cliente_id, current_user)
+    return {
+        "id": c.id,
+        "nome": c.nome,
+        "telefone": c.telefone,
+        "email": c.email,
+        "endereco": getattr(c, "endereco", None),
+        "cidade": getattr(c, "cidade", None),
+        "criado_em": c.criado_em.isoformat() if hasattr(c, "criado_em") and c.criado_em else None,
+    }
+
+
+obter_cliente = ToolSpec(
+    name="obter_cliente",
+    description="Obtém detalhes completos de um cliente específico pelo ID.",
+    input_model=ObterClienteInput,
+    handler=_obter_cliente,
+    destrutiva=False,
+    cacheable_ttl=60,
+    permissao_recurso="clientes",
+    permissao_acao="leitura",
+)
+
+
 # ── excluir_cliente ────────────────────────────────────────────────────────
 class ExcluirClienteInput(BaseModel):
     cliente_id: int = Field(gt=0, description="ID do cliente a excluir.")

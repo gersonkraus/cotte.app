@@ -30,3 +30,4 @@ langchain-openai
 langchain-core
 langchain-community
 langgraph
+pgvector>=0.2.0

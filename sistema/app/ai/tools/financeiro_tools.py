@@ -561,7 +561,7 @@ class GerarRelatorioVendasInput(BaseModel):
 async def _gerar_relatorio_vendas(
     inp: GerarRelatorioVendasInput, *, db: Session, current_user: Usuario
 ) -> dict[str, Any]:
-    from app.models.models import Orcamento, StatusOrcamento, Cliente, OrcamentoItem
+    from app.models.models import Orcamento, StatusOrcamento, Cliente, ItemOrcamento
     from sqlalchemy import func, and_
 
     end_date = date.today()
@@ -579,7 +579,7 @@ async def _gerar_relatorio_vendas(
     if inp.agrupar_por == 'cliente':
         query = query.join(Cliente).group_by(Cliente.nome).add_columns(Cliente.nome.label("agrupador"))
     elif inp.agrupar_por == 'servico':
-        query = query.join(OrcamentoItem).group_by(OrcamentoItem.descricao).add_columns(OrcamentoItem.descricao.label("agrupador"))
+        query = query.join(ItemOrcamento).group_by(ItemOrcamento.descricao).add_columns(ItemOrcamento.descricao.label("agrupador"))
     
     results = query.all()
 

@@ -186,6 +186,8 @@ def build_token_chart_data(
 
     total_in = 0
     total_out = 0
+    total_cost_real = 0.0
+    total_cost_est = 0.0
     by_engine: dict[str, dict] = {}
     # keyed by "YYYY-MM-DD" → {engine: tokens}
     daily: dict[str, dict[str, int]] = {}
@@ -193,26 +195,36 @@ def build_token_chart_data(
     for row in logs:
         t_in = _safe_int(row.input_tokens)
         t_out = _safe_int(row.output_tokens)
-        # Considerar registros mesmo quando tokens não estão preenchidos
-        # para manter a integridade dos dados agregados
         tokens = t_in + t_out
-        if tokens == 0:
-            continue
+        
+        # 1. Soma tokens
         total_in += t_in
         total_out += t_out
 
+        # 2. Captura Custo Real (LiteLLM) ou Estimado
+        real_cost = 0.0
+        if isinstance(row.resultado_json, dict):
+            real_cost = float(row.resultado_json.get("_cost", 0) or 0)
+        
+        if real_cost > 0:
+            total_cost_real += real_cost
+        else:
+            # Fallback para o cálculo estimado se não houver custo real gravado
+            total_cost_est += (t_in * _COST_INPUT_PER_M + t_out * _COST_OUTPUT_PER_M) / 1_000_000
+
         engine = _extract_engine_from_log(row)
-        bucket = by_engine.setdefault(engine, {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0})
+        bucket = by_engine.setdefault(engine, {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "cost_usd": 0.0})
         bucket["input_tokens"] += t_in
         bucket["output_tokens"] += t_out
         bucket["total_tokens"] += tokens
+        bucket["cost_usd"] += (real_cost if real_cost > 0 else (t_in * _COST_INPUT_PER_M + t_out * _COST_OUTPUT_PER_M) / 1_000_000)
 
         day_key = row.criado_em.strftime("%Y-%m-%d") if row.criado_em else "unknown"
         day_bucket = daily.setdefault(day_key, {})
         day_bucket[engine] = day_bucket.get(engine, 0) + tokens
 
-    # Custo estimado
-    cost_usd = (total_in * _COST_INPUT_PER_M + total_out * _COST_OUTPUT_PER_M) / 1_000_000
+    # Custo total final (Real + Estimados onde faltou o real)
+    cost_usd = total_cost_real + total_cost_est
 
     # Série diária ordenada
     daily_series = [

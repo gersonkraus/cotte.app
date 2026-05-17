@@ -98,7 +98,7 @@ async def build_destructive_extras(
 ) -> dict[str, Any]:
     """Retorna campos extras para merge em pending_action (além dos args crus)."""
     if tool_name == "criar_orcamento":
-        from app.services.ai_tools.orcamento_tools import preview_criar_orcamento
+        from app.ai.tools.orcamento_tools import preview_criar_orcamento
 
         return await preview_criar_orcamento(
             args_dict, db=db, current_user=current_user

@@ -138,10 +138,22 @@
             patterns: [/\bor[çc]amentos?\b.*\bpendentes?\b/i],
         },
         {
+            id: 'listar_orcamentos',
+            label: 'Orçamentos',
+            response_type: 'lista_orcamentos',
+            response_types: ['lista_orcamentos', 'orcamentos'],
+            renderer: 'renderListaOrcamentos',
+            data_minimos: [],
+            quick_action_items: [
+                { label: 'Listar Orçamentos', description: 'Ver orçamentos recentes', icon: '📝', message: 'Listar meus orçamentos' },
+            ],
+            patterns: [/\blistar\b.*\bor[çc]amentos?\b|\blista\b.*\bor[çc]amentos?\b/i],
+        },
+        {
             id: 'listar_clientes',
             label: 'Clientes',
             response_type: 'clientes_lista',
-            response_types: ['clientes_lista', 'geral'],
+            response_types: ['clientes_lista'],
             renderer: 'renderListaClientes',
             data_minimos: [],
             quick_action_items: [

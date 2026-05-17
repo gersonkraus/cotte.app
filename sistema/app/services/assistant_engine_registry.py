@@ -13,7 +13,7 @@ import os
 from dataclasses import dataclass
 from typing import Any, Iterable
 
-from app.services.ai_tools import openai_tools_payload
+from app.ai.tools import openai_tools_payload
 
 ENGINE_OPERATIONAL = "operational"
 ENGINE_ANALYTICS = "analytics"

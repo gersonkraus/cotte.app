@@ -465,6 +465,7 @@ async def _obter_orcamento(
     return {
         "id": o.id,
         "numero": o.numero,
+        "sequencial_numero": o.sequencial_numero,
         "status": o.status.value if o.status else None,
         "total": float(o.total or 0),
         "desconto": float(o.desconto or 0),

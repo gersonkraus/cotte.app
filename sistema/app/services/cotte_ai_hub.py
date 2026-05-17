@@ -511,7 +511,10 @@ def _texto_exibicao_para_modulo(modulo: str, dados: dict) -> str:
                 )
                 desc_txt = f"Desconto: {label}\n"
 
-            orc_id_ref = dados.get("id") or numero
+            # Extrai apenas os números do identificador para os comandos (mais amigável)
+            # Se numero é "O-178", orc_id_ref fica "178"
+            num_match = re.search(r"\d+", str(numero))
+            orc_id_ref = num_match.group() if num_match else (dados.get("id") or numero)
 
             return (
                 f"*{numero}* -- {cliente_nome}\n\n"
@@ -1581,7 +1584,7 @@ async def criar_orcamento_ia(
     e retorna uma prévia para confirmação do usuário.
     """
     from app.models.models import Cliente, Servico
-    from app.services.ai_tools.orcamento_tools import (
+    from app.ai.tools.orcamento_tools import (
         _resolver_cliente,
         CriarOrcamentoInput,
     )
@@ -1624,7 +1627,7 @@ async def criar_orcamento_ia(
 
         try:
             c, auto_criado, err = _resolver_cliente(
-                fake_input, db, type("U", (), {"empresa_id": empresa_id})()
+                fake_input, db, type("U", (), {"empresa_id": empresa_id, "id": usuario_id})()
             )
             if err:
                 if err.get("code") == "ambiguous_cliente":
@@ -1935,28 +1938,10 @@ async def executar_comando_operador_ia(
 
     orc = None
     if orc_id:
-        # Prioriza match por número (ORC-71-26) pois é o que o usuário vê
-        orc = (
-            db.query(Orcamento)
-            .filter(
-                Orcamento.empresa_id == empresa_id,
-                Orcamento.numero.like(f"ORC-{orc_id}-%"),
-            )
-            .first()
-        )
-        if not orc:
-            # Fallback: busca por id de linha
-            try:
-                orc = (
-                    db.query(Orcamento)
-                    .filter(
-                        Orcamento.empresa_id == empresa_id,
-                        Orcamento.id == int(orc_id),
-                    )
-                    .first()
-                )
-            except (ValueError, TypeError):
-                pass
+        # Tenta resolver o orçamento de forma robusta (Número, Sequencial ou ID)
+        from app.ai.tools.orcamento_tools import _get_orcamento_da_empresa
+        orc = _get_orcamento_da_empresa(db, orc_id, empresa_id)
+
         if not orc:
             return AIResponse(
                 sucesso=False,
@@ -1970,11 +1955,12 @@ async def executar_comando_operador_ia(
     if acao == "VER":
         return AIResponse(
             sucesso=True,
-            resposta=f"Orçamento {orc.numero} — {orc.cliente.nome if orc.cliente else '?'} — R$ {orc.total:.2f} — {orc.status.value}",
+            resposta=None, # Deixa o Hub derivar o texto rico com instruções
             tipo_resposta="orcamento_card_unificado",
             dados={
                 "id": orc.id,
                 "numero": orc.numero,
+                "sequencial_numero": orc.sequencial_numero,
                 "cliente_nome": orc.cliente.nome if orc.cliente else "—",
                 "cliente_id": orc.cliente_id,
                 "total": float(orc.total or 0),
@@ -2279,6 +2265,102 @@ _INTENCOES_FINANCEIRAS = {
 }
 
 
+async def _buscar_dados_financeiros(
+    db: Session, empresa_id: Optional[int] = None
+) -> dict:
+    """
+    Busca dados financeiros reais do banco de dados.
+
+    VERSÃO OTIMIZADA (Etapa 2: Anti-Bloqueio):
+    - Usa func.sum() para agregações no banco (não em Python)
+    - Elimina loops Python para somar valores
+    - Converte Decimal para float no resultado final
+
+    Returns:
+        dict com receitas, despesas, saldo e métricas financeiras
+    """
+    from datetime import datetime, timedelta
+    from app.models.models import ContaFinanceira, SaldoCaixaConfig
+    from app.services import financeiro_service
+    from sqlalchemy import func as _func
+
+    if not empresa_id:
+        logger.warning(
+            "[AI Hub] empresa_id não fornecido para buscar dados financeiros"
+        )
+        return {"receitas": [], "despesas": [], "periodo": "ultimo_mes", "saldo": 0}
+
+    hoje = datetime.now().date()
+    inicio_mes = hoje.replace(day=1)
+
+    # Buscar saldo inicial configurado
+    saldo_config = (
+        db.query(SaldoCaixaConfig)
+        .filter(SaldoCaixaConfig.empresa_id == empresa_id)
+        .first()
+    )
+
+    # Converte Decimal para float para compatibilidade Pydantic/JSON
+    saldo_inicial = float(saldo_config.saldo_inicial) if saldo_config else 0.0
+
+    # AGREGADO: Soma de receitas usando func.sum() no banco
+    total_receitas_result = (
+        db.query(
+            _func.coalesce(
+                _func.sum(
+                    _func.coalesce(ContaFinanceira.valor_pago, ContaFinanceira.valor, 0)
+                ),
+                0,
+            ).label("total")
+        )
+        .filter(
+            ContaFinanceira.empresa_id == empresa_id,
+            ContaFinanceira.tipo == "receber",
+            ContaFinanceira.excluido_em.is_(None),
+            ContaFinanceira.cancelado_em.is_(None),
+            ContaFinanceira.data_vencimento >= inicio_mes,
+            ContaFinanceira.data_vencimento <= hoje,
+        )
+        .scalar()
+    )
+
+    # AGREGADO: Soma de despesas usando func.sum() no banco
+    total_despesas_result = (
+        db.query(
+            _func.coalesce(
+                _func.sum(
+                    _func.coalesce(ContaFinanceira.valor_pago, ContaFinanceira.valor, 0)
+                ),
+                0,
+            ).label("total")
+        )
+        .filter(
+            ContaFinanceira.empresa_id == empresa_id,
+            ContaFinanceira.tipo == "pagar",
+            ContaFinanceira.excluido_em.is_(None),
+            ContaFinanceira.cancelado_em.is_(None),
+            ContaFinanceira.data_vencimento >= inicio_mes,
+            ContaFinanceira.data_vencimento <= hoje,
+        )
+        .scalar()
+    )
+
+    total_receitas = float(total_receitas_result) if total_receitas_result else 0.0
+    total_despesas = float(total_despesas_result) if total_despesas_result else 0.0
+
+    # Saldo atual alinhado com o KPI "Saldo em Caixa"
+    saldo_caixa = float(financeiro_service.calcular_saldo_caixa_kpi(empresa_id, db))
+
+    return {
+        "saldo_inicial": saldo_inicial,
+        "total_receitas_mes": total_receitas,
+        "total_despesas_mes": total_despesas,
+        "saldo_operacional_mes": total_receitas - total_despesas,
+        "saldo_caixa_atual": saldo_caixa,
+        "periodo": f"{inicio_mes.strftime('%d/%m')} até {hoje.strftime('%d/%m')}"
+    }
+
+
 async def assistente_unificado(
     mensagem: str,
     sessao_id: str,
@@ -2304,6 +2386,16 @@ async def assistente_unificado(
 
     # 1. Histórico da sessão (últimas 6 mensagens)
     historico = SessionStore.get_or_create(sessao_id)
+
+    # Resolve current_user if not provided (important for tools)
+    if current_user is None and (usuario_id or empresa_id):
+        from app.models.models import Usuario
+        if usuario_id:
+            current_user = db.query(Usuario).filter(Usuario.id == usuario_id).first()
+        
+        if not current_user:
+            # Fallback fake user para manter isolamento de empresa_id
+            current_user = type("FakeUser", (), {"id": usuario_id, "empresa_id": empresa_id})()
 
     # 2. Classificar intenção (regex determinístico)
     try:
@@ -2334,7 +2426,7 @@ async def assistente_unificado(
 
     # NOVO: Roteamento determinístico para relatórios e listagens de orçamentos
     if intencao == "GERAR_RELATORIO" and "orçament" in mensagem.lower():
-        from app.services.ai_tools.orcamento_tools import _gerar_relatorio_orcamentos, GerarRelatorioOrcamentosInput, _resolver_status_orcamento_listar
+        from app.ai.tools.orcamento_tools import _gerar_relatorio_orcamentos, GerarRelatorioOrcamentosInput, _resolver_status_orcamento_listar
 
         status_match = re.search(r"\b(pendentes?|enviados?|aprovados?|recusados?|rascunho)\b", mensagem.lower())
         status_str = status_match.group(0) if status_match else None
@@ -2369,7 +2461,7 @@ async def assistente_unificado(
         )
 
     if intencao == "LISTAR_ORCAMENTOS":
-        from app.services.ai_tools.orcamento_tools import _listar_orcamentos, ListarOrcamentosInput, _resolver_status_orcamento_listar
+        from app.ai.tools.orcamento_tools import _listar_orcamentos, ListarOrcamentosInput, _resolver_status_orcamento_listar
         
         status_match = re.search(r"pendentes|enviados|aprovados|recusados|rascunho", mensagem.lower())
         status_str = status_match.group(0) if status_match else None
@@ -2401,14 +2493,19 @@ async def assistente_unificado(
         )
 
     if intencao == "LISTAR_CLIENTES":
-        from app.services.ai_tools.cliente_tools import _listar_clientes, ListarClientesInput
+        from app.ai.tools.cliente_tools import _listar_clientes, ListarClientesInput
         inp = ListarClientesInput(limit=30)
         dados = await _listar_clientes(inp, db=db, current_user=current_user)
         return AIResponse(
             sucesso=True,
             resposta="Aqui estão os clientes encontrados:",
             tipo_resposta="clientes_lista",
-            dados=dados,
+            dados={
+                "_meta_frontend_data": dados.get("_meta_frontend_data") or dados,
+                "clientes": (dados.get("_meta_frontend_data") or dados).get("clientes", []),
+                "total": (dados.get("_meta_frontend_data") or dados).get("total", 0),
+                "is_list": True
+            },
             confianca=0.99,
             modulo_origem="assistente_determinista",
         )
@@ -3244,7 +3341,7 @@ async def _v2_build_listar_clientes_fastpath_response(
     db: Session,
     current_user: Any,
 ) -> AIResponse | None:
-    from app.services.ai_tools.cliente_tools import _listar_clientes, ListarClientesInput
+    from app.ai.tools.cliente_tools import _listar_clientes, ListarClientesInput
     import re
 
     # Extrair filtros (busca, limit, cursor)
@@ -3297,7 +3394,7 @@ async def _v2_build_listar_orcamentos_fastpath_response(
     db: Session,
     current_user: Any,
 ) -> AIResponse | None:
-    from app.services.ai_tools.orcamento_tools import (
+    from app.ai.tools.orcamento_tools import (
         _listar_orcamentos,
         ListarOrcamentosInput,
         _resolver_status_orcamento_listar,
@@ -3861,7 +3958,7 @@ async def _v2_build_relatorio_fastpath_response(
     current_user: Any,
     intent_str: str | None = None,
 ) -> AIResponse | None:
-    from app.services.ai_tools.relatorio_tools import (
+    from app.ai.tools.relatorio_tools import (
         GerarRelatorioDinamicoInput,
         _handler_gerar_relatorio_dinamico,
     )
@@ -4674,6 +4771,7 @@ async def assistente_v2_stream_core(
     request_id: str | None = None,
     confirmation_token: str | None = None,
     override_args: dict | None = None,
+    agent_name: str | None = None,
 ):
     """Núcleo do Tool Use v2 adaptado para SSE.
 
@@ -4707,12 +4805,35 @@ async def assistente_v2_stream_core(
     if mensagem_resolvida:
         mensagem = mensagem_resolvida
 
-    from app.services.ai_intention_classifier import detectar_intencao_assistente_async
-    try:
-        classificacao = await detectar_intencao_assistente_async(mensagem)
-        intent_str = classificacao.intencao.value
-    except Exception:
-        intent_str = "CONVERSACAO"
+    intent_str = None
+    if agent_name:
+        # Mapa de agentes para intenções legadas
+        agent_intent_map = {
+            "FinanceAgent": "SALDO_RAPIDO", # Ou outra intenção que habilite ferramentas financeiras
+            "SalesAgent": "CRIAR_ORCAMENTO",
+            "InventoryAgent": "CATALOGO",
+            "SupportAgent": "SUPORTE",
+            "OperadorAgent": "OPERADOR",
+            "DataAgent": "ANALISE_DADOS",
+            "ConversationalAgent": "CONVERSACAO"
+        }
+        intent_str = agent_intent_map.get(agent_name)
+
+    # Determina a intenção determinística (regex) para interceptação de caminhos rápidos
+    intent_detectada = _v2_detect_deterministic_intent(mensagem)
+
+    # PRIORIDADE: Se a regex identificou uma ação clara de fastpath, ela vence o supervisor
+    # Isso garante que "criar orçamento..." sempre use o card de preview mesmo que o supervisor roteie para OperadorAgent.
+    if intent_detectada in {"CRIAR_ORCAMENTO", "SALDO_RAPIDO", "LISTAR_ORCAMENTOS", "LISTAR_CLIENTES"}:
+        intent_str = intent_detectada
+
+    if not intent_str:
+        from app.services.ai_intention_classifier import detectar_intencao_assistente_async
+        try:
+            classificacao = await detectar_intencao_assistente_async(mensagem)
+            intent_str = classificacao.intencao.value
+        except Exception:
+            intent_str = "CONVERSACAO"
 
 
     def _enc(d):
@@ -4809,7 +4930,6 @@ async def assistente_v2_stream_core(
 
     resolved_engine = resolve_engine(engine)
     engine_policy = get_engine_policy(resolved_engine)
-    intent_detectada = _v2_detect_deterministic_intent(mensagem)
 
     if _v2_is_onboarding_bootstrap_message(mensagem):
         resposta, status = _v2_build_onboarding_fastpath_payload(
@@ -4885,7 +5005,7 @@ async def assistente_v2_stream_core(
         # Interceptação: "relatório de orçamentos [status]" → listagem, não analytics
         msg_low_v2 = mensagem.lower()
         if "orçament" in msg_low_v2:
-            from app.services.ai_tools.orcamento_tools import (
+            from app.ai.tools.orcamento_tools import (
                 _gerar_relatorio_orcamentos,
                 GerarRelatorioOrcamentosInput,
                 _resolver_status_orcamento_listar,
@@ -5471,10 +5591,13 @@ async def assistente_v2_stream_core(
     adaptive_meta["tool_count_full"] = len(full_tools_payload)
     flow_started_perf = time.perf_counter()
     tool_trace: list[dict] = []
+    tool_data_collector: dict[str, Any] = {}
 
     pending_action: Optional[dict] = None
     total_in = 0
     total_out = 0
+    total_cost = 0.0
+    any_cache_hit = False
     final_text: Optional[str] = None
     final_tipo_resposta: Optional[str] = None
     final_interactive_payload: Optional[dict] = None
@@ -5520,6 +5643,9 @@ async def assistente_v2_stream_core(
         try:
             total_in += int(usage.get("prompt_tokens", 0) or 0)
             total_out += int(usage.get("completion_tokens", 0) or 0)
+            total_cost += float(resp.get("_cost", 0) if isinstance(resp, dict) else 0)
+            if resp.get("_cache_hit") if isinstance(resp, dict) else False:
+                any_cache_hit = True
         except Exception:
             pass
 
@@ -5703,6 +5829,17 @@ async def assistente_v2_stream_core(
                 t_status = result.status
                 t_code = result.code
                 t_error = result.error
+
+                # Captura dados da ferramenta para o metadata final (ex: listas para o frontend)
+                if t_status == "ok" and isinstance(result.data, dict):
+                    tool_data_collector.update(result.data)
+                    # Caso especial: _meta_frontend_data deve ser mesclado se existir
+                    meta_fe = result.data.get("_meta_frontend_data")
+                    if isinstance(meta_fe, dict):
+                        if "_meta_frontend_data" not in tool_data_collector:
+                            tool_data_collector["_meta_frontend_data"] = {}
+                        tool_data_collector["_meta_frontend_data"].update(meta_fe)
+
                 tool_trace.append(
                     {
                         "tool": (tc_dict.get("function") or {}).get("name"),
@@ -5728,7 +5865,7 @@ async def assistente_v2_stream_core(
                     pending_action = result.pending_action
                     if isinstance(pending_action, dict) and not pending_action.get("extras"):
                         try:
-                            from app.services.ai_tools.destructive_preview import (
+                            from app.ai.tools.destructive_preview import (
                                 build_destructive_extras,
                             )
 
@@ -5793,12 +5930,14 @@ async def assistente_v2_stream_core(
             **(pending_action.get("extras") or {}),
             "input_tokens": total_in,
             "output_tokens": total_out,
+            **tool_data_collector,
             **adaptive_meta,
         }
     else:
         dados_out = {
             "input_tokens": total_in,
             "output_tokens": total_out,
+            **tool_data_collector,
             **adaptive_meta,
         }
 
@@ -5808,6 +5947,19 @@ async def assistente_v2_stream_core(
             dados_out = {**llm_dados, **dados_out}
 
     followup_pendente = _v2_extract_pending_followup_from_assistant_text(final_text or "")
+
+    if final_tipo_resposta is None:
+        # Inferência de tipo de resposta baseada na intenção e dados coletados
+        # Isso garante que a UI use o renderer correto mesmo se a IA responder em texto puro
+        # Buscamos também dentro de _meta_frontend_data coletado pelas tools
+        meta_fe = tool_data_collector.get("_meta_frontend_data") or {}
+        
+        if intent_str == "LISTAR_ORCAMENTOS" or "orcamentos" in tool_data_collector or "orcamentos" in meta_fe:
+            final_tipo_resposta = "lista_orcamentos"
+        elif intent_str == "LISTAR_CLIENTES" or "clientes" in tool_data_collector or "clientes" in meta_fe:
+            final_tipo_resposta = "clientes_lista"
+        elif intent_str == "SALDO_RAPIDO" or "saldo_atual" in tool_data_collector or "saldo_caixa" in tool_data_collector:
+            final_tipo_resposta = "saldo_caixa"
 
     # Atualiza contexto operacional
     ctx = _v2_update_operational_context_from_payload(
@@ -5835,9 +5987,12 @@ async def assistente_v2_stream_core(
                 "tool_trace": tool_trace or None,
                 "input_tokens": total_in,
                 "output_tokens": total_out,
+                "cache_hit": any_cache_hit,
                 "metrics": {
                     "tokens_in": total_in,
                     "tokens_out": total_out,
+                    "cost_usd": total_cost,
+                    "cache_hit": any_cache_hit,
                     "iterations": _iter + 1,
                     "engine": resolved_engine,
                     "has_pending": bool(pending_action),
@@ -5871,14 +6026,70 @@ async def assistente_unificado_stream(
     confirmation_token: str | None = None,
     override_args: dict | None = None,
 ):
-    """Ponto de entrada SSE — delega para assistente_v2_stream_core (Tool Use v2).
-
-    Mantém compatibilidade de URL com o frontend. O router deve passar
-    `current_user` (objeto User completo) e os tokens de confirmação.
-    """
+    """Ponto de entrada SSE — orquestra entre LangGraph (v2.1) e Core legado (v2.0)."""
     import asyncio
+    from app.ai.graph.assistant import langgraph_enabled, run_assistant_v2_graph_stream
+
+    def _enc(d):
+        return f"data: {json.dumps(d, ensure_ascii=False, default=str)}\n\n"
 
     try:
+        if langgraph_enabled():
+            logger.info("[SSE] Iniciando fluxo via LangGraph para sessao=%s", sessao_id)
+            
+            # O legacy_runner é o core atual, que o grafo pode chamar no nó 'execute'
+            # Capturamos 'db' e 'current_user' via closure para NÃO passá-los pelo LangGraph State
+            async def _legacy_runner(payload: dict):
+                final_resp = None
+                # O payload aqui vem do Grafo e contém strings/dicts simples (serializáveis)
+                # Injetamos os objetos pesados (Session, User) aqui no momento da execução
+                async for event_str in assistente_v2_stream_core(
+                    mensagem=payload.get("mensagem", mensagem),
+                    sessao_id=payload.get("sessao_id", sessao_id),
+                    db=db, # Do escopo externo
+                    current_user=current_user, # Do escopo externo
+                    engine=payload.get("engine", engine),
+                    request_id=payload.get("request_id", request_id),
+                    confirmation_token=payload.get("confirmation_token", confirmation_token),
+                    override_args=payload.get("override_args", override_args),
+                    agent_name=payload.get("agent_name"),
+                ):
+                    if not event_str.startswith("data: "): continue
+                    ev = json.loads(event_str[6:])
+                    if ev.get("is_final"):
+                        final_resp = ev.get("metadata")
+                return final_resp
+
+            # Payload limpo de objetos não serializáveis (apenas metadados e IDs)
+            graph_payload = {
+                "mensagem": mensagem,
+                "sessao_id": sessao_id,
+                "engine": engine,
+                "request_id": request_id,
+                "confirmation_token": confirmation_token,
+                "override_args": override_args,
+            }
+
+            async for event in run_assistant_v2_graph_stream(
+                message=mensagem,
+                empresa_id=getattr(current_user, "empresa_id", 0),
+                usuario_id=getattr(current_user, "id", 0),
+                thread_id=sessao_id,
+                payload=graph_payload,
+                legacy_runner=_legacy_runner
+            ):
+                if event.get("is_final"):
+                    # O grafo terminou e o runner legado retornou o metadata completo
+                    res = event.get("result")
+                    if res:
+                        yield _enc({"chunk": res.get("final_text", "")})
+                        yield _enc({"is_final": True, "final_text": res.get("final_text"), "metadata": res})
+                else:
+                    # Emite breadcrumbs: {"phase": "langgraph_step", "node": "...", ...}
+                    yield _enc(event)
+            return
+
+        # Fallback ou LangGraph desabilitado
         async for event in assistente_v2_stream_core(
             mensagem=mensagem,
             sessao_id=sessao_id,
@@ -5890,6 +6101,7 @@ async def assistente_unificado_stream(
             override_args=override_args,
         ):
             yield event
+
     except asyncio.TimeoutError:
         yield f"data: {json.dumps({'error': 'Tempo limite atingido. Tente novamente.'})}\n\n"
     except Exception as exc:

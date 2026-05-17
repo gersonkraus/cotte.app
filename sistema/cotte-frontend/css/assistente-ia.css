@@ -3957,6 +3957,68 @@ body.embed-mode .chat-header-new-btn {
   opacity: 0.9;
 }
 
+/* ── LangGraph Step Badge (v2.1 breadcrumbs) ────────────────────────────── */
+.langgraph-step-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--ai-muted);
+  background: color-mix(in srgb, var(--ai-card) 85%, var(--ai-bg) 15%);
+  border: 1px solid var(--ai-border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  margin-bottom: 8px;
+  transition: all 0.3s ease;
+  animation: slideInUp 0.3s ease-out;
+}
+
+.langgraph-step-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ai-accent);
+  box-shadow: 0 0 8px var(--ai-accent);
+  animation: pulse-ai 1.5s infinite;
+}
+
+@keyframes pulse-ai {
+  0% { transform: scale(0.9); opacity: 0.6; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.6; }
+}
+
+@keyframes slideInUp {
+  from { transform: translateY(5px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* ── AI Cache Badge (v2.1 optimization) ────────────────────────────────── */
+.ai-cache-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ai-accent);
+  background: color-mix(in srgb, var(--ai-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ai-accent) 30%, transparent);
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-top: 10px;
+  opacity: 0.9;
+  cursor: help;
+  animation: fadeIn 0.5s ease-out;
+}
+
+.ai-cache-badge i {
+  font-size: 0.75rem;
+  filter: drop-shadow(0 0 2px var(--ai-accent));
+}
+
 /* ═══════════════════════════════════════════════════════════ */
 /* FASE 1: LAZY LOADING DE GRÁFICOS                         */
 /* ═══════════════════════════════════════════════════════════ */
@@ -5260,4 +5322,66 @@ body.embed-mode .chat-header-new-btn {
 @media (prefers-reduced-motion: reduce) {
   #assistente-tour { animation: none; }
   .tour-example, .tour-skip-btn, .tour-nav-btn, .tour-dot { transition: none; }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   📦 EVOLUÇÃO v2.1: LangGraph & Multimodal
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Badge de Passos do Grafo (Breadcrumbs) */
+.langgraph-step-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: var(--ai-chip-bg);
+    border: 1px solid color-mix(in srgb, var(--ai-accent) 20%, transparent);
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--ai-accent-dark);
+    margin-bottom: 10px;
+    animation: fadeIn 0.3s ease;
+}
+
+.langgraph-step-dot {
+    width: 6px;
+    height: 6px;
+    background: var(--ai-accent);
+    border-radius: 50%;
+    animation: status-pulse 1.5s infinite;
+}
+
+/* Badge de Cache Semântico */
+.ai-cache-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    padding: 4px 10px;
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    border-radius: 6px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #b45309;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+/* Animação de Gravação de Voz */
+.btn-voice.is-recording {
+    background: #ef4444 !important;
+    animation: voice-recording-pulse 1.5s infinite;
+}
+
+@keyframes voice-recording-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+/* Esconder dots originais quando temos breadcrumbs */
+.message.loading.has-steps .ai-loading-row--skeleton {
+    display: none;
 }

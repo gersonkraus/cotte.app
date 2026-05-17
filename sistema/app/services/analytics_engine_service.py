@@ -11,7 +11,7 @@ from typing import Any, Optional
 from sqlalchemy.orm import Session
 
 from app.models.models import Usuario
-from app.services.ai_tools import operational_tool_catalog
+from app.ai.tools import operational_tool_catalog
 from app.services.assistant_engine_registry import (
     ENGINE_ANALYTICS,
     get_engine_policy,
