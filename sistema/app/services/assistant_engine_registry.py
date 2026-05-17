@@ -163,6 +163,7 @@ CAPABILITY_FLAGS = {
     "code_rag_tecnico": "V2_CODE_RAG",
     "sql_agent": "V2_SQL_AGENT",
     "langgraph_orchestration": "V2_LANGGRAPH_ORCHESTRATION",
+    "langgraph_direct_agents": "V2_LANGGRAPH_DIRECT_AGENTS",
     "semantic_autonomy": "V2_SEMANTIC_AUTONOMY",
 }
 

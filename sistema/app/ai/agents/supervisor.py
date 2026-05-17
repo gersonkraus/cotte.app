@@ -2,10 +2,13 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any, List, Dict, Literal
 from pydantic import BaseModel, Field
 
 from app.ai.agents.base import BaseAgent, AgentResponse
+
+logger = logging.getLogger(__name__)
 
 class SupervisorOutput(BaseModel):
     """Output schema for the Supervisor Agent."""

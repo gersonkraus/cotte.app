@@ -34,6 +34,8 @@ from app.ai.agents.support_agent import SupportAgent
 from app.ai.agents.operador_agent import OperadorAgent
 from app.ai.agents.data_agent import DataAgent
 from app.ai.agents.conversational_agent import ConversationalAgent
+from app.ai.agents.tool_runner import run_agent_with_tools
+from app.ai.orchestrator.service import direct_agents_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -59,9 +61,42 @@ class AssistantState(TypedDict):
     node_trace: List[dict[str, Any]]
 
 
+def _env_flag(name: str, *, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return str(raw).strip().lower() in {"1", "true", "yes", "on"}
+
+
 def langgraph_enabled() -> bool:
     """Verifica se a orquestração via LangGraph deve ser utilizada."""
-    return str(os.getenv("V2_LANGGRAPH_ORCHESTRATION", "false")).lower() in {"1", "true", "yes", "on"}
+    return _env_flag("V2_LANGGRAPH_ORCHESTRATION") or _env_flag("USE_LANGGRAPH_ASSISTANT")
+
+
+def _messages_for_agent(messages: list[Any]) -> list[dict[str, Any]]:
+    converted: list[dict[str, Any]] = []
+    for message in messages:
+        if isinstance(message, dict):
+            converted.append({"role": message.get("role"), "content": message.get("content", "")})
+            continue
+
+        role = getattr(message, "role", None)
+        if role is None:
+            if isinstance(message, HumanMessage):
+                role = "user"
+            elif isinstance(message, AIMessage):
+                role = "assistant"
+            else:
+                role = getattr(message, "type", "user")
+
+        converted.append({"role": role, "content": getattr(message, "content", "")})
+    return converted
+
+
+def _message_content(message: Any) -> str:
+    if isinstance(message, dict):
+        return str(message.get("content") or "")
+    return str(getattr(message, "content", "") or "")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -138,14 +173,49 @@ async def specialist_agent_node(
     payload["agent_name"] = agent_name
     payload["empresa_id"] = state["empresa_id"]
     payload["usuario_id"] = state["usuario_id"]
-    payload["mensagem"] = state["messages"][-1].content if state["messages"] else ""
-    
+    payload["mensagem"] = _message_content(state["messages"][-1]) if state["messages"] else ""
+    errors = list(state.get("errors") or [])
+    node_trace = list(state.get("node_trace") or [])
+
+    if direct_agents_enabled() and payload.get("db") is not None and payload.get("current_user") is not None:
+        try:
+            agent = agent_class()
+            response = await run_agent_with_tools(
+                agent,
+                messages=_messages_for_agent(state.get("messages") or []),
+                db=payload["db"],
+                current_user=payload["current_user"],
+                sessao_id=state.get("sessao_id") or payload.get("sessao_id"),
+                engine=payload.get("engine", "operational"),
+            )
+            result = {"final_text": response.content, "content": response.content}
+            if response.metadata:
+                result["metadata"] = response.metadata
+
+            updates = {
+                "result": result,
+                "next_agent": "FINISH",
+                "payload": payload,
+                "node_trace": node_trace + [{"agent": agent_name, "mode": "direct"}],
+            }
+            if response.content:
+                updates["messages"] = [AIMessage(content=response.content)]
+            return updates
+        except Exception as e:
+            logger.error(f"[Specialist {agent_name}] Erro no agente direto, usando legado: {e}")
+            errors.append(str(e))
+            node_trace.append({"agent": agent_name, "mode": "direct", "error": str(e)})
+     
     try:
         # No futuro, aqui usaremos agent_class() diretamente.
         # Por enquanto, o legacy_runner em cotte_ai_hub ainda é o maestro das ferramentas.
         result = await legacy_runner(payload)
-        
+         
         updates = {"result": result, "next_agent": "FINISH"}
+        if errors:
+            updates["errors"] = errors
+        if node_trace:
+            updates["node_trace"] = node_trace
         if result and result.get("final_text"):
             updates["messages"] = [AIMessage(content=result["final_text"])]
             

@@ -13,7 +13,7 @@ class AgentResponse(BaseModel):
     """Standardized response from an agent."""
     content: str
     tool_calls: List[Dict[str, Any]] = Field(default_factory=list)
-    metadata: Dict[str, Any] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 class Agent(Protocol):
     """Protocol for AI Agents."""
