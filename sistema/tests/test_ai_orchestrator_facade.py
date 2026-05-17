@@ -1,4 +1,5 @@
 import pytest
+from typing import AsyncGenerator
 
 from app.ai.channels.types import ChannelMessage, ChannelResponse
 from app.ai.orchestrator import AssistantOrchestrator, direct_agents_enabled
@@ -172,3 +173,23 @@ def test_orchestrator_run_preserva_channel_response():
     response = AssistantOrchestrator(legacy_runner).run(message)
 
     assert response is expected
+
+
+@pytest.mark.asyncio
+async def test_assistant_orchestrator_run_stream_uses_legacy_stream_when_direct_disabled(monkeypatch):
+    monkeypatch.setenv("V2_LANGGRAPH_DIRECT_AGENTS", "0")
+
+    async def mock_legacy_stream(payload: dict) -> AsyncGenerator[str, None]:
+        yield f"legacy stream: {payload['mensagem']}"
+
+    orchestrator = AssistantOrchestrator(
+        legacy_runner=lambda p: None,
+        legacy_stream_runner=mock_legacy_stream
+    )
+    message = ChannelMessage(channel="web", text="teste stream", empresa_id=1, usuario_id=1, sessao_id="123")
+    
+    chunks = []
+    async for chunk in orchestrator.run_stream(message):
+        chunks.append(chunk)
+        
+    assert chunks == ["legacy stream: teste stream"]

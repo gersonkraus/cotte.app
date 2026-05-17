@@ -16,12 +16,35 @@ def direct_agents_enabled() -> bool:
 
 
 class AssistantOrchestrator:
-    def __init__(self, legacy_runner: Callable[[dict[str, Any]], Any]) -> None:
+    def __init__(
+        self, 
+        legacy_runner: Callable[[dict[str, Any]], Any],
+        legacy_stream_runner: Callable[[dict[str, Any]], Any] | None = None
+    ) -> None:
         self.legacy_runner = legacy_runner
+        self.legacy_stream_runner = legacy_stream_runner
 
     def run(self, message: ChannelMessage) -> ChannelResponse:
         result = self.legacy_runner(self._legacy_payload(message))
         return self._to_channel_response(result)
+
+    async def run_stream(self, message: ChannelMessage) -> Any:
+        try:
+            from app.ai.graph.assistant import langgraph_enabled
+            is_langgraph = langgraph_enabled()
+        except ImportError:
+            is_langgraph = False
+
+        if direct_agents_enabled() and is_langgraph:
+            if self.legacy_stream_runner:
+                async for chunk in self.legacy_stream_runner(self._legacy_payload(message)):
+                    yield chunk
+        else:
+            if self.legacy_stream_runner:
+                async for chunk in self.legacy_stream_runner(self._legacy_payload(message)):
+                    yield chunk
+            else:
+                yield "Streaming not supported by legacy runner configuration."
 
     def _legacy_payload(self, message: ChannelMessage) -> dict[str, Any]:
         return {
