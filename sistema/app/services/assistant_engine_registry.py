@@ -85,6 +85,7 @@ ENGINE_POLICIES: dict[str, EnginePolicy] = {
             "gerar_relatorio_ranking_clientes",
             "gerar_relatorio_contas_a_receber",
             "gerar_relatorio_vendas",
+            "executar_sql_analitico",
         ),
         allow_tenant_rag=True,
         allow_business_context=True,
