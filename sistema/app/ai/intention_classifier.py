@@ -337,6 +337,14 @@ class IntentionClassifier:
 
     # I) OPERADOR — comandos de execução em orçamentos existentes
     OPERADOR_KEYWORDS = [
+        r'\b(adicionar?|adiciona|inserir?|colocar?)\b.*(?:[A-Za-z]+-\d+|\d+)\b',
+        r'\b(remover?|remove|deletar?|excluir?)\b.*(?:[A-Za-z]+-\d+|\d+)\b',
+        r'\b(desconto|abatimento)\b.*(?:[A-Za-z]+-\d+|\d+)\b',
+        r'\b(alterar?|editar?|mudar?)\b.*(?:[A-Za-z]+-\d+|\d+)\b',
+        r'\b(adicionar?|adiciona|inserir?|colocar?)\b.*\b(?:or[çc]amento|orc)\b',
+        r'\b(remover?|remove|deletar?|excluir?)\b.*\b(?:or[çc]amento|orc)\b',
+        r'\b(desconto|abatimento)\b.*\b(?:or[çc]amento|orc)\b',
+        r'\b(alterar?|editar?|mudar?)\b.*\b(?:or[çc]amento|orc)\b',
         r'\b(duplicar?|copiar?|clonar?|clone)\s+(?:[A-Za-z]+-\d+|\d+)\b',
         r'\b(ver|mostrar?|abrir|acessar|carregar|detalhes?)\s*(?:do\s+|o\s+)?(?:or[çc]amento|orc)?\s*(?:n[oó]mero|n[oó]|num|#)?\s*(?:[A-Za-z0-9]+-)?\d+\b',
         r'^or[çc]amentos?\s+(?:n[oó]mero|n[oó]|num|#)?\s*(?:[A-Za-z]+-)?\d+$',
