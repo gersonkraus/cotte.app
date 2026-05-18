@@ -950,7 +950,7 @@ function resolveAssistenteRenderResult(data, isStreamed = false) {
             }
         }
         if (_hasKnownEntity) {
-            return { html: renderGenericDataList(dados), rendererId: 'renderGenericDataList', tipoResposta, dados };
+            return { html: renderGenericDataList(dados), rendererId: 'renderGenericDataList', tipoResposta: 'orcamento_card_unificado', dados };
         }
         return { html: '<div class="orc-list-empty">Nenhum dado disponível para exibição. Tente refinar sua consulta.</div>', rendererId: 'emptyListFallback', tipoResposta, dados };
     }
@@ -1444,6 +1444,31 @@ function renderGenericDataList(dados) {
     var mobileCards = '';
     if (typeof config.mobileCardFn === 'function') {
         mobileCards = items.map(config.mobileCardFn).join('');
+    } else {
+        mobileCards = items.map(function(item) {
+            var html = '<div class="cliente-card-mobile">';
+            html += '<div class="cliente-card-mobile__header" style="justify-content: space-between">';
+            
+            var tVal = item[config.titleKey] || item.numero || item.descricao || item.nome || item.id;
+            html += '<span class="cliente-card-mobile__nome" style="font-size: 1rem;">' + escapeHtml(String(tVal || '—')) + '</span>';
+            
+            if (config.badgeField) {
+                var sVal = item[config.badgeField] || '';
+                var bClass = (config.badgeMap && config.badgeMap[String(sVal).toLowerCase()]) || '';
+                if (bClass) html += '<span class="opr-status-badge ' + bClass + '" style="font-size:0.7em;padding:2px 6px;">' + escapeHtml(String(sVal)) + '</span>';
+                else if (sVal) html += '<span style="font-size:0.75rem;font-weight:600;color:var(--ai-muted)">' + escapeHtml(String(sVal)) + '</span>';
+            }
+            html += '</div><div class="cliente-card-mobile__body">';
+            
+            columnSchemas.forEach(function(col) {
+                if (col.key === config.titleKey || col.key === config.badgeField) return;
+                var raw = item[col.key];
+                var display = hasSchema ? _formatValueBySchema(raw, col) : _formatValueBySchema(raw, { key: col.key, format: '' });
+                html += '<div class="cliente-card-mobile__row"><span class="cliente-card-mobile__label" style="min-width: 90px">' + escapeHtml(_schemaLabel(col)) + '</span><span class="cliente-card-mobile__value">' + escapeHtml(String(display != null ? display : '—')) + '</span></div>';
+            });
+            html += '</div></div>';
+            return html;
+        }).join('');
     }
 
     var printableRows = items.map(function(item) {

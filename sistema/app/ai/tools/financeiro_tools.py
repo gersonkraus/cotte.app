@@ -636,7 +636,18 @@ async def _gerar_relatorio_vendas(
             "entity_config": {
                 "title": f"Relatório de Vendas ({inp.agrupar_por})",
                 "title_key": "agrupador",
-                "columns": [
+                
+        "badge_field": "status",
+        "badge_map": {
+            "pago": "badge-aprovado",
+            "paga": "badge-aprovado",
+            "em_aberto": "badge-rascunho",
+            "vencida": "badge-recusado",
+            "atrasada": "badge-recusado",
+            "pendente": "badge-enviado",
+            "cancelada": "badge-expirado"
+        },
+        "columns": [
                     {"key": "agrupador", "label": inp.agrupar_por.capitalize()},
                     {"key": "total_vendido", "label": "Total Vendido", "format": "currency", "align": "right"},
                     {"key": "quantidade_vendas", "label": "Qtd. Vendas", "align": "right"},
@@ -767,7 +778,18 @@ async def _gerar_relatorio_contas_a_receber(
                 "entity_config": {
                     "title": "Contas a Receber por Cliente",
                     "title_key": "cliente",
-                    "columns": [
+                    
+        "badge_field": "status",
+        "badge_map": {
+            "pago": "badge-aprovado",
+            "paga": "badge-aprovado",
+            "em_aberto": "badge-rascunho",
+            "vencida": "badge-recusado",
+            "atrasada": "badge-recusado",
+            "pendente": "badge-enviado",
+            "cancelada": "badge-expirado"
+        },
+        "columns": [
                         {"key": "cliente", "label": "Cliente"},
                         {"key": "total_devido", "label": "Total Devido", "format": "currency", "align": "right"},
                         {"key": "quantidade_contas", "label": "Qtd. Contas", "align": "right"},
@@ -816,7 +838,18 @@ async def _gerar_relatorio_contas_a_receber(
             "entity_config": {
                 "title": "Contas a Receber" + (" — Vencidas" if inp.apenas_vencidas else ""),
                 "title_key": "cliente",
-                "columns": [
+                
+        "badge_field": "status",
+        "badge_map": {
+            "pago": "badge-aprovado",
+            "paga": "badge-aprovado",
+            "em_aberto": "badge-rascunho",
+            "vencida": "badge-recusado",
+            "atrasada": "badge-recusado",
+            "pendente": "badge-enviado",
+            "cancelada": "badge-expirado"
+        },
+        "columns": [
                     {"key": "cliente", "label": "Cliente"},
                     {"key": "descricao", "label": "Descrição"},
                     {"key": "valor_devido", "label": "Valor Devido", "format": "currency", "align": "right"},
