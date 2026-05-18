@@ -31,8 +31,8 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
         return;
     }
 
-    const isSilentLoadMore = window._isSilentLoadMoreOrcamentos || window._isSilentLoadMoreClientes;
-    console.log('[load more] isSilentLoadMore:', isSilentLoadMore, '_isSilentLoadMoreOrcamentos:', window._isSilentLoadMoreOrcamentos);
+    const isSilentLoadMore = window._isSilentLoadMoreOrcamentos || window._isSilentLoadMoreClientes || window._isSilentLoadMoreGeneric;
+    console.log('[load more] isSilentLoadMore:', isSilentLoadMore, '_isSilentLoadMoreOrcamentos:', window._isSilentLoadMoreOrcamentos, '_isSilentLoadMoreGeneric:', window._isSilentLoadMoreGeneric);
     if (isSilentLoadMore) {
         const dados = data.dados || data;
         const isOrcamentos = window._isSilentLoadMoreOrcamentos && Array.isArray(dados.orcamentos) && dados.orcamentos.length > 0;
@@ -41,6 +41,26 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
         
         window._isSilentLoadMoreOrcamentos = false;
         window._isSilentLoadMoreClientes = false;
+
+        var isGeneric = false;
+        if (window._isSilentLoadMoreGeneric) {
+            window._isSilentLoadMoreGeneric = false;
+            var gEntityKey = window._silentGenericEntityKey || '';
+            window._silentGenericEntityKey = '';
+            if (gEntityKey && Array.isArray(dados[gEntityKey]) && dados[gEntityKey].length > 0) {
+                dados._entity_key = gEntityKey;
+                isGeneric = true;
+            } else {
+                var knownEntities = Object.keys(_GENERIC_LIST_ENTITY_CONFIGS || {});
+                for (var gei = 0; gei < knownEntities.length; gei++) {
+                    if (Array.isArray(dados[knownEntities[gei]]) && dados[knownEntities[gei]].length > 0) {
+                        dados._entity_key = knownEntities[gei];
+                        isGeneric = true;
+                        break;
+                    }
+                }
+            }
+        }
         
         if (isOrcamentos) {
             if (!isStreamed && loadingMessage && loadingMessage.remove) {
@@ -58,6 +78,15 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
                 loadingMessage.remove();
             }
             _appendClientesToExistingTable(dados);
+            return;
+        }
+        if (isGeneric) {
+            if (!isStreamed && loadingMessage && loadingMessage.remove) {
+                loadingMessage.remove();
+            } else if (isStreamed && loadingMessage && loadingMessage.remove) {
+                loadingMessage.remove();
+            }
+            _appendGenericRowsToExistingTable(dados);
             return;
         }
     }
@@ -484,3 +513,117 @@ function _appendClientesToExistingTable(dados) {
 
 window._appendOrcamentosToExistingTable = _appendOrcamentosToExistingTable;
 window._appendClientesToExistingTable = _appendClientesToExistingTable;
+
+function _appendGenericRowsToExistingTable(dados) {
+    var chatMessages = document.getElementById('chatMessages');
+    if (!chatMessages) return;
+
+    var entityKey = dados._entity_key;
+    if (!entityKey) {
+        var knownEntities = Object.keys(_GENERIC_LIST_ENTITY_CONFIGS || {});
+        for (var i = 0; i < knownEntities.length; i++) {
+            if (Array.isArray(dados[knownEntities[i]])) { entityKey = knownEntities[i]; break; }
+        }
+    }
+    if (!entityKey) return;
+
+    var lastCard = chatMessages.querySelector('.orc-list-card[data-entity-key="' + entityKey + '"]');
+    if (!lastCard) lastCard = chatMessages.querySelector('.orc-list-card[data-testid="assistente-generic-list-card"]');
+    if (!lastCard) return;
+
+    var items = Array.isArray(dados[entityKey]) ? dados[entityKey] : [];
+    var config = (_GENERIC_LIST_ENTITY_CONFIGS || {})[entityKey] || {};
+    var tbody = lastCard.querySelector('.ai-table tbody');
+
+    if (tbody && items.length > 0) {
+        var hasSchema = config.columnSchema && Array.isArray(config.columnSchema) && config.columnSchema.length > 0;
+        var columnDefs = [];
+
+        if (hasSchema) {
+            columnDefs = config.columnSchema.map(function(col) { return col.key; });
+        } else {
+            var seen = {};
+            items.slice(0, 10).forEach(function(item) {
+                for (var k in item) {
+                    if (item.hasOwnProperty(k) && !seen[k] && typeof item[k] !== 'object') {
+                        seen[k] = true;
+                        columnDefs.push(k);
+                    }
+                }
+            });
+            var skipColKeys = ['id', 'empresa_id', 'usuario_id', '_meta'];
+            columnDefs = columnDefs.filter(function(k) { return skipColKeys.indexOf(k) < 0; });
+        }
+
+        items.forEach(function(item) {
+            var tds = columnDefs.map(function(k) {
+                var raw = item[k];
+                var display = raw;
+                if (hasSchema) {
+                    var colSchema = config.columnSchema.find(function(c) { return c.key === k; }) || {};
+                    display = typeof _formatValueBySchema === 'function'
+                        ? _formatValueBySchema(raw, colSchema)
+                        : (raw != null ? String(raw) : '—');
+                } else {
+                    if (raw === null || raw === undefined) { display = '—'; }
+                    else if (typeof raw === 'number' && /valor|total|preco|preço|saldo|despesa|receita|ticket/i.test(k)) {
+                        display = typeof formatValue === 'function' ? formatValue(raw) : 'R$ ' + raw.toFixed(2).replace('.', ',');
+                    } else if (typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(raw)) {
+                        var d = new Date(raw);
+                        display = String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
+                    }
+                }
+                return '<td data-label="' + escapeHtml(k) + '"><span class="ai-td-content">' + escapeHtml(String(display != null ? display : '—')) + '</span></td>';
+            }).join('');
+
+            if (config.badgeField && item[config.badgeField]) {
+                var statusKey = String(item[config.badgeField]).toLowerCase();
+                var badgeClass = (config.badgeMap && config.badgeMap[statusKey]) || '';
+                tds += '<td data-label="' + escapeHtml(config.badgeField) + '">' + (badgeClass ? '<span class="opr-status-badge ' + badgeClass + '" style="font-size:0.7em;padding:2px 6px;">' + escapeHtml(String(item[config.badgeField])) + '</span>' : escapeHtml(String(item[config.badgeField]))) + '</td>';
+            }
+
+            if (typeof config.actionFn === 'function') {
+                tds += '<td data-label="Ações">' + config.actionFn(item) + '</td>';
+            }
+
+            var tr = document.createElement('tr');
+            tr.innerHTML = tds;
+            tbody.appendChild(tr);
+        });
+    }
+
+    if (typeof config.mobileCardFn === 'function') {
+        var mobileContainer = lastCard.querySelector('.cliente-lista-mobile');
+        if (mobileContainer) {
+            items.forEach(function(item) {
+                var div = document.createElement('div');
+                div.innerHTML = config.mobileCardFn(item);
+                mobileContainer.appendChild(div.firstChild);
+            });
+        }
+    }
+
+    var existingLoadMore = lastCard.querySelector('[data-generic-load-more]');
+    if (existingLoadMore) {
+        var hasMore = !!dados.has_more;
+        var nextCursor = dados.next_cursor || '';
+        if (!hasMore || !nextCursor) {
+            existingLoadMore.parentElement.remove();
+        } else {
+            existingLoadMore.setAttribute('data-cursor', nextCursor);
+            var filtros = dados.filtros || {};
+            for (var fk in filtros) {
+                if (filtros.hasOwnProperty(fk) && filtros[fk]) {
+                    existingLoadMore.setAttribute('data-filter-' + fk, String(filtros[fk]));
+                }
+            }
+            existingLoadMore.textContent = config.loadMoreLabel || 'Carregar mais';
+        }
+    }
+
+    if (typeof saveChatHistory === 'function') {
+        setTimeout(saveChatHistory, 500);
+    }
+}
+
+window._appendGenericRowsToExistingTable = _appendGenericRowsToExistingTable;

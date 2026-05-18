@@ -1025,6 +1025,44 @@ function initAssistenteChatDelegation() {
             return;
         }
 
+        const loadMoreGenericBtn = t.closest('[data-generic-load-more]');
+        if (loadMoreGenericBtn && !loadMoreGenericBtn.closest('[data-orcamentos-load-more]') && !loadMoreGenericBtn.closest('[data-clientes-load-more]')) {
+            e.preventDefault();
+            const cursor = loadMoreGenericBtn.getAttribute('data-cursor') || '';
+            const entityKey = loadMoreGenericBtn.getAttribute('data-entity-key') || '';
+            const lim = loadMoreGenericBtn.getAttribute('data-limit') || '10';
+            
+            if (!cursor) return;
+            
+            var gConfig = (_GENERIC_LIST_ENTITY_CONFIGS || {})[entityKey] || {};
+            var gAttrs = { cursor: cursor, limit: lim };
+            var allAttrs = loadMoreGenericBtn.attributes;
+            for (var ai = 0; ai < allAttrs.length; ai++) {
+                if (allAttrs[ai].name.indexOf('data-filter-') === 0) {
+                    var filterKey = allAttrs[ai].name.replace('data-filter-', '');
+                    gAttrs[filterKey] = allAttrs[ai].value;
+                }
+            }
+
+            var gCommand = '';
+            if (typeof gConfig.loadMoreCommandFn === 'function') {
+                gCommand = gConfig.loadMoreCommandFn(gAttrs);
+            } else {
+                gCommand = 'Liste mais ' + (entityKey || 'resultados') + ' com cursor "' + cursor + '", limite ' + lim + '.';
+                for (var fk in gAttrs) {
+                    if (gAttrs.hasOwnProperty(fk) && fk !== 'cursor' && fk !== 'limit' && gAttrs[fk]) {
+                        gCommand += ' ' + fk + ' ' + gAttrs[fk] + '.';
+                    }
+                }
+            }
+
+            window._isSilentLoadMoreGeneric = true;
+            window._silentNextMessage = true;
+            window._silentGenericEntityKey = entityKey;
+            sendQuickMessage(gCommand);
+            return;
+        }
+
         const semanticPreviewBtn = t.closest('[data-semantic-print-preview]');
         if (semanticPreviewBtn) {
             e.preventDefault();

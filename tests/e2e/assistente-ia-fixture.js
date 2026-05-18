@@ -390,6 +390,140 @@ async function prepararPaginaAssistente(page, options = {}) {
         return;
       }
 
+      if (mensagem.includes('listar notas') || mensagem.includes('listar produtos') || mensagem.includes('entidade generica')) {
+        const entityKey = mensagem.includes('notas') ? 'notas_fiscais' : (mensagem.includes('produtos') ? 'produtos' : 'servicos');
+        const entityLabel = entityKey === 'notas_fiscais' ? 'Notas Fiscais' : (entityKey === 'produtos' ? 'Produtos' : 'Serviços');
+        const items = [
+          { id: 1, nome: entityLabel + ' A', valor: 150.00, status: 'ativo', criado_em: '2026-04-10T10:00:00' },
+          { id: 2, nome: entityLabel + ' B', valor: 320.50, status: 'pendente', criado_em: '2026-04-12T14:30:00' },
+          { id: 3, nome: entityLabel + ' C', valor: 89.90, status: 'ativo', criado_em: '2026-04-15T09:00:00' },
+        ];
+        const listDados = {
+          is_list: true,
+          total: items.length,
+          has_more: true,
+          next_cursor: 'cursor-test-123',
+          limit: 10,
+          filtros: {},
+          totais_por_status: { ativo: 2, pendente: 1 },
+        };
+        listDados[entityKey] = items;
+        await route.fulfill({
+          status: 200,
+          contentType: 'text/event-stream',
+          body: sse([
+            { phase: 'thinking' },
+            { chunk: 'Encontrei ' + items.length + ' registros.' },
+            {
+              is_final: true,
+              final_text: 'Encontrei ' + items.length + ' registros.',
+              metadata: {
+                final_text: 'Encontrei ' + items.length + ' registros.',
+                tipo: 'geral',
+                dados: listDados,
+              },
+            },
+          ]),
+        });
+        return;
+      }
+
+      if (mensagem.includes('lista vazia') || mensagem.includes('sem registros')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'text/event-stream',
+          body: sse([
+            { phase: 'thinking' },
+            { chunk: 'Nenhum registro encontrado.' },
+            {
+              is_final: true,
+              final_text: 'Nenhum registro encontrado.',
+              metadata: {
+                final_text: 'Nenhum registro encontrado.',
+                tipo: 'geral',
+                dados: {
+                  is_list: true,
+                  total: 0,
+                  has_more: false,
+                  next_cursor: null,
+                  itens_desconhecidos: [],
+                  filtros: { status: 'cancelado' },
+                },
+              },
+            },
+          ]),
+        });
+        return;
+      }
+
+      if (mensagem.includes('register entity')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'text/event-stream',
+          body: sse([
+            { phase: 'thinking' },
+            {
+              is_final: true,
+              final_text: 'Entidade registrada.',
+              metadata: {
+                final_text: 'Entidade registrada.',
+                tipo: 'geral',
+                dados: {
+                  is_list: true,
+                  total: 2,
+                  has_more: false,
+                  veiculos: [
+                    { id: 1, modelo: ' Civic', placa: 'ABC-1234', ano: 2024 },
+                    { id: 2, modelo: 'Corolla', placa: 'XYZ-5678', ano: 2025 },
+                  ],
+                },
+              },
+            },
+          ]),
+        });
+        return;
+      }
+
+      if (mensagem.includes('entity config auto')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'text/event-stream',
+          body: sse([
+            { phase: 'thinking' },
+            { chunk: 'Listagem com config do backend.' },
+            {
+              is_final: true,
+              final_text: 'Listagem com config do backend.',
+              metadata: {
+                final_text: 'Listagem com config do backend.',
+                tipo: 'geral',
+                dados: {
+                  is_list: true,
+                  total: 2,
+                  has_more: false,
+                  entity_config: {
+                    title: 'Fornecedores',
+                    title_key: 'razao_social',
+                    columns: [
+                      { key: 'razao_social', label: 'Razão Social' },
+                      { key: 'cnpj', label: 'CNPJ', format: 'cnpj' },
+                      { key: 'total_compras', label: 'Total Compras', format: 'currency', align: 'right' },
+                      { key: 'status', label: 'Situação' }
+                    ],
+                    load_more_label: 'Carregar mais fornecedores'
+                  },
+                  fornecedores: [
+                    { razao_social: 'Empresa Alpha', cnpj: '12345678000190', total_compras: 15000.50, status: 'ativo' },
+                    { razao_social: 'Comércio Beta', cnpj: '98765432000110', total_compras: 8500.00, status: 'inativo' },
+                  ],
+                },
+              },
+            },
+          ]),
+        });
+        return;
+      }
+
       await route.fulfill({
         status: 200,
         contentType: 'text/event-stream',

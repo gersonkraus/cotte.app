@@ -1043,10 +1043,9 @@ async function sendMessage() {
         // Adicionado para renderizar listas paginadas
         const listData = finalData.dados && (finalData.dados._meta_frontend_data || (finalData.dados.is_list && finalData.dados));
         if(listData && listData.is_list) {
-            // Aqui você chamaria a função que renderiza a tabela paginada
-            // Por exemplo: renderOrcamentosTabelaPaginada(listData);
-            // Como essa função não existe, vamos apenas logar por enquanto
-            console.log("Recebidos dados para lista paginada:", listData);
+            if (typeof renderGenericDataList !== 'function') {
+                console.warn('[assistente] renderGenericDataList nao disponivel, dados de lista ignorados.');
+            }
         }
 
         // 🎤 Inovação: Síntese de voz automática (TTS) para a resposta final

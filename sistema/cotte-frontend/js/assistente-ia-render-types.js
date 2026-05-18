@@ -928,6 +928,26 @@ function resolveAssistenteRenderResult(data, isStreamed = false) {
         return { html: `<div class="resposta-direta">${textToHtmlRich(rawTxt)}</div>`, rendererId: 'resposta-direta', tipoResposta, dados };
     }
     
+    if (dados && dados.is_list && typeof renderGenericDataList === 'function') {
+        var _entityKeys = Object.keys(_GENERIC_LIST_ENTITY_CONFIGS || {});
+        var _hasKnownEntity = false;
+        for (var _ei = 0; _ei < _entityKeys.length; _ei++) {
+            if (Array.isArray(dados[_entityKeys[_ei]])) { _hasKnownEntity = true; break; }
+        }
+        if (!_hasKnownEntity) {
+            for (var _dk in dados) {
+                if (dados.hasOwnProperty(_dk) && Array.isArray(dados[_dk]) && dados[_dk].length > 0 && typeof dados[_dk][0] === 'object') {
+                    _hasKnownEntity = true;
+                    break;
+                }
+            }
+        }
+        if (_hasKnownEntity) {
+            return { html: renderGenericDataList(dados), rendererId: 'renderGenericDataList', tipoResposta, dados };
+        }
+        return { html: '<div class="orc-list-empty">Nenhum dado disponível para exibição. Tente refinar sua consulta.</div>', rendererId: 'emptyListFallback', tipoResposta, dados };
+    }
+
     const analiseHtml = renderAnaliseTexto(dados, isStreamed);
     const hasText = analiseHtml && String(analiseHtml).replace(/<[^>]*>/g, '').trim().length > 0;
     
@@ -1090,6 +1110,439 @@ window.usarSugestaoCatalogo = function(btn) {
         sendQuickMessage(`orçamento de ${item.nome}${preco}${cliente}`);
     }
 };
+
+var _GENERIC_LIST_ENTITY_CONFIGS = {
+    orcamentos: {
+        titleDefault: 'Orçamentos listados',
+        titleKey: 'numero',
+        titleFn: function(item) { return item.numero || ('#' + (item.id || '—')); },
+        badgeField: 'status',
+        badgeMap: { rascunho: 'badge-rascunho', enviado: 'badge-enviado', aprovado: 'badge-aprovado', recusado: 'badge-recusado', expirado: 'badge-expirado' },
+        actionFn: function(item) {
+            if (!item.id) return '';
+            return '<button type="button" class="btn btn-ghost" style="padding:2px 8px;font-size:11px;" onclick="if(typeof abrirDetalhesOrcamento===\'function\')abrirDetalhesOrcamento(' + item.id + ')" title="Ver detalhes">🔍 Ver</button>';
+        },
+        loadMoreAttr: 'data-orcamentos-load-more',
+        loadMoreLabel: 'Carregar mais resultados',
+        loadMoreCommandFn: function(attrs) {
+            var cmd = 'Liste mais orçamentos com cursor "' + attrs.cursor + '", limite ' + attrs.limit;
+            if (attrs.aprovado_em_de) cmd += ', aprovado_em_de ' + attrs.aprovado_em_de;
+            if (attrs.aprovado_em_ate) cmd += ', aprovado_em_ate ' + attrs.aprovado_em_ate;
+            cmd += '.';
+            if (attrs.status) cmd += ' Status ' + attrs.status + '.';
+            if (attrs.cliente_id) cmd += ' Cliente ' + attrs.cliente_id + '.';
+            return cmd;
+        }
+    },
+    clientes: {
+        titleDefault: 'Meus Clientes',
+        titleKey: 'nome',
+        actionFn: function(item) {
+            var btns = '';
+            if (item.id) btns += '<button type="button" class="btn-acao-tabela" onclick="if(typeof abrirDetalhesCliente===\'function\')abrirDetalhesCliente(' + item.id + ')" title="Ver detalhes"><span aria-hidden="true">🔍</span></button>';
+            if (item.telefone) btns += '<a href="https://wa.me/55' + String(item.telefone).replace(/\D/g, '') + '" target="_blank" class="btn-acao-tabela" title="WhatsApp"><span aria-hidden="true">💬</span></a>';
+            return btns ? '<div class="acoes-tabela">' + btns + '</div>' : '';
+        },
+        mobileCardFn: function(item) {
+            var html = '<div class="cliente-card-mobile">';
+            html += '<div class="cliente-card-mobile__header">';
+            html += '<span class="cliente-card-mobile__id">#' + escapeHtml(String(item.id || '—')) + '</span>';
+            html += '<span class="cliente-card-mobile__nome">' + escapeHtml(item.nome || '—') + '</span>';
+            html += '</div><div class="cliente-card-mobile__body">';
+            var fields = _genericExtractDisplayFields(item);
+            fields.forEach(function(f) {
+                if (f.key === 'id' || f.key === 'nome') return;
+                html += '<div class="cliente-card-mobile__row"><span class="cliente-card-mobile__label">' + escapeHtml(f.label) + '</span><span class="cliente-card-mobile__value">' + escapeHtml(String(f.value)) + '</span></div>';
+            });
+            html += '</div></div>';
+            return html;
+        },
+        loadMoreAttr: 'data-clientes-load-more',
+        loadMoreLabel: 'Carregar mais clientes',
+        loadMoreCommandFn: function(attrs) {
+            var cmd = 'Liste mais clientes com cursor "' + attrs.cursor + '", limite ' + attrs.limit;
+            if (attrs.busca) cmd += ', buscar "' + attrs.busca + '"';
+            return cmd + '.';
+        }
+    }
+};
+
+function _genericExtractDisplayFields(item) {
+    var skipKeys = ['id', '_meta', 'empresa_id', 'usuario_id'];
+    var fields = [];
+    for (var key in item) {
+        if (!item.hasOwnProperty(key) || skipKeys.indexOf(key) >= 0) continue;
+        var val = item[key];
+        if (val === null || val === undefined) continue;
+        if (typeof val === 'object') continue;
+        var label = key.replace(/_/g, ' ').replace(/^[a-z]/, function(l) { return l.toUpperCase(); });
+        var display = val;
+        if (typeof val === 'number') {
+            if (/valor|total|preco|preço|saldo|despesa|receita|ticket/i.test(key)) {
+                display = typeof formatValue === 'function' ? formatValue(val) : 'R$ ' + val.toFixed(2).replace('.', ',');
+            } else if (val % 1 !== 0) {
+                display = val.toLocaleString('pt-BR');
+            }
+        } else if (typeof val === 'boolean') {
+            display = val ? 'Sim' : 'Não';
+        } else if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(val)) {
+            var d = new Date(val);
+            var dia = String(d.getDate()).padStart(2, '0');
+            var mes = String(d.getMonth() + 1).padStart(2, '0');
+            var ano = d.getFullYear();
+            var hora = String(d.getHours()).padStart(2, '0');
+            var min = String(d.getMinutes()).padStart(2, '0');
+            display = (hora === '00' && min === '00') ? dia + '/' + mes + '/' + ano : dia + '/' + mes + '/' + ano + ' ' + hora + ':' + min;
+        } else if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val)) {
+            var parts = val.split('-');
+            display = parts[2] + '/' + parts[1] + '/' + parts[0];
+        }
+        fields.push({ key: key, label: label, value: display });
+    }
+    return fields;
+}
+
+function _entityConfigToGenericConfig(entityConfig, entityKey) {
+    var config = {};
+    if (entityConfig.title) config.titleDefault = entityConfig.title;
+    if (entityConfig.title_key) config.titleKey = entityConfig.title_key;
+    if (entityConfig.badge_field) config.badgeField = entityConfig.badge_field;
+    if (entityConfig.badge_map) config.badgeMap = entityConfig.badge_map;
+    if (entityConfig.load_more_label) config.loadMoreLabel = entityConfig.load_more_label;
+    if (entityConfig.load_more_command) {
+        var cmdTemplate = entityConfig.load_more_command;
+        config.loadMoreCommandFn = function(attrs) {
+            var result = cmdTemplate;
+            for (var ak in attrs) {
+                if (attrs.hasOwnProperty(ak)) {
+                    result = result.replace(new RegExp('\\{\\{' + ak + '\\}\\}', 'g'), String(attrs[ak] || ''));
+                }
+            }
+            return result;
+        };
+    }
+    if (Array.isArray(entityConfig.columns) && entityConfig.columns.length > 0) {
+        config.columnSchema = entityConfig.columns.map(function(col) {
+            if (typeof col === 'string') return { key: col };
+            return {
+                key: col.key || col.name || '',
+                label: col.label || col.title || '',
+                format: col.format || col.type || '',
+                align: col.align || ''
+            };
+        }).filter(function(col) { return !!col.key; });
+    }
+    return config;
+}
+
+function renderGenericDataList(dados) {
+    var entityKey = null;
+    var items = [];
+    var entityKeys = Object.keys(_GENERIC_LIST_ENTITY_CONFIGS);
+    for (var i = 0; i < entityKeys.length; i++) {
+        var ek = entityKeys[i];
+        if (Array.isArray(dados[ek]) && dados[ek].length >= 0) {
+            entityKey = ek;
+            items = dados[ek];
+            break;
+        }
+    }
+
+    if (!entityKey) {
+        for (var dk in dados) {
+            if (dados.hasOwnProperty(dk) && Array.isArray(dados[dk]) && dados[dk].length > 0 && typeof dados[dk][0] === 'object' && dados[dk][0] !== null) {
+                entityKey = dk;
+                items = dados[dk];
+                break;
+            }
+        }
+    }
+
+    if (!entityKey) {
+        return '<div class="orc-list-empty">Nenhum dado disponível para exibição.</div>';
+    }
+
+    var config = _GENERIC_LIST_ENTITY_CONFIGS[entityKey] || {};
+
+    if (dados.entity_config && typeof dados.entity_config === 'object') {
+        var ecConfig = _entityConfigToGenericConfig(dados.entity_config, entityKey);
+        for (var ecKey in ecConfig) {
+            if (ecConfig.hasOwnProperty(ecKey) && !(ecKey in config)) {
+                config[ecKey] = ecConfig[ecKey];
+            }
+        }
+        if (typeof registerGenericEntityConfig === 'function') {
+            registerGenericEntityConfig(entityKey, config);
+        }
+    }
+
+    var _metaFrontend = dados._meta_frontend_data;
+    if (_metaFrontend && _metaFrontend.entity_config && typeof _metaFrontend.entity_config === 'object') {
+        var ecMetaConfig = _entityConfigToGenericConfig(_metaFrontend.entity_config, entityKey);
+        for (var ecMetaKey in ecMetaConfig) {
+            if (ecMetaConfig.hasOwnProperty(ecMetaKey) && !(ecMetaKey in config)) {
+                config[ecMetaKey] = ecMetaConfig[ecMetaKey];
+            }
+        }
+        if (typeof registerGenericEntityConfig === 'function') {
+            registerGenericEntityConfig(entityKey, config);
+        }
+    }
+
+    var total = Number(dados.total || items.length || 0);
+    var hasMore = !!dados.has_more;
+    var nextCursor = dados.next_cursor || '';
+    var filtros = dados.filtros || {};
+    var limitLista = Number(dados.limit || 10);
+    var titulo = dados.titulo || config.titleDefault || (entityKey.charAt(0).toUpperCase() + entityKey.slice(1));
+
+    if (items.length === 0) {
+        var emptyMsg = 'Nenhum registro encontrado';
+        if (filtros.status) emptyMsg += ' com status "' + escapeHtml(filtros.status) + '"';
+        if (filtros.busca) emptyMsg += ' para a busca "' + escapeHtml(filtros.busca) + '"';
+        if (filtros.dias) emptyMsg += ' nos últimos ' + filtros.dias + ' dias';
+        return '<div class="orc-list-empty">' + emptyMsg + '. Tente ajustar os filtros ou refazer a consulta.</div>';
+    }
+
+    var hasSchema = Array.isArray(config.columnSchema) && config.columnSchema.length > 0;
+    var columnDefs = [];
+    var columnSchemas = [];
+
+    if (hasSchema) {
+        config.columnSchema.forEach(function(col) {
+            if (!col || !col.key) return;
+            if (config.badgeField && col.key === config.badgeField) return;
+            columnDefs.push(col.key);
+            columnSchemas.push(col);
+        });
+    } else if (items.length > 0) {
+        var seen = {};
+        var sampleKeys = [];
+        items.slice(0, 10).forEach(function(item) {
+            for (var k in item) {
+                if (item.hasOwnProperty(k) && !seen[k] && typeof item[k] !== 'object') {
+                    seen[k] = true;
+                    sampleKeys.push(k);
+                }
+            }
+        });
+        var skipColKeys = ['id', 'empresa_id', 'usuario_id', '_meta'];
+        sampleKeys.forEach(function(k) {
+            if (skipColKeys.indexOf(k) >= 0) return;
+            if (k === 'status' && config.badgeField === 'status') return;
+            if (k === entityKey.replace(/s$/, '') + '_id' || k === 'cliente_id') {
+                if (k === 'cliente_id') return;
+            }
+            columnDefs.push(k);
+            columnSchemas.push({ key: k, label: k.replace(/_/g, ' ').replace(/^[a-z]/, function(l) { return l.toUpperCase(); }) });
+        });
+    }
+
+    if (!hasSchema && config.badgeField) {
+        var bfIdx = columnDefs.indexOf(config.badgeField);
+        if (bfIdx >= 0) { columnDefs.splice(bfIdx, 1); columnSchemas.splice(bfIdx, 1); }
+    }
+
+    var hasActions = typeof config.actionFn === 'function';
+
+    function _schemaLabel(col) {
+        return col.label || col.key.replace(/_/g, ' ').replace(/^[a-z]/, function(l) { return l.toUpperCase(); });
+    }
+
+    function _schemaAlign(col) {
+        return col.align ? ' style="text-align:' + escapeHtml(col.align) + ';"' : '';
+    }
+
+    var ths = columnSchemas.map(function(col) {
+        return '<th' + _schemaAlign(col) + '>' + escapeHtml(_schemaLabel(col)) + '</th>';
+    }).join('');
+    if (config.badgeField) {
+        var bfLabel = config.badgeField.replace(/_/g, ' ').replace(/^[a-z]/, function(l) { return l.toUpperCase(); });
+        ths += '<th>' + escapeHtml(bfLabel) + '</th>';
+    }
+    if (hasActions) ths += '<th>Ações</th>';
+
+    function _formatValueBySchema(raw, col) {
+        if (raw === null || raw === undefined) return '—';
+        var fmt = (col.format || '').toLowerCase();
+        if (fmt === 'currency' || /valor|total|preco|preço|saldo|despesa|receita|ticket/i.test(col.key)) {
+            return typeof formatValue === 'function' ? formatValue(Number(raw)) : 'R$ ' + Number(raw).toFixed(2).replace('.', ',');
+        }
+        if (fmt === 'date' || (typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(raw))) {
+            var d = new Date(raw);
+            var dia = String(d.getDate()).padStart(2, '0');
+            var mes = String(d.getMonth() + 1).padStart(2, '0');
+            var ano = d.getFullYear();
+            var hora = String(d.getHours()).padStart(2, '0');
+            var min = String(d.getMinutes()).padStart(2, '0');
+            return (hora === '00' && min === '00') ? dia + '/' + mes + '/' + ano : dia + '/' + mes + '/' + ano + ' ' + hora + ':' + min;
+        }
+        if (fmt === 'date_short' || (typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw))) {
+            var p = String(raw).split('-');
+            return p[2] + '/' + p[1] + '/' + p[0];
+        }
+        if (fmt === 'boolean' || typeof raw === 'boolean') {
+            return raw ? 'Sim' : 'Não';
+        }
+        if (fmt === 'percent') {
+            return Number(raw).toFixed(1).replace('.', ',') + '%';
+        }
+        if (fmt === 'cnpj') {
+            var s = String(raw).replace(/\D/g, '');
+            return s.length === 14 ? s.slice(0,2)+'.'+s.slice(2,5)+'.'+s.slice(5,8)+'/'+s.slice(8,12)+'-'+s.slice(12) : String(raw);
+        }
+        if (fmt === 'cpf') {
+            var c = String(raw).replace(/\D/g, '');
+            return c.length === 11 ? c.slice(0,3)+'.'+c.slice(3,6)+'.'+c.slice(6,9)+'-'+c.slice(9) : String(raw);
+        }
+        if (fmt === 'phone' || fmt === 'telefone') {
+            var t = String(raw).replace(/\D/g, '');
+            if (t.length === 11) return '('+t.slice(0,2)+') '+t.slice(2,7)+'-'+t.slice(7);
+            if (t.length === 10) return '('+t.slice(0,2)+') '+t.slice(2,6)+'-'+t.slice(6);
+            return String(raw);
+        }
+        if (typeof raw === 'number') {
+            if (raw % 1 !== 0) return raw.toLocaleString('pt-BR');
+            return String(raw);
+        }
+        return String(raw);
+    }
+
+    var trs = items.map(function(item) {
+        var tds = columnSchemas.map(function(col) {
+            var raw = item[col.key];
+            var display = hasSchema ? _formatValueBySchema(raw, col) : _formatValueBySchema(raw, { key: col.key, format: '' });
+            var isTitle = (col.key === config.titleKey);
+            return '<td data-label="' + escapeHtml(col.key) + '"' + _schemaAlign(col) + '>' + (isTitle ? '<strong>' : '<span class="ai-td-content">') + escapeHtml(String(display != null ? display : '—')) + (isTitle ? '</strong>' : '</span>') + '</td>';
+        }).join('');
+
+        if (config.badgeField) {
+            var statusVal = item[config.badgeField] || '—';
+            var statusKey = String(statusVal).toLowerCase();
+            var badgeClass = (config.badgeMap && config.badgeMap[statusKey]) || '';
+            if (badgeClass) {
+                tds += '<td data-label="' + escapeHtml(config.badgeField) + '"><span class="opr-status-badge ' + badgeClass + '" style="font-size:0.7em;padding:2px 6px;">' + escapeHtml(String(statusVal)) + '</span></td>';
+            } else {
+                tds += '<td data-label="' + escapeHtml(config.badgeField) + '">' + escapeHtml(String(statusVal)) + '</td>';
+            }
+        }
+
+        if (hasActions) {
+            tds += '<td data-label="Ações">' + config.actionFn(item) + '</td>';
+        }
+
+        return '<tr>' + tds + '</tr>';
+    }).join('');
+
+    var mobileCards = '';
+    if (typeof config.mobileCardFn === 'function') {
+        mobileCards = items.map(config.mobileCardFn).join('');
+    }
+
+    var printableRows = items.map(function(item) {
+        var row = {};
+        columnSchemas.forEach(function(col) {
+            row[_schemaLabel(col)] = item[col.key] != null ? item[col.key] : '—';
+        });
+        if (config.badgeField && item[config.badgeField]) {
+            row[config.badgeField] = item[config.badgeField];
+        }
+        return row;
+    });
+    var resumoImpresso = 'Foram encontrados ' + total + ' registros. Exibindo ' + items.length + ' itens.';
+    var printableObj = { title: titulo, summary: resumoImpresso, rows: printableRows, theme: { variant: 'professional' } };
+    var printablePayloadEscaped = escapeHtmlAttr(JSON.stringify(printableObj));
+
+    var printableHtml = '<div class="semantic-printable-card" data-testid="semantic-printable-card" style="margin-bottom:12px;margin-top:12px;">' +
+        '<div class="semantic-printable-card__head">' +
+        '<span class="semantic-printable-card__icon" aria-hidden="true">🖨️</span>' +
+        '<div><div class="semantic-printable-card__title">' + escapeHtml(titulo) + '</div>' +
+        '<div class="semantic-printable-card__sub">' + escapeHtml(resumoImpresso) + '</div></div></div>' +
+        '<div class="semantic-printable-card__actions">' +
+        '<button type="button" class="btn btn-primary" data-semantic-print-now="' + printablePayloadEscaped + '">Imprimir</button>' +
+        '<button type="button" class="btn btn-secondary" data-semantic-export-report="' + printablePayloadEscaped + '" data-export-format="csv">Exportar CSV</button>' +
+        '<button type="button" class="btn btn-secondary" data-semantic-export-report="' + printablePayloadEscaped + '" data-export-format="pdf">Exportar PDF</button>' +
+        '</div></div>';
+
+    var loadMoreDataAttrs = '';
+    if (config.loadMoreAttr) {
+        loadMoreDataAttrs = ' ' + config.loadMoreAttr + '="1"';
+    }
+    loadMoreDataAttrs += ' data-generic-load-more="1" data-entity-key="' + escapeHtmlAttr(entityKey) + '"';
+    loadMoreDataAttrs += ' data-cursor="' + escapeHtmlAttr(nextCursor) + '"';
+    loadMoreDataAttrs += ' data-limit="' + escapeHtmlAttr(String(limitLista)) + '"';
+    if (filtros) {
+        for (var fk in filtros) {
+            if (filtros.hasOwnProperty(fk) && filtros[fk]) {
+                loadMoreDataAttrs += ' data-filter-' + fk + '="' + escapeHtmlAttr(String(filtros[fk])) + '"';
+            }
+        }
+    }
+
+    var loadMoreBtn = (hasMore && nextCursor)
+        ? '<div style="margin-top:12px;display:flex;justify-content:center;"><button type="button" class="orc-list-card__load-more"' + loadMoreDataAttrs + '>' + escapeHtml(config.loadMoreLabel || 'Carregar mais') + '</button></div>'
+        : '';
+
+    var pillsHtml = '';
+    var totaisPorStatus = dados.totais_por_status && typeof dados.totais_por_status === 'object' ? Object.entries(dados.totais_por_status) : [];
+    if (totaisPorStatus.length > 0) {
+        pillsHtml = '<div class="orc-list-card__status-pills" style="margin-top:6px;">' +
+            totaisPorStatus.slice(0, 5).map(function(entry) {
+                return '<span class="orc-list-card__status-pill">' + escapeHtml(entry[0]) + ': ' + escapeHtml(String(entry[1] || 0)) + '</span>';
+            }).join('') + '</div>';
+    }
+
+    var mobileSection = '';
+    if (mobileCards) {
+        mobileSection = '<div class="cliente-lista-mobile" style="display:none;">' + mobileCards + '</div>';
+    }
+
+    return '<div class="orc-list-card" data-testid="assistente-generic-list-card" data-entity-key="' + escapeHtmlAttr(entityKey) + '" style="padding:0;background:transparent;border:none;">' +
+        '<div class="orc-list-card__header" style="margin-bottom:8px;">' +
+        '<h4 class="orc-list-card__title" style="font-size:1.1rem;">' + escapeHtml(titulo) + '</h4>' +
+        pillsHtml +
+        '</div>' +
+        '<div class="ai-table-wrapper cliente-lista-desktop">' +
+        '<table class="ai-table"><thead><tr>' + ths + '</tr></thead><tbody>' + trs + '</tbody></table></div>' +
+        mobileSection +
+        printableHtml +
+        loadMoreBtn +
+        '</div>';
+}
+
+window.renderGenericDataList = renderGenericDataList;
+
+function registerGenericEntityConfig(key, config) {
+    if (!key || typeof key !== 'string') {
+        console.warn('[registerGenericEntityConfig] chave invalida:', key);
+        return;
+    }
+    if (!config || typeof config !== 'object') {
+        console.warn('[registerGenericEntityConfig] config invalido para chave:', key);
+        return;
+    }
+    if (!_GENERIC_LIST_ENTITY_CONFIGS) {
+        console.warn('[registerGenericEntityConfig] _GENERIC_LIST_ENTITY_CONFIGS nao inicializado');
+        return;
+    }
+    _GENERIC_LIST_ENTITY_CONFIGS[key] = config;
+}
+
+function unregisterGenericEntityConfig(key) {
+    if (_GENERIC_LIST_ENTITY_CONFIGS && key && _GENERIC_LIST_ENTITY_CONFIGS[key]) {
+        delete _GENERIC_LIST_ENTITY_CONFIGS[key];
+    }
+}
+
+function getRegisteredEntityConfigs() {
+    return _GENERIC_LIST_ENTITY_CONFIGS ? Object.assign({}, _GENERIC_LIST_ENTITY_CONFIGS) : {};
+}
+
+window.registerGenericEntityConfig = registerGenericEntityConfig;
+window.unregisterGenericEntityConfig = unregisterGenericEntityConfig;
+window.getRegisteredEntityConfigs = getRegisteredEntityConfigs;
+window._entityConfigToGenericConfig = _entityConfigToGenericConfig;
+window._formatValueBySchema = _formatValueBySchema;
 
 window.informarOutroValorCatalogo = function(btn) {
     const termo = btn.dataset.termo || '';
