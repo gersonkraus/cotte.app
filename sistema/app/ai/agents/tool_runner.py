@@ -105,10 +105,14 @@ async def run_agent_with_tools(
     current_user: Usuario,
     sessao_id: str | None,
     engine: str | None,
-    max_steps: int = 4,
+    max_steps: int = 6,
 ) -> AgentResponse:
     tool_results: list[dict[str, Any]] = []
     working_messages = list(messages)
+
+    # Injeta db no agente se ele suportar (ex: DataAgent para schema lookup)
+    if hasattr(agent, "set_db_context"):
+        agent.set_db_context(db=db)
 
     for _ in range(max_steps):
         response = await agent(working_messages)
