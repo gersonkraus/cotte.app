@@ -2139,15 +2139,22 @@ async def executar_comando_operador_ia(
         db.commit()
         sufixo = "%" if tipo == "percentual" else " R$"
         msg = f"Desconto de {valor:.0f}{sufixo} aplicado ao {orc.numero}. Novo total: R$ {novo_total:.2f}"
+        db.refresh(orc)
         return AIResponse(
             sucesso=True,
             resposta=msg,
-            tipo_resposta="operador_resultado",
+            tipo_resposta="orcamento_atualizado",
             dados={
-                "acao": "DESCONTO",
-                "numero": orc.numero,
-                "total": novo_total,
                 "id": orc.id,
+                "numero": orc.numero,
+                "cliente_nome": (orc.cliente.nome if orc.cliente else "—"),
+                "total": float(orc.total),
+                "status": orc.status.value if hasattr(orc.status, "value") else str(orc.status),
+                "itens": [{
+                    "descricao": i.descricao,
+                    "quantidade": float(i.quantidade),
+                    "total": float(i.total)
+                } for i in orc.itens]
             },
             confianca=1.0,
             modulo_origem="operador",
@@ -2185,15 +2192,22 @@ async def executar_comando_operador_ia(
             subtotal, orc.desconto or 0, orc.desconto_tipo or "percentual"
         )
         db.commit()
+        db.refresh(orc)
         return AIResponse(
             sucesso=True,
             resposta=f"Item '{descricao}' adicionado ao {orc.numero}. Total: R$ {orc.total:.2f}",
-            tipo_resposta="operador_resultado",
+            tipo_resposta="orcamento_atualizado",
             dados={
-                "acao": "ADICIONADO",
-                "numero": orc.numero,
-                "total": float(orc.total),
                 "id": orc.id,
+                "numero": orc.numero,
+                "cliente_nome": (orc.cliente.nome if orc.cliente else "—"),
+                "total": float(orc.total),
+                "status": orc.status.value if hasattr(orc.status, "value") else str(orc.status),
+                "itens": [{
+                    "descricao": i.descricao,
+                    "quantidade": float(i.quantidade),
+                    "total": float(i.total)
+                } for i in orc.itens]
             },
             confianca=1.0,
             modulo_origem="operador",
@@ -2230,15 +2244,22 @@ async def executar_comando_operador_ia(
             subtotal, orc.desconto or 0, orc.desconto_tipo or "percentual"
         )
         db.commit()
+        db.refresh(orc)
         return AIResponse(
             sucesso=True,
             resposta=f"Item '{desc_removido}' removido de {orc.numero}. Total: R$ {orc.total:.2f}",
-            tipo_resposta="operador_resultado",
+            tipo_resposta="orcamento_atualizado",
             dados={
-                "acao": "REMOVIDO",
-                "numero": orc.numero,
-                "total": float(orc.total),
                 "id": orc.id,
+                "numero": orc.numero,
+                "cliente_nome": (orc.cliente.nome if orc.cliente else "—"),
+                "total": float(orc.total),
+                "status": orc.status.value if hasattr(orc.status, "value") else str(orc.status),
+                "itens": [{
+                    "descricao": i.descricao,
+                    "quantidade": float(i.quantidade),
+                    "total": float(i.total)
+                } for i in orc.itens]
             },
             confianca=1.0,
             modulo_origem="operador",
@@ -4152,7 +4173,7 @@ def _v2_apply_prompt_caching(messages: list[dict]) -> list[dict]:
     return patched
 
 
-_V2_MAX_ITER = 5
+_V2_MAX_ITER = 8
 _V2_KB_SNIPPET_CACHE: Optional[str] = None
 
 
@@ -4919,6 +4940,19 @@ async def assistente_v2_stream_core(
         except Exception:
             intent_str = "CONVERSACAO"
 
+    # ── Detecção de queries analíticas — bypass dos fast-paths ────────────
+    from app.ai.analytical_classifier import classify_analytical_intent as _clf
+    _analytical_intent = _clf(mensagem)
+    _token_budget = 20_000 if _analytical_intent.is_analytical else 15_000
+
+    if _analytical_intent.is_analytical:
+        logger.info(
+            "[stream_v2] Analytical query detectada (confidence=%.2f, triggers=%s). "
+            "Bypassing fast-paths.",
+            _analytical_intent.confidence,
+            _analytical_intent.triggers[:3],
+        )
+        intent_str = "ANALISE_SQL"  # Não matcheia nenhum fast-path existente
 
     def _enc(d):
         return f"data: {json.dumps(d, ensure_ascii=False, default=str)}\n\n"
@@ -5671,6 +5705,12 @@ async def assistente_v2_stream_core(
             resolved_engine=resolved_engine,
         )
     )
+    # Para queries analíticas: usa o conjunto completo de tools (inclui executar_sql_analitico)
+    if _analytical_intent.is_analytical:
+        tools_payload = list(full_tools_payload)
+        reduced_tools_active = False
+        tool_profile = "analytical_full"
+
     adaptive_meta["tool_profile"] = tool_profile
     adaptive_meta["tool_count"] = len(tools_payload)
     adaptive_meta["tool_count_full"] = len(full_tools_payload)
@@ -5696,8 +5736,8 @@ async def assistente_v2_stream_core(
 
     for _iter in range(_V2_MAX_ITER):
         # Proteção: budget máximo de tokens
-        if total_in > 15000:
-            logger.warning("[v2_core] Token budget excedido (total_in=%s).", total_in)
+        if total_in > _token_budget:
+            logger.warning("[v2_core] Token budget excedido (total_in=%s, budget=%s).", total_in, _token_budget)
             yield _enc({
                 "error": "A consulta exigiu volume de dados além do limite seguro. Seja mais específico.",
                 "phase": "error"
