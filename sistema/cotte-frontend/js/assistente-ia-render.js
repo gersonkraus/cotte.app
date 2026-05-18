@@ -247,14 +247,14 @@ function processAIResponse(data, loadingMessage, isStreamed = false) {
 
     let msgEl;
     if (!isStreamed) {
-        msgEl = addMessage(responseContent, false);
+        msgEl = addMessage(responseContent);
     } else {
         msgEl = loadingMessage;
         if (responseContent) {
             const bubble = loadingMessage.querySelector('.message-bubble');
             if (bubble) {
-                // Para cards v2, limpa texto streamed anterior (evita duplicação do status)
-                if (uiPolicy.isV2Card || data.pending_action) {
+                var shouldClearForList = data.dados && data.dados._meta_frontend_data && data.dados._meta_frontend_data.is_list;
+                if (uiPolicy.isV2Card || data.pending_action || shouldClearForList) {
                     bubble.innerHTML = '';
                 }
                 bubble.insertAdjacentHTML('beforeend', responseContent);

@@ -323,6 +323,13 @@
             skipFeedback: false,
             isRichResponse: true,
         },
+        lista_financeira: {
+            actionStatusLabel: '',
+            hasOwnBanner: false,
+            skipFeedback: false,
+            isRichResponse: true,
+            isListData: true,
+        },
         analise_conversao: {
             actionStatusLabel: '',
             hasOwnBanner: false,

@@ -75,20 +75,29 @@ async def _listar_movimentacoes(
     if inp.tipo:
         q = q.filter(MovimentacaoCaixa.tipo == inp.tipo)
     items = q.limit(inp.limit).all()
+    movimentacoes_data = [
+        {
+            "id": m.id,
+            "tipo": m.tipo,
+            "valor": float(m.valor),
+            "descricao": m.descricao,
+            "categoria": m.categoria,
+            "data": m.data.isoformat() if m.data else None,
+            "confirmado": m.confirmado,
+        }
+        for m in items
+    ]
     return {
         "total": len(items),
-        "movimentacoes": [
-            {
-                "id": m.id,
-                "tipo": m.tipo,
-                "valor": float(m.valor),
-                "descricao": m.descricao,
-                "categoria": m.categoria,
-                "data": m.data.isoformat() if m.data else None,
-                "confirmado": m.confirmado,
-            }
-            for m in items
-        ],
+        "movimentacoes": movimentacoes_data,
+        "_meta_frontend_data": {
+            "movimentacoes": movimentacoes_data,
+            "is_list": True,
+        },
+        "_meta_notice": (
+            f"{len(movimentacoes_data)} movimentações encontradas nos últimos {inp.dias} dias. "
+            "Apresente um resumo conciso, NÃO liste item a item."
+        ),
     }
 
 
@@ -298,21 +307,30 @@ async def _listar_despesas(
         busca=inp.busca,
     )[: inp.limit]
 
+    despesas_data = [
+        {
+            "id": d.id,
+            "descricao": d.descricao,
+            "favorecido": d.favorecido,
+            "valor": float(d.valor or 0),
+            "valor_pago": float(d.valor_pago or 0),
+            "status": d.status.value if hasattr(d.status, "value") else str(d.status),
+            "data_vencimento": d.data_vencimento.isoformat() if d.data_vencimento else None,
+            "categoria": d.categoria_slug,
+        }
+        for d in items
+    ]
     return {
-        "total": len(items),
-        "despesas": [
-            {
-                "id": d.id,
-                "descricao": d.descricao,
-                "favorecido": d.favorecido,
-                "valor": float(d.valor or 0),
-                "valor_pago": float(d.valor_pago or 0),
-                "status": d.status.value if hasattr(d.status, "value") else str(d.status),
-                "data_vencimento": d.data_vencimento.isoformat() if d.data_vencimento else None,
-                "categoria": d.categoria_slug,
-            }
-            for d in items
-        ],
+        "total": len(despesas_data),
+        "despesas": despesas_data,
+        "_meta_frontend_data": {
+            "despesas": despesas_data,
+            "is_list": True,
+        },
+        "_meta_notice": (
+            f"{len(despesas_data)} despesas encontradas. "
+            "Apresente um resumo conciso, NÃO liste item a item."
+        ),
     }
 
 
@@ -604,13 +622,31 @@ async def _gerar_relatorio_vendas(
 
     total_vendido = sum(d['total_vendido'] for d in detalhes)
     quantidade_total = sum(d['quantidade_vendas'] for d in detalhes)
+    detalhes_sorted = sorted(detalhes, key=lambda x: x['total_vendido'], reverse=True)
 
     return {
         "total_vendido": total_vendido,
         "quantidade_vendas": quantidade_total,
         "periodo_dias": inp.periodo_dias,
         "agrupamento": inp.agrupar_por,
-        "detalhes": sorted(detalhes, key=lambda x: x['total_vendido'], reverse=True),
+        "detalhes": detalhes_sorted,
+        "_meta_frontend_data": {
+            "detalhes": detalhes_sorted,
+            "is_list": True,
+            "entity_config": {
+                "title": f"Relatório de Vendas ({inp.agrupar_por})",
+                "title_key": "agrupador",
+                "columns": [
+                    {"key": "agrupador", "label": inp.agrupar_por.capitalize()},
+                    {"key": "total_vendido", "label": "Total Vendido", "format": "currency", "align": "right"},
+                    {"key": "quantidade_vendas", "label": "Qtd. Vendas", "align": "right"},
+                ],
+            },
+        },
+        "_meta_notice": (
+            f"Relatório de vendas agrupado por {inp.agrupar_por}: {len(detalhes_sorted)} resultados, "
+            f"total R$ {total_vendido:.2f}. Apresente um resumo conciso."
+        ),
     }
 
 
@@ -722,7 +758,26 @@ async def _gerar_relatorio_contas_a_receber(
             "quantidade_contas": real_total_res.quantidade_contas if real_total_res else 0,
             "registros_retornados": len(detalhes),
             "agrupamento": "cliente",
-            "detalhes": detalhes
+            "detalhes": detalhes,
+            "_meta_frontend_data": {
+                "detalhes": detalhes,
+                "is_list": True,
+                "total": real_total_res.quantidade_contas if real_total_res else len(detalhes),
+                "has_more": False,
+                "entity_config": {
+                    "title": "Contas a Receber por Cliente",
+                    "title_key": "cliente",
+                    "columns": [
+                        {"key": "cliente", "label": "Cliente"},
+                        {"key": "total_devido", "label": "Total Devido", "format": "currency", "align": "right"},
+                        {"key": "quantidade_contas", "label": "Qtd. Contas", "align": "right"},
+                    ],
+                },
+            },
+            "_meta_notice": (
+                f"{len(detalhes)} clientes com contas a receber. "
+                "Apresente um resumo conciso, NÃO liste item a item."
+            ),
         }
 
     # Fetch accounts without group
@@ -752,7 +807,29 @@ async def _gerar_relatorio_contas_a_receber(
         "registros_retornados": len(detalhes),
         "aviso": f"Retornando {len(detalhes)} de {real_count} contas. Se necessário, use um limite maior." if len(detalhes) < real_count else None,
         "agrupamento": None,
-        "detalhes": detalhes
+        "detalhes": detalhes,
+        "_meta_frontend_data": {
+            "detalhes": detalhes,
+            "is_list": True,
+            "total": real_count,
+            "has_more": len(detalhes) < real_count,
+            "entity_config": {
+                "title": "Contas a Receber" + (" — Vencidas" if inp.apenas_vencidas else ""),
+                "title_key": "cliente",
+                "columns": [
+                    {"key": "cliente", "label": "Cliente"},
+                    {"key": "descricao", "label": "Descrição"},
+                    {"key": "valor_devido", "label": "Valor Devido", "format": "currency", "align": "right"},
+                    {"key": "data_vencimento", "label": "Vencimento", "format": "date"},
+                    {"key": "status", "label": "Status"},
+                ],
+            },
+        },
+        "_meta_notice": (
+            f"{len(detalhes)} de {real_count} contas a receber. "
+            "Apresente um resumo conciso, NÃO liste item a item. "
+            "Se o usuário quiser ver mais, informe que pode detalhar."
+        ),
     }
 
 

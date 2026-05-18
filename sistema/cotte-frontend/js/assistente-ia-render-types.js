@@ -923,6 +923,13 @@ function resolveAssistenteRenderResult(data, isStreamed = false) {
     if (data.resposta || dados.resposta) {
         const rawTxt = data.resposta || dados.resposta;
         if (isStreamed && data.stream_has_chunks) {
+            var metaFe = dados._meta_frontend_data || dados;
+            if (metaFe.is_list && typeof renderGenericDataList === 'function') {
+                var html = renderGenericDataList(metaFe);
+                if (html) {
+                    return { html: html, rendererId: 'renderGenericDataList_streamed', tipoResposta, dados };
+                }
+            }
             return { html: '', rendererId: 'streaming_chunks', tipoResposta, dados };
         }
         return { html: `<div class="resposta-direta">${textToHtmlRich(rawTxt)}</div>`, rendererId: 'resposta-direta', tipoResposta, dados };
@@ -1450,7 +1457,20 @@ function renderGenericDataList(dados) {
         return row;
     });
     var resumoImpresso = 'Foram encontrados ' + total + ' registros. Exibindo ' + items.length + ' itens.';
-    var printableObj = { title: titulo, summary: resumoImpresso, rows: printableRows, theme: { variant: 'professional' } };
+    var printableObj = { title: titulo, summary: resumoImpresso, rows: printableRows, theme: { variant: 'professional'     },
+    detalhes: {
+        titleDefault: 'Resultados',
+        titleKey: 'agrupador',
+    },
+    movimentacoes: {
+        titleDefault: 'Movimentações de Caixa',
+        titleKey: 'descricao',
+    },
+    despesas: {
+        titleDefault: 'Contas a Pagar',
+        titleKey: 'descricao',
+    }
+};
     var printablePayloadEscaped = escapeHtmlAttr(JSON.stringify(printableObj));
 
     var printableHtml = '<div class="semantic-printable-card" data-testid="semantic-printable-card" style="margin-bottom:12px;margin-top:12px;">' +

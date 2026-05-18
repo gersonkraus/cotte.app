@@ -177,14 +177,18 @@ async def specialist_agent_node(
     errors = list(state.get("errors") or [])
     node_trace = list(state.get("node_trace") or [])
 
-    if direct_agents_enabled() and payload.get("db") is not None and payload.get("current_user") is not None:
+    meta = payload.get("metadata", {})
+    db = payload.get("db") or meta.get("db")
+    current_user = payload.get("current_user") or meta.get("current_user")
+    
+    if direct_agents_enabled() and db is not None and current_user is not None:
         try:
             agent = agent_class()
             response = await run_agent_with_tools(
                 agent,
                 messages=_messages_for_agent(state.get("messages") or []),
-                db=payload["db"],
-                current_user=payload["current_user"],
+                db=db,
+                current_user=current_user,
                 sessao_id=state.get("sessao_id") or payload.get("sessao_id"),
                 engine=payload.get("engine", "operational"),
             )

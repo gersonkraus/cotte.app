@@ -2915,9 +2915,65 @@ def _v2_message_likely_requires_tools(mensagem: str) -> bool:
     return any(t in msg for t in tokens)
 
 
-def _v2_selected_tool_names_for_message(
+async def _v2_fast_llm_router(mensagem: str, history: list) -> list[str]:
+    from app.services.ia_service import ia_service
+    import json
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    # Prepara o histórico recente para herança de contexto (Step 2)
+    history_str = ""
+    if history:
+        recent = history[-4:] # Últimos 4 turnos
+        for h in recent:
+            role = h.get("role") if isinstance(h, dict) else getattr(h, "role", "user")
+            content = h.get("content") if isinstance(h, dict) else getattr(h, "content", "")
+            if content:
+                history_str += f"{role.upper()}: {content}\\n"
+    
+    prompt = (
+        "Você é um classificador de intenções ultrarrápido para um sistema ERP (COTTE).\\n"
+        "O usuário enviou uma mensagem. Se ele estiver continuando uma conversa anterior, herde o contexto.\\n"
+        "RESPONDA APENAS com um JSON array de strings contendo os módulos que ele vai precisar usar.\\n"
+        'Módulos possíveis: ["FINANCEIRO", "CATALOGO", "ORCAMENTOS", "CLIENTES", "AGENDAMENTOS", "RELATORIOS", "CONVERSACAO"]\\n\\n'
+    )
+    if history_str:
+        prompt += f"---\\nHISTÓRICO DA SESSÃO:\\n{history_str}\\n---\\n"
+        
+    prompt += f"MENSAGEM DO USUÁRIO: '{mensagem}'\\n"
+    prompt += "JSON OUTPUT:"
+    
+    try:
+        res = await ia_service.chat(
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.0,
+            max_tokens=50,
+            # model_override omitido, usará o modelo padrão do sistema
+        )
+        if hasattr(res, "choices") and len(res.choices) > 0:
+            content_out = res.choices[0].message.content
+        elif isinstance(res, dict):
+            content_out = res.get("resposta") or res.get("content") or "[]"
+        else:
+            content_out = str(res)
+            
+        # Extrai JSON
+        import re
+        import re
+        match = re.search(r'\[.*?\]', content_out, re.DOTALL)
+        if match:
+            modulos = json.loads(match.group(0))
+            return [m.upper() for m in modulos if isinstance(m, str)]
+    except Exception as e:
+        logger.warning(f"Fast LLM Router falhou: {e}")
+        
+    return []
+
+async def _v2_selected_tool_names_for_message(
     *,
     mensagem: str,
+    history: list,
     prompt_strategy: str,
     resolved_engine: str,
 ) -> tuple[set[str] | None, str]:
@@ -2927,6 +2983,7 @@ def _v2_selected_tool_names_for_message(
     normalized = _v2_normalize_bootstrap_message(mensagem)
     intent = _v2_detect_deterministic_intent(mensagem)
 
+    # 1. Caminhos super rápidos (Regex / Regex Determinístico) - não gastam token
     if intent == "GERAR_RELATORIO":
         return {"gerar_relatorio_dinamico"}, "relatorio_scoped"
 
@@ -2944,73 +3001,67 @@ def _v2_selected_tool_names_for_message(
     if intent == "INADIMPLENCIA":
         return {"gerar_relatorio_dinamico", "listar_clientes", "gerar_relatorio_contas_a_receber"}, "inadimplencia_scoped"
 
-    # Identifica se é do domínio financeiro ou inadimplência
-    is_financeiro = any(
-        k in normalized
-        for k in (
-            "saldo",
-            "caixa",
-            "financeiro",
-            "receita",
-            "despesa",
-            "faturamento",
-            "inadimpl",
-            "devendo",
-            "deve",
-            "vencid",
-            "conta",
-        )
-    )
-
-    # A) Scoped tools também para `standard`
-    # Libera perfil reduzido para financeiro mesmo fora do minimal
-    if prompt_strategy != "minimal" and not is_financeiro:
-        return None, "full"
-
-    if intent == "CONVERSACAO" and not _v2_message_likely_requires_tools(mensagem):
-        return set(), "minimal_conversation_no_tools"
-
-    if is_financeiro:
-        # Base bem mais enxuta para financeiro (evita carregar schemas inteiros)
-        selected = {
-            "obter_saldo_caixa",
-            "listar_movimentacoes_financeiras",
-            "listar_despesas",
-            "listar_clientes",
-            "gerar_relatorio_contas_a_receber",
-        }
-        # Inclui orçamentos apenas se houver menção explícita
-        if any(
+    # 2. Se a intenção determinística não pegou e é CONVERSACAO ou None, usamos o Fast LLM Router
+    fast_modules = await _v2_fast_llm_router(mensagem, history)
+    
+    selected = set()
+    profile = f"{prompt_strategy}_fast_llm"
+    
+    if fast_modules:
+        if "FINANCEIRO" in fast_modules:
+            selected |= _V2_TOOLSET_FINANCEIRO
+        if "ORCAMENTOS" in fast_modules:
+            selected |= _V2_TOOLSET_ORCAMENTOS
+        if "CATALOGO" in fast_modules:
+            selected |= _V2_TOOLSET_CATALOGO
+        if "CLIENTES" in fast_modules:
+            selected |= _V2_TOOLSET_CLIENTES
+        if "AGENDAMENTOS" in fast_modules:
+            selected |= _V2_TOOLSET_AGENDAMENTOS
+        if "RELATORIOS" in fast_modules:
+            selected |= {"gerar_relatorio_dinamico"}
+    
+    # 3. Fallback heurístico caso o LLM Router falhe ou retorne vazio
+    if not selected:
+        is_financeiro = any(
             k in normalized
             for k in (
-                "orcamento",
-                "orçamento",
-                "venda",
-                "aprovar",
-                "pendente",
-                "status",
+                "saldo", "caixa", "financeiro", "receita", "despesa", 
+                "faturamento", "inadimpl", "devendo", "deve", "vencid", "conta", "contas"
             )
-        ):
-            selected |= {"listar_orcamentos"}
-    else:
-        selected = set(_V2_TOOLSET_CORE_READONLY)
+        )
 
-    if any(
-        k in normalized
-        for k in ("orcamento", "orçamento", "aprovar", "recusar", "enviar")
-    ):
-        selected |= _V2_TOOLSET_ORCAMENTOS
-    if any(
-        k in normalized
-        for k in ("saldo", "caixa", "financeiro", "receita", "despesa", "faturamento")
-    ):
-        selected |= _V2_TOOLSET_FINANCEIRO
-    if "cliente" in normalized:
-        selected |= _V2_TOOLSET_CLIENTES
-    if "agenda" in normalized or "agendamento" in normalized:
-        selected |= _V2_TOOLSET_AGENDAMENTOS
-    if "material" in normalized or "catalogo" in normalized or "catálogo" in normalized:
-        selected |= _V2_TOOLSET_CATALOGO
+        if prompt_strategy != "minimal" and not is_financeiro:
+            return None, "full"
+
+        if intent == "CONVERSACAO" and not _v2_message_likely_requires_tools(mensagem):
+            return set(), "minimal_conversation_no_tools"
+
+        if is_financeiro:
+            selected = {
+                "obter_saldo_caixa",
+                "listar_movimentacoes_financeiras",
+                "listar_despesas",
+                "listar_clientes",
+                "gerar_relatorio_contas_a_receber",
+            }
+            if any(k in normalized for k in ("orcamento", "orçamento", "venda", "aprovar", "pendente", "status")):
+                selected |= {"listar_orcamentos"}
+            profile = "contas_scoped_heuristic"
+        else:
+            selected = set(_V2_TOOLSET_CORE_READONLY)
+            if any(k in normalized for k in ("orcamento", "orçamento", "aprovar", "recusar", "enviar")):
+                selected |= _V2_TOOLSET_ORCAMENTOS
+            if any(k in normalized for k in ("saldo", "caixa", "financeiro", "receita", "despesa", "faturamento")):
+                selected |= _V2_TOOLSET_FINANCEIRO
+            if "cliente" in normalized:
+                selected |= _V2_TOOLSET_CLIENTES
+            if "agenda" in normalized or "agendamento" in normalized:
+                selected |= _V2_TOOLSET_AGENDAMENTOS
+            if "material" in normalized or "catalogo" in normalized or "catálogo" in normalized:
+                selected |= _V2_TOOLSET_CATALOGO
+            profile = "core_readonly_heuristic"
+
     if intent == "OPERADOR":
         selected |= (
             _V2_TOOLSET_ORCAMENTOS
@@ -3020,8 +3071,31 @@ def _v2_selected_tool_names_for_message(
             | _V2_TOOLSET_CATALOGO
         )
 
-    return selected, f"{prompt_strategy}_intent_scoped"
+    return selected, profile
 
+
+
+def _v2_inject_dynamic_tool_requester(payloads: list) -> list:
+    has_requester = any(t.get("function", {}).get("name") == "request_additional_capabilities" for t in payloads)
+    if not has_requester:
+        payloads.append({
+            "type": "function",
+            "function": {
+                "name": "request_additional_capabilities",
+                "description": "Se você não tem a ferramenta correta para a intenção do usuário, chame esta ferramenta para solicitar o pacote completo de ferramentas. O sistema injetará todas as capacidades para você retentar na mesma iteração.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "module": {
+                            "type": "string",
+                            "description": "O módulo que você precisa. Valores: FINANCEIRO, ORCAMENTOS, CLIENTES, CATALOGO, AGENDAMENTOS, NOTA_FISCAL ou ALL para todas."
+                        }
+                    },
+                    "required": ["module"]
+                }
+            }
+        })
+    return payloads
 
 def _v2_filter_tools_payload_by_name(
     tools_payload: list[dict[str, Any]],
@@ -3036,19 +3110,22 @@ def _v2_filter_tools_payload_by_name(
     ]
 
 
-def _v2_select_tools_payload(
+async def _v2_select_tools_payload(
     *,
     mensagem: str,
+    history: list,
     prompt_strategy: str,
     resolved_engine: str,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], bool, str]:
     full_payload = tools_payload_for_engine(resolved_engine)
-    allowed_names, profile = _v2_selected_tool_names_for_message(
+    allowed_names, profile = await _v2_selected_tool_names_for_message(
         mensagem=mensagem,
+        history=history,
         prompt_strategy=prompt_strategy,
         resolved_engine=resolved_engine,
     )
     selected = _v2_filter_tools_payload_by_name(full_payload, allowed_names)
+    selected = _v2_inject_dynamic_tool_requester(selected)
     reduced = allowed_names is not None and len(selected) < len(full_payload)
 
     # Fallback preventivo: se a heurística reduziu demais em mensagem claramente operacional,
@@ -5587,8 +5664,9 @@ async def assistente_v2_stream_core(
     )
 
     tools_payload, full_tools_payload, reduced_tools_active, tool_profile = (
-        _v2_select_tools_payload(
+        await _v2_select_tools_payload(
             mensagem=mensagem,
+            history=history,
             prompt_strategy=prompt_strategy,
             resolved_engine=resolved_engine,
         )
@@ -5812,6 +5890,28 @@ async def assistente_v2_stream_core(
                         },
                     }
                 )
+
+                if tc_dict["function"]["name"] == "request_additional_capabilities":
+                    yield _enc({"phase": "tool_running", "tool": "request_additional_capabilities"})
+                    
+                    # Expande o payload local com todas as tools via nonlocal ou shadow
+                    tools_payload.clear()
+                    tools_payload.extend(_v2_inject_dynamic_tool_requester(list(full_tools_payload)))
+                    
+                    tool_trace.append({
+                        "name": "request_additional_capabilities",
+                        "args": tc_dict["function"]["arguments"],
+                        "status": "ok",
+                        "data": {"mensagem": "Capacidades extras injetadas. Agora você tem acesso a todas as ferramentas. Refaça a chamada original com a ferramenta correta."}
+                    })
+                    
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tc_dict["id"],
+                        "content": '{"status": "ok", "mensagem": "Capacidades extras injetadas. Ferramentas adicionais estão disponíveis no ambiente. Tente chamar a ferramenta necessária agora."}'
+                    })
+                    continue
+
                 result = await tool_execute(
                     tc_dict,
                     db=db,

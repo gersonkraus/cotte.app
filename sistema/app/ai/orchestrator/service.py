@@ -46,13 +46,15 @@ class AssistantOrchestrator:
                     empresa_id=message.empresa_id,
                     usuario_id=message.usuario_id,
                     thread_id=message.sessao_id,
-                    payload=payload
+                    payload=payload,
+                    legacy_runner=self.legacy_runner
                 ):
                     yield event
                 return
-            except Exception:
-                # Fallback on error
-                pass
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"[AssistantOrchestrator] Falha no LangGraph, caindo para legado: {e}", exc_info=True)
 
         if self.legacy_stream_runner:
             async for chunk in self.legacy_stream_runner(payload):
