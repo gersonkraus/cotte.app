@@ -387,6 +387,20 @@ async def startup_event():
         Base.metadata.create_all(conn)
 
     logging.info("Tabelas verificadas/criadas com sucesso")
+
+    # Inicializa Schema Registry para o DataAgent (semântica de tabelas)
+    try:
+        from app.ai.rag.schema_registry import SchemaRegistry
+        from app.core.database import SessionLocal as _SL
+
+        _schema_db = _SL()
+        try:
+            await SchemaRegistry.initialize(_schema_db)
+        finally:
+            _schema_db.close()
+    except Exception as _schema_exc:
+        logging.warning("Falha ao inicializar SchemaRegistry (não crítico): %s", _schema_exc)
+
     critical_check = check_critical_schema_drift(engine, Base.metadata)
     if not critical_check["ok"]:
         colunas = ", ".join(critical_check["critical_missing"])
