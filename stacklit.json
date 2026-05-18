@@ -1,9 +1,9 @@
 {
   "$schema": "https://stacklit.dev/schema/v1.json",
   "version": "1",
-  "generated_at": "2026-05-12T03:34:37Z",
+  "generated_at": "2026-05-17T23:27:17Z",
   "stacklit_version": "dev",
-  "merkle_hash": "929e4c816fd3509cd98ed5ccd413eba5e238074f6195bc72428cc2eb938980c5",
+  "merkle_hash": "e55fa621dd3648610bea099fe0e45327d9df1b2d13d19c933f974e63a88422f5",
   "project": {
     "name": "cotte.app",
     "root": ".",
@@ -13,12 +13,12 @@
     "primary_language": "python",
     "languages": {
       "javascript": {
-        "files": 97,
-        "lines": 44411
+        "files": 100,
+        "lines": 47611
       },
       "python": {
-        "files": 490,
-        "lines": 116074
+        "files": 541,
+        "lines": 125483
       },
       "shell": {
         "files": 7,
@@ -43,8 +43,8 @@
       ".trae/skills/ui-ux-pro-max/scripts/search.py",
       "sistema/scripts/verificar_urls_r2.py"
     ],
-    "total_files": 594,
-    "total_lines": 160829
+    "total_files": 648,
+    "total_lines": 173438
   },
   "modules": {
     ".agent/skills/ui-ux-pro-max/scripts": {
@@ -203,28 +203,17 @@
     },
     "root": {
       "purpose": "Root package",
-      "language": "python",
-      "files": 15,
-      "lines": 762,
+      "language": "javascript",
+      "files": 7,
+      "lines": 383,
       "file_list": [
-        "compress_test.py",
         "cotte_ai_hub_patch.py",
-        "fix_fn.py",
         "patch.js",
-        "patch_comercial.py",
-        "patch_cotte_ai_hub.py",
-        "patch_executor.py",
-        "patch_logging.py",
-        "patch_recusar.py",
-        "patch_render_types.py",
         "playwright.config.js",
         "rewrite_render.py",
         "test-ai.mjs",
         "test.js",
         "test_payload.js"
-      ],
-      "exports": [
-        "to_llm_payload(data)"
       ],
       "activity": "low"
     },
@@ -282,8 +271,8 @@
     "sistema/alembic/versions": {
       "purpose": "Versions",
       "language": "python",
-      "files": 136,
-      "lines": 9045,
+      "files": 148,
+      "lines": 9553,
       "file_list": [
         "001_initial_schema.py",
         "002_add_comercial_tables.py",
@@ -319,7 +308,7 @@
       "purpose": "App",
       "language": "python",
       "files": 2,
-      "lines": 677,
+      "lines": 686,
       "file_list": [
         "__init__.py",
         "main.py"
@@ -328,6 +317,194 @@
         "include_routers(app: FastAPI)"
       ],
       "activity": "high"
+    },
+    "sistema/app/ai": {
+      "purpose": "Ai",
+      "language": "python",
+      "files": 5,
+      "lines": 2408,
+      "file_list": [
+        "__init__.py",
+        "intention_classifier.py",
+        "json_extractor.py",
+        "prompt_loader.py",
+        "service.py"
+      ],
+      "exports": [
+        "class AIJSONExtractor",
+        "class AIPromptLoader",
+        "class IntencaoUsuario",
+        "class IntentionClassifier",
+        "class JSONExtractionStrategy",
+        "normalize_litellm_model( model: str, *, provider: str, raw: bool = False, fallback_model: str = \"gpt-4o-mini\", ) -\u003e str"
+      ],
+      "activity": "low"
+    },
+    "sistema/app/ai/agents": {
+      "purpose": "Agents",
+      "language": "python",
+      "files": 11,
+      "lines": 592,
+      "file_list": [
+        "__init__.py",
+        "base.py",
+        "conversational_agent.py",
+        "data_agent.py",
+        "finance_agent.py",
+        "inventory_agent.py",
+        "operador_agent.py",
+        "sales_agent.py",
+        "supervisor.py",
+        "support_agent.py",
+        "tool_runner.py"
+      ],
+      "exports": [
+        "class Agent",
+        "class AgentResponse",
+        "class BaseAgent",
+        "class ConversationalAgent",
+        "class DataAgent",
+        "class FinanceAgent",
+        "class InventoryAgent",
+        "class OperadorAgent",
+        "class SalesAgent",
+        "class SupervisorAgent"
+      ],
+      "activity": "low"
+    },
+    "sistema/app/ai/audio": {
+      "purpose": "Audio",
+      "language": "python",
+      "files": 2,
+      "lines": 94,
+      "file_list": [
+        "__init__.py",
+        "service.py"
+      ],
+      "exports": [
+        "class AudioService"
+      ],
+      "activity": "low"
+    },
+    "sistema/app/ai/channels": {
+      "purpose": "Channels",
+      "language": "python",
+      "files": 5,
+      "lines": 91,
+      "file_list": [
+        "__init__.py",
+        "types.py",
+        "voice.py",
+        "web.py",
+        "whatsapp.py"
+      ],
+      "exports": [
+        "class ChannelMessage",
+        "class ChannelResponse",
+        "from_voice_payload(empresa_id: int, texto_transcrito: str, usuario_id: int | None = None, sessao_id: str | None = Non...",
+        "from_web_payload(payload: dict[str, Any]) -\u003e ChannelMessage",
+        "from_whatsapp_payload(empresa_id: int, telefone: str, mensagem: str, contexto_extra: dict[str, Any] | None = None) -\u003e..."
+      ],
+      "activity": "low"
+    },
+    "sistema/app/ai/graph": {
+      "purpose": "Dependency graph",
+      "language": "python",
+      "files": 2,
+      "lines": 353,
+      "file_list": [
+        "__init__.py",
+        "assistant.py"
+      ],
+      "exports": [
+        "class AssistantState",
+        "langgraph_enabled() -\u003e bool"
+      ],
+      "activity": "low"
+    },
+    "sistema/app/ai/observability": {
+      "purpose": "Observability",
+      "language": "python",
+      "files": 2,
+      "lines": 21,
+      "file_list": [
+        "__init__.py",
+        "events.py"
+      ],
+      "exports": [
+        "agent_event(agent: str, message: str) -\u003e dict[str, Any]",
+        "final_event(text: str, metadata: dict[str, Any] | None = None) -\u003e dict[str, Any]",
+        "tool_event(tool: str, status: str = \"running\") -\u003e dict[str, Any]"
+      ],
+      "activity": "low"
+    },
+    "sistema/app/ai/orchestrator": {
+      "purpose": "Orchestrator",
+      "language": "python",
+      "files": 2,
+      "lines": 99,
+      "file_list": [
+        "__init__.py",
+        "service.py"
+      ],
+      "exports": [
+        "class AssistantOrchestrator",
+        "direct_agents_enabled() -\u003e bool"
+      ],
+      "type_defs": {
+        "AssistantOrchestrator": "run, run_stream"
+      },
+      "activity": "low"
+    },
+    "sistema/app/ai/rag": {
+      "purpose": "Rag",
+      "language": "python",
+      "files": 3,
+      "lines": 167,
+      "file_list": [
+        "__init__.py",
+        "schema_indexer.py",
+        "service.py"
+      ],
+      "exports": [
+        "class SemanticRAGService"
+      ],
+      "activity": "low"
+    },
+    "sistema/app/ai/tools": {
+      "purpose": "Tools",
+      "language": "python",
+      "files": 14,
+      "lines": 5300,
+      "file_list": [
+        "__init__.py",
+        "_base.py",
+        "agendamento_tools.py",
+        "catalogo_tools.py",
+        "cliente_tools.py",
+        "code_tools.py",
+        "destructive_preview.py",
+        "financeiro_reports_tools.py",
+        "financeiro_tools.py",
+        "log_tools.py",
+        "orcamento_tools.py",
+        "rag_tools.py",
+        "relatorio_tools.py",
+        "sql_analytics_tools.py"
+      ],
+      "exports": [
+        "class AnalisarToolLogsInput",
+        "class BuscarConhecimentoInput",
+        "class CadastrarMaterialInput",
+        "class CancelarAgendamentoInput",
+        "class CriarAgendamentoInput",
+        "class CriarClienteInput",
+        "class CriarMovimentacaoInput",
+        "class EditarClienteInput",
+        "class ExcluirClienteInput",
+        "class ExecutarSqlAnaliticoInput"
+      ],
+      "activity": "low"
     },
     "sistema/app/api": {
       "purpose": "API endpoints and handlers",
@@ -360,7 +537,7 @@
       "purpose": "Core",
       "language": "python",
       "files": 13,
-      "lines": 2547,
+      "lines": 2613,
       "file_list": [
         "__init__.py",
         "auth.py",
@@ -400,7 +577,7 @@
       "purpose": "Data models and types",
       "language": "python",
       "files": 3,
-      "lines": 2833,
+      "lines": 2898,
       "file_list": [
         "__init__.py",
         "models.py",
@@ -409,14 +586,14 @@
       "exports": [
         "class AIChatMensagem",
         "class AIChatSessao",
+        "class AIDatabaseSchemaIndex",
+        "class AIDocumentoConhecimento",
         "class Agendamento",
         "class AgendamentoOpcao",
         "class AssistentePreferenciaUsuario",
         "class AssistentePromptEmpresa",
         "class AuditLog",
-        "class BancoPIXEmpresa",
-        "class Broadcast",
-        "class Campaign"
+        "class BancoPIXEmpresa"
       ],
       "activity": "high"
     },
@@ -455,14 +632,15 @@
     "sistema/app/routers": {
       "purpose": "Routers",
       "language": "python",
-      "files": 34,
-      "lines": 18166,
+      "files": 35,
+      "lines": 19996,
       "file_list": [
         "__init__.py",
         "admin.py",
         "admin_planos.py",
         "agendamentos.py",
         "ai_hub.py",
+        "ai_rag.py",
         "auth_clientes.py",
         "catalogo.py",
         "clientes.py",
@@ -476,11 +654,9 @@
         "comercial_pipeline.py",
         "comercial_propostas.py",
         "comercial_templates.py",
-        "config.py",
-        "docs.py"
+        "config.py"
       ],
       "exports": [
-        "atualizar_empresa( dados: EmpresaUpdate, usuario: Usuario = Depends(exigir_permissao(\"configuracoes\", \"escrita\")), db...",
         "atualizar_status( agendamento_id: int, dados: AgendamentoStatusUpdate, request: Request, db: Session = Depends(get_db...",
         "buscar_cliente_por_telefone( telefone: str, db: Session = Depends(get_db), usuario: Usuario = Depends(exigir_permissa...",
         "check_rate_limit(request: Request, limit: int = 60, window: int = 60) -\u003e bool",
@@ -489,7 +665,8 @@
         "class AIConversarRequest",
         "class AICopilotoRequest",
         "class AICopilotoTecnicoFlowRequest",
-        "class AIInsightFeedbackRequest"
+        "class AIInsightFeedbackRequest",
+        "class AIMensagemRequest"
       ],
       "activity": "high"
     },
@@ -497,7 +674,7 @@
       "purpose": "Tenant",
       "language": "python",
       "files": 12,
-      "lines": 3426,
+      "lines": 3584,
       "file_list": [
         "__init__.py",
         "comercial_campaigns.py",
@@ -530,7 +707,7 @@
       "purpose": "Schemas",
       "language": "python",
       "files": 7,
-      "lines": 3311,
+      "lines": 3462,
       "file_list": [
         "__init__.py",
         "agendamento.py",
@@ -557,8 +734,8 @@
     "sistema/app/services": {
       "purpose": "Business logic services",
       "language": "python",
-      "files": 80,
-      "lines": 36104,
+      "files": 79,
+      "lines": 36474,
       "file_list": [
         "__init__.py",
         "admin_config.py",
@@ -573,13 +750,13 @@
         "analytics_engine_service.py",
         "analytics_sql_guard.py",
         "assistant_engine_registry.py",
-        "assistant_langgraph.py",
         "assistant_preferences_service.py",
         "assistant_prompt_library_service.py",
         "audio_transcription_service.py",
         "audit_service.py",
         "campaign_service.py",
-        "catalogo_service.py"
+        "catalogo_service.py",
+        "cliente_service.py"
       ],
       "exports": [
         "admin_atualizar_template(slug: str, dados: Dict) -\u003e Dict",
@@ -607,34 +784,10 @@
     "sistema/app/services/ai_tools": {
       "purpose": "Ai Tools",
       "language": "python",
-      "files": 13,
-      "lines": 5180,
+      "files": 1,
+      "lines": 1,
       "file_list": [
-        "__init__.py",
-        "_base.py",
-        "agendamento_tools.py",
-        "catalogo_tools.py",
-        "cliente_tools.py",
-        "code_tools.py",
-        "destructive_preview.py",
-        "financeiro_reports_tools.py",
-        "financeiro_tools.py",
-        "log_tools.py",
-        "orcamento_tools.py",
-        "relatorio_tools.py",
-        "sql_analytics_tools.py"
-      ],
-      "exports": [
-        "class AnalisarToolLogsInput",
-        "class CadastrarMaterialInput",
-        "class CancelarAgendamentoInput",
-        "class CriarAgendamentoInput",
-        "class CriarClienteInput",
-        "class CriarMovimentacaoInput",
-        "class EditarClienteInput",
-        "class ExcluirClienteInput",
-        "class ExecutarSqlAnaliticoInput",
-        "class GerarRelatorioRankingClientesInput"
+        "__init__.py"
       ],
       "activity": "low"
     },
@@ -703,8 +856,8 @@
     "sistema/app/utils": {
       "purpose": "Utility functions",
       "language": "python",
-      "files": 9,
-      "lines": 469,
+      "files": 10,
+      "lines": 495,
       "file_list": [
         "__init__.py",
         "csv_parser.py",
@@ -714,6 +867,7 @@
         "orcamento_utils.py",
         "pdf_utils.py",
         "phone.py",
+        "text_extractor.py",
         "whatsapp_sanitizer.py"
       ],
       "exports": [
@@ -739,9 +893,6 @@
         "generate_icon.py",
         "sw.js"
       ],
-      "depended_by": [
-        "sistema/cotte-frontend/js/dashboard"
-      ],
       "activity": "high"
     },
     "sistema/cotte-frontend/css": {
@@ -757,8 +908,8 @@
     "sistema/cotte-frontend/js": {
       "purpose": "Js",
       "language": "javascript",
-      "files": 62,
-      "lines": 38612,
+      "files": 63,
+      "lines": 41518,
       "file_list": [
         "TemplatesManager.js",
         "agendamentos.js",
@@ -777,9 +928,9 @@
         "assistente-ia-render.js",
         "assistente-ia-shell.js",
         "assistente-ia.js",
+        "catalogo-portfolio.js",
         "chat-tooltips.js",
-        "chat-virtualization.js",
-        "clientes.js"
+        "chat-virtualization.js"
       ],
       "activity": "high"
     },
@@ -818,7 +969,17 @@
         "StatsRow": "constructor, load, calcularStats, render, renderLoading, renderStats, setupEventListeners, handleCardHover, handleCardLeave, handleCardClick, setupDynamicTooltips, update, updateStat, updateCard, destroy"
       },
       "depends_on": [
-        "sistema/cotte-frontend"
+        "sistema/cotte-frontend/js/utils"
+      ],
+      "activity": "low"
+    },
+    "sistema/cotte-frontend/js/rag": {
+      "purpose": "Rag",
+      "language": "javascript",
+      "files": 1,
+      "lines": 132,
+      "file_list": [
+        "KnowledgeBaseManager.js"
       ],
       "activity": "low"
     },
@@ -826,7 +987,7 @@
       "purpose": "Business logic services",
       "language": "javascript",
       "files": 3,
-      "lines": 552,
+      "lines": 574,
       "file_list": [
         "ApiService.js",
         "CacheService.js",
@@ -854,19 +1015,33 @@
         "formatarNumero(value, decimals = 0)",
         "formatarPorcentagem(value, isDecimal = false)"
       ],
+      "depended_by": [
+        "sistema/cotte-frontend/js/dashboard"
+      ],
+      "activity": "low"
+    },
+    "sistema/cotte-frontend/js/voice": {
+      "purpose": "Voice",
+      "language": "javascript",
+      "files": 1,
+      "lines": 140,
+      "file_list": [
+        "VoiceProcessor.js"
+      ],
       "activity": "low"
     },
     "sistema/scripts": {
       "purpose": "Scripts",
       "language": "python",
-      "files": 6,
-      "lines": 601,
+      "files": 7,
+      "lines": 681,
       "file_list": [
         "backfill_aprovado_em.py",
         "migrar_urls_r2.py",
         "migrate_clientes.py",
         "parry_hook.py",
         "test_render_pdf.py",
+        "update_trial_plans.py",
         "verificar_urls_r2.py"
       ],
       "exports": [
@@ -883,7 +1058,7 @@
     "edges": [
       [
         "sistema/cotte-frontend/js/dashboard",
-        "sistema/cotte-frontend"
+        "sistema/cotte-frontend/js/utils"
       ]
     ],
     "entrypoints": [
@@ -897,7 +1072,7 @@
       "sistema/scripts/verificar_urls_r2.py"
     ],
     "most_depended": [
-      "sistema/cotte-frontend",
+      "sistema/cotte-frontend/js/utils",
       ".agent/skills/ui-ux-pro-max/scripts",
       ".codebuddy/skills/ui-ux-pro-max/scripts",
       ".github/prompts/ui-ux-pro-max/scripts",
@@ -922,6 +1097,15 @@
       "sistema/alembic",
       "sistema/alembic/versions",
       "sistema/app",
+      "sistema/app/ai",
+      "sistema/app/ai/agents",
+      "sistema/app/ai/audio",
+      "sistema/app/ai/channels",
+      "sistema/app/ai/graph",
+      "sistema/app/ai/observability",
+      "sistema/app/ai/orchestrator",
+      "sistema/app/ai/rag",
+      "sistema/app/ai/tools",
       "sistema/app/api",
       "sistema/app/contracts",
       "sistema/app/core",
@@ -935,11 +1119,13 @@
       "sistema/app/services/assistant_autonomy",
       "sistema/app/services/rag",
       "sistema/app/utils",
+      "sistema/cotte-frontend",
       "sistema/cotte-frontend/css",
       "sistema/cotte-frontend/js",
       "sistema/cotte-frontend/js/components",
+      "sistema/cotte-frontend/js/rag",
       "sistema/cotte-frontend/js/services",
-      "sistema/cotte-frontend/js/utils",
+      "sistema/cotte-frontend/js/voice",
       "sistema/scripts"
     ]
   },
@@ -947,31 +1133,31 @@
     "hot_files": [
       {
         "path": "sistema/app/models/models.py",
-        "commits_90d": 131
-      },
-      {
-        "path": "sistema/app/services/cotte_ai_hub.py",
-        "commits_90d": 118
-      },
-      {
-        "path": "sistema/cotte-frontend/assistente-ia.html",
-        "commits_90d": 109
+        "commits_90d": 142
       },
       {
         "path": "sistema/app/schemas/schemas.py",
-        "commits_90d": 107
+        "commits_90d": 128
+      },
+      {
+        "path": "sistema/app/services/cotte_ai_hub.py",
+        "commits_90d": 126
       },
       {
         "path": "sistema/cotte-frontend/orcamentos.html",
-        "commits_90d": 102
+        "commits_90d": 115
+      },
+      {
+        "path": "sistema/cotte-frontend/assistente-ia.html",
+        "commits_90d": 111
       },
       {
         "path": "sistema/app/routers/orcamentos.py",
-        "commits_90d": 95
+        "commits_90d": 96
       },
       {
         "path": "sistema/cotte-frontend/index.html",
-        "commits_90d": 91
+        "commits_90d": 92
       },
       {
         "path": "sistema/cotte-frontend/comercial.html",
@@ -979,64 +1165,64 @@
       },
       {
         "path": "sistema/cotte-frontend/configuracoes.html",
-        "commits_90d": 80
+        "commits_90d": 88
       },
       {
         "path": "sistema/cotte-frontend/js/assistente-ia.js",
-        "commits_90d": 69
+        "commits_90d": 70
+      },
+      {
+        "path": "sistema/cotte-frontend/catalogo.html",
+        "commits_90d": 65
+      },
+      {
+        "path": "sistema/cotte-frontend/orcamento-publico.html",
+        "commits_90d": 61
       },
       {
         "path": "sistema/cotte-frontend/admin.html",
         "commits_90d": 60
       },
       {
-        "path": "sistema/cotte-frontend/orcamento-publico.html",
-        "commits_90d": 59
+        "path": "sistema/app/routers/whatsapp.py",
+        "commits_90d": 58
       },
       {
         "path": "sistema/app/routers/publico.py",
-        "commits_90d": 51
+        "commits_90d": 56
       },
       {
         "path": "sistema/cotte-frontend/js/api.js",
-        "commits_90d": 50
+        "commits_90d": 51
       },
       {
         "path": "sistema/cotte-frontend/css/assistente-ia.css",
-        "commits_90d": 48
-      },
-      {
-        "path": "sistema/app/routers/whatsapp.py",
-        "commits_90d": 47
+        "commits_90d": 49
       },
       {
         "path": "sistema/cotte-frontend/financeiro.html",
-        "commits_90d": 46
-      },
-      {
-        "path": "sistema/cotte-frontend/catalogo.html",
-        "commits_90d": 45
-      },
-      {
-        "path": "sistema/app/main.py",
-        "commits_90d": 43
+        "commits_90d": 48
       },
       {
         "path": "sistema/cotte-frontend/js/configuracoes.js",
-        "commits_90d": 42
+        "commits_90d": 48
+      },
+      {
+        "path": "sistema/app/main.py",
+        "commits_90d": 45
       }
     ],
     "recent": [
       "DEPENDENCIES.md",
-      "sistema/cotte-frontend/orcamentos.html",
+      "sistema/app/ai/orchestrator/service.py",
+      "sistema/app/routers/ai_hub.py",
+      "sistema/tests/test_ai_hub_router.py",
       "stacklit.json",
-      "sistema/cotte-frontend/js/nfe.js",
-      "sistema/cotte-frontend/catalogo.html",
-      "sistema/app/routers/catalogo.py",
-      "sistema/app/routers/notas_fiscais.py",
-      "sistema/app/services/nfe_service.py",
-      "sistema/app/services/fiscal_ai_service.py",
-      "sistema/app/schemas/schemas.py"
+      "sistema/tests/test_ai_orchestrator_facade.py",
+      "docs/superpowers/specs/2026-05-17-orchestrator-endpoint-integration-design.md",
+      "docs/superpowers/plans/2026-05-17-ai-layered-architecture-refactor.md",
+      "graphify-out/GRAPH_REPORT.md",
+      "graphify-out/graph.json"
     ],
     "stable": [
       "\"Sem t\\303\\255tulo 1.canvas\"",
@@ -1073,6 +1259,7 @@
       "TEST_EMAIL",
       "TEST_PASSWORD",
       "USERPROFILE",
+      "V2_LANGGRAPH_DIRECT_AGENTS",
       "VERTEXAI_API_KEY"
     ],
     "do_not_touch": [

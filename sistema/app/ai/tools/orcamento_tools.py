@@ -538,6 +538,7 @@ def _resolver_cliente(inp: "CriarOrcamentoInput", db: Session, current_user: Usu
         return c, False, None
 
     if inp.cliente_nome:
+        from app.utils.whatsapp_sanitizer import remover_acentos
         base = db.query(Cliente).filter(Cliente.empresa_id == current_user.empresa_id)
         nome = inp.cliente_nome.strip()
 
@@ -549,6 +550,24 @@ def _resolver_cliente(inp: "CriarOrcamentoInput", db: Session, current_user: Usu
         # 3) contém (fallback amplo)
         if not candidatos:
             candidatos = base.filter(Cliente.nome.ilike(f"%{nome}%")).limit(5).all()
+
+        # 4) Fallback robusto: busca por nomes sem acento (Python-side filtering se candidatos for vazio)
+        if not candidatos:
+            # Busca os top 100 clientes mais recentes para evitar overfetch
+            recentes = base.order_by(Cliente.criado_em.desc()).limit(100).all()
+            nome_norm = remover_acentos(nome).lower()
+            for r in recentes:
+                if remover_acentos(r.nome).lower() == nome_norm:
+                    candidatos = [r]
+                    break
+            
+            # Se ainda não achou, tenta "contém" sem acento
+            if not candidatos:
+                for r in recentes:
+                    if nome_norm in remover_acentos(r.nome).lower():
+                        candidatos.append(r)
+                        if len(candidatos) >= 5:
+                            break
 
         if len(candidatos) == 0:
             c = ClienteService(db).criar_cliente(ClienteCreate(nome=nome), current_user)

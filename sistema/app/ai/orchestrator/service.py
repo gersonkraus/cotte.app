@@ -70,7 +70,7 @@ class AssistantOrchestrator:
             "external_id": message.external_id,
             "phone": message.phone,
             "attachments": copy.deepcopy(message.attachments),
-            "metadata": copy.deepcopy(message.metadata),
+            "metadata": dict(message.metadata),
         }
 
     def _to_channel_response(self, result: Any) -> ChannelResponse:
@@ -84,7 +84,7 @@ class AssistantOrchestrator:
                     text = "" if value is None else str(value)
                     break
             raw_metadata = result.get("metadata")
-            metadata = copy.deepcopy(raw_metadata) if isinstance(raw_metadata, dict) else {}
+            metadata = dict(raw_metadata) if isinstance(raw_metadata, dict) else {}
             return ChannelResponse(text=text, metadata=metadata)
         if result is None:
             return ChannelResponse(text="")

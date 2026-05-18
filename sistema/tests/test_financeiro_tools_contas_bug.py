@@ -1,5 +1,5 @@
 import pytest
-from app.services.ai_tools.financeiro_tools import _gerar_relatorio_contas_a_receber, GerarRelatorioContasAReceberInput
+from app.ai.tools.financeiro_tools import _gerar_relatorio_contas_a_receber, GerarRelatorioContasAReceberInput
 from app.models.models import ContaFinanceira, TipoConta, StatusConta, Cliente, Empresa, Usuario, Orcamento, StatusOrcamento
 
 @pytest.mark.asyncio

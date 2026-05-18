@@ -1129,9 +1129,22 @@ async def assistente_universal_stream(
     channel_msg.metadata["confirmation_token"] = getattr(request, "confirmation_token", None)
     channel_msg.metadata["override_args"] = getattr(request, "override_args", None)
 
+    async def _stream_legacy_runner(payload):
+        async for chunk in assistente_unificado_stream(
+            mensagem=payload["mensagem"],
+            sessao_id=payload["sessao_id"],
+            db=payload["metadata"]["db"],
+            current_user=payload["metadata"]["current_user"],
+            engine=payload["metadata"].get("engine", engine),
+            request_id=payload["metadata"].get("request_id"),
+            confirmation_token=payload["metadata"].get("confirmation_token"),
+            override_args=payload["metadata"].get("override_args"),
+        ):
+            yield chunk
+
     orchestrator = AssistantOrchestrator(
         legacy_runner=assistente_unificado_v2,
-        legacy_stream_runner=assistente_unificado_stream
+        legacy_stream_runner=_stream_legacy_runner
     )
 
     async def _stream_generator():

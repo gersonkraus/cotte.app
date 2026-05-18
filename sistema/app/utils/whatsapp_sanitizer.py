@@ -39,3 +39,11 @@ def sanitizar_mensagem(raw: str | None) -> str | None:
     msg = unicodedata.normalize("NFC", msg)
     msg = msg[:MAX_MSG_LEN].strip()
     return msg or None
+
+
+def remover_acentos(texto: str) -> str:
+    """Remove acentos de uma string, transformando p.ex. 'Júlia' em 'Julia'."""
+    return "".join(
+        c for c in unicodedata.normalize("NFD", texto)
+        if unicodedata.category(c) != "Mn"
+    )

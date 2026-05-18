@@ -147,6 +147,13 @@ projetos-prontos-ToDo/
 sistema/test_*.py
 !sistema/tests/
 
+# Backups de banco
+backup_*.sql
+
+# Uploads de usuarios e imagens geradas
+sistema/uploads/
+sistema/static/images/empresas/
+
 
 # Local artifacts and worktrees
 graphify-out/

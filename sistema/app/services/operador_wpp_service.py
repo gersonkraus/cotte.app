@@ -299,9 +299,10 @@ async def processar_operador_wpp(
         _limpar_pending_wpp(sessao_id)
 
     # 2a. Trigger para wizard interativo de criação de orçamento via lista
+    # Usamos match exato para evitar sequestrar mensagens detalhadas que a IA deve processar
     msg_lower = mensagem.strip().lower()
     _TRIGGERS_WIZARD = {"novo orçamento", "novo orcamento", "criar orçamento", "criar orcamento", "orc interativo"}
-    if any(t in msg_lower for t in _TRIGGERS_WIZARD):
+    if msg_lower in _TRIGGERS_WIZARD:
         try:
             from app.services.whatsapp_interativo_service import iniciar_fluxo_operador
             await iniciar_fluxo_operador(db, telefone, empresa)

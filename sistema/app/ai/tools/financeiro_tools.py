@@ -632,12 +632,12 @@ class GerarRelatorioContasAReceberInput(BaseModel):
         default=False, description="Se True, retorna apenas contas já vencidas."
     )
     agrupar_por: Optional[str] = Field(
-        default=None, description="Agrupar resultados por 'cliente'."
+        default=None, description="Agrupar resultados por 'cliente'. ATENÇÃO: NÃO use agrupar_por se o usuário pedir para 'listar', ver 'detalhes' ou as 'contas' individuais de um cliente."
     )
     busca: Optional[str] = Field(
         default=None, description="Busca parcial por nome do cliente ou descrição da conta."
     )
-    limit: int = Field(default=50, ge=1, le=200)
+    limit: int = Field(default=50, ge=1, le=200, description="Limite de registros retornados. Padrão é 50.")
 
 
 async def _gerar_relatorio_contas_a_receber(
@@ -697,16 +697,35 @@ async def _gerar_relatorio_contas_a_receber(
             for r in results
         ]
         
-        total_devido = sum(d['total_devido'] for d in detalhes)
-        quantidade_total = sum(d['quantidade_contas'] for d in detalhes)
+        # Calculate real totals without limit
+        real_total_query = db.query(
+            func.sum(ContaFinanceira.valor - func.coalesce(ContaFinanceira.valor_pago, 0)).label("total_devido"),
+            func.count(ContaFinanceira.id).label("quantidade_contas")
+        ).outerjoin(Orcamento, ContaFinanceira.orcamento_id == Orcamento.id).outerjoin(Cliente, Orcamento.cliente_id == Cliente.id).filter(
+            ContaFinanceira.empresa_id == current_user.empresa_id,
+            ContaFinanceira.tipo == 'receber',
+            ContaFinanceira.status.in_([StatusConta.PENDENTE, StatusConta.VENCIDO])
+        )
+        if inp.apenas_vencidas:
+            real_total_query = real_total_query.filter(ContaFinanceira.data_vencimento < date.today())
+        if inp.busca:
+            real_total_query = real_total_query.filter(
+                or_(
+                    ContaFinanceira.descricao.ilike(f"%{inp.busca}%"),
+                    Cliente.nome.ilike(f"%{inp.busca}%")
+                )
+            )
+        real_total_res = real_total_query.first()
 
         return {
-            "total_devido": total_devido,
-            "quantidade_contas": quantidade_total,
+            "total_devido": float(real_total_res.total_devido or 0) if real_total_res else 0.0,
+            "quantidade_contas": real_total_res.quantidade_contas if real_total_res else 0,
+            "registros_retornados": len(detalhes),
             "agrupamento": "cliente",
             "detalhes": detalhes
         }
 
+    # Fetch accounts without group
     contas = query.order_by(ContaFinanceira.data_vencimento.asc()).limit(inp.limit).all()
     
     detalhes = [
@@ -722,11 +741,16 @@ async def _gerar_relatorio_contas_a_receber(
         for c in contas
     ]
 
-    total_devido = sum(d['valor_devido'] for d in detalhes)
+    # Calculate real totals without limit
+    real_count = query.count()
+    real_total_devido_query = query.with_entities(func.sum(ContaFinanceira.valor - func.coalesce(ContaFinanceira.valor_pago, 0)))
+    real_total_devido = float(real_total_devido_query.scalar() or 0)
 
     return {
-        "total_devido": total_devido,
-        "quantidade_contas": len(detalhes),
+        "total_devido": real_total_devido,
+        "quantidade_contas": real_count,
+        "registros_retornados": len(detalhes),
+        "aviso": f"Retornando {len(detalhes)} de {real_count} contas. Se necessário, use um limite maior." if len(detalhes) < real_count else None,
         "agrupamento": None,
         "detalhes": detalhes
     }
@@ -734,7 +758,7 @@ async def _gerar_relatorio_contas_a_receber(
 
 gerar_relatorio_contas_a_receber = ToolSpec(
     name="gerar_relatorio_contas_a_receber",
-    description="Gera um relatório de contas a receber pendentes ou vencidas. Os resultados podem ser consolidados por cliente.",
+    description="Gera um relatório de contas a receber pendentes ou vencidas. Os resultados podem ser consolidados por cliente (agrupar_por='cliente'). Se o usuário pedir para listar as contas detalhadas de um cliente, NÃO agrupe.",
     input_model=GerarRelatorioContasAReceberInput,
     handler=_gerar_relatorio_contas_a_receber,
     destrutiva=False,
