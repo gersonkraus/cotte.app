@@ -67,13 +67,6 @@ def validate_analytics_sql(sql: str, *, allow_cross_tenant: bool = False) -> Sql
             ok=False, error="SQL excede limite de 8000 caracteres.", code="invalid_input"
         )
 
-    if ";" in raw:
-        return SqlValidationResult(
-            ok=False,
-            error="SQL com múltiplas instruções não é permitido.",
-            code="sql_multi_statement_blocked",
-        )
-
     if not _balanced_parentheses(raw):
         return SqlValidationResult(
             ok=False,
@@ -82,6 +75,13 @@ def validate_analytics_sql(sql: str, *, allow_cross_tenant: bool = False) -> Sql
         )
 
     cleaned = _strip_literals_and_comments(raw)
+
+    if ";" in cleaned:
+        return SqlValidationResult(
+            ok=False,
+            error="SQL com múltiplas instruções não é permitido.",
+            code="sql_multi_statement_blocked",
+        )
 
     if _OR_TRUE_RE.search(cleaned):
         return SqlValidationResult(
@@ -117,7 +117,7 @@ def validate_analytics_sql(sql: str, *, allow_cross_tenant: bool = False) -> Sql
             code="sql_system_table_blocked",
         )
 
-    if not allow_cross_tenant and not _TENANT_PARAM_RE.search(raw):
+    if not allow_cross_tenant and not _TENANT_PARAM_RE.search(cleaned):
         return SqlValidationResult(
             ok=False,
             error=(
