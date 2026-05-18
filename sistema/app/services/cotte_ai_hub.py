@@ -2857,6 +2857,9 @@ _V2_TOOLSET_ORCAMENTOS = {
     "duplicar_orcamento",
     "editar_orcamento",
     "editar_item_orcamento",
+    "adicionar_item_orcamento",
+    "remover_item_orcamento",
+    "aplicar_desconto_orcamento",
     "aprovar_orcamento",
     "recusar_orcamento",
     "enviar_orcamento_whatsapp",
@@ -4941,16 +4944,22 @@ async def assistente_v2_stream_core(
             intent_str = "CONVERSACAO"
 
     # ── Detecção de queries analíticas — bypass dos fast-paths ────────────
-    from app.ai.analytical_classifier import classify_analytical_intent as _clf
-    _analytical_intent = _clf(mensagem)
+    from app.ai.analytical_classifier import (
+        classify_analytical_intent as _clf,
+        build_history_context as _build_hctx,
+    )
+    _pre_clf_hist = SessionStore.get_or_create(sessao_id)
+    _history_ctx = _build_hctx(_pre_clf_hist)
+    _analytical_intent = _clf(mensagem, history_context=_history_ctx)
     _token_budget = 20_000 if _analytical_intent.is_analytical else 15_000
 
     if _analytical_intent.is_analytical:
         logger.info(
-            "[stream_v2] Analytical query detectada (confidence=%.2f, triggers=%s). "
-            "Bypassing fast-paths.",
+            "[stream_v2] Analytical query detectada (confidence=%.2f, triggers=%s, "
+            "data_ctx=%s). Bypassing fast-paths.",
             _analytical_intent.confidence,
             _analytical_intent.triggers[:3],
+            _history_ctx.is_data_context,
         )
         intent_str = "ANALISE_SQL"  # Não matcheia nenhum fast-path existente
 
@@ -5705,11 +5714,18 @@ async def assistente_v2_stream_core(
             resolved_engine=resolved_engine,
         )
     )
-    # Para queries analíticas: usa o conjunto completo de tools (inclui executar_sql_analitico)
+    # Para queries analíticas: usa o conjunto completo menos tools de edição destrutiva.
+    # Evita que o LLM chame editar_cliente/excluir_cliente em contexto de análise de dados.
     if _analytical_intent.is_analytical:
-        tools_payload = list(full_tools_payload)
+        _ANALYTICAL_EXCLUDED = frozenset({
+            "editar_cliente", "excluir_cliente", "criar_cliente",
+        })
+        tools_payload = [
+            t for t in full_tools_payload
+            if (t.get("function") or {}).get("name", "") not in _ANALYTICAL_EXCLUDED
+        ]
         reduced_tools_active = False
-        tool_profile = "analytical_full"
+        tool_profile = "analytical_readonly"
 
     adaptive_meta["tool_profile"] = tool_profile
     adaptive_meta["tool_count"] = len(tools_payload)
@@ -6113,6 +6129,9 @@ async def assistente_v2_stream_core(
             final_tipo_resposta = "geral"
         elif "despesas" in meta_fe or "despesas" in tool_data_collector:
             final_tipo_resposta = "geral"
+        elif tool_data_collector.get("_orcamento_atualizado_flag"):
+            final_tipo_resposta = "orcamento_atualizado"
+
 
     # Atualiza contexto operacional
     ctx = _v2_update_operational_context_from_payload(
