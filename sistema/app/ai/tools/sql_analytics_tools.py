@@ -107,8 +107,11 @@ async def _executar_sql_analitico(
 executar_sql_analitico = ToolSpec(
     name="executar_sql_analitico",
     description=(
-        "Executa SQL analítico em modo read-only com whitelist de fontes e bloqueio de DML/DDL. "
-        "Aceita apenas SELECT/CTE. Superadmin pode consultar outras empresas via empresa_id_filtro."
+        "Ferramenta principal para responder a perguntas analíticas e de negócio do usuário usando o banco de dados. "
+        "USE ESTA FERRAMENTA para: criar rankings (ex: os 5 melhores clientes, piores pagadores, mais vendidos), "
+        "obter contagens (quantos orçamentos aprovados), estatísticas, valores médios, tickets médios, "
+        "faturamento, agrupamentos (vendas por mês/dia/vendedor) e cruzar dados de diferentes tabelas. "
+        "Executa SQL em modo read-only bloqueado contra DML/DDL. Aceita apenas SELECT/CTE."
     ),
     input_model=ExecutarSqlAnaliticoInput,
     handler=_executar_sql_analitico,
