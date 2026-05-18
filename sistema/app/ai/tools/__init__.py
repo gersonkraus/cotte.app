@@ -51,6 +51,8 @@ from .orcamento_tools import (
     aprovar_orcamento,
     criar_orcamento,
     duplicar_orcamento,
+    adicionar_item_orcamento,
+    aplicar_desconto_orcamento,
     editar_item_orcamento,
     editar_orcamento,
     enviar_orcamento_email,
@@ -59,6 +61,7 @@ from .orcamento_tools import (
     listar_orcamentos,
     obter_orcamento,
     recusar_orcamento,
+    remover_item_orcamento,
 )
 
 TOOL_DOMAIN_MAP: dict[str, str] = {
@@ -70,6 +73,9 @@ TOOL_DOMAIN_MAP: dict[str, str] = {
     "duplicar_orcamento": "orcamentos",
     "editar_orcamento": "orcamentos",
     "editar_item_orcamento": "orcamentos",
+    "adicionar_item_orcamento": "orcamentos",
+    "remover_item_orcamento": "orcamentos",
+    "aplicar_desconto_orcamento": "orcamentos",
     "aprovar_orcamento": "orcamentos",
     "recusar_orcamento": "orcamentos",
     "enviar_orcamento_whatsapp": "orcamentos",
@@ -150,6 +156,9 @@ _ALL_TOOLS: list[ToolSpec] = [
     duplicar_orcamento,
     editar_orcamento,
     editar_item_orcamento,
+    adicionar_item_orcamento,
+    remover_item_orcamento,
+    aplicar_desconto_orcamento,
     aprovar_orcamento,
     recusar_orcamento,
     enviar_orcamento_whatsapp,

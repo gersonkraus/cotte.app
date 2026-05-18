@@ -1668,6 +1668,207 @@ async def _anexar_documento_orcamento(
     }
 
 
+
+
+# ── Adicionar Item ──
+class AdicionarItemOrcamentoInput(BaseModel):
+    orcamento_id: int | str = Field(
+        description="ID numérico ou número do orçamento (ex: 104, 'O-104' ou '0-104')."
+    )
+    descricao: str = Field(
+        max_length=500, description="Descrição do novo item a ser adicionado."
+    )
+    valor_unit: Decimal = Field(
+        ge=0, description="Valor unitário do item."
+    )
+    quantidade: Optional[Decimal] = Field(
+        default=1, gt=0, description="Quantidade do item (padrão 1)."
+    )
+
+async def _adicionar_item_orcamento(
+    inp: AdicionarItemOrcamentoInput, *, db: Session, current_user: Usuario
+) -> dict[str, Any]:
+    from app.models.models import ItemOrcamento
+    from app.utils.desconto import aplicar_desconto
+    
+    orc = _get_orcamento_da_empresa(db, inp.orcamento_id, current_user.empresa_id)
+    if not orc:
+        return {"error": "Orçamento não encontrado", "code": "not_found"}
+    if orc.status != StatusOrcamento.RASCUNHO:
+        return {
+            "error": f"Orçamento em status {orc.status.value} não pode ser editado (apenas RASCUNHO).",
+            "code": "invalid_state",
+        }
+    
+    qty = Decimal(str(inp.quantidade or 1))
+    vunit = Decimal(str(inp.valor_unit or 0))
+    total_item = qty * vunit
+    
+    novo_item = ItemOrcamento(
+        orcamento_id=orc.id,
+        descricao=inp.descricao,
+        quantidade=qty,
+        valor_unit=vunit,
+        total=total_item,
+    )
+    db.add(novo_item)
+    db.flush()
+    db.refresh(orc)
+    
+    subtotal = sum(Decimal(str(i.total or 0)) for i in orc.itens)
+    desconto = Decimal(str(orc.desconto or 0))
+    if orc.desconto_tipo == "percentual":
+        orc.total = max(Decimal("0"), subtotal * (1 - desconto / 100))
+    else:
+        orc.total = max(Decimal("0"), subtotal - desconto)
+        
+    _registrar_evento_orcamento(
+        db,
+        orcamento_id=orc.id,
+        usuario_id=current_user.id,
+        descricao=f"Item '{inp.descricao}' adicionado via assistente.",
+    )
+    db.commit()
+    db.refresh(orc)
+    
+    resp = _build_orcamento_response(orc, {"item_adicionado": inp.descricao, "atualizado": True, "_orcamento_atualizado_flag": True})
+    return resp
+
+adicionar_item_orcamento = ToolSpec(
+    name="adicionar_item_orcamento",
+    description="Adiciona um novo item (produto/serviço) a um orçamento em RASCUNHO. Forneça a descrição, valor e quantidade. AÇÃO DESTRUTIVA.",
+    input_model=AdicionarItemOrcamentoInput,
+    handler=_adicionar_item_orcamento,
+    destrutiva=True,
+    permissao_recurso="orcamentos",
+    permissao_acao="escrita",
+)
+
+# ── Remover Item ──
+class RemoverItemOrcamentoInput(BaseModel):
+    orcamento_id: int | str = Field(
+        description="ID numérico ou número do orçamento."
+    )
+    num_item: int = Field(
+        ge=1, description="Número do item a ser removido (1 = primeiro, 2 = segundo, etc)."
+    )
+
+async def _remover_item_orcamento(
+    inp: RemoverItemOrcamentoInput, *, db: Session, current_user: Usuario
+) -> dict[str, Any]:
+    from app.utils.desconto import aplicar_desconto
+    orc = _get_orcamento_da_empresa(db, inp.orcamento_id, current_user.empresa_id)
+    if not orc:
+        return {"error": "Orçamento não encontrado", "code": "not_found"}
+    if orc.status != StatusOrcamento.RASCUNHO:
+        return {
+            "error": f"Orçamento em status {orc.status.value} não pode ser editado.",
+            "code": "invalid_state",
+        }
+    itens = orc.itens or []
+    if not itens:
+        return {"error": "Orçamento não possui itens.", "code": "invalid_input"}
+    if inp.num_item > len(itens) or inp.num_item < 1:
+        return {"error": f"Item {inp.num_item} inválido. O orçamento possui {len(itens)} itens.", "code": "invalid_input"}
+    
+    if len(itens) == 1:
+        return {"error": "Não é possível remover o único item do orçamento.", "code": "invalid_input"}
+        
+    item_a_remover = itens[inp.num_item - 1]
+    desc_removido = item_a_remover.descricao
+    db.delete(item_a_remover)
+    db.flush()
+    db.refresh(orc)
+    
+    subtotal = sum(Decimal(str(i.total or 0)) for i in orc.itens)
+    desconto = Decimal(str(orc.desconto or 0))
+    if orc.desconto_tipo == "percentual":
+        orc.total = max(Decimal("0"), subtotal * (1 - desconto / 100))
+    else:
+        orc.total = max(Decimal("0"), subtotal - desconto)
+        
+    _registrar_evento_orcamento(
+        db,
+        orcamento_id=orc.id,
+        usuario_id=current_user.id,
+        descricao=f"Item '{desc_removido}' removido via assistente.",
+    )
+    db.commit()
+    db.refresh(orc)
+    
+    resp = _build_orcamento_response(orc, {"item_removido": desc_removido, "atualizado": True, "_orcamento_atualizado_flag": True})
+    return resp
+
+remover_item_orcamento = ToolSpec(
+    name="remover_item_orcamento",
+    description="Remove um item de um orçamento em RASCUNHO informando o número do item (ex: 1, 2, 3). AÇÃO DESTRUTIVA.",
+    input_model=RemoverItemOrcamentoInput,
+    handler=_remover_item_orcamento,
+    destrutiva=True,
+    permissao_recurso="orcamentos",
+    permissao_acao="escrita",
+)
+
+# ── Aplicar Desconto ──
+class AplicarDescontoOrcamentoInput(BaseModel):
+    orcamento_id: int | str = Field(
+        description="ID numérico ou número do orçamento."
+    )
+    desconto: Decimal = Field(
+        ge=0, description="Valor do desconto."
+    )
+    desconto_tipo: str = Field(
+        default="percentual", description="'percentual' ou 'valor'."
+    )
+
+async def _aplicar_desconto_orcamento(
+    inp: AplicarDescontoOrcamentoInput, *, db: Session, current_user: Usuario
+) -> dict[str, Any]:
+    orc = _get_orcamento_da_empresa(db, inp.orcamento_id, current_user.empresa_id)
+    if not orc:
+        return {"error": "Orçamento não encontrado", "code": "not_found"}
+    if orc.status != StatusOrcamento.RASCUNHO:
+        return {
+            "error": f"Orçamento em status {orc.status.value} não pode ser editado.",
+            "code": "invalid_state",
+        }
+    if inp.desconto_tipo not in ("percentual", "valor"):
+        return {"error": "desconto_tipo inválido", "code": "invalid_input"}
+        
+    orc.desconto = inp.desconto
+    orc.desconto_tipo = inp.desconto_tipo
+    db.flush()
+    
+    subtotal = sum(Decimal(str(i.total or 0)) for i in orc.itens)
+    desconto = Decimal(str(orc.desconto or 0))
+    if orc.desconto_tipo == "percentual":
+        orc.total = max(Decimal("0"), subtotal * (1 - desconto / 100))
+    else:
+        orc.total = max(Decimal("0"), subtotal - desconto)
+        
+    _registrar_evento_orcamento(
+        db,
+        orcamento_id=orc.id,
+        usuario_id=current_user.id,
+        descricao=f"Desconto atualizado para {inp.desconto} ({inp.desconto_tipo}) via assistente.",
+    )
+    db.commit()
+    db.refresh(orc)
+    
+    resp = _build_orcamento_response(orc, {"desconto_aplicado": float(inp.desconto), "atualizado": True, "_orcamento_atualizado_flag": True})
+    return resp
+
+aplicar_desconto_orcamento = ToolSpec(
+    name="aplicar_desconto_orcamento",
+    description="Aplica ou atualiza um desconto em um orçamento. Informar o valor e o tipo ('percentual' ou 'valor'). AÇÃO DESTRUTIVA.",
+    input_model=AplicarDescontoOrcamentoInput,
+    handler=_aplicar_desconto_orcamento,
+    destrutiva=True,
+    permissao_recurso="orcamentos",
+    permissao_acao="escrita",
+)
+
+
 anexar_documento_orcamento = ToolSpec(
     name="anexar_documento_orcamento",
     description=(
