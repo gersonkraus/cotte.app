@@ -671,58 +671,79 @@ function renderTabelaRica(data, dados, isStreamed) {
     }
     return content;
 }
-function renderSemanticTableRows(rows) {
+function _isNumericColumn(header) {
+    return /valor|total|preco|preço|saldo|despesa|receita|ticket|qtd|quantidade|contagem|count|soma|media|média|desconto|juros|multa|saldo/i.test(header);
+}
+
+function _formatCellValue(val, header) {
+    if (val === null || val === undefined) return '—';
+    if (typeof val === 'boolean') return val ? 'Sim' : 'Não';
+    if (typeof val === 'number') {
+        if (_isNumericColumn(header)) return formatValue(val);
+        return val % 1 !== 0 ? val.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) : val.toLocaleString('pt-BR');
+    }
+    if (typeof val === 'string') {
+        if (val.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) {
+            const d = new Date(val);
+            const dia = String(d.getDate()).padStart(2, '0');
+            const mes = String(d.getMonth() + 1).padStart(2, '0');
+            const h = String(d.getHours()).padStart(2, '0');
+            const min = String(d.getMinutes()).padStart(2, '0');
+            return (h !== '00' || min !== '00') ? `${dia}/${mes}/${d.getFullYear()} ${h}:${min}` : `${dia}/${mes}/${d.getFullYear()}`;
+        }
+        if (val.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            const [ano, mes, dia] = val.split('-');
+            return `${dia}/${mes}/${ano}`;
+        }
+    }
+    return String(val);
+}
+
+function renderSemanticTableRows(rows, meta) {
     if (!Array.isArray(rows) || rows.length === 0) return '';
     const headersSet = new Set();
     rows.slice(0, 20).forEach((obj) => {
-        if (obj && typeof obj === 'object') {
-            Object.keys(obj).forEach((k) => headersSet.add(k));
-        }
+        if (obj && typeof obj === 'object') Object.keys(obj).forEach((k) => headersSet.add(k));
     });
     const headers = Array.from(headersSet)
-        .filter((k) => typeof rows[0][k] !== 'object')
-        .slice(0, 8);
+        .filter((k) => rows[0] && typeof rows[0][k] !== 'object')
+        .slice(0, 10);
     if (!headers.length) return '';
-    const ths = headers
-        .map((h) => `<th>${escapeHtml(String(h).replace(/_/g, ' ').replace(/^[a-z]/, (l) => l.toUpperCase()))}</th>`)
-        .join('');
-    const trs = rows.slice(0, 100).map((obj) => {
-        const tds = headers.map((h) => {
-            let val = obj[h];
-            if (typeof val === 'number') {
-                if (h.toLowerCase().match(/valor|total|preco|preço|saldo|despesa|receita|ticket/)) {
-                    val = formatValue(val);
-                } else if (val % 1 !== 0) {
-                    val = val.toLocaleString('pt-BR');
-                }
-            } else if (typeof val === 'boolean') {
-                val = val ? 'Sim' : 'Não';
-            } else if (typeof val === 'string' && val.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) {
-                // Formatting ISO dates like 2024-05-18T10:30:00
-                const dateObj = new Date(val);
-                const dia = String(dateObj.getDate()).padStart(2, '0');
-                const mes = String(dateObj.getMonth() + 1).padStart(2, '0');
-                const ano = dateObj.getFullYear();
-                const hora = String(dateObj.getHours()).padStart(2, '0');
-                const min = String(dateObj.getMinutes()).padStart(2, '0');
-                
-                // Show time only if it's not midnight exactly (indicative of date-only field converted to datetime)
-                if (hora !== '00' || min !== '00') {
-                    val = `${dia}/${mes}/${ano} ${hora}:${min}`;
-                } else {
-                    val = `${dia}/${mes}/${ano}`;
-                }
-            } else if (typeof val === 'string' && val.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                // Formatting ISO dates like 2024-05-18
-                const [ano, mes, dia] = val.split('-');
-                val = `${dia}/${mes}/${ano}`;
-            }
-            return `<td><span class="ai-td-content">${escapeHtml(String(val ?? '—'))}</span></td>`;
-        }).join('');
-        return `<tr>${tds}</tr>`;
+
+    const MAX_ROWS = 200;
+    const displayRows = rows.slice(0, MAX_ROWS);
+    const rowsTotal = (meta && meta.rows_total) || rows.length;
+    const rowsReturned = (meta && meta.rows_returned) || rows.length;
+    const isTruncated = (meta && meta.truncated) || rows.length > MAX_ROWS;
+
+    // Detecta colunas numéricas para alinhar à direita
+    const numericHeaders = new Set(headers.filter(_isNumericColumn));
+
+    const formatHeader = (h) => h.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+    const ths = headers.map((h) => {
+        const cls = numericHeaders.has(h) ? ' class="ai-th-numeric"' : '';
+        return `<th${cls}>${escapeHtml(formatHeader(h))}</th>`;
     }).join('');
-    return `<div class="ai-table-wrapper">
-        <table class="ai-table">
+
+    const trs = displayRows.map((obj, i) => {
+        const tds = headers.map((h) => {
+            const val = _formatCellValue(obj[h], h);
+            const cls = numericHeaders.has(h) ? ' class="ai-td-numeric"' : '';
+            return `<td${cls}><span class="ai-td-content">${escapeHtml(val)}</span></td>`;
+        }).join('');
+        return `<tr class="${i % 2 === 1 ? 'ai-tr-alt' : ''}">${tds}</tr>`;
+    }).join('');
+
+    // Cabeçalho da tabela com contagem
+    let countLabel = `<span class="ai-table-count">${rowsReturned.toLocaleString('pt-BR')}</span> resultado${rowsReturned !== 1 ? 's' : ''}`;
+    if (isTruncated && rowsTotal > rowsReturned) {
+        countLabel = `Exibindo <span class="ai-table-count">${rowsReturned.toLocaleString('pt-BR')}</span> de <span class="ai-table-count">${rowsTotal.toLocaleString('pt-BR')}</span>`;
+    }
+    const tableHeader = `<div class="ai-table-meta-header">${countLabel}</div>`;
+
+    return `<div class="ai-table-wrapper ai-table-wrapper--analytic">
+        ${tableHeader}
+        <table class="ai-table ai-table--analytic">
             <thead><tr>${ths}</tr></thead>
             <tbody>${trs}</tbody>
         </table>
@@ -735,7 +756,7 @@ function renderSemanticContract(data, semanticContract, isStreamed) {
     if (summary && !(isStreamed && data.stream_has_chunks)) {
         content += `<div class="resposta-direta">${textToHtmlRich(summary)}</div>`;
     }
-    const tableHtml = renderSemanticTableRows(sc.table || []);
+    const tableHtml = renderSemanticTableRows(sc.table || [], sc.metadata);
     if (tableHtml) {
         content += tableHtml;
     }

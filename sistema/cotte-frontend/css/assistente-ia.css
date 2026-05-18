@@ -3933,6 +3933,72 @@ body.embed-mode .chat-header-new-btn {
   }
 }
 
+/* ── Tabela Analítica (resultados SQL) ───────────────────────────────────── */
+.ai-table-wrapper--analytic {
+  margin-top: 10px;
+}
+
+.ai-table-meta-header {
+  padding: 8px 16px 7px;
+  border-bottom: 1px solid var(--ai-border);
+  font-size: 0.73rem;
+  color: var(--ai-muted);
+  background: color-mix(in srgb, var(--ai-card) 70%, var(--ai-bg) 30%);
+  border-radius: 12px 12px 0 0;
+  letter-spacing: 0.01em;
+}
+
+.ai-table-count {
+  font-weight: 700;
+  color: var(--ai-text);
+}
+
+/* Cabeçalho fixo em tabelas analíticas com scroll */
+.ai-table-wrapper--analytic {
+  max-height: 420px;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+.ai-table--analytic thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: color-mix(in srgb, var(--ai-card) 95%, var(--ai-bg) 5%);
+}
+
+/* Linhas alternadas (zebra) */
+.ai-table--analytic tbody .ai-tr-alt td {
+  background: color-mix(in srgb, var(--ai-bg) 35%, transparent);
+}
+
+/* Colunas numéricas alinhadas à direita */
+.ai-th-numeric {
+  text-align: right !important;
+}
+
+.ai-td-numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  color: var(--ai-text);
+}
+
+.ai-td-numeric .ai-td-content {
+  max-width: 140px;
+}
+
+/* Hover mais visível em tabelas analíticas */
+.ai-table--analytic tbody tr:hover td {
+  background: color-mix(in srgb, var(--ai-accent-dim) 60%, transparent) !important;
+}
+
+@media (max-width: 600px) {
+  .ai-table-wrapper--analytic {
+    max-height: 320px;
+  }
+}
+
 /* ── Tool Running Badge (v2 stream) ─────────────────────────────────────── */
 .tool-running-badge {
   display: inline-flex;

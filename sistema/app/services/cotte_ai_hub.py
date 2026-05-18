@@ -472,62 +472,6 @@ def _texto_exibicao_para_modulo(modulo: str, dados: dict) -> str:
         out3 = "\n\n".join(p for p in parts if p).strip()
         return out3 or "Sugestão de negócio gerada."
 
-    if modulo == "operador":
-        acao = dados.get("acao")
-        if acao == "VER" and dados.get("numero"):
-            numero = dados.get("numero")
-            cliente_nome = (dados.get("cliente") or {}).get("nome") or "—"
-            total = float(dados.get("total") or 0)
-            status = str(dados.get("status") or "").upper()
-
-            # Formata itens
-            itens = dados.get("itens") or []
-            itens_linhas = []
-            for i, item in enumerate(itens, 1):
-                desc = item.get("descricao") or "?"
-                v_total = float(item.get("total") or 0)
-                qtd = item.get("quantidade") or 1
-                try:
-                    if float(qtd) == int(float(qtd)):
-                        qtd = int(float(qtd))
-                except (ValueError, TypeError):
-                    pass
-
-                linha = f"{i}. {desc} -- {_fmt_brl(v_total)}"
-                if qtd != 1:
-                    linha += f" (x{qtd})"
-                itens_linhas.append(linha)
-
-            itens_txt = "\n".join(itens_linhas)
-
-            desc_val = float(dados.get("desconto") or 0)
-            desc_txt = ""
-            if desc_val > 0:
-                tipo = dados.get("desconto_tipo") or "percentual"
-                label = (
-                    f"{desc_val:.0f}%"
-                    if tipo == "percentual"
-                    else _fmt_brl(desc_val)
-                )
-                desc_txt = f"Desconto: {label}\n"
-
-            # Extrai apenas os números do identificador para os comandos (mais amigável)
-            # Se numero é "O-178", orc_id_ref fica "178"
-            num_match = re.search(r"\d+", str(numero))
-            orc_id_ref = num_match.group() if num_match else (dados.get("id") or numero)
-
-            return (
-                f"*{numero}* -- {cliente_nome}\n\n"
-                f"{itens_txt}\n\n"
-                f"{desc_txt}"
-                f"Total: {_fmt_brl(total)}\n"
-                f"Status: {status}\n\n"
-                f"*ADICIONAR {orc_id_ref} [descricao] [valor]*\n"
-                f"*REMOVER {orc_id_ref} [n item]*\n"
-                f"*DESCONTO {orc_id_ref} [valor]*\n"
-                f"*ENVIAR {orc_id_ref}*"
-            )
-
     if modulo == "orcamento_simulacao":
         num = dados.get("numero") or "?"
         cli = (dados.get("cliente") or {}).get("nome") or "—"
@@ -6111,12 +6055,39 @@ async def assistente_v2_stream_core(
 
     followup_pendente = _v2_extract_pending_followup_from_assistant_text(final_text or "")
 
+    # ── SQL analítico: converte rows em semantic_contract para renderização rica ──
+    _sql_rows = tool_data_collector.get("rows")
+    if (
+        isinstance(_sql_rows, list)
+        and _sql_rows
+        and "semantic_contract" not in dados_out
+    ):
+        _sql_total = tool_data_collector.get("row_count") or len(_sql_rows)
+        _sql_truncated = bool(tool_data_collector.get("truncated", False))
+        dados_out["semantic_contract"] = _build_semantic_contract(
+            summary=final_text or "",
+            table=_sql_rows,
+            printable={
+                "title": "Resultado da consulta",
+                "summary": final_text or "",
+                "rows": _sql_rows,
+            },
+            metadata_extra={
+                "rows_returned": len(_sql_rows),
+                "rows_total": _sql_total,
+                "truncated": _sql_truncated,
+                "domain": "sql_analitico",
+            },
+        )
+        if not final_tipo_resposta or final_tipo_resposta == "geral":
+            final_tipo_resposta = "relatorio_dinamico"
+
     if final_tipo_resposta is None:
         # Inferência de tipo de resposta baseada na intenção e dados coletados
         # Isso garante que a UI use o renderer correto mesmo se a IA responder em texto puro
         # Buscamos também dentro de _meta_frontend_data coletado pelas tools
         meta_fe = tool_data_collector.get("_meta_frontend_data") or {}
-        
+
         if intent_str == "LISTAR_ORCAMENTOS" or "orcamentos" in tool_data_collector or "orcamentos" in meta_fe:
             final_tipo_resposta = "lista_orcamentos"
         elif intent_str == "LISTAR_CLIENTES" or "clientes" in tool_data_collector or "clientes" in meta_fe:
