@@ -2880,6 +2880,8 @@ def _v2_message_likely_requires_tools(mensagem: str) -> bool:
         "faturamento",
         "orcamento",
         "orçamento",
+        "conta",
+        "contas",
         "cliente",
         "clientes",
         "agendamento",
@@ -2907,6 +2909,8 @@ def _v2_message_likely_requires_tools(mensagem: str) -> bool:
         "modificar",
         "valor",
         "atualizar",
+        "deve",
+        "devendo",
     )
     return any(t in msg for t in tokens)
 
@@ -2952,7 +2956,9 @@ def _v2_selected_tool_names_for_message(
             "faturamento",
             "inadimpl",
             "devendo",
+            "deve",
             "vencid",
+            "conta",
         )
     )
 
@@ -2971,6 +2977,7 @@ def _v2_selected_tool_names_for_message(
             "listar_movimentacoes_financeiras",
             "listar_despesas",
             "listar_clientes",
+            "gerar_relatorio_contas_a_receber",
         }
         # Inclui orçamentos apenas se houver menção explícita
         if any(
@@ -5960,6 +5967,12 @@ async def assistente_v2_stream_core(
             final_tipo_resposta = "clientes_lista"
         elif intent_str == "SALDO_RAPIDO" or "saldo_atual" in tool_data_collector or "saldo_caixa" in tool_data_collector:
             final_tipo_resposta = "saldo_caixa"
+        elif "detalhes" in meta_fe and meta_fe.get("is_list"):
+            final_tipo_resposta = "geral"
+        elif "movimentacoes" in meta_fe or "movimentacoes" in tool_data_collector:
+            final_tipo_resposta = "geral"
+        elif "despesas" in meta_fe or "despesas" in tool_data_collector:
+            final_tipo_resposta = "geral"
 
     # Atualiza contexto operacional
     ctx = _v2_update_operational_context_from_payload(
