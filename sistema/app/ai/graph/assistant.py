@@ -181,34 +181,46 @@ async def specialist_agent_node(
     db = payload.get("db") or meta.get("db")
     current_user = payload.get("current_user") or meta.get("current_user")
     
-    if direct_agents_enabled() and db is not None and current_user is not None:
-        try:
-            agent = agent_class()
-            response = await run_agent_with_tools(
-                agent,
-                messages=_messages_for_agent(state.get("messages") or []),
-                db=db,
-                current_user=current_user,
-                sessao_id=state.get("sessao_id") or payload.get("sessao_id"),
-                engine=payload.get("engine", "operational"),
-            )
-            result = {"final_text": response.content, "content": response.content}
-            if response.metadata:
-                result["metadata"] = response.metadata
+    if direct_agents_enabled():
+        # Tenta obter db/current_user do Session Registry (resolve serialização do LangGraph)
+        if db is None or current_user is None:
+            try:
+                from app.ai.graph.session_registry import SessionRegistry
+                _sessao_id = state.get("sessao_id") or payload.get("sessao_id", "")
+                ctx = SessionRegistry.get(_sessao_id)
+                if ctx is not None:
+                    db, current_user = ctx
+            except Exception as _sr_exc:
+                logger.warning("[LangGraph] Falha ao obter sessão do registry: %s", _sr_exc)
 
-            updates = {
-                "result": result,
-                "next_agent": "FINISH",
-                "payload": payload,
-                "node_trace": node_trace + [{"agent": agent_name, "mode": "direct"}],
-            }
-            if response.content:
-                updates["messages"] = [AIMessage(content=response.content)]
-            return updates
-        except Exception as e:
-            logger.error(f"[Specialist {agent_name}] Erro no agente direto, usando legado: {e}")
-            errors.append(str(e))
-            node_trace.append({"agent": agent_name, "mode": "direct", "error": str(e)})
+        if db is not None and current_user is not None:
+            try:
+                agent = agent_class()
+                response = await run_agent_with_tools(
+                    agent,
+                    messages=_messages_for_agent(state.get("messages") or []),
+                    db=db,
+                    current_user=current_user,
+                    sessao_id=state.get("sessao_id") or payload.get("sessao_id"),
+                    engine=payload.get("engine", "operational"),
+                )
+                result = {"final_text": response.content, "content": response.content}
+                if response.metadata:
+                    result["metadata"] = response.metadata
+
+                updates = {
+                    "result": result,
+                    "next_agent": "FINISH",
+                    "payload": payload,
+                    "node_trace": node_trace + [{"agent": agent_name, "mode": "direct"}],
+                }
+                if response.content:
+                    updates["messages"] = [AIMessage(content=response.content)]
+                return updates
+            except Exception as e:
+                logger.error(f"[Specialist {agent_name}] Erro no agente direto, usando legado: {e}")
+                errors.append(str(e))
+                node_trace.append({"agent": agent_name, "mode": "direct", "error": str(e)})
      
     try:
         # No futuro, aqui usaremos agent_class() diretamente.

@@ -1129,6 +1129,17 @@ async def assistente_universal_stream(
     channel_msg.metadata["confirmation_token"] = getattr(request, "confirmation_token", None)
     channel_msg.metadata["override_args"] = getattr(request, "override_args", None)
 
+    # Registra db/current_user no Session Registry para o LangGraph
+    try:
+        from app.ai.graph.session_registry import SessionRegistry
+        SessionRegistry.register(
+            channel_msg.sessao_id,
+            db=db,
+            current_user=current_user,
+        )
+    except Exception:
+        pass  # Não crítico — LangGraph cai para legacy_runner se não encontrar
+
     async def _stream_legacy_runner(payload):
         async for chunk in assistente_unificado_stream(
             mensagem=payload["mensagem"],
