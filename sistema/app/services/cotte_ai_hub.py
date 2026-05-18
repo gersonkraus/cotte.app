@@ -6102,6 +6102,8 @@ async def assistente_v2_stream_core(
             final_tipo_resposta = "geral"
         elif tool_data_collector.get("_orcamento_atualizado_flag"):
             final_tipo_resposta = "orcamento_atualizado"
+        elif tool_data_collector.get("_orcamento_retornado_flag"):
+            final_tipo_resposta = "orcamento_card_unificado"
 
 
     # Atualiza contexto operacional

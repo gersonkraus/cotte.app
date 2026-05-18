@@ -483,6 +483,7 @@ async def _obter_orcamento(
             for i in (o.itens or [])
         ],
         "criado_em": o.criado_em.isoformat() if o.criado_em else None,
+        "_orcamento_retornado_flag": True,
     }
 
 
