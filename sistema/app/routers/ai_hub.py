@@ -1214,6 +1214,17 @@ async def assistente_universal(
     channel_msg.metadata["engine"] = engine
     channel_msg.metadata["request_id"] = _request_id_from_http(http_request)
 
+    # Registra db/current_user no Session Registry para o LangGraph
+    try:
+        from app.ai.graph.session_registry import SessionRegistry
+        SessionRegistry.register(
+            channel_msg.sessao_id,
+            db=db,
+            current_user=current_user,
+        )
+    except Exception:
+        pass  # Não crítico
+
     # Legacy runner mapping handling logic inside the wrapper
     async def legacy_runner_wrapper(payload):
          return await assistente_unificado_v2(
