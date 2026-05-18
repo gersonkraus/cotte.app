@@ -720,16 +720,18 @@ function renderSemanticTableRows(rows, meta) {
     const numericHeaders = new Set(headers.filter(_isNumericColumn));
 
     const formatHeader = (h) => h.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
-    const ths = headers.map((h) => {
-        const cls = numericHeaders.has(h) ? ' class="ai-th-numeric"' : '';
-        return `<th${cls}>${escapeHtml(formatHeader(h))}</th>`;
+    const ths = headers.map((h, i) => {
+        const clsList = ['ai-th-sortable'];
+        if (numericHeaders.has(h)) clsList.push('ai-th-numeric');
+        return `<th class="${clsList.join(' ')}" data-sort-col="${escapeHtmlAttr(h)}" data-col-idx="${i}" title="Clique para ordenar">${escapeHtml(formatHeader(h))}<span class="ai-sort-arrow"></span></th>`;
     }).join('');
 
     const trs = displayRows.map((obj, i) => {
         const tds = headers.map((h) => {
-            const val = _formatCellValue(obj[h], h);
+            const rawVal = obj[h] !== null && obj[h] !== undefined ? String(obj[h]) : '';
+            const displayVal = _formatCellValue(obj[h], h);
             const cls = numericHeaders.has(h) ? ' class="ai-td-numeric"' : '';
-            return `<td${cls}><span class="ai-td-content">${escapeHtml(val)}</span></td>`;
+            return `<td${cls} data-raw="${escapeHtmlAttr(rawVal)}"><span class="ai-td-content">${escapeHtml(displayVal)}</span></td>`;
         }).join('');
         return `<tr class="${i % 2 === 1 ? 'ai-tr-alt' : ''}">${tds}</tr>`;
     }).join('');
@@ -1620,3 +1622,72 @@ window.informarOutroValorCatalogo = function(btn) {
         input.setSelectionRange(input.value.length, input.value.length);
     }
 };
+
+// ── Ordenação de colunas nas tabelas analíticas ───────────────────────────
+// Event delegation: um único listener cobre todas as tabelas geradas dinamicamente.
+(function _setupAnalyticTableSort() {
+    document.addEventListener('click', function (e) {
+        var th = e.target.closest('.ai-table--analytic th[data-sort-col]');
+        if (!th) return;
+
+        var table = th.closest('.ai-table--analytic');
+        if (!table) return;
+
+        var colIdx = parseInt(th.getAttribute('data-col-idx'), 10);
+        var wasAsc = th.getAttribute('data-sort-dir') === 'asc';
+        var nextDir = wasAsc ? 'desc' : 'asc';
+
+        // Remove indicadores de outros headers
+        table.querySelectorAll('th[data-sort-col]').forEach(function (t) {
+            t.removeAttribute('data-sort-dir');
+            var arrow = t.querySelector('.ai-sort-arrow');
+            if (arrow) arrow.textContent = '';
+            t.classList.remove('ai-th-sorted');
+        });
+
+        // Marca header ativo
+        th.setAttribute('data-sort-dir', nextDir);
+        th.classList.add('ai-th-sorted');
+        var arrow = th.querySelector('.ai-sort-arrow');
+        if (arrow) arrow.textContent = nextDir === 'asc' ? ' ▲' : ' ▼';
+
+        // Ordena as linhas do tbody
+        var tbody = table.querySelector('tbody');
+        if (!tbody) return;
+
+        var rows = Array.from(tbody.querySelectorAll('tr'));
+        rows.sort(function (a, b) {
+            var tdA = a.querySelectorAll('td')[colIdx];
+            var tdB = b.querySelectorAll('td')[colIdx];
+            var rawA = tdA ? (tdA.getAttribute('data-raw') || tdA.textContent || '') : '';
+            var rawB = tdB ? (tdB.getAttribute('data-raw') || tdB.textContent || '') : '';
+
+            // Tenta ordenação numérica
+            var numA = parseFloat(rawA.replace(',', '.'));
+            var numB = parseFloat(rawB.replace(',', '.'));
+            if (!isNaN(numA) && !isNaN(numB)) {
+                return nextDir === 'asc' ? numA - numB : numB - numA;
+            }
+
+            // Ordenação de datas ISO (YYYY-MM-DD ou YYYY-MM-DDTHH:MM:SS)
+            if (/^\d{4}-\d{2}-\d{2}/.test(rawA) && /^\d{4}-\d{2}-\d{2}/.test(rawB)) {
+                return nextDir === 'asc'
+                    ? rawA.localeCompare(rawB)
+                    : rawB.localeCompare(rawA);
+            }
+
+            // Ordenação de texto
+            var sa = rawA.toLowerCase();
+            var sb = rawB.toLowerCase();
+            if (sa < sb) return nextDir === 'asc' ? -1 : 1;
+            if (sa > sb) return nextDir === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        // Reinsere linhas ordenadas preservando classes zebra
+        rows.forEach(function (row, i) {
+            row.classList.toggle('ai-tr-alt', i % 2 === 1);
+            tbody.appendChild(row);
+        });
+    });
+})();
